@@ -19,8 +19,8 @@ from ocatari.core import OCAtari
 from PIL import Image, ImageFont, ImageDraw
 
 
-font_path = os.path.join(cv2.__path__[0], 'qt', 'fonts', 'DejaVuSans.ttf')
-font = ImageFont.truetype(font_path, size=40)
+# font_path = os.path.join(cv2.__path__[0], 'qt', 'fonts', 'DejaVuSans.ttf')
+# font = ImageFont.truetype(font_path, size=40)
 disp_text = None
 repeated = 10
 
@@ -209,7 +209,7 @@ def render_getout(agent, args):
 
         if args.render:
             screen = getout.camera.screen
-            ImageDraw.Draw(screen).text((40, 60), disp_text, (120, 20, 20), font=font)
+            ImageDraw.Draw(screen).text((40, 60), disp_text, (120, 20, 20))
             np_img = np.asarray(screen)
             viewer.show(np_img[:, :, :3])
             if args.record:
@@ -303,7 +303,7 @@ def render_threefish(agent, args):
                     break
                 if args.record:
                     screen = Image.fromarray(env._get_image())
-                    ImageDraw.Draw(screen).text((40, 60), disp_text, (120, 20, 20), font=font)
+                    ImageDraw.Draw(screen).text((40, 60), disp_text, (120, 20, 20))
                     screen.save(f"renderings/{step:03}.png")
 
 
@@ -365,7 +365,7 @@ def render_loot(agent, args):
 
                 if args.record:
                     screen = Image.fromarray(env._get_image())
-                    ImageDraw.Draw(screen).text((40, 60), disp_text, (20, 170, 20), font=font)
+                    ImageDraw.Draw(screen).text((40, 60), disp_text, (20, 170, 20))
                     screen.save(f"renderings/{nsteps:03}.png")
                 
                 # if args.log:
