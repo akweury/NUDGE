@@ -8,7 +8,8 @@ from nsfr.mode_declaration import get_mode_declarations
 from nsfr.clause_generator import ClauseGenerator
 from torch.utils.tensorboard import SummaryWriter
 
-device = torch.device('cuda:0')
+# device = torch.device('cuda:0')
+device = torch.device('cpu')
 
 
 class RolloutBuffer:
@@ -34,7 +35,7 @@ class RolloutBuffer:
 
     def load_buffer(self, args):
         current_path = os.path.dirname(__file__)
-        path = os.path.join(current_path, 'data', args.d)
+        path = os.path.join(current_path, 'bs_data', args.d)
         with open(path, 'r') as f:
             state_info = json.load(f)
 

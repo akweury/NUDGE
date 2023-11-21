@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from torch.distributions import Categorical
 
-from nsfr.nsfr.utils import get_nsfr_model
+from nsfr.utils import get_nsfr_model
 
 from .MLPController.mlpatari import MLPAtari
 from .MLPController.mlpgetout import MLPGetout
@@ -23,7 +23,8 @@ from .utils_threefish import (action_map_threefish,
                               extract_neural_state_threefish,
                               preds_to_action_threefish)
 
-device = torch.device('cuda:0')
+# device = torch.device('cuda:0')
+device = torch.device('cpu')
 
 
 class NSFR_ActorCritic(nn.Module):
@@ -43,9 +44,9 @@ class NSFR_ActorCritic(nn.Module):
             self.critic = MLPAtari(out_size=1, logic=True)
         self.num_actions = len(self.prednames)
         self.uniform = Categorical(
-            torch.tensor([1.0 / self.num_actions for _ in range(self.num_actions)], device="cuda"))
+            torch.tensor([1.0 / self.num_actions for _ in range(self.num_actions)], device=device))
         self.upprior = Categorical(
-            torch.tensor([0.9] + [0.1 / (self.num_actions-1) for _ in range(self.num_actions-1)], device="cuda"))
+            torch.tensor([0.9] + [0.1 / (self.num_actions-1) for _ in range(self.num_actions-1)], device=device))
 
     def forward(self):
         raise NotImplementedError

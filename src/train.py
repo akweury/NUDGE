@@ -44,15 +44,17 @@ def main():
                         required=True, action="store", dest="env",
                         choices=['getout', 'threefish', 'loot', 'freeway', 'kangaroo', 'asterix', 'loothard'])
     parser.add_argument("-r", "--rules", dest="rules", default=None, required=False,
-                        choices=['getout_human_assisted', 'getout_redundant_actions', 'getout_bs_top10', 
-                                'getout_no_search', 'getout_no_search_5', 'getout_no_search_15', 'getout_no_search_50',
+                        choices=['getout_human_assisted', 'getout_redundant_actions', 'getout_bs_top10',
+                                 'getout_no_search', 'getout_no_search_5', 'getout_no_search_15', 'getout_no_search_50',
                                  'getout_bs_rf1', 'getout_bs_rf3', 'ppo_simple_policy',
-                                 'threefish_human_assisted', 'threefishcolor', 'threefish_bs_top5', 'threefish_bs_rf3', 'threefish_no_search', 'threefish_no_abstraction',
+                                 'threefish_human_assisted', 'threefishcolor', 'threefish_bs_top5', 'threefish_bs_rf3',
+                                 'threefish_no_search', 'threefish_no_abstraction',
                                  'threefish_no_search_5', 'threefish_no_search_15', 'threefish_no_search_50',
                                  'threefish_bs_rf1', 'threefish_redundant_actions',
-                                 'loot_human_assisted', 'loot_bs_top5', 'loot_bs_rf3', 'loot_bs_rf1', 'loot_no_search', 'loot_no_abstraction',
+                                 'loot_human_assisted', 'loot_bs_top5', 'loot_bs_rf3', 'loot_bs_rf1', 'loot_no_search',
+                                 'loot_no_abstraction',
                                  'loot_no_search_5', 'loot_no_search_15', 'loot_no_search_50', 'loothard',
-                                 'loot_redundant_actions', 'freeway_bs_rf1','asterix_bs_rf1', ])
+                                 'loot_redundant_actions', 'freeway_bs_rf1', 'asterix_bs_rf1', ])
     parser.add_argument('-p', '--plot', help="plot the image of weights", type=bool, default=False, dest='plot')
     parser.add_argument('-re', '--recovery', help='recover from crash', default=False, type=bool, dest='recover')
     # arg = ['-alg', 'logic', '-m', 'threefish', '-env', 'threefish', '-p', 'True', '-r', 'threefish_human_assisted']
@@ -88,7 +90,7 @@ def main():
         env = ProcgenGym3Env(num=1, env_name=args.env, render_mode=None)
     elif args.m == "atari":
         env = OCAtari(env_name=args.env.capitalize(), mode="revised", render_mode="rgb_array")
-        #env = OCAtari(env_name='Freeway', mode="revised")
+        # env = OCAtari(env_name='Freeway', mode="revised")
 
     #####################################################
     # config = {
@@ -116,23 +118,21 @@ def main():
 
     ################### checkpointing ###################
 
-    directory = "checkpoints"
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    if not os.path.exists(str(path_check_point)):
+        os.makedirs(str(path_check_point))
 
     if args.rules is not None:
-        directory = directory + '/' + args.m + '/' + args.alg + '/' + args.env + '/' + args.rules + '/' + str(
-            args.seed) + '/'
+        directory = path_check_point / args.m / args.alg / args.env / args.rules / str(args.seed)
     else:
-        directory = directory + '/' + args.m + '/' + args.alg + '/' + args.env + '/' + str(args.seed) + '/'
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+        directory = path_check_point / args.m / args.alg / args.env / str(args.seed)
+    if not os.path.exists(str(directory)):
+        os.makedirs(str(directory))
 
     # if not args.recover:
 
-    checkpoint_path = directory + "{}_{}.pth".format(args.env, 0)
+    checkpoint_path = directory / "{}_{}.pth".format(args.env, 0)
 
-    print("save checkpoint path : " + checkpoint_path)
+    print("save checkpoint path : " + str(checkpoint_path))
 
     #####################################################
 
@@ -204,17 +204,15 @@ def main():
 
     print("============================================================================================")
 
-    image_directory = "image"
-    if not os.path.exists(image_directory):
-        os.makedirs(image_directory)
+    if not os.path.exists(str(path_image)):
+        os.makedirs(str(path_image))
 
     if args.rules:
-        image_directory = image_directory + '/' + args.m + '/' + args.env + '/' + args.rules + '/' + str(
-            args.seed) + '/'
+        image_directory = path_image / args.m / args.env / args.rules / str(args.seed)
     else:
-        image_directory = image_directory + '/' + args.m + '/' + args.env + '/' + str(args.seed) + '/'
-    if not os.path.exists(image_directory):
-        os.makedirs(image_directory)
+        image_directory = path_image / args.m / args.env / str(args.seed)
+    if not os.path.exists(str(image_directory)):
+        os.makedirs(str(image_directory))
 
     # if args.plot:
     #     if args.alg == 'logic':
@@ -224,16 +222,16 @@ def main():
     print_running_reward = 0
     print_running_episodes = 0
 
-    rtpt = RTPT(name_initials='HS', experiment_name='LogicRL',
+    rtpt = RTPT(name_initials='JS', experiment_name='GammaRL',
                 max_iterations=max_training_timesteps)
 
     # Start the RTPT tracking
     folder_name = f"{args.m}_{args.env}_{args.alg}_{args.rules}_s{args.seed}"
     folder_name += datetime.datetime.now().strftime("%m%d-%H:%M")
-    writer = SummaryWriter(f"runs/{folder_name}")
+    writer = SummaryWriter(str(path_runs / folder_name))
     rtpt.start()
     # training loop
-    pbar = tqdm(total=max_training_timesteps-time_step)
+    pbar = tqdm(total=max_training_timesteps - time_step)
     while time_step <= max_training_timesteps:
         #  initialize game
         state = initialize_game(env, args)

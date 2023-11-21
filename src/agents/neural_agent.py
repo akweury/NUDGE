@@ -13,7 +13,8 @@ from .utils_getout import extract_state, sample_to_model_input, collate, action_
 from .utils_threefish import simplify_action_bf, action_map_threefish, extract_neural_state_threefish
 from .utils_loot import simplify_action_loot, action_map_loot, extract_neural_state_loot
 
-device = torch.device('cuda:0')
+# device = torch.device('cuda:0')
+device = torch.device('cpu')
 
 
 class ActorCritic(nn.Module):

@@ -14,7 +14,8 @@ from .valuation_hh import HHValuationModule
 from .valuation_a import AValuationModule
 from .valuation_aa import AAValuationModule
 
-device = torch.device('cuda:0')
+# device = torch.device('cuda:0')
+device = torch.device('cpu')
 
 
 def get_nsfr_model(args, train=False):

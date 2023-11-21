@@ -15,7 +15,7 @@ from the nsfr folder:
 pip install -e . # installs in dev mode
 ```
 
-You also need to install QT-5 for Threefish and Loot:
+You also need to install QT-5 for ThreeFish and Loot:
 
 ```bash
 apt-get install qt5-default
@@ -34,7 +34,9 @@ The trained model can be found in folder: _models/getout_ or _models/threefish_
 **Example to train an logic agent for getout env using 'getout_human_assisted' rules.**
 
 ```
-python3 train.py -s 0 -alg logic -m getout -env getout  -r 'getout_human_assisted'
+python3 train.py -s 0 -alg logic -m getout -env getout  -r getout_human_assisted
+python3 train.py -s 0 -alg logic -m threefish -env threefish  -r threefish_human_assisted
+python3 train.py -s 0 -alg logic -m atari -env freeway  -r freeway_bs_rf1
 ```
 
 Models will be saved to folder: src/checkpoints  

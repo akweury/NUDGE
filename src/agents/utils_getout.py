@@ -134,8 +134,8 @@ def collate(samples, to_cuda=True, double_to_float=True):
     samples = torch.utils.data._utils.collate.default_collate(samples)
     if double_to_float:
         samples = for_each_tensor(samples, lambda tensor: tensor.float() if tensor.dtype == torch.float64 else tensor)
-    if to_cuda:
-        samples = for_each_tensor(samples, lambda tensor: tensor.cuda())
+    # if to_cuda:
+    #     samples = for_each_tensor(samples, lambda tensor: tensor.cuda())
     return samples
 
 
