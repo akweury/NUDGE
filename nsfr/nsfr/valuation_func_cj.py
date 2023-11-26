@@ -5,7 +5,7 @@ import torch.nn as nn
 # Valuation functions for getout #
 ################################
 
-device = torch.device('cuda:0')
+device = torch.device('cpu')
 
 
 class TypeValuationFunction(nn.Module):
@@ -27,7 +27,7 @@ class TypeValuationFunction(nn.Module):
         Returns:
             A batch of probabilities.
         """
-        z_type = z[:, 0:4]  # [1, 0, 0, 0] * [1.0, 0, 0, 0] .sum = 0.0  type(obj1, key):0.0
+        z_type = z[:, 0:4].to("cpu") # [1, 0, 0, 0] * [1.0, 0, 0, 0] .sum = 0.0  type(obj1, key):0.0
         prob = (a * z_type).sum(dim=1)
         return prob
 
@@ -123,7 +123,7 @@ class HaveKeyValuationFunction(nn.Module):
             A batch of probabilities.
         """
         has_key = torch.ones(z.size(dim=0)).to(device)
-        c = torch.sum(z[:, :, 1], dim=1)
+        c = torch.sum(z[:, :, 1], dim=1).to("cpu")
         result = has_key[:] - c[:]
 
         return result

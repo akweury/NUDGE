@@ -81,7 +81,7 @@ def main():
     if args.m == 'loot' and args.alg == 'ppo':
         max_training_timesteps = 5000000
     else:
-        max_training_timesteps = 800000
+        max_training_timesteps = 8
     #####################################################
 
     if args.m == "getout":
@@ -227,7 +227,7 @@ def main():
 
     # Start the RTPT tracking
     folder_name = f"{args.m}_{args.env}_{args.alg}_{args.rules}_s{args.seed}"
-    folder_name += datetime.datetime.now().strftime("%m%d-%H:%M")
+    folder_name += datetime.datetime.now().strftime("%m%d-%H_%M")
     writer = SummaryWriter(str(path_runs / folder_name))
     rtpt.start()
     # training loop
@@ -268,6 +268,7 @@ def main():
 
             # printing average reward
             if time_step % print_freq == 0:
+
                 # print average reward till last episode
                 print_avg_reward = print_running_reward / print_running_episodes
                 print_avg_reward = round(print_avg_reward, 2)
