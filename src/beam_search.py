@@ -6,6 +6,7 @@ from nsfr.utils_beam import get_nsfr_model
 from nsfr.logic_utils import get_lang
 from nsfr.mode_declaration import get_mode_declarations
 from nsfr.clause_generator import ClauseGenerator
+from pi import invention
 from torch.utils.tensorboard import SummaryWriter
 
 # device = torch.device('cuda:0')
@@ -93,6 +94,7 @@ def run():
     else:
         cgen = ClauseGenerator(args, NSFR_cgen, lang, atoms, mode_declarations, device=device)
 
+    invention.induce_data(cgen.buffer)
     clauses = cgen.generate(clauses, T_beam=args.t_beam, N_beam=args.n_beam, N_max=args.n_max)
     print("====== ", len(clauses), " clauses are generated!! ======")
 

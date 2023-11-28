@@ -6,7 +6,7 @@ from tqdm import tqdm
 import torch
 import numpy as np
 
-device = torch.device("cuda:0")
+device = torch.device("cpu")
 
 
 class ClauseGenerator(object):
