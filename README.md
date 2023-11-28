@@ -122,3 +122,8 @@ python3 beam_search.py -m threefish -r threefishm_root -t 3 -n 8
 * **--scoring**: To score the searched rules, a dataset of states information is required.
 * **-d**: The name of dataset to be used for scoring.
 
+---
+##### collect data
+``` 
+python collect_data.py -m getout -env getout -mo get_out_ppo
+```

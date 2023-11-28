@@ -32,7 +32,7 @@ root = Path(__file__).parents[0]
 path_check_point =  root /"checkpoints"
 path_image = root / "image"
 path_runs = root / "runs"
-
+path_model = root / 'models'
 
 action_idx_left = 0
 action_idx_right = 1

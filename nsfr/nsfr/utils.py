@@ -148,4 +148,4 @@ def extract_for_cgen_explaining(coin_jump):
 
     extracted_states = simulate_prob(extracted_states, num_of_object, key_picked)
 
-    return torch.tensor(extracted_states, device="cuda:0")
+    return torch.tensor(extracted_states, device="cpu")

@@ -17,9 +17,10 @@ from tqdm import tqdm
 from nsfr.utils import extract_for_cgen_explaining
 
 from environments.procgen.procgen import ProcgenGym3Env
+import config
 
 KEY_r = 114
-device = torch.device('cuda:0')
+device = torch.device('cpu')
 
 
 class RolloutBuffer:
@@ -49,7 +50,7 @@ class RolloutBuffer:
                 'terminated': self.terminated, 'predictions': self.predictions}
 
         current_path = os.path.dirname(__file__)
-        dataset = args.m + '.json'
+        dataset = args.m + '_' + args.model_file + '.json'
         path = os.path.join(current_path, 'bs_data', dataset)
         with open(path, 'w') as f:
             json.dump(dict, f)
@@ -90,18 +91,23 @@ def parse_args():
                         choices=['getout', 'threefish', 'loot', 'lootcolor'])
     parser.add_argument("-mo", "--model_file", dest="model_file", default=None)
     parser.add_argument("-s", "--seed", dest="seed", default=0, type=int)
-    arg = ['-m', 'loot', '-env', 'elootc1']
-    args = parser.parse_args(arg)
+    # arg = ['-m', 'loot', '-env', 'elootc1']
+    args = parser.parse_args()
+    #
+    # if args.model_file is None:
+    #     # read filename from stdin
+    #     current_path = os.path.dirname(__file__)
+    #     model_name = input('Enter file name: ')
+    #     model_file = os.path.join(current_path, 'models', args.m, 'ppo', model_name)
+    #     # model_file = f"../src/ppo_getout_model/{input('Enter file name: ')}"
+    #
+    # else:
+    #     model_file = pathlib.Path(args.model_file)
 
-    if args.model_file is None:
-        # read filename from stdin
-        current_path = os.path.dirname(__file__)
-        model_name = input('Enter file name: ')
-        model_file = os.path.join(current_path, 'models', args.m, 'ppo', model_name)
-        # model_file = f"../src/ppo_getout_model/{input('Enter file name: ')}"
-
+    if args.model_file == 'get_out_ppo':
+        model_file = config.path_model / 'getout' / 'ppo' / 'ppo_.pth'
     else:
-        model_file = pathlib.Path(args.model_file)
+        raise ValueError
 
     return args, model_file
 
@@ -109,9 +115,10 @@ def parse_args():
 def load_model(model_path, args, set_eval=True):
     with open(model_path, "rb") as f:
         model = ActorCritic(args).to(device)
-        model.load_state_dict(state_dict=torch.load(f))
+        model.load_state_dict(state_dict=torch.load(f, map_location=torch.device('cpu')))
     if isinstance(model, ActorCritic):
         model = model.actor
+        model = model.to(device)
         model.as_dict = True
 
     if set_eval:
@@ -176,7 +183,7 @@ def main():
             step += 1
             neural_state = extract_neural_state_loot(obs, args)
             logic_state = extract_logic_state_loot(obs, args)
-            logic_state =logic_state.squeeze(0)
+            logic_state = logic_state.squeeze(0)
             predictions = model(neural_state)
             action = torch.argmax(predictions)
             action = simplify_action_loot(action)
