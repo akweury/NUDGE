@@ -51,7 +51,7 @@ class RolloutBuffer:
         path = os.path.join(current_path, 'bs_data', dataset)
         with open(path, 'w') as f:
             json.dump(dict, f)
-        print('data collected')
+        print(f'data saved in file {path}')
 
 
 def setup_image_viewer(getout):
