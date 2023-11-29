@@ -26,8 +26,6 @@ def similar(t1, t2, sr):
     # If x distance between A and B is similar for all
     var, mean = torch.var_mean(torch.abs(torch.sub(t1, t2)))
 
-    # predicate similar(player_x, key_x)
-    print(f'var/mean: {var / mean}')
     satisfy = False
     if torch.abs(var / mean) < th:
         satisfy = True

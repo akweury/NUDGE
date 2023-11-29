@@ -105,7 +105,9 @@ def parse_args():
     #     model_file = pathlib.Path(args.model_file)
 
     if args.model_file == 'get_out_ppo':
-        model_file = config.path_model / 'getout' / 'ppo' / 'ppo_.pth'
+        model_file = config.path_model / 'getout' / 'ppo' / 'ppo_seed_0.pth'
+    elif args.model_file == 'three_fish':
+        model_file = config.path_model / 'threefish' / 'ppo' / 'ppo_.pth'
     else:
         raise ValueError
 
