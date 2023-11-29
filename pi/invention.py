@@ -2,8 +2,7 @@
 
 import torch
 
-from src import config
-
+from pi.game_settings import get_idx, get_state_names
 from pi import predicate
 
 
@@ -13,7 +12,7 @@ def split_data_by_action(states, actions):
     for action_type in action_types:
         index_action = actions == action_type
         states_one_action = states[index_action]
-        data[action_type] = states_one_action
+        data[action_type] = states_one_action.squeeze()
     return data
 
 
@@ -64,41 +63,46 @@ def exist_mask(states, state_names):
     return masks
 
 
-def induce_simple(data):
-    idx_x = config.state_idx_x
-    state_name_list = config.state_name_list
+def induce_simple(args, data):
+    idx_list = get_idx(args)
+    state_name_list = get_state_names(args)
+
     state_relate_2_aries = [[i_1, i_2] for i_1, s_1 in enumerate(state_name_list) for i_2, s_2 in
                             enumerate(state_name_list) if s_1 != s_2]
 
-    inv_preds = []
+    induced_strategy = []
     for action, states in data.items():
         masks = exist_mask(states, state_name_list)
         for sr in state_relate_2_aries:
             for mask_name, mask in masks.items():
-                # select data
-                pos_A = states[mask, sr[0], idx_x]
-                pos_B = states[mask, sr[1], idx_x]
-                for pred in predicate.preds:
-                    satisfy = pred(pos_A, pos_B, sr)
-                    if satisfy:
-                        print(f'new pred, grounded_objs:{sr}, action:{action}')
-                        new_pred = {'pred': pred,
-                                    'grounded_objs': sr,
-                                    'grounded_prop': idx_x,
-                                    'action': action,
-                                    'mask': mask_name
-                                    }
-                        inv_preds.append(new_pred)
+                for idx in idx_list:
+                    # select data
+                    data_A = states[mask, sr[0]]
+                    data_B = states[mask, sr[1]]
+                    if len(data_A) == 0:
+                        continue
+                    data_A = data_A[:, idx]
+                    data_B = data_B[:, idx]
+                    for pred in predicate.preds:
+                        satisfy = pred(data_A, data_B, sr)
+                        if satisfy:
+                            print(f'new pred, grounded_objs:{sr}, action:{action}')
+                            strategy = {'pred': pred,
+                                        'grounded_objs': sr,
+                                        'grounded_prop': idx,
+                                        'action': action,
+                                        'mask': mask_name
+                                        }
+                            induced_strategy.append(strategy)
 
-    return inv_preds
+    return induced_strategy
 
 
-def induce_data(buffer):
+def induce_data(args, buffer):
     # data preparation
     actions = buffer.actions
     states = buffer.logic_states
     data = split_data_by_action(states, actions)
     # simple induce
-    preds_simple = induce_simple(data)
-
-    print("break")
+    preds_simple = induce_simple(args, data)
+    return preds_simple

@@ -8,9 +8,7 @@ from nsfr.nsfr.mode_declaration import get_mode_declarations
 from nsfr.nsfr.clause_generator import ClauseGenerator
 from pi import invention
 from torch.utils.tensorboard import SummaryWriter
-
-# device = torch.device('cuda:0')
-device = torch.device('cpu')
+from src import config
 
 
 class RolloutBuffer:
@@ -40,14 +38,14 @@ class RolloutBuffer:
         with open(path, 'r') as f:
             state_info = json.load(f)
 
-        self.actions = torch.tensor(state_info['actions']).to(device)
-        self.logic_states = torch.tensor(state_info['logic_states']).to(device)
-        self.neural_states = torch.tensor(state_info['neural_states']).to(device)
-        self.action_probs = torch.tensor(state_info['action_probs']).to(device)
-        self.logprobs = torch.tensor(state_info['logprobs']).to(device)
-        self.rewards = torch.tensor(state_info['reward']).to(device)
-        self.terminated = torch.tensor(state_info['terminated']).to(device)
-        self.predictions = torch.tensor(state_info['predictions']).to(device)
+        self.actions = torch.tensor(state_info['actions']).to(args.device)
+        self.logic_states = torch.tensor(state_info['logic_states']).to(args.device)
+        self.neural_states = torch.tensor(state_info['neural_states']).to(args.device)
+        self.action_probs = torch.tensor(state_info['action_probs']).to(args.device)
+        self.logprobs = torch.tensor(state_info['logprobs']).to(args.device)
+        self.rewards = torch.tensor(state_info['reward']).to(args.device)
+        self.terminated = torch.tensor(state_info['terminated']).to(args.device)
+        self.predictions = torch.tensor(state_info['predictions']).to(args.device)
 
 
 def get_args():
@@ -65,7 +63,22 @@ def get_args():
     parser.add_argument('--scoring', type=bool, help='beam search rules with scored rule by trained ppo agent',
                         default=False, dest='scoring')
     parser.add_argument('-d', '--dataset', required=False, help='the dataset to load if scoring', dest='d')
+    parser.add_argument('--device', type=str, default="cpu")
     args = parser.parse_args()
+
+    if args.device != "cpu":
+        args.device = int(args.device)
+    if args.m == "getout":
+        args.state_names = config.state_name_getout
+        args.action_names = config.action_name_getout
+        args.prop_names = config.prop_name_getout
+    elif args.m == "threefish":
+        args.state_names = config.state_name_threefish
+        args.action_names = config.action_name_threefish
+        args.prop_names = config.prop_name_threefish
+    else:
+        raise ValueError
+
     return args
 
 
@@ -84,17 +97,17 @@ def run():
         lark_path, lang_base_path, args.m, args.r)
     bk_clauses = []
     # Neuro-Symbolic Forward Reasoner for clause generation
-    NSFR_cgen = get_nsfr_model(args, lang, clauses, atoms, bk, bk_clauses, device=device)  # torch.device('cpu'))
+    NSFR_cgen = get_nsfr_model(args, lang, clauses, atoms, bk, bk_clauses, device=args.device)  # torch.device('cpu'))
     mode_declarations = get_mode_declarations(args, lang)
 
     print('get mode_declarations')
     if args.scoring:
-        cgen = ClauseGenerator(args, NSFR_cgen, lang, atoms, mode_declarations, buffer=buffer, device=device)
+        cgen = ClauseGenerator(args, NSFR_cgen, lang, atoms, mode_declarations, buffer=buffer, device=args.device)
     else:
-        cgen = ClauseGenerator(args, NSFR_cgen, lang, atoms, mode_declarations, device=device)
+        cgen = ClauseGenerator(args, NSFR_cgen, lang, atoms, mode_declarations, device=args.device)
 
-    invention.induce_data(cgen.buffer)
-    clauses = cgen.generate(clauses, T_beam=args.t_beam, N_beam=args.n_beam, N_max=args.n_max)
+    strategies = invention.induce_data(args, cgen.buffer)
+    clauses = cgen.generate(strategies, clauses, T_beam=args.t_beam, N_beam=args.n_beam, N_max=args.n_max)
     print("====== ", len(clauses), " clauses are generated!! ======")
 
 

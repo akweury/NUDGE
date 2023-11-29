@@ -342,6 +342,43 @@ class FuncTerm(Term):
         return 0
 
 
+
+class InvPredicate():
+    """Invented Predicats in first-order logic.
+
+    A class of invented predicates in first-order logic.
+
+    Attributes:
+        name (str): A name of the invented predicate.
+        arity (int): The arity of the invented predicate.
+        dtypes (List[DataTypes]): The data types of the arguments for the invented predicate.
+    """
+
+    def __init__(self, name, arity, dtypes):
+        self.name = name
+        self.arity = arity
+        self.dtypes = dtypes  # mode = List[dtype]
+
+    def __str__(self):
+        # return self.name
+        return self.name + '/' + str(self.arity) + '/' + str(self.dtypes)
+
+    def __hash__(self):
+        return hash(self.__str__())
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __eq__(self, other):
+        if type(other) == Predicate:
+            return self.name == other.name
+        else:
+            return False
+
+    def __lt__(self, other):
+        return self.__str__() < other.__str__()
+
+
 class Predicate():
     """Predicats in first-order logic.
 

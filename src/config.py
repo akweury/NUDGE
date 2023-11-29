@@ -35,15 +35,30 @@ path_runs = root / "runs"
 path_model = root / 'models'
 path_output = root / ".." / ".." / "storage"
 
-action_idx_left = 0
-action_idx_right = 1
-action_idx_jump = 2
+action_idx_getout_left = 0
+action_idx_getout_right = 1
+action_idx_getout_jump = 2
 
-state_idx_player = 0
-state_idx_key = 1
-state_idx_door = 2
-state_idx_enemy = 3
-state_idx_x = 4
-state_idx_y = 5
+state_idx_getout_player = 0
+state_idx_getout_key = 1
+state_idx_getout_door = 2
+state_idx_getout_enemy = 3
+state_idx_getout_x = 4
+state_idx_getout_y = 5
 
-state_name_list = ['player', 'key', 'door', 'enemy']
+state_idx_threefish_agent = 0
+state_idx_threefish_fish = 1
+state_idx_threefish_radius = 2
+state_idx_threefish_x = 3
+state_idx_threefish_y = 4
+
+state_name_getout = ['agent', 'key', 'door', 'enemy']
+state_name_threefish = ['agent', 'fish1', 'fish2']
+
+action_name_getout = ["left", "right", "jump"]
+action_name_threefish = ["left", "right", "jump"]
+
+prop_name_getout = ['agent', 'key', 'door', 'enemy', "x", "y"]
+prop_name_threefish =  ['agent', 'fish', "radius", "x", "y"]
+
+mask_splitter = "#"

@@ -34,7 +34,7 @@ class ClauseGenerator(object):
         self.buffer = buffer
         self.bce_loss = torch.nn.BCELoss()
 
-    def generate(self, C_0, gen_mode='beam', T_beam=7, N_beam=20, N_max=100):
+    def generate(self,S, C_0, gen_mode='beam', T_beam=7, N_beam=20, N_max=100):
         """
         call clause generation function with or without beam-searching
         Inputs
@@ -55,10 +55,13 @@ class ClauseGenerator(object):
         C : Set[.logic.Clause]
             set of generated clauses
         """
-        if gen_mode == 'beam':
-            return self.beam_search(C_0, T_beam=T_beam, N_beam=N_beam, N_max=N_max)
-        elif gen_mode == 'naive':
-            return self.naive(C_0, N_max=N_max)
+        # self.beam_search(C_0, T_beam=T_beam, N_beam=N_beam, N_max=N_max)
+        clauses = self.strategy2clause(S)
+
+        # if gen_mode == 'beam':
+        #     return self.beam_search(C_0, T_beam=T_beam, N_beam=N_beam, N_max=N_max)
+        # elif gen_mode == 'naive':
+        #     return self.naive(C_0, N_max=N_max)
 
     def beam_search_clause(self, clause, T_beam=7, N_beam=20, N_max=100, th=0.98):
         """
@@ -160,8 +163,7 @@ class ClauseGenerator(object):
         for clause in C_0:
             # searched_clause = self.beam_search_clause(clause, T_beam, N_beam, N_max)
             # C.add(searched_clause[0])
-            C = C.union(self.beam_search_clause(
-                clause, T_beam, N_beam, N_max))
+            C = C.union(self.beam_search_clause(clause, T_beam, N_beam, N_max))
         C = sorted(list(C))
         print('======= BEAM SEARCHED CLAUSES ======')
         for c in C:
@@ -288,3 +290,47 @@ class ClauseGenerator(object):
             actions = [1 if i == 1 else 0 for i in actions]
 
         return action_probs, torch.tensor(actions, device=device)
+
+    def strategy2clause(self,strategies):
+        C = set()
+        for strategy in strategies:
+            C = C.union(self.strategy_clause(strategy))
+        C = sorted(list(C))
+        print('======= Clauses from Strategies ======')
+        for c in C:
+            print(c)
+        return C
+
+    def clause_from_strategy(self, strategy):
+        pass
+    def strategy_clause(self, strategy):
+        C = set()
+        C_dic = {}
+        B_ = []
+        B_new = {}
+        refs = []
+        # refinement strategy to clause
+        clause = self.rgen.refine_from_strategy(self.args, strategy)
+        # evaluation
+
+
+        print('Evaluating ', len(refs), 'generated clauses.')
+        loss_list = self.eval_clauses(refs)
+        for i, ref in enumerate(refs):
+            # check duplication
+            # if not self.is_in_beam(B_new, ref, loss_list[i]):
+            B_new[ref] = loss_list[i]
+            C_dic[ref] = loss_list[i]
+
+            # if len(C) >= N_max:
+            #    break
+        B_new_sorted = sorted(B_new.items(), key=lambda x: x[1], reverse=True)
+        # top N_beam refiements
+        B_new_sorted = B_new_sorted[:N_beam]
+        # B_new_sorted = [x for x in B_new_sorted if x[1] > th]
+        for x in B_new_sorted:
+            print(x[1], x[0])
+        B = [x[0] for x in B_new_sorted]
+
+        return C
+

@@ -80,8 +80,7 @@ class DataUtils(object):
         pred, arity, dtype_names_str = line.split(':')
         dtype_names = dtype_names_str.split(',')
         dtypes = [DataType(dt) for dt in dtype_names]
-        assert int(arity) == len(
-            dtypes), 'Invalid arity and dtypes in ' + pred + '.'
+        assert int(arity) == len(dtypes), 'Invalid arity and dtypes in ' + pred + '.'
         return Predicate(pred, int(arity), dtypes)
 
     def parse_neural_pred(self, line):

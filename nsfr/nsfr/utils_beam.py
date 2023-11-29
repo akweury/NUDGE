@@ -6,7 +6,7 @@ from .valuation_cj import CJValuationModule
 from .valuation_bf import BFValuationModule
 from .valuation_h import HValuationModule
 from .valuation_hh import HHValuationModule
-from nsfr.logic_utils import get_lang
+
 
 
 def update_initial_clauses(clauses, obj_num):
