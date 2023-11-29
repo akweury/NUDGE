@@ -14,7 +14,7 @@ RUN ln -snf /usr/share/zoneinfo/Etc/UTC /etc/localtime
 RUN pip install opencv-python==4.8.0.74
 
 # Add qt5
-RUN apt-get install qt5-default
+RUN apt-get install qt5-default -y
 
 ADD .ssh/ /root/.ssh/
 
