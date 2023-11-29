@@ -119,7 +119,7 @@ def parse_args():
 def load_model(model_path, args, set_eval=True):
     with open(model_path, "rb") as f:
         model = ActorCritic(args).to(args.device)
-        model.load_state_dict(state_dict=torch.load(f, map_location=torch.device('cpu')))
+        model.load_state_dict(state_dict=torch.load(f, map_location=args.device))
     if isinstance(model, ActorCritic):
         model = model.actor
         model = model.to(args.device)
