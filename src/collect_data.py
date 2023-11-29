@@ -18,7 +18,6 @@ from nsfr.nsfr.utils import extract_for_cgen_explaining
 from src import config
 
 KEY_r = 114
-device = torch.device('cpu')
 
 
 class RolloutBuffer:
@@ -90,8 +89,12 @@ def parse_args():
     parser.add_argument("-mo", "--model_file", dest="model_file", default=None)
     parser.add_argument("-s", "--seed", dest="seed", default=0, type=int)
     parser.add_argument("--alg", default="logic", type=str)
+    parser.add_argument("--device", default="cpu", type=str)
     # arg = ['-m', 'loot', '-env', 'elootc1']
     args = parser.parse_args()
+    if args.device != "cpu":
+        args.device = int(args.device)
+
     #
     # if args.model_file is None:
     #     # read filename from stdin
@@ -115,11 +118,11 @@ def parse_args():
 
 def load_model(model_path, args, set_eval=True):
     with open(model_path, "rb") as f:
-        model = ActorCritic(args).to(device)
+        model = ActorCritic(args).to(args.device)
         model.load_state_dict(state_dict=torch.load(f, map_location=torch.device('cpu')))
     if isinstance(model, ActorCritic):
         model = model.actor
-        model = model.to(device)
+        model = model.to(args.device)
         model.as_dict = True
 
     if set_eval:
