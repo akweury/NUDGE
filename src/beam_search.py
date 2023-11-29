@@ -2,10 +2,10 @@ import argparse
 import torch
 import os
 import json
-from nsfr.utils_beam import get_nsfr_model
-from nsfr.logic_utils import get_lang
-from nsfr.mode_declaration import get_mode_declarations
-from nsfr.clause_generator import ClauseGenerator
+from nsfr.nsfr.utils_beam import get_nsfr_model
+from nsfr.nsfr.logic_utils import get_lang
+from nsfr.nsfr.mode_declaration import get_mode_declarations
+from nsfr.nsfr.clause_generator import ClauseGenerator
 from pi import invention
 from torch.utils.tensorboard import SummaryWriter
 

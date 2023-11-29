@@ -89,6 +89,7 @@ def parse_args():
                         choices=['getout', 'threefish', 'loot', 'lootcolor'])
     parser.add_argument("-mo", "--model_file", dest="model_file", default=None)
     parser.add_argument("-s", "--seed", dest="seed", default=0, type=int)
+    parser.add_argument("--alg", default="logic", type=str)
     # arg = ['-m', 'loot', '-env', 'elootc1']
     args = parser.parse_args()
     #
