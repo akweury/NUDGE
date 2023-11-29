@@ -20,6 +20,13 @@ You also need to install QT-5 for ThreeFish and Loot:
 ```bash
 apt-get install qt5-default
 ```
+## Docker
+
+build a docker
+
+``` 
+docker build -t ml-sha/nudge_docker .
+```
 
 ## How to use
 

@@ -7,7 +7,6 @@ FROM nvcr.io/nvidia/pytorch:23.04-py3
 COPY ./requirements.txt ./requirements.txt
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
-RUN pip install -e . # installs in dev mode
 # Add cuda
 RUN apt-get update
 RUN echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | debconf-set-selections
