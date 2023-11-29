@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-device = torch.device('cuda:0')
+
 
 
 def extract_logic_state_threefish(obs, args):
@@ -56,7 +56,7 @@ def extract_neural_state_threefish(state, args):
     state = state['positions'][:,:,0:3].reshape(-1)
     state = state.tolist()
 
-    return torch.tensor(state).to(device)
+    return torch.tensor(state)
 
 
 def simplify_action_bf(action):

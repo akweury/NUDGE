@@ -208,7 +208,7 @@ def main():
         for i in tqdm(range(max_states)):
             # step game
             step += 1
-            neural_state = extract_neural_state_threefish(obs, args)
+            neural_state = extract_neural_state_threefish(obs, args).to(args.device)
             logic_state = extract_logic_state_threefish(obs, args)
             predictions = model(neural_state)
             action = torch.argmax(predictions)
