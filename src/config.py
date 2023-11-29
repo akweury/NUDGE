@@ -29,10 +29,11 @@ epsilon_func = lambda episode: max(math.exp(-episode / 500), 0.02)
 
 ## paths
 root = Path(__file__).parents[0]
-path_check_point =  root /"checkpoints"
+path_check_point = root / "checkpoints"
 path_image = root / "image"
 path_runs = root / "runs"
 path_model = root / 'models'
+path_output = root / ".." / ".." / "storage"
 
 action_idx_left = 0
 action_idx_right = 1

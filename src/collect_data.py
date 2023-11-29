@@ -46,12 +46,14 @@ class RolloutBuffer:
                 'action_probs': self.action_probs, 'logprobs': self.logprobs, 'reward': self.reward,
                 'terminated': self.terminated, 'predictions': self.predictions}
 
-        current_path = os.path.dirname(__file__)
         dataset = args.m + '_' + args.model_file + '.json'
-        path = os.path.join(current_path, 'bs_data', dataset)
-        with open(path, 'w') as f:
+        path = config.path_output / 'bs_data'
+        if not os.path.exists(path):
+            os.mkdir(path)
+        file_name = path / dataset
+        with open(file_name, 'w') as f:
             json.dump(dict, f)
-        print(f'data saved in file {path}')
+        print(f'data saved in file {file_name}')
 
 
 def setup_image_viewer(getout):
