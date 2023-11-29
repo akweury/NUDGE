@@ -16,7 +16,7 @@ RUN pip install opencv-python==4.8.0.74
 # Add qt5
 RUN apt-get install qt5-default -y
 
-ADD ../.ssh/ /root/.ssh/
+ADD .ssh/ /root/.ssh/
 
 WORKDIR  /NUDGE/
 RUN git clone git@github.com:akweury/NUDGE.git
