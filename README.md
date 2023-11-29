@@ -27,6 +27,11 @@ build a docker
 ``` 
 docker build -t ml-sha/nudge_docker .
 ```
+run the docker
+``` 
+docker run --gpus all -it -v /home/ml-jsha/storage:/NUDGE/storage --rm ml-sha/nudge_docker
+
+```
 
 ## How to use
 
@@ -134,5 +139,5 @@ python3 beam_search.py -m threefish -r threefishm_root -t 3 -n 8
 ##### collect data
 ``` 
 python collect_data.py -m getout -env getout -mo get_out_ppo
-python collect_data.py -m threefish -env threefish -mo three_fish
+python -m src.collect_data -m threefish -env threefish -mo three_fish
 ```
