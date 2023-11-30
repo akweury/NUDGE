@@ -34,7 +34,7 @@ class ClauseGenerator(object):
         self.buffer = buffer
         self.bce_loss = torch.nn.BCELoss()
 
-    def generate(self,S, C_0, gen_mode='beam', T_beam=7, N_beam=20, N_max=100):
+    def generate(self, S, C_0, gen_mode='beam', T_beam=7, N_beam=20, N_max=100):
         """
         call clause generation function with or without beam-searching
         Inputs
@@ -170,7 +170,6 @@ class ClauseGenerator(object):
             print(c)
         return C
 
-
     def naive(self, C_0, T_beam=7, N_max=100):
         """
         Generate clauses without beam-searching from clauses.
@@ -207,6 +206,37 @@ class ClauseGenerator(object):
         for c in C:
             print(c)
         return C
+
+    def eval_strategy_clause(self, clause):
+        C = len(clauses)
+        predname = self.get_predname(clauses)
+
+        print("Eval clauses: ", len(clauses))
+        NSFR = get_nsfr_cgen_model(self.args, self.lang, clauses, self.NSFR.atoms, self.NSFR.bk, self.device)
+
+        # return sum in terms of buffers
+        # take product: action prob of policy * body scores
+        # shape: (num_clauses, )
+        if self.args.scoring:
+            # shape: (num_clauses, num_buffers, num_atoms)
+            scores_cba = NSFR.clause_eval(self.buffer.logic_states)
+            # shape: (num_clauses, num_buffers)
+            body_scores = torch.stack([NSFR.predict(score_i, predname=predname) for score_i in scores_cba])
+            # action_probs = self.buffer.action_probs
+
+            # scores = self.scoring(action_probs, body_scores)
+            if self.args.m == 'getout':
+                action_probs, actions = self.get_action_probs_go(predname)
+                # scores = torch.sum(self.buffer.action_buffer * body_scores, dim=1)
+                scores = self.scoring(action_probs, body_scores, actions)
+            elif self.args.m == 'threefish':
+                pass
+            elif self.args.m == 'loot':
+                action_probs, actions = self.get_action_probs_h(predname)
+                scores = self.scoring(action_probs, body_scores, actions)
+        else:
+            scores = torch.zeros((C,)).to(self.device)
+        return scores
 
     def eval_clauses(self, clauses):
         C = len(clauses)
@@ -291,10 +321,10 @@ class ClauseGenerator(object):
 
         return action_probs, torch.tensor(actions, device=device)
 
-    def strategy2clause(self,strategies):
+    def strategy2clause(self, strategies):
         C = set()
         for strategy in strategies:
-            C = C.union(self.strategy_clause(strategy))
+            C, C_score = C.union(self.strategy_clause(strategy))
         C = sorted(list(C))
         print('======= Clauses from Strategies ======')
         for c in C:
@@ -303,34 +333,12 @@ class ClauseGenerator(object):
 
     def clause_from_strategy(self, strategy):
         pass
+
     def strategy_clause(self, strategy):
-        C = set()
-        C_dic = {}
-        B_ = []
-        B_new = {}
-        refs = []
+
         # refinement strategy to clause
         clause = self.rgen.refine_from_strategy(self.args, strategy)
         # evaluation
+        score = self.eval_strategy_clause(clause)
 
-
-        print('Evaluating ', len(refs), 'generated clauses.')
-        loss_list = self.eval_clauses(refs)
-        for i, ref in enumerate(refs):
-            # check duplication
-            # if not self.is_in_beam(B_new, ref, loss_list[i]):
-            B_new[ref] = loss_list[i]
-            C_dic[ref] = loss_list[i]
-
-            # if len(C) >= N_max:
-            #    break
-        B_new_sorted = sorted(B_new.items(), key=lambda x: x[1], reverse=True)
-        # top N_beam refiements
-        B_new_sorted = B_new_sorted[:N_beam]
-        # B_new_sorted = [x for x in B_new_sorted if x[1] > th]
-        for x in B_new_sorted:
-            print(x[1], x[0])
-        B = [x[0] for x in B_new_sorted]
-
-        return C
-
+        return clause, score
