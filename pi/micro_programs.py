@@ -63,14 +63,17 @@ def exist_mask(states, state_names):
     return masks
 
 
-def induce_simple(args, data):
+def behaviors_from_micro_programs(args, data):
+
+    # micro-programs
+    # TODO: print micro-programs structure
     idx_list = get_idx(args)
     state_name_list = get_state_names(args)
 
     state_relate_2_aries = [[i_1, i_2] for i_1, s_1 in enumerate(state_name_list) for i_2, s_2 in
                             enumerate(state_name_list) if s_1 != s_2]
 
-    induced_strategy = []
+    behaviors = []
     for action, states in data.items():
         masks = exist_mask(states, state_name_list)
         for sr in state_relate_2_aries:
@@ -87,22 +90,22 @@ def induce_simple(args, data):
                         satisfy = pred(data_A, data_B, sr)
                         if satisfy:
                             print(f'new pred, grounded_objs:{sr}, action:{action}')
-                            strategy = {'pred': pred,
+                            behavior = {'pred': pred,
                                         'grounded_objs': sr,
                                         'grounded_prop': idx,
                                         'action': action,
                                         'mask': mask_name
                                         }
-                            induced_strategy.append(strategy)
+                            behaviors.append(behavior)
 
-    return induced_strategy
+    return behaviors
 
 
-def induce_data(args, buffer):
+def buffer2behaviors(args, buffer):
     # data preparation
     actions = buffer.actions
     states = buffer.logic_states
     data = split_data_by_action(states, actions)
-    # simple induce
-    preds_simple = induce_simple(args, data)
-    return preds_simple
+    behaviors = behaviors_from_micro_programs(args, data)
+
+    return behaviors

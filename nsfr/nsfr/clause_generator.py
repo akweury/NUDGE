@@ -34,34 +34,10 @@ class ClauseGenerator(object):
         self.buffer = buffer
         self.bce_loss = torch.nn.BCELoss()
 
-    def generate(self, S, C_0, gen_mode='beam', T_beam=7, N_beam=20, N_max=100):
-        """
-        call clause generation function with or without beam-searching
-        Inputs
-        ------
-        C_0 : Set[.logic.Clause]
-            a set of initial clauses
-        gen_mode : string
-            a generation mode
-            'beam' - with beam-searching
-        T_beam : int
-            number of steps in beam-searching
-        N_beam : int
-            size of the beam
-        N_max : int
-            maximum number of clauses to be generated
-        Returns
-        -------
-        C : Set[.logic.Clause]
-            set of generated clauses
-        """
-        # self.beam_search(C_0, T_beam=T_beam, N_beam=N_beam, N_max=N_max)
+    def generate(self, S):
         clauses = self.strategy2clause(S)
+        return clauses
 
-        # if gen_mode == 'beam':
-        #     return self.beam_search(C_0, T_beam=T_beam, N_beam=N_beam, N_max=N_max)
-        # elif gen_mode == 'naive':
-        #     return self.naive(C_0, N_max=N_max)
 
     def beam_search_clause(self, clause, T_beam=7, N_beam=20, N_max=100, th=0.98):
         """
@@ -322,14 +298,15 @@ class ClauseGenerator(object):
         return action_probs, torch.tensor(actions, device=device)
 
     def strategy2clause(self, strategies):
-        C = set()
+        clauses = []
         for strategy in strategies:
-            C, C_score = C.union(self.strategy_clause(strategy))
-        C = sorted(list(C))
+            clause = self.rgen.refine_from_strategy(self.args, strategy)
+            clauses.append(clause)
+
         print('======= Clauses from Strategies ======')
-        for c in C:
+        for c in clauses:
             print(c)
-        return C
+        return clauses
 
     def clause_from_strategy(self, strategy):
         pass
@@ -338,7 +315,5 @@ class ClauseGenerator(object):
 
         # refinement strategy to clause
         clause = self.rgen.refine_from_strategy(self.args, strategy)
-        # evaluation
-        score = self.eval_strategy_clause(clause)
 
-        return clause, score
+        return clause

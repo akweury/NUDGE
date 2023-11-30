@@ -1,13 +1,11 @@
+# Created by shaji at 30/11/2023
+
 import argparse
 import torch
 import os
 import json
 
-from nsfr.nsfr.utils_beam import get_nsfr_model
-from nsfr.nsfr.logic_utils import get_lang
-from nsfr.nsfr.mode_declaration import get_mode_declarations
-from nsfr.nsfr.clause_generator import ClauseGenerator
-
+from pi import micro_programs, pi_lang
 from src import config
 
 
@@ -82,32 +80,17 @@ def get_args():
     return args
 
 
-def run():
-    args = get_args()
-    # load state info for searching if scoring
-    if args.scoring:
-        buffer = RolloutBuffer()
-        buffer.load_buffer(args)
-    # writer = SummaryWriter(f"runs/{env_name}", purge_step=0)
-    current_path = os.path.dirname(__file__)
-    lark_path = os.path.join(current_path, '../nsfr/nsfr', 'lark/exp.lark')
-    lang_base_path = os.path.join(current_path, '../nsfr/nsfr', 'data/lang/')
-
-    lang, clauses, bk, atoms = get_lang(
-        lark_path, lang_base_path, args.m, args.r)
-    bk_clauses = []
-    # Neuro-Symbolic Forward Reasoner for clause generation
-    NSFR_cgen = get_nsfr_model(args, lang, clauses, atoms, bk, bk_clauses, device=args.device)
-    mode_declarations = get_mode_declarations(args, lang)
-
-    print('get mode_declarations')
-    if args.scoring:
-        cgen = ClauseGenerator(args, NSFR_cgen, lang, atoms, mode_declarations, buffer=buffer, device=args.device)
-    else:
-        cgen = ClauseGenerator(args, NSFR_cgen, lang, atoms, mode_declarations, device=args.device)
-
-    print("====== ", len(clauses), " clauses are generated!! ======")
+def buffer2clauses(args, buffer):
+    agent_behaviors = micro_programs.buffer2behaviors(args, buffer)
+    clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
+    return clauses
 
 
 if __name__ == "__main__":
-    run()
+    args = get_args()
+
+    buffer = RolloutBuffer()
+    buffer.load_buffer(args)
+
+    clauses = buffer2clauses(args, buffer)
+    print("program finished!")

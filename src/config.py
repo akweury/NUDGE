@@ -58,7 +58,7 @@ state_name_threefish = ['agent', 'fish1', 'fish2']
 action_name_getout = ["left", "right", "jump"]
 action_name_threefish = ["left", "right", "jump"]
 
-prop_name_getout = ['agent', 'key', 'door', 'enemy', "x", "y"]
-prop_name_threefish =  ['agent', 'fish', "radius", "x", "y"]
+prop_name_getout = ['agent', 'key', 'door', 'enemy', "axis_x", "axis_y"]
+prop_name_threefish =  ['agent', 'fish', "radius", "axis_x", "axis_y"]
 
 mask_splitter = "#"
