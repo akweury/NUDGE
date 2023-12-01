@@ -141,3 +141,9 @@ python3 beam_search.py -m threefish -r threefishm_root -t 3 -n 8
 python -m src.collect_data -m getout -env getout -mo get_out_ppo
 python -m src.collect_data -m threefish -env threefish -mo three_fish
 ```
+
+
+##### RUN Symbolic Micro Program Searching
+``` 
+python3 smp_search.py -m getout -r getout_root -t 3 -n 8 --scoring True -d getout.json
+```

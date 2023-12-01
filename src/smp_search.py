@@ -48,18 +48,9 @@ class RolloutBuffer:
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch-size", type=int, default=24, help="Batch size to infer with")
-    parser.add_argument("--batch-size-bs", type=int, default=1, help="Batch size in beam search")
-    parser.add_argument('-r', "--rules", required=True, help="choose to root rules", dest='r',
-                        choices=["getout_root", 'threefish_root', 'loot_root'])
+
     parser.add_argument('-m', "--model", required=True, help="the game mode for beam-search", dest='m',
                         choices=['getout', 'threefish', 'loot'])
-    parser.add_argument('-t', "--t-beam", type=int, default=3, help="Number of rule expantion of clause generation.")
-    parser.add_argument('-n', "--n-beam", type=int, default=8, help="The size of the beam.")
-    parser.add_argument("--n-max", type=int, default=50, help="The maximum number of clauses.")
-    parser.add_argument("--s", type=int, default=1, help="The size of the logic program.")
-    parser.add_argument('--scoring', type=bool, help='beam search rules with scored rule by trained ppo agent',
-                        default=False, dest='scoring')
     parser.add_argument('-d', '--dataset', required=False, help='the dataset to load if scoring', dest='d')
     parser.add_argument('--device', type=str, default="cpu")
     args = parser.parse_args()
