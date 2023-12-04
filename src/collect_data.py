@@ -16,6 +16,7 @@ from tqdm import tqdm
 from nsfr.nsfr.utils import extract_for_cgen_explaining
 
 from src import config
+from src import smp_search
 
 KEY_r = 114
 

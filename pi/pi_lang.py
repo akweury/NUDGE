@@ -8,6 +8,7 @@ from nsfr.nsfr.fol.logic import Atom, Clause, Var
 from pi import predicate
 from src import config
 
+
 def extract_behavior_terms(args, behavior):
     terms = []
     for obj_code in behavior["grounded_objs"]:
@@ -16,17 +17,20 @@ def extract_behavior_terms(args, behavior):
 
     return terms
 
+
 def generate_action_predicate(args, behavior):
     action_code = behavior["action"]
     action_name = args.action_names[action_code]
-    action_predicate = InvPredicate(action_name, 1,  [DataType("agent")])
+    action_predicate = InvPredicate(action_name, 1, [DataType("agent")], config.action_pred_name)
     return action_predicate
+
 
 def generate_exist_predicate(existence, obj_name):
     pred_name = existence
     dtypes = [DataType(dt) for dt in [obj_name]]
-    pred = InvPredicate(pred_name, 1, dtypes)
+    pred = InvPredicate(pred_name, 1, dtypes, config.exist_pred_name)
     return pred
+
 
 def generate_func_predicate(args, strategy):
     obj_A = args.state_names[strategy["grounded_objs"][0]]
@@ -41,14 +45,17 @@ def generate_func_predicate(args, strategy):
     pred_name = obj_A + "_" + prop_name + "_" + pred_func_name + "_" + obj_B
 
     dtypes = [DataType(dt) for dt in [obj_A, obj_B]]
-    pred = InvPredicate(pred_name, 2, dtypes)
+    pred = InvPredicate(pred_name, 2, dtypes, config.func_pred_name, grounded_prop=prop_name,
+                        grounded_objs=[obj_A, obj_B], pred_func=pred_func_name)
 
     return pred
+
 
 def behavior_action_as_head_atom(args, behavior):
     action_predicate = generate_action_predicate(args, behavior)
     head_atom = Atom(action_predicate, [Var("agent")])
     return head_atom
+
 
 def behavior_predicate_as_func_atom(args, behavior):
     # behavior['grounded_objs'] determines terms in the clause
@@ -74,10 +81,6 @@ def behavior_existence_as_env_atoms(args, strategy):
         exist_atoms.append(exist_atom)
 
     return exist_atoms
-
-
-
-
 
 
 def behavior2clause(args, behavior):

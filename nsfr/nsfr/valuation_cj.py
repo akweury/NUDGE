@@ -16,8 +16,7 @@ class CJValuationModule(nn.Module):
         super().__init__()
         self.lang = lang
         self.device = device
-        self.layers, self.vfs = self.init_valuation_functions(
-            device, pretrained)
+        self.layers, self.vfs = self.init_valuation_functions(device, pretrained)
 
     def init_valuation_functions(self, device, pretrained):
         """

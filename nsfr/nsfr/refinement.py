@@ -61,86 +61,11 @@ class RefinementGenerator(object):
     # self.object_counter += 1
     # return new_var
 
-    def obj2term(self, args, obj):
-        var_name = args.state_names[obj]
-        return Var(var_name)
 
     def generate_new_variable(self, clause):
         obj_id = self.get_max_obj_id(clause)
         return Var('O' + str(obj_id + 1))
 
-    def refine_from_strategy(self, args, strategy):
-
-        # strategy['grounded_objs'] determines terms in the clause
-        terms_list = self.generate_terms_for_strategy(args, strategy)
-        # strategy['action'] determines head atom in the clause
-        head_atom = self.generate_head_atom_for_strategy(args, strategy)
-
-        # strategy['grounded_prop'] and strategy['pred'] determine the predicate as functional atom in the clause
-        func_atom = self.generate_func_atom_for_strategy(args, strategy, terms_list)
-        exist_atoms = self.generate_exist_atoms_for_strategy(args, strategy)
-
-        body_atoms = func_atom + exist_atoms
-        new_clause = Clause(head_atom, body_atoms)
-        return new_clause
-
-    def generate_func_pred(self, args, strategy):
-        obj_A = args.state_names[strategy["grounded_objs"][0]]
-        obj_B = args.state_names[strategy["grounded_objs"][1]]
-        prop_name = args.prop_names[strategy['grounded_prop'][0]]
-        if strategy['pred'] == predicate.ge:
-            pred_func_name = "greater_or_equal_than"
-        elif strategy['pred'] == predicate.similar:
-            pred_func_name = "as_similar_as"
-        else:
-            raise ValueError
-        pred_name = obj_A + "_" + prop_name + "_" + pred_func_name + "_" + obj_B
-
-        dtypes = [DataType(dt) for dt in [obj_A, obj_B]]
-        pred = InvPredicate(pred_name, 2, dtypes)
-
-        return pred
-
-    def generate_exist_pred(self, args, existence, obj_name, strategy):
-        pred_name = existence
-        dtypes = [DataType(dt) for dt in [obj_name]]
-        pred = InvPredicate(pred_name, 1, dtypes)
-
-        return pred
-
-    def generate_head_pred(self, args, strategy):
-        action_name = args.action_names[strategy["action"]]
-        dtypes = [DataType("agent")]
-        pred = InvPredicate(action_name, 1, dtypes)
-
-        return pred
-
-    def generate_func_atom_for_strategy(self, args, strategy, terms):
-        pred = self.generate_func_pred(args, strategy)
-        func_atom = [Atom(pred, terms)]
-        return func_atom
-
-    def generate_exist_atoms_for_strategy(self, args, strategy):
-        obj_existence = strategy["mask"].split(config.mask_splitter)
-        exist_atoms = []
-        for exist_obj in obj_existence:
-
-            if "not_exist" in exist_obj:
-                existence = "not_exist"
-                obj_name = exist_obj.split("not_exist_")[1]
-            else:
-                existence = "exist"
-                obj_name = exist_obj.split("exist_")[1]
-            pred = self.generate_exist_pred(args, existence, obj_name, strategy)
-            exist_atom = Atom(pred, [Var(obj_name)])
-            exist_atoms.append(exist_atom)
-
-        return exist_atoms
-
-    def generate_head_atom_for_strategy(self, args, strategy):
-        pred = self.generate_head_pred(args, strategy)
-        head_atom = Atom(pred, [Var("agent")])
-        return head_atom
 
     def refine_from_modeb(self, clause, modeb):
         """Generate clauses by adding atoms to body using mode declaration.

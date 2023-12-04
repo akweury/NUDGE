@@ -8,7 +8,7 @@ from agents.neural_agent import ActorCritic, NeuralPlayer
 from agents.logic_agent import NSFR_ActorCritic, LogicPlayer
 from agents.random_agent import RandomPlayer
 
-# device = torch.device('cuda:0')
+
 device = torch.device('cpu')
 
 

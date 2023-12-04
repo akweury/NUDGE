@@ -34,3 +34,5 @@ def similar(t1, t2, sr):
 
 
 preds = [ge, similar]
+pred_dict = {"greater_or_equal_than": ge,
+             "as_similar_as": similar}

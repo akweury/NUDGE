@@ -10,13 +10,16 @@ import sys
 import io
 import os
 import cv2
-from environments.procgen.procgen import ProcgenGym3Env
-from environments.getout.getout.imageviewer import ImageViewer
-from environments.getout.getout.getout.paramLevelGenerator import ParameterizedLevelGenerator
-from environments.getout.getout.getout.getout import Getout
-from environments.getout.getout.getout.actions import GetoutActions
 from ocatari.core import OCAtari
 from PIL import Image, ImageFont, ImageDraw
+
+
+from src.environments.procgen.procgen import ProcgenGym3Env
+from src.environments.getout.getout.imageviewer import ImageViewer
+from src.environments.getout.getout.getout.paramLevelGenerator import ParameterizedLevelGenerator
+from src.environments.getout.getout.getout.getout import Getout
+from src.environments.getout.getout.getout.actions import GetoutActions
+
 
 
 # font_path = os.path.join(cv2.__path__[0], 'qt', 'fonts', 'DejaVuSans.ttf')
@@ -130,11 +133,11 @@ def render_getout(agent, args):
         log_f = open(args.logfile, "w+")
         writer = csv.writer(log_f)
 
-        if args.alg == 'logic':
+        if args.agent == 'logic':
             head = ['episode', 'step', 'reward', 'average_reward', 'logic_state', 'probs']
-        elif args.alg == 'ppo' or args.alg == 'random':
+        elif args.agent == 'ppo' or args.agent == 'random':
             head = ['episode', 'step', 'reward', 'average_reward']
-        elif args.alg == 'human':
+        elif args.agent == 'human':
             head = ['episode', 'reward']
         writer.writerow(head)
 
@@ -151,11 +154,11 @@ def render_getout(agent, args):
         step += 1
         action = []
         if not getout.level.terminated:
-            if args.alg == 'logic':
+            if args.agent in ['logic', "smp"]:
                 action, explaining = agent.act(getout)
-            elif args.alg == 'ppo':
+            elif args.agent == 'ppo':
                 action = agent.act(getout)
-            elif args.alg == 'human':
+            elif args.agent == 'human':
                 if KEY_a in viewer.pressed_keys or KEY_LEFT in viewer.pressed_keys:
                     action.append(GetoutActions.MOVE_LEFT)
                 if KEY_d in viewer.pressed_keys or KEY_RIGHT in viewer.pressed_keys:
@@ -164,7 +167,7 @@ def render_getout(agent, args):
                     action.append(GetoutActions.MOVE_UP)
                 if KEY_s in viewer.pressed_keys:
                     action.append(GetoutActions.MOVE_DOWN)
-            elif args.alg == 'random':
+            elif args.agent == 'random':
                 action = agent.act(getout)
         else:
             getout = create_getout_instance(args)
@@ -172,7 +175,7 @@ def render_getout(agent, args):
             # print("--------------------------     next game    --------------------------")
             print(f"Episode {num_epi}")
             print(f"==========")
-            if args.alg == 'human':
+            if args.agent == 'human':
                 data = [(num_epi, round(epi_reward, 2))]
                 # writer.writerows(data)
             total_reward += epi_reward
@@ -187,7 +190,7 @@ def render_getout(agent, args):
         current_reward += reward
         average_reward = round(current_reward / num_epi, 2)
         disp_text = ""
-        if args.alg == 'logic':
+        if args.agent == 'logic':
             if last_explaining is None or (explaining != last_explaining and repeated > 4):
                 print(explaining)
                 last_explaining = explaining
@@ -196,12 +199,12 @@ def render_getout(agent, args):
             repeated += 1
 
         if args.log:
-            if args.alg == 'logic':
+            if args.agent == 'logic':
                 probs = agent.get_probs()
                 logic_state = agent.get_state(getout)
                 data = [(num_epi, step, reward, average_reward, logic_state, probs)]
                 writer.writerows(data)
-            elif args.alg == 'ppo' or args.alg == 'random':
+            elif args.agent == 'ppo' or args.agent == 'random':
                 data = [(num_epi, step, reward, average_reward)]
                 writer.writerows(data)
         # print(reward)
@@ -233,8 +236,8 @@ def render_getout(agent, args):
 
     df = pd.DataFrame({'reward': scores})
     # df.to_csv(f"logs/{envname}/random_{envname}_log_{args.seed}.csv", index=False)
-    df.to_csv(f"logs/{envname}/{args.alg}_{envname}_log_{args.seed}.csv", index=False)
-    print(f"saved in logs/{envname}/{args.alg}_{envname}_log_{args.seed}.csv")
+    df.to_csv(f"logs/{envname}/{args.agent}_{envname}_log_{args.seed}.csv", index=False)
+    print(f"saved in logs/{envname}/{args.agent}_{envname}_log_{args.seed}.csv")
 
 
 
@@ -246,10 +249,10 @@ def render_threefish(agent, args):
         log_f = open(args.logfile, "w+")
         writer = csv.writer(log_f)
 
-        if args.alg == 'logic':
+        if args.agent == 'logic':
             head = ['episode', 'step', 'reward', 'average_reward', 'logic_state', 'probs']
             writer.writerow(head)
-        elif args.alg == 'ppo' or args.alg == 'random':
+        elif args.agent == 'ppo' or args.agent == 'random':
             head = ['episode', 'step', 'reward', 'average_reward']
             writer.writerow(head)
 
@@ -277,14 +280,14 @@ def render_threefish(agent, args):
             step = 0
             while True:
                 step += 1
-                if args.alg == 'logic':
+                if args.agent == 'logic':
                     action, explaining = agent.act(obs)
                 else:
                     action = agent.act(obs)
                 env.act(action)
                 rew, obs, done = env.observe()
                 total_r += rew[0]
-                if args.alg == 'logic':
+                if args.agent == 'logic':
                     if last_explaining is None or (explaining != last_explaining and repeated > 4):
                         print(explaining)
                         last_explaining = explaining
@@ -308,7 +311,7 @@ def render_threefish(agent, args):
 
 
             df = pd.DataFrame({'reward': scores})
-            df.to_csv(f"logs/{envname}/{args.alg}_{envname}_log_{args.seed}.csv", index=False)
+            df.to_csv(f"logs/{envname}/{args.agent}_{envname}_log_{args.seed}.csv", index=False)
 
 
 def render_loot(agent, args):
@@ -318,10 +321,10 @@ def render_loot(agent, args):
     if args.log:
         log_f = open(args.logfile, "w+")
         writer = csv.writer(log_f)
-        if args.alg == 'logic':
+        if args.agent == 'logic':
             head = ['episode', 'step', 'reward', 'average_reward', 'logic_state', 'probs']
             writer.writerow(head)
-        elif args.alg == 'ppo' or args.alg == 'random':
+        elif args.agent == 'ppo' or args.agent == 'random':
             head = ['episode', 'step', 'reward', 'average_reward']
             writer.writerow(head)
 
@@ -347,7 +350,7 @@ def render_loot(agent, args):
             while True:
                 step += 1
                 nsteps += 1
-                if args.alg == 'logic':
+                if args.agent == 'logic':
                     # print(obs['positions'])
                     action, explaining = agent.act(obs)
                 else:
@@ -355,7 +358,7 @@ def render_loot(agent, args):
                 env.act(action)
                 rew, obs, done = env.observe()
                 total_r += rew[0]
-                if args.alg == 'logic':
+                if args.agent == 'logic':
                     if last_explaining is None or (explaining != last_explaining and repeated > 2):
                         # print(explaining)
                         last_explaining = explaining
@@ -369,7 +372,7 @@ def render_loot(agent, args):
                     screen.save(f"renderings/{nsteps:03}.png")
                 
                 # if args.log:
-                #     if args.alg == 'logic':
+                #     if args.agent == 'logic':
                 #         probs = agent.get_probs()
                 #         logic_state = agent.get_state(obs)
                 #         data = [(epi, step, rew[0], average_r, logic_state, probs)]
@@ -390,7 +393,7 @@ def render_loot(agent, args):
                 
             # import ipdb; ipdb.set_trace()
             df = pd.DataFrame({'reward': scores})
-            df.to_csv(f"logs/{envname}/{args.alg}_{envname}_log_{args.seed}.csv", index=False)
+            df.to_csv(f"logs/{envname}/{args.agent}_{envname}_log_{args.seed}.csv", index=False)
 
 
 
@@ -433,10 +436,10 @@ def render_atari(agent, args):
         print(f"==========")        
         while True:
             # action = random.randint(0, env.nb_actions-1)
-            if args.alg == 'logic':
+            if args.agent == 'logic':
                 action, explaining = agent.act(env.objects)
                 print(action, explaining)
-            elif args.alg == 'random':
+            elif args.agent == 'random':
                 action = np.random.randint(env.nb_actions)
             obs, reward, terminated, truncated, info = env.step(action)
             total_r += reward

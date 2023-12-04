@@ -1,6 +1,6 @@
 import torch
 import math
-
+import os
 from pathlib import Path
 
 max_ep_len = 500  # max timesteps in one episode
@@ -34,6 +34,10 @@ path_image = root / "image"
 path_runs = root / "runs"
 path_model = root / 'models'
 path_output = root / ".." / ".." / "storage"
+path_log = path_output / "logs"
+path_bs_data = root / "bs_data"
+if not os.path.exists(path_log):
+    os.mkdir(path_log)
 
 action_idx_getout_left = 0
 action_idx_getout_right = 1
@@ -59,6 +63,11 @@ action_name_getout = ["left", "right", "jump"]
 action_name_threefish = ["left", "right", "jump"]
 
 prop_name_getout = ['agent', 'key', 'door', 'enemy', "axis_x", "axis_y"]
-prop_name_threefish =  ['agent', 'fish', "radius", "axis_x", "axis_y"]
+prop_name_threefish = ['agent', 'fish', "radius", "axis_x", "axis_y"]
 
 mask_splitter = "#"
+
+func_pred_name = "func_pred"
+exist_pred_name = "exist_pred"
+action_pred_name= "action_pred"
+
