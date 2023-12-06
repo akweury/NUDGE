@@ -1,0 +1,7 @@
+{
+  "exp": "weight_training",
+  "net_name": "simple_nn",
+  "optimizer": "adam",
+  "epochs": 5000,
+  "wandb": false
+}

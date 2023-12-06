@@ -116,7 +116,6 @@ def buffer2behaviors(args, buffer):
 
 
 
-
 class RolloutBuffer:
     def __init__(self):
         self.actions = []
@@ -159,6 +158,10 @@ def buffer2clauses(args, buffer):
     clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
     return clauses
 
+
+def weights2clauses(args, buffer, clause_weight_model):
+    return None
+
 def load_buffer(args):
     buffer = RolloutBuffer()
     buffer.load_buffer(args)
@@ -169,3 +172,5 @@ if __name__ == "__main__":
     buffer = load_buffer(args)
     clauses = buffer2clauses(args, buffer)
     print("program finished!")
+
+

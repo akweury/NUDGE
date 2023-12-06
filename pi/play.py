@@ -10,7 +10,7 @@ from src.agents import smp_agent
 from src import config
 from pi.utils import log_utils, args_utils
 from pi import micro_program_search
-
+from pi import train
 
 def load_model(args, set_eval=True):
     if args.agent in ['random', 'human']:
@@ -56,9 +56,21 @@ def create_agent(args, clauses):
 
 
 def main():
-    args = args_utils.load_args()
+
+    args = args_utils.load_args(config.path_exps)
     buffer = micro_program_search.load_buffer(args)
-    clauses = micro_program_search.buffer2clauses(args, buffer)
+
+    # behavior clauses
+    behavior_clauses = micro_program_search.buffer2clauses(args, buffer)
+
+    # weight clauses
+    clause_weight_model = train.train_clause_weights(args, buffer, behavior_clauses)
+    weight_clauses = micro_program_search.weights2clauses(args, buffer, clause_weight_model)
+
+    # two types of clauses are both considered as game rules
+    clauses = behavior_clauses + weight_clauses
+
+    # create a game agent
     agent = create_agent(args, clauses)
 
     #### Continue to render

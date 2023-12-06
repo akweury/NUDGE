@@ -68,7 +68,7 @@ def clauses2smps(args, clauses):
 
 
 if __name__ == "__main__":
-    args = args_utils.load_args()
+    args = args_utils.load_args(config.path_exps)
     buffer = micro_program_search.load_buffer(args)
     clauses = micro_program_search.buffer2clauses(args, buffer)
 

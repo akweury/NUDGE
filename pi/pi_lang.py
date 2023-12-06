@@ -93,6 +93,8 @@ def behavior2clause(args, behavior):
 
     body_atoms = func_atom + env_atoms
     new_clause = Clause(head_atom, body_atoms)
+
+
     return new_clause
 
 
@@ -101,7 +103,7 @@ def behaviors2clauses(args, behaviors):
     for behavior in behaviors:
         clause = behavior2clause(args, behavior)
         clauses.append(clause)
-
+        # clause_weights.append()
     print('======= Clauses from Behaviors ======')
     for c in clauses:
         print(c)
