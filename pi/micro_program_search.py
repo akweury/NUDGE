@@ -159,7 +159,12 @@ def buffer2clauses(args, buffer):
     return clauses
 
 
-def weights2clauses(args, buffer, clause_weight_model):
+def weights2clauses(args,buffer, actions, behavior_clauses):
+
+
+
+    # multiple choice case
+
     return None
 
 def load_buffer(args):

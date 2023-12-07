@@ -17,9 +17,10 @@ def extract_existence_mask(args, clause):
     mask = torch.zeros(len(args.state_names), dtype=torch.bool)
     for atom in clause.body:
         if atom.pred.p_type == config.exist_pred_name:
-            obj_name = atom.pred.dtypes[0].name
-            obj_id = args.state_names.index(obj_name)
-            mask[obj_id] = True
+            if atom.pred.name == "exist":
+                obj_name = atom.pred.dtypes[0].name
+                obj_id = args.state_names.index(obj_name)
+                mask[obj_id] = True
 
     return mask
 

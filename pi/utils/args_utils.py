@@ -43,12 +43,14 @@ def load_args(exp_args_path):
     parser.add_argument("--optimizer", type=str, default='adam', help="Optimizer for the training (sgd or adam)")
     parser.add_argument("--momentum", type=float, default=0.9, help="SGD momentum")
     parser.add_argument("--lr", type=float, default=0.001, help="Initial learning rate (default 0.001)")
+    parser.add_argument('--lr_scheduler', default="100,1000", type=str, help='lr schedular.')
     parser.add_argument("--net_name", type=str, help="The name of the neural network")
     parser.add_argument("--batch_size", type=int, default=1, help="Batch size to infer with")
     parser.add_argument("--num_workers", type=int, default=4,
                         help="Number of Workers simultaneously putting data into RAM")
     parser.add_argument("--resume", type=bool, default=False, help="Resume training from previous work")
     parser.add_argument("--eval_loss_best", type=float, default=1e+20, help="Best up-to-date evaluation loss")
+
 
     args = parser.parse_args()
 

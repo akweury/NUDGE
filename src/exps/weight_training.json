@@ -2,6 +2,9 @@
   "exp": "weight_training",
   "net_name": "simple_nn",
   "optimizer": "adam",
-  "epochs": 5000,
+  "batch_size": 8,
+  "lr": 0.001,
+  "lr_scheduler": "10,50,100",
+  "epochs": 100,
   "wandb": false
 }

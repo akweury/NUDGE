@@ -64,11 +64,12 @@ def main():
     behavior_clauses = micro_program_search.buffer2clauses(args, buffer)
 
     # weight clauses
-    clause_weight_model = train.train_clause_weights(args, buffer, behavior_clauses)
-    weight_clauses = micro_program_search.weights2clauses(args, buffer, clause_weight_model)
+    clause_weight_model = train.train_clause_weights(args, buffer)
+    pred_actions = clause_weight_model(buffer.logic_states.unsqueeze(1)).argmax(dim=1)
+    weight_clauses = micro_program_search.weights2clauses(args,buffer, pred_actions, behavior_clauses)
 
     # two types of clauses are both considered as game rules
-    clauses = behavior_clauses + weight_clauses
+    clauses = behavior_clauses # + weight_clauses
 
     # create a game agent
     agent = create_agent(args, clauses)

@@ -1,7 +1,17 @@
 # Created by jing at 04.12.23
 
+import os
+
+import torch
+
 from pi import nn_engine
-def train_clause_weights(args, buffer, clauses):
+from src import config
+
+
+def train_clause_weights(args, buffer):
+    model = nn_engine.load_model(args)
+    if model is not None:
+        return model
 
     # init tracking programs, log files
     nn_engine.init_env(args)

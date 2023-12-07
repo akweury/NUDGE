@@ -254,7 +254,7 @@ class SymbolicMicroProgramPlayer:
 
     def getout_actor(self, getout):
         extracted_state = extract_logic_state_getout(getout, self.args)
-        predictions = self.model(extracted_state)
+        predictions = self.model(extracted_state.squeeze())
         prediction = torch.argmax(predictions).cpu().item()
         explaining = None
         action = prediction + 1

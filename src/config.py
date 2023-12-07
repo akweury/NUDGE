@@ -77,3 +77,4 @@ func_pred_name = "func_pred"
 exist_pred_name = "exist_pred"
 action_pred_name= "action_pred"
 
+model_name_weight = "checkpoint-99.pth.tar"
