@@ -21,8 +21,8 @@ class SmpReasoner(nn.Module):
         # only return switch of actions,
         #       action equals to 1 <==> action is passed for this smp
         #       action equals to 0 <==> action is not passed for this smp
-        self.action_prob = torch.zeros(len(self.args.action_names)).to(self.args.device)
-        self.action_counter_prob = torch.zeros(len(self.args.action_names)).to(self.args.device)
+        self.action_prob = torch.zeros(1, len(self.args.action_names)).to(self.args.device)
+        self.action_counter_prob = torch.zeros(1, len(self.args.counter_action_names)).to(self.args.device)
         # calculate the switches of each action
         for smp in self.smps:
             action_probs = smp(x)
