@@ -2,7 +2,7 @@
 import torch
 
 
-def ge(t1, t2, sr, batch_data=True):
+def ge(t1, t2, sr, avg_data=True, batch_data=True):
     if t1.sum() == 0 or t2.sum() == 0:
         return False
 
@@ -10,7 +10,7 @@ def ge(t1, t2, sr, batch_data=True):
     #     return False
 
     # If all of A greater than B
-    if batch_data:
+    if avg_data:
         th = 1e-1
         var, mean = torch.var_mean(torch.ge(t1, t2).float())
 
@@ -22,13 +22,13 @@ def ge(t1, t2, sr, batch_data=True):
     return satisfy
 
 
-def similar(t1, t2, sr, batch_data=True):
+def similar(t1, t2, sr, batch_data=True, avg_data=True):
     # repeat situation
     if sr[1] < sr[0] or t1.sum() == 0 or t2.sum() == 0:
         return False
 
     th = 0.5
-    if batch_data:
+    if avg_data:
         # If x distance between A and B is similar for all
         var, mean = torch.var_mean(torch.abs(torch.sub(t1, t2)))
 
@@ -36,11 +36,9 @@ def similar(t1, t2, sr, batch_data=True):
         if torch.abs(var / mean) < th:
             satisfy = True
     else:
-        dist = torch.abs(torch.sub(t1, t2)).bool()
-        if torch.abs(dist / min(t1, t2)) < th:
-            satisfy = True
-        else:
-            satisfy = False
+        dist = torch.abs(torch.sub(t1, t2))
+        t1_t2 = torch.cat((t1.unsqueeze(1), t2.unsqueeze(1)), 1)
+        satisfy = torch.abs(dist / t1_t2.min(dim=1)[0]) < th
     return satisfy
 
 

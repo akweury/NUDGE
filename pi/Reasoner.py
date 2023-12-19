@@ -15,22 +15,18 @@ class SmpReasoner(nn.Module):
         super().__init__()
         self.args = args
         self.smps = micro_program_generator.clauses2smps(args, clauses)
-        self.action_switches = torch.zeros(len(args.action_names)).to(args.device)
-        self.action_weights = torch.zeros(len(args.action_names)).to(args.device)
+        self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
     def forward(self, x):
         # game Getout: tensor with size 1 * 4 * 6
         # only return switch of actions,
         #       action equals to 1 <==> action is passed for this smp
         #       action equals to 0 <==> action is not passed for this smp
-
+        self.action_prob = torch.zeros(len(self.args.action_names)).to(self.args.device)
+        self.action_counter_prob = torch.zeros(len(self.args.action_names)).to(self.args.device)
         # calculate the switches of each action
         for smp in self.smps:
-            action_index = smp(x)
-            if action_index is not None:
-                self.action_switches[action_index] = 1
+            action_probs = smp(x)
+            self.action_prob += action_probs
 
-        # calculate the weight of each action
-
-
-
-        return self.action_switches
+        action_prob = self.action_prob + self.action_counter_prob
+        return action_prob

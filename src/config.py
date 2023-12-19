@@ -66,7 +66,10 @@ state_name_getout = ['agent', 'key', 'door', 'enemy']
 state_name_threefish = ['agent', 'fish1', 'fish2']
 
 action_name_getout = ["left", "right", "jump"]
+counter_action_name_getout = ["not_left", "not_right", "not_jump"]
+
 action_name_threefish = ["left", "right", "jump"]
+counter_action_name_threefish = ["not_left", "not_right", "not_jump"]
 
 prop_name_getout = ['agent', 'key', 'door', 'enemy', "axis_x", "axis_y"]
 prop_name_threefish = ['agent', 'fish', "radius", "axis_x", "axis_y"]
@@ -76,5 +79,6 @@ mask_splitter = "#"
 func_pred_name = "func_pred"
 exist_pred_name = "exist_pred"
 action_pred_name= "action_pred"
+counter_action_pred_name= "counter_action_pred"
 
 model_name_weight = "checkpoint-99.pth.tar"

@@ -19,9 +19,17 @@ def extract_behavior_terms(args, behavior):
 
 
 def generate_action_predicate(args, behavior):
-    action_code = behavior["action"]
-    action_name = args.action_names[action_code]
-    action_predicate = InvPredicate(action_name, 1, [DataType("agent")], config.action_pred_name)
+    if "counter_action" in behavior.keys():
+        action_code = behavior["counter_action"].argmax()
+        action_name = args.counter_action_names[action_code]
+        action_predicate = InvPredicate(action_name, 1, [DataType("agent")], config.counter_action_pred_name)
+    elif "action" in behavior.keys():
+        action_code = behavior["action"]
+        action_name = args.action_names[action_code]
+        action_predicate = InvPredicate(action_name, 1, [DataType("agent")], config.action_pred_name)
+    else:
+        raise ValueError
+
     return action_predicate
 
 
@@ -32,13 +40,13 @@ def generate_exist_predicate(existence, obj_name):
     return pred
 
 
-def generate_func_predicate(args, strategy):
-    obj_A = args.state_names[strategy["grounded_objs"][0]]
-    obj_B = args.state_names[strategy["grounded_objs"][1]]
-    prop_name = args.prop_names[strategy['grounded_prop'][0]]
-    if strategy['pred'] == predicate.ge:
+def generate_func_predicate(args, behavior):
+    obj_A = args.state_names[behavior["grounded_objs"][0]]
+    obj_B = args.state_names[behavior["grounded_objs"][1]]
+    prop_name = args.prop_names[behavior['grounded_prop'][0]]
+    if behavior['pred'] == predicate.ge:
         pred_func_name = "greater_or_equal_than"
-    elif strategy['pred'] == predicate.similar:
+    elif behavior['pred'] == predicate.similar:
         pred_func_name = "as_similar_as"
     else:
         raise ValueError
@@ -65,8 +73,8 @@ def behavior_predicate_as_func_atom(args, behavior):
     return func_atom
 
 
-def behavior_existence_as_env_atoms(args, strategy):
-    obj_existence = strategy["mask"].split(config.mask_splitter)
+def behavior_existence_as_env_atoms(args, behavior):
+    obj_existence = behavior["mask"].split(config.mask_splitter)
     exist_atoms = []
     for exist_obj in obj_existence:
 

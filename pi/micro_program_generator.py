@@ -7,10 +7,20 @@ from pi.utils import args_utils
 
 from src import config
 
-def extract_action_code(args, clause):
+def extract_action(args, clause):
     action_name = clause.head.pred.name
-    action_code = args.action_names.index(action_name)
-    return torch.tensor(action_code)
+    action = torch.zeros(len(args.action_names))
+
+    # counter action has confidence -1
+    if "not" in action_name:
+        action_code = args.counter_action_names.index(action_name)
+        action[action_code] = -1
+
+    # action has confidence 1
+    else:
+        action_code = args.action_names.index(action_name)
+        action[action_code] = 1
+    return action
 
 
 def extract_existence_mask(args, clause):
@@ -53,7 +63,7 @@ def build_smp(action, mask, obj_codes, prop_codes, pred_funcs):
 
 
 def clause2smp(args, clause):
-    action = extract_action_code(args, clause)
+    action = extract_action(args, clause)
     existence_mask = extract_existence_mask(args, clause)
     obj_codes, prop_codes, pred_funcs = extract_pred_func_data(args, clause)
     smp = build_smp(action, existence_mask, obj_codes, prop_codes, pred_funcs)

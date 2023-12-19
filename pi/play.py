@@ -5,12 +5,13 @@ from src.utils_game import render_getout, render_threefish, render_loot, render_
 from src.agents.neural_agent import ActorCritic, NeuralPlayer
 from src.agents.logic_agent import NSFR_ActorCritic, LogicPlayer
 from src.agents.random_agent import RandomPlayer
-
 from src.agents import smp_agent
 from src import config
+
 from pi.utils import log_utils, args_utils
-from pi import micro_program_search
+from pi import micro_program_search, micro_program_generator
 from pi import train
+
 
 def load_model(args, set_eval=True):
     if args.agent in ['random', 'human']:
@@ -56,20 +57,24 @@ def create_agent(args, clauses):
 
 
 def main():
-
     args = args_utils.load_args(config.path_exps)
     buffer = micro_program_search.load_buffer(args)
+
+    # train an action predicting model
+    action_imitation_model = train.train_clause_weights(args, buffer)
+    pred_actions = action_imitation_model(buffer.logic_states.unsqueeze(1)).argmax(dim=1)
 
     # behavior clauses
     behavior_clauses = micro_program_search.buffer2clauses(args, buffer)
 
-    # weight clauses
-    clause_weight_model = train.train_clause_weights(args, buffer)
-    pred_actions = clause_weight_model(buffer.logic_states.unsqueeze(1)).argmax(dim=1)
-    weight_clauses = micro_program_search.weights2clauses(args,buffer, pred_actions, behavior_clauses)
+    # behavior symbolic microprogram
+    behavior_smps = micro_program_generator.clauses2smps(args, behavior_clauses)
+
+    # counteract clauses
+    counteract_clauses = micro_program_search.buffer2counteract_clauses(args, pred_actions, buffer, behavior_smps)
 
     # two types of clauses are both considered as game rules
-    clauses = behavior_clauses # + weight_clauses
+    clauses = behavior_clauses + counteract_clauses
 
     # create a game agent
     agent = create_agent(args, clauses)
