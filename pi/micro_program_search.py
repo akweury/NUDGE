@@ -5,6 +5,7 @@ import os
 import json
 from itertools import compress
 from pi import pi_lang, predicate
+from pi.Behavior import Behavior, Explain
 from pi.game_settings import get_idx, get_state_names
 from pi.utils import args_utils
 from src import config
@@ -134,7 +135,7 @@ def find_pred_parameters_in_smps(smps, pred):
 def extract_counteract_behaviors(args, smps, states, behavior_actions, neural_actions):
     """ record a new behavior for each counter state """
 
-    counteract_behavior = []
+    counteract_behaviors = []
     idx_list = get_idx(args)
     state_name_list = get_state_names(args)
     state_relate_2_aries = [[i_1, i_2] for i_1, s_1 in enumerate(state_name_list) for i_2, s_2 in
@@ -147,7 +148,7 @@ def extract_counteract_behaviors(args, smps, states, behavior_actions, neural_ac
         state = states[state_i]
         parameter = None
         masks = all_exist_mask(state.unsqueeze(0), state_name_list)
-        state_counter_behavior = []
+        explains = []
         for obj_idx in state_relate_2_aries:
             for mask_name, mask in masks.items():
                 if not mask:
@@ -168,22 +169,15 @@ def extract_counteract_behaviors(args, smps, states, behavior_actions, neural_ac
                             behavior_pred = pred
                     if behavior_pred is not None:
                         print(f'new behavior, grounded_objs:{obj_idx}, counter action:{counter_action}')
-                        behavior = {'pred': behavior_pred,
-                                    'grounded_objs': obj_idx,
-                                    'grounded_prop': prop_idx,
-                                    'counter_action': counter_action,
-                                    'mask': mask_name,
-                                    'neural_action': neural_action,
-                                    'state': state,
-                                    "parameters": parameter
-                                    }
-                        state_counter_behavior.append(behavior)
+                        explain = Explain(mask_name, behavior_pred, obj_idx, prop_idx, parameter)
+                        explains.append(explain)
 
-        counteract_behavior.append(state_counter_behavior)
+        behavior = Behavior(counter_action, neural_action, state, explains)
+        counteract_behaviors.append(behavior)
 
-    counteract_behavior = prune_behaviors(counteract_behavior)
 
-    return counteract_behavior
+
+    return counteract_behaviors
 
 
 def split_counter_behaviors(counter_behaviors):
@@ -193,8 +187,8 @@ def split_counter_behaviors(counter_behaviors):
 
     # get types of counter actions
     for behavior in counter_behaviors:
-        counter_actions.append(behavior[0]["counter_action"].reshape(1, -1))
-        neural_actions.append(behavior[0]["neural_action"].reshape(1, -1))
+        counter_actions.append(behavior[0].counter_action.reshape(1, -1))
+        neural_actions.append(behavior[0].neural_action.reshape(1, -1))
     counter_actions = torch.cat(counter_actions, dim=0)
     neural_actions = torch.cat(neural_actions, dim=0)
 
@@ -219,7 +213,7 @@ def split_counter_behaviors(counter_behaviors):
 
 def common_prop_behaviors(behaviors, prop_name):
 
-    value_space = [state_behavior[prop_name] for state_behavior in behaviors[0]]
+    value_space = [eval(f"state_behavior.{prop_name}") for state_behavior in behaviors[0]]
     common_prop = []
     common_prop_behaviors = []
     # get types of counter actions
@@ -229,7 +223,7 @@ def common_prop_behaviors(behaviors, prop_name):
         for behavior in behaviors:
             exist_common_prop = False
             for state_behavior in behavior:
-                if state_behavior[prop_name] == value:
+                if eval(f"state_behavior.{prop_name}") == value:
                     exist_common_prop = True
                     common_prop_state_behavior.append(state_behavior)
                     break
@@ -272,6 +266,7 @@ def micro_program2counteract_behaviors(args, neural_actions, states, behavior_sm
                                                        states[multi_possible_actions],
                                                        behavior_actions[multi_possible_actions],
                                                        neural_actions[multi_possible_actions])
+    counteract_behavior = prune_behaviors(counteract_behavior)
     return counteract_behavior
 
 

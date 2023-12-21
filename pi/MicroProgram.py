@@ -28,8 +28,6 @@ class MicroProgram(nn.Module):
         state_exists = torch.ones(size=(x.size(0), x.size(1)), dtype=torch.bool)
         for i in range(x.size(1)):
             state_exists[:, i] *= (x[:, i, i] > 0.8)
-        if state_exists.sum()<4:
-            print("break")
         mask_batches = torch.repeat_interleave(mask_batches, x.size(0), dim=0)
         exist_res = torch.prod(mask_batches == state_exists, dim=1)
         return exist_res.bool()
