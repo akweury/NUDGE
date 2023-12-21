@@ -39,12 +39,13 @@ def extract_pred_func_data(args, clause):
     pred_funcs = []
     prop_codes = []
     obj_codes = []
-
+    parameters = None
     for atom in clause.body:
         if atom.pred.p_type == config.func_pred_name:
             grounded_obj = atom.pred.grounded_objs
             grounded_prop = atom.pred.grounded_prop
             pred_func_name = atom.pred.pred_func
+            parameters = atom.pred.parameters
 
             grounded_prop_code = args.prop_names.index(grounded_prop)
             grounded_obj_codes = [args.state_names.index(obj) for obj in grounded_obj]
@@ -54,19 +55,19 @@ def extract_pred_func_data(args, clause):
             prop_codes.append(grounded_prop_code)
             obj_codes.append(grounded_obj_codes)
 
-    return obj_codes, prop_codes, pred_funcs
+    return obj_codes, prop_codes, pred_funcs, parameters
 
 
-def build_smp(action, mask, obj_codes, prop_codes, pred_funcs):
-    smp = MicroProgram(action, mask, obj_codes, prop_codes, pred_funcs)
+def build_smp(action, mask, obj_codes, prop_codes, pred_funcs, parameters):
+    smp = MicroProgram(action, mask, obj_codes, prop_codes, pred_funcs, parameters)
     return smp
 
 
 def clause2smp(args, clause):
     action = extract_action(args, clause)
     existence_mask = extract_existence_mask(args, clause)
-    obj_codes, prop_codes, pred_funcs = extract_pred_func_data(args, clause)
-    smp = build_smp(action, existence_mask, obj_codes, prop_codes, pred_funcs)
+    obj_codes, prop_codes, pred_funcs, parameters = extract_pred_func_data(args, clause)
+    smp = build_smp(action, existence_mask, obj_codes, prop_codes, pred_funcs, parameters)
     return smp
 
 

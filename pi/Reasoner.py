@@ -16,6 +16,7 @@ class SmpReasoner(nn.Module):
         self.args = args
         self.smps = micro_program_generator.clauses2smps(args, clauses)
         self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
+
     def forward(self, x):
         # game Getout: tensor with size 1 * 4 * 6
         # only return switch of actions,
@@ -28,5 +29,5 @@ class SmpReasoner(nn.Module):
             action_probs = smp(x)
             self.action_prob += action_probs
 
-        action_prob = self.action_prob + self.action_counter_prob
+        action_prob = self.action_prob * torch.tensor([[1, 1, 2]]) + self.action_counter_prob
         return action_prob

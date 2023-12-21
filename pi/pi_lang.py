@@ -53,9 +53,12 @@ def generate_func_predicate(args, behavior):
     pred_name = obj_A + "_" + prop_name + "_" + pred_func_name + "_" + obj_B
 
     dtypes = [DataType(dt) for dt in [obj_A, obj_B]]
-    pred = InvPredicate(pred_name, 2, dtypes, config.func_pred_name, grounded_prop=prop_name,
-                        grounded_objs=[obj_A, obj_B], pred_func=pred_func_name)
-
+    pred = InvPredicate(pred_name, 2, dtypes, config.func_pred_name,
+                        grounded_prop=prop_name,
+                        grounded_objs=[obj_A, obj_B],
+                        pred_func=pred_func_name,
+                        parameter_min=behavior["parameter"]['min'],
+                        parameter_max=behavior["parameter"]['max'])
     return pred
 
 
@@ -101,7 +104,6 @@ def behavior2clause(args, behavior):
 
     body_atoms = func_atom + env_atoms
     new_clause = Clause(head_atom, body_atoms)
-
 
     return new_clause
 

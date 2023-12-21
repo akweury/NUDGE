@@ -64,17 +64,18 @@ def main():
     action_imitation_model = train.train_clause_weights(args, buffer)
     pred_actions = action_imitation_model(buffer.logic_states.unsqueeze(1)).argmax(dim=1)
 
-    # behavior clauses
+    # making behavior clauses
     behavior_clauses = micro_program_search.buffer2clauses(args, buffer)
 
-    # behavior symbolic microprogram
+    # making behavior symbolic microprogram
     behavior_smps = micro_program_generator.clauses2smps(args, behavior_clauses)
 
     # counteract clauses
-    counteract_clauses = micro_program_search.buffer2counteract_clauses(args, pred_actions, buffer, behavior_smps)
+    # counteract_clauses = micro_program_search.buffer2counteract_clauses(args, pred_actions, buffer, behavior_smps)
+    # counteract_clauses = []
 
     # two types of clauses are both considered as game rules
-    clauses = behavior_clauses + counteract_clauses
+    clauses = behavior_clauses # + counteract_clauses
 
     # create a game agent
     agent = create_agent(args, clauses)
