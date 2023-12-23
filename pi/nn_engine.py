@@ -46,15 +46,15 @@ def init_model(args):
         log_utils.add_lines(f" ------------------ Start a new training work ------------------- ", args.log_file)
         # init model
         model = network.to(args.device)
-        args.parameters = filter(lambda p: p.requires_grad, model.parameters())
+        args.p_bound = filter(lambda p: p.requires_grad, model.p_bound())
 
         # init optimizer
         if args.optimizer == 'sgd':
-            args.optimizer = SGD(args.parameters, lr=args.lr, momentum=args.momentum, weight_decay=0)
+            args.optimizer = SGD(args.p_bound, lr=args.lr, momentum=args.momentum, weight_decay=0)
         elif args.optimizer == 'adam':
-            args.optimizer = Adam(args.parameters, lr=args.lr, weight_decay=0, amsgrad=True)
+            args.optimizer = Adam(args.p_bound, lr=args.lr, weight_decay=0, amsgrad=True)
         elif args.optimizer == 'sparse_adam':
-            args.optimizer = SparseAdam(args.parameters, lr=args.lr)
+            args.optimizer = SparseAdam(args.p_bound, lr=args.lr)
         else:
             raise ValueError
 

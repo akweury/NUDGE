@@ -1,6 +1,7 @@
 # Created by jing at 01.12.23
 import torch
 
+import pi.smp
 from src.utils_game import render_getout, render_threefish, render_loot, render_ecoinrun, render_atari
 from src.agents.neural_agent import ActorCritic, NeuralPlayer
 from src.agents.logic_agent import NSFR_ActorCritic, LogicPlayer
@@ -9,8 +10,8 @@ from src.agents import smp_agent
 from src import config
 
 from pi.utils import log_utils, args_utils
-from pi import micro_program_search, micro_program_generator
-from pi import train
+from pi import behavior, smp, pi_lang
+
 
 
 def load_model(args, set_eval=True):
@@ -58,24 +59,26 @@ def create_agent(args, clauses):
 
 def main():
     args = args_utils.load_args(config.path_exps)
-    buffer = micro_program_search.load_buffer(args)
+    buffer = behavior.load_buffer(args)
 
     # train an action predicting model
-    action_imitation_model = train.train_clause_weights(args, buffer)
-    pred_actions = action_imitation_model(buffer.logic_states.unsqueeze(1)).argmax(dim=1)
+    # action_imitation_model = train.train_clause_weights(args, buffer)
+    # pred_actions = action_imitation_model(buffer.logic_states.unsqueeze(1)).argmax(dim=1)
 
-    # making behavior clauses
-    behavior_clauses = micro_program_search.buffer2clauses(args, buffer)
+    # observe behaviors from buffer
+    agent_behaviors = behavior.buffer2behaviors(args, buffer)
+
+    # HCI: making clauses from behaviors
+    clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
 
     # making behavior symbolic microprogram
-    behavior_smps = micro_program_generator.clauses2smps(args, behavior_clauses)
+    behavior_smps = smp.behavior2smps(args, agent_behaviors)
+    # update parameters in smps
+    smp.rectify_smps(args, buffer, behavior_smps)
 
-    # counteract clauses
-    counteract_clauses = micro_program_search.buffer2counteract_clauses(args, pred_actions, buffer, behavior_smps)
-    # counteract_clauses = []
 
     # two types of clauses are both considered as game rules
-    clauses = behavior_clauses + counteract_clauses
+    clauses = clauses
 
     # create a game agent
     agent = create_agent(args, clauses)

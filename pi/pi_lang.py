@@ -44,12 +44,8 @@ def generate_func_predicate(args, behavior):
     obj_A = args.state_names[behavior["grounded_objs"][0]]
     obj_B = args.state_names[behavior["grounded_objs"][1]]
     prop_name = args.prop_names[behavior['grounded_prop'][0]]
-    if behavior['pred'] == predicate.ge:
-        pred_func_name = "greater_or_equal_than"
-    elif behavior['pred'] == predicate.similar:
-        pred_func_name = "as_similar_as"
-    else:
-        raise ValueError
+    pred_func_name = behavior['pred'].name
+
     pred_name = obj_A + "_" + prop_name + "_" + pred_func_name + "_" + obj_B
 
     dtypes = [DataType(dt) for dt in [obj_A, obj_B]]
@@ -57,8 +53,8 @@ def generate_func_predicate(args, behavior):
                         grounded_prop=prop_name,
                         grounded_objs=[obj_A, obj_B],
                         pred_func=pred_func_name,
-                        parameter_min=behavior["parameter"]['min'],
-                        parameter_max=behavior["parameter"]['max'])
+                        parameter_min=behavior["pred"].p_bound['min'],
+                        parameter_max=behavior["pred"].p_bound['max'])
     return pred
 
 

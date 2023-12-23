@@ -74,7 +74,7 @@ class LogicPPO:
         self.policy = NSFR_ActorCritic(self.args).to(device)
         self.optimizer = optimizer([
             {'params': self.policy.actor.get_params(), 'lr': lr_actor},
-            {'params': self.policy.critic.parameters(), 'lr': lr_critic}
+            {'params': self.policy.critic.p_bound(), 'lr': lr_critic}
         ])
 
         self.policy_old = NSFR_ActorCritic(self.args).to(device)

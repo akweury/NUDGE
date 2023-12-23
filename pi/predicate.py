@@ -1,34 +1,81 @@
 # Created by jing at 28.11.23
 import torch
+class Ge():
+    """ generate one micro-program
+    """
 
+    def __init__(self):
+        super().__init__()
+        self.p_bound = {}
+        self.p_space = torch.zeros(1)
+        self.name = "greater_or_equal_than"
 
-def ge(t1, t2, sr, avg_data=True, batch_data=True, given_parameters=None):
-    parameter = None
-    if t1.sum() == 0 or t2.sum() == 0:
-        return False, parameter
+    def fit(self, t1, t2, objs):
+        if t1.sum() == 0 or t2.sum() == 0:
+            return False
 
-    # if t1.size(0)==0:
-    #     return False
-
-    # If all of A greater than B
-    if avg_data:
+        # If all of A greater than B
         th = 1e-1
         var, mean = torch.var_mean(torch.ge(t1, t2).float())
 
         satisfy = False
         if var < th and (1 - mean) < th:
             satisfy = True
-            parameter = {'min': mean - var, 'max': mean + var}
-    else:
+            self.p_bound['min'] = torch.round(mean - var, decimals=2)
+            self.p_bound['max'] = torch.round(mean + var, decimals=2)
+
+        return satisfy
+
+    def eval(self, t1, t2):
         satisfy = torch.ge(t1, t2).float().bool()
-    return satisfy, parameter
+        p_values = torch.zeros(size=satisfy.size())
+        return satisfy, p_values
+
+    def update_p_space(self, p_space):
+        pass
 
 
-def similar(t1, t2, sr, batch_data=True, avg_data=True, given_parameters=None):
-    parameter = None
+class Similar():
+    """ generate one micro-program
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.p_bound = {}
+        self.p_space = torch.zeros(1)
+        self.name = "as_similar_as"
+
+    def fit(self, t1, t2, objs):
+        # repeat situation
+        if objs[1] < objs[0] or t1.sum() == 0 or t2.sum() == 0:
+            return False
+
+        th = 0.6
+        # If x distance between A and B is similar for all
+        var, mean = torch.var_mean(torch.abs(torch.sub(t1, t2)))
+        satisfy = False
+        if torch.abs(var / mean) < th:
+            satisfy = True
+            self.p_bound['min'] = torch.zeros(1)
+            self.p_bound['max'] = torch.round(mean + var * 0.5, decimals=2)
+        return satisfy
+
+    def update_p_space(self, p_space):
+        self.p_space = p_space
+
+
+    def eval(self, t1, t2):
+        p_values = torch.abs(torch.sub(t1, t2))
+        satisfy = p_values
+        return satisfy, p_values
+
+
+def similar(t1, t2, sr, p_values, batch_data=True, avg_data=True, given_parameters=None):
+    p_bound = {'min': 0, 'max': 0}
+    p_values = torch.zeros(1)
     # repeat situation
     if sr[1] < sr[0] or t1.sum() == 0 or t2.sum() == 0:
-        return False, parameter
+        return False, p_bound, p_values
 
     th = 0.6
     if avg_data:
@@ -38,19 +85,23 @@ def similar(t1, t2, sr, batch_data=True, avg_data=True, given_parameters=None):
         satisfy = False
         if torch.abs(var / mean) < th:
             satisfy = True
-            parameter = {'min': mean - var*0.5, 'max': mean + var*0.5}
+            p_bound = {'min': torch.zeros(1),
+                       'max': torch.round(mean + var * 0.5, decimals=2)}
     else:
         dist = torch.abs(torch.sub(t1, t2))
+        p_values = dist
+
         t1_t2 = torch.cat((t1.unsqueeze(1), t2.unsqueeze(1)), 1)
 
         # if no parameter is given, predict in a heuristic way
         if given_parameters is None:
-            satisfy = torch.abs(dist / t1_t2.min(dim=1)[0]) < th # might be not accurate, has to be improved
+            satisfy = torch.abs(dist / t1_t2.min(dim=1)[0]) < th  # might be not accurate, has to be improved
         else:
-            satisfy = (dist > given_parameters["min"]) * (dist < given_parameters["max"])
-    return satisfy, parameter
+            satisfy = dist < given_parameters["max"]
+
+    return satisfy, p_bound, p_values
 
 
-preds = [ge, similar]
-pred_dict = {"greater_or_equal_than": ge,
-             "as_similar_as": similar}
+preds = [Ge(), Similar()]
+pred_dict = {"greater_or_equal_than": Ge(),
+             "as_similar_as": Similar()}

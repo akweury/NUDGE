@@ -82,3 +82,5 @@ action_pred_name= "action_pred"
 counter_action_pred_name = "counter_action_pred"
 
 model_name_weight = "checkpoint-99.pth.tar"
+
+smp_param_unit = 0.01

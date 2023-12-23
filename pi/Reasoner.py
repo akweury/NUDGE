@@ -4,7 +4,7 @@ import torch
 import os
 import torch.nn as nn
 
-from pi import micro_program_generator
+from pi import smp
 
 
 class SmpReasoner(nn.Module):
@@ -14,7 +14,7 @@ class SmpReasoner(nn.Module):
     def __init__(self, args, clauses):
         super().__init__()
         self.args = args
-        self.smps = micro_program_generator.clauses2smps(args, clauses)
+        self.smps = micro_program_generator.behavior2smps(args, clauses)
         self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
 
     def forward(self, x):

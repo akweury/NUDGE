@@ -1,13 +1,12 @@
 # Created by jing at 27.11.23
 
 import torch
-import os
 import json
 from itertools import compress
 from pi import pi_lang, predicate
-from pi.Behavior import Behavior, Explain
 from pi.game_settings import get_idx, get_state_names
-from pi.utils import args_utils
+from pi.utils import args_utils, smp_utils
+
 from src import config
 
 
@@ -88,23 +87,28 @@ def micro_program2behaviors(args, data):
     behaviors = []
     for action, states in data.items():
         masks = all_exist_mask(states, state_name_list)
-        for sr in state_relate_2_aries:
+        for objs in state_relate_2_aries:
             for mask_name, mask in masks.items():
                 for idx in idx_list:
                     # select data
-                    data_A = states[mask, sr[0]]
-                    data_B = states[mask, sr[1]]
+                    data_A = states[mask, objs[0]]
+                    data_B = states[mask, objs[1]]
                     if len(data_A) == 0:
                         continue
                     data_A = data_A[:, idx]
                     data_B = data_B[:, idx]
                     for pred in predicate.preds:
-                        satisfy, parameter = pred(data_A, data_B, sr)
+                        satisfy = pred.fit(data_A, data_B, objs)
                         if satisfy:
-                            print(f'new pred, grounded_objs:{sr}, action:{action}')
+                            p_space = smp_utils.get_param_range(pred.p_bound['min'], pred.p_bound['max'],
+                                                                config.smp_param_unit)
+                            pred.update_p_space(p_space)
+
+
+                        if satisfy:
+                            print(f'new pred, grounded_objs:{objs}, action:{action}')
                             behavior = {'pred': pred,
-                                        'parameter': parameter,
-                                        'grounded_objs': sr,
+                                        'grounded_objs': objs,
                                         'grounded_prop': idx,
                                         'action': action,
                                         'mask': mask_name
@@ -128,56 +132,8 @@ def find_pred_parameters_in_smps(smps, pred):
     parameter = None
     for smp in smps:
         if smp.pred_funcs[0] == pred:
-            parameter = smp.parameters
+            parameter = smp.p_bound
     return parameter
-
-
-def extract_counteract_behaviors(args, smps, states, behavior_actions, neural_actions):
-    """ record a new behavior for each counter state """
-
-    counteract_behaviors = []
-    idx_list = get_idx(args)
-    state_name_list = get_state_names(args)
-    state_relate_2_aries = [[i_1, i_2] for i_1, s_1 in enumerate(state_name_list) for i_2, s_2 in
-                            enumerate(state_name_list) if s_1 != s_2]
-
-    for state_i in range(len(states)):
-        behavior_action = behavior_actions[state_i]
-        neural_action = neural_actions[state_i]
-        counter_action = behavior_action - neural_action
-        state = states[state_i]
-        parameter = None
-        masks = all_exist_mask(state.unsqueeze(0), state_name_list)
-        explains = []
-        for obj_idx in state_relate_2_aries:
-            for mask_name, mask in masks.items():
-                if not mask:
-                    continue
-                for prop_idx in idx_list:
-                    behavior_pred = None
-                    # select data
-                    data_A = state[obj_idx[0]]
-                    data_B = state[obj_idx[1]]
-                    if len(data_A) == 0:
-                        continue
-                    data_A = data_A[prop_idx]
-                    data_B = data_B[prop_idx]
-                    for pred in predicate.preds:
-                        parameter = find_pred_parameters_in_smps(smps, pred)
-                        satisfy, _ = pred(data_A, data_B, obj_idx, avg_data=False, given_parameters=parameter)
-                        if satisfy:
-                            behavior_pred = pred
-                    if behavior_pred is not None:
-                        print(f'new behavior, grounded_objs:{obj_idx}, counter action:{counter_action}')
-                        explain = Explain(mask_name, behavior_pred, obj_idx, prop_idx, parameter)
-                        explains.append(explain)
-
-        behavior = Behavior(counter_action, neural_action, state, explains)
-        counteract_behaviors.append(behavior)
-
-
-
-    return counteract_behaviors
 
 
 def split_counter_behaviors(counter_behaviors):
@@ -185,10 +141,10 @@ def split_counter_behaviors(counter_behaviors):
     neural_actions = []
     splitted_behaviors = []
 
-    # get types of counter actions
+    # split based on smps
     for behavior in counter_behaviors:
-        counter_actions.append(behavior[0].counter_action.reshape(1, -1))
-        neural_actions.append(behavior[0].neural_action.reshape(1, -1))
+        counter_actions.append(behavior.counter_action.reshape(1, -1))
+        neural_actions.append(behavior.neural_action.reshape(1, -1))
     counter_actions = torch.cat(counter_actions, dim=0)
     neural_actions = torch.cat(neural_actions, dim=0)
 
@@ -210,10 +166,8 @@ def split_counter_behaviors(counter_behaviors):
     return splitted_behaviors
 
 
-
 def common_prop_behaviors(behaviors, prop_name):
-
-    value_space = [eval(f"state_behavior.{prop_name}") for state_behavior in behaviors[0]]
+    value_space = [eval(f"explain.{prop_name}") for explain in behaviors[0].explains]
     common_prop = []
     common_prop_behaviors = []
     # get types of counter actions
@@ -222,10 +176,10 @@ def common_prop_behaviors(behaviors, prop_name):
         common_prop_state_behavior = []
         for behavior in behaviors:
             exist_common_prop = False
-            for state_behavior in behavior:
-                if eval(f"state_behavior.{prop_name}") == value:
+            for explain in behavior.explains:
+                if eval(f"explain.{prop_name}") == value:
                     exist_common_prop = True
-                    common_prop_state_behavior.append(state_behavior)
+                    common_prop_state_behavior.append(explain)
                     break
 
             if not exist_common_prop:
@@ -238,36 +192,24 @@ def common_prop_behaviors(behaviors, prop_name):
 
     return common_prop_behaviors, common_prop
 
-def prune_behaviors(counteract_behaviors):
-    splitted_behaviors = split_counter_behaviors(counteract_behaviors)
 
-    behaviors = []
-    for behavior in splitted_behaviors:
-        common_objs_behavior, common_prop = common_prop_behaviors(behavior, "grounded_objs")
-        behaviors.append(common_objs_behavior)
-    return behaviors
-
-
-def micro_program2counteract_behaviors(args, neural_actions, states, behavior_smps):
-    # actions based on the neural agent
-    neural_actions = neural_actions.squeeze()
-    neural_actions[neural_actions > 0.8] = 1
-    neural_actions[neural_actions < 0.8] = 0
-
-    # actions based on the behaviors
-    behavior_actions = torch.zeros(size=neural_actions.size()).to(args.device)
-    for smp in behavior_smps:
-        action = smp(states, use_given_parameters=True)
-        behavior_actions += action
-
-    # if more than 1 action is possible for the current state
-    multi_possible_actions = torch.sum(behavior_actions, dim=1) > 1
-    counteract_behavior = extract_counteract_behaviors(args, behavior_smps,
-                                                       states[multi_possible_actions],
-                                                       behavior_actions[multi_possible_actions],
-                                                       neural_actions[multi_possible_actions])
-    counteract_behavior = prune_behaviors(counteract_behavior)
-    return counteract_behavior
+# def micro_program2counteract_params(args, neural_actions, states, behavior_smps):
+#     # actions based on the neural agent
+#     neural_actions = neural_actions.squeeze()
+#     neural_actions[neural_actions > 0.8] = 1
+#     neural_actions[neural_actions < 0.8] = 0
+#
+#     behavior_actions, params = pred_action_by_smps(args, behavior_smps, states)
+#     # if more than 1 action is possible for the current state
+#
+#     multiple_action_states = behavior_actions.sum(dim=1).sum(dim=1) > 1
+#     smp_counteract_params = extract_smp_counteract_params(args, behavior_smps,
+#                                                         states[multiple_action_states],
+#                                                         behavior_actions[multiple_action_states],
+#                                                         neural_actions[multiple_action_states],
+#                                                         params[multiple_action_states])
+#     # counteract_behavior = prune_behaviors(counteract_behavior)
+#     return smp_counteract_params
 
 
 def buffer2behaviors(args, buffer):
@@ -277,13 +219,6 @@ def buffer2behaviors(args, buffer):
     data = split_data_by_action(states, actions)
     behaviors = micro_program2behaviors(args, data)
 
-    return behaviors
-
-
-def buffer2counteract_bahaviors(args, buffer, behavior_smps):
-    actions = buffer.action_probs
-    states = buffer.logic_states
-    behaviors = micro_program2counteract_behaviors(args, actions, states, behavior_smps)
     return behaviors
 
 
@@ -326,13 +261,6 @@ class RolloutBuffer:
 def buffer2clauses(args, buffer):
     agent_behaviors = buffer2behaviors(args, buffer)
     clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
-    return clauses
-
-
-def buffer2counteract_clauses(args, pred_actions, buffer, behavior_smps):
-    agent_counteract_behaviors = buffer2counteract_bahaviors(args, buffer, behavior_smps)
-    # clause-making
-    clauses = pi_lang.behaviors2clauses(args, agent_counteract_behaviors)
     return clauses
 
 
