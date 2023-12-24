@@ -65,8 +65,12 @@ class Similar():
 
 
     def eval(self, t1, t2):
-        p_values = torch.abs(torch.sub(t1, t2))
-        satisfy = p_values
+        p_values = torch.round(torch.abs(torch.sub(t1, t2)), decimals=2)
+        satisfy = torch.zeros(p_values.size(), dtype=torch.bool)
+        for v_i, value in enumerate(p_values):
+            if value in self.p_space:
+                satisfy[v_i] = True
+
         return satisfy, p_values
 
 
