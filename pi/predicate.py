@@ -7,7 +7,6 @@ class Ge():
     def __init__(self):
         super().__init__()
         self.p_bound = {}
-        self.p_space = torch.zeros(1)
         self.name = "greater_or_equal_than"
 
     def fit(self, t1, t2, objs):
@@ -26,13 +25,10 @@ class Ge():
 
         return satisfy
 
-    def eval(self, t1, t2):
+    def eval(self, t1, t2, p_space):
         satisfy = torch.ge(t1, t2).float().bool()
         p_values = torch.zeros(size=satisfy.size())
         return satisfy, p_values
-
-    def update_p_space(self, p_space):
-        pass
 
 
 class Similar():
@@ -42,7 +38,6 @@ class Similar():
     def __init__(self):
         super().__init__()
         self.p_bound = {}
-        self.p_space = torch.zeros(1)
         self.name = "as_similar_as"
 
     def fit(self, t1, t2, objs):
@@ -60,15 +55,11 @@ class Similar():
             self.p_bound['max'] = torch.round(mean + var * 0.5, decimals=2)
         return satisfy
 
-    def update_p_space(self, p_space):
-        self.p_space = p_space
-
-
-    def eval(self, t1, t2):
+    def eval(self, t1, t2, p_space):
         p_values = torch.round(torch.abs(torch.sub(t1, t2)), decimals=2)
         satisfy = torch.zeros(p_values.size(), dtype=torch.bool)
         for v_i, value in enumerate(p_values):
-            if value in self.p_space:
+            if value in p_space:
                 satisfy[v_i] = True
 
         return satisfy, p_values

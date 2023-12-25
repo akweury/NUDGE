@@ -33,17 +33,17 @@ class MicroProgram(nn.Module):
         exist_res = torch.prod(mask_batches == state_exists, dim=1)
         return exist_res.bool()
 
-    def forward(self, x, avg_data=False, use_given_parameters=False):
+    def forward(self, x, avg_data=False):
         # game Getout: tensor with size batch_size * 4 * 6
         satisfies = torch.ones(x.size(0), dtype=torch.bool)
-        if use_given_parameters:
-            given_parameters = self.p_bound
-        else:
-            given_parameters = None
+        # if use_given_parameters:
+        #     given_parameters = self.p_bound
+        # else:
+        #     given_parameters = None
 
-        data_A = x[:, self.obj_codes[0], self.prop_codes].squeeze()
-        data_B = x[:, self.obj_codes[1], self.prop_codes].squeeze()
-        func_satisfy, p_values = self.pred_funcs.eval(data_A, data_B)
+        data_A = x[:, self.obj_codes[0], self.prop_codes].reshape(-1)
+        data_B = x[:, self.obj_codes[1], self.prop_codes].reshape(-1)
+        func_satisfy, p_values = self.pred_funcs.eval(data_A, data_B, self.p_space)
 
         satisfies *= func_satisfy
 
@@ -53,5 +53,7 @@ class MicroProgram(nn.Module):
         # return action probs
         action_probs = torch.zeros(x.size(0), len(self.action))
         action_probs[satisfies] += self.action
+
+        action_probs[satisfies] = action_probs[satisfies] / (action_probs[satisfies] + 1e-20)
 
         return action_probs, p_values

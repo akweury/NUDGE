@@ -23,11 +23,11 @@ from pi import Reasoner
 
 
 class SymbolicMicroProgramModel(nn.Module):
-    def __init__(self, args, clauses, rng=None):
+    def __init__(self, args, clauses,smps, rng=None):
         super(SymbolicMicroProgramModel, self).__init__()
         self.rng = random.Random() if rng is None else rng
         self.args = args
-        self.actor = Reasoner.SmpReasoner(args, clauses)
+        self.actor = Reasoner.SmpReasoner(args, smps)
 
 
     def forward(self):
@@ -211,9 +211,9 @@ class LogicPPO:
 
 
 class SymbolicMicroProgramPlayer:
-    def __init__(self, args, clauses):
+    def __init__(self, args, clauses, smps):
         self.args = args
-        self.model = SymbolicMicroProgramModel(args, clauses).actor.to(args.device)
+        self.model = SymbolicMicroProgramModel(args, clauses, smps).actor.to(args.device)
 
     def act(self, state):
         if self.args.m == 'getout':

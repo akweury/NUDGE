@@ -1,7 +1,7 @@
 # Created by jing at 01.12.23
 import torch
 
-import pi.smp
+import pi.sm_program
 from src.utils_game import render_getout, render_threefish, render_loot, render_ecoinrun, render_atari
 from src.agents.neural_agent import ActorCritic, NeuralPlayer
 from src.agents.logic_agent import NSFR_ActorCritic, LogicPlayer
@@ -10,7 +10,7 @@ from src.agents import smp_agent
 from src import config
 
 from pi.utils import log_utils, args_utils
-from pi import behavior, smp, pi_lang
+from pi import behavior, sm_program, pi_lang
 
 
 
@@ -43,10 +43,10 @@ def load_model(args, set_eval=True):
     return model
 
 
-def create_agent(args, clauses):
+def create_agent(args, clauses, smps):
     #### create agent
     if args.agent == "smp":
-        agent = smp_agent.SymbolicMicroProgramPlayer(args, clauses)
+        agent = smp_agent.SymbolicMicroProgramPlayer(args, clauses, smps)
     elif args.agent == 'random':
         agent = RandomPlayer(args)
     elif args.agent == 'human':
@@ -72,16 +72,10 @@ def main():
     clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
 
     # making behavior symbolic microprogram
-    behavior_smps = smp.behavior2smps(args, agent_behaviors)
-    # update parameters in smps
-    smp.rectify_smps(args, buffer, behavior_smps)
-
-
-    # two types of clauses are both considered as game rules
-    clauses = clauses
+    behavior_smps = sm_program.behavior2smps(args,buffer, agent_behaviors)
 
     # create a game agent
-    agent = create_agent(args, clauses)
+    agent = create_agent(args, clauses, behavior_smps)
 
     #### Continue to render
     if args.m == 'getout':

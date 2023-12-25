@@ -100,12 +100,6 @@ def micro_program2behaviors(args, data):
                     for pred in predicate.preds:
                         satisfy = pred.fit(data_A, data_B, objs)
                         if satisfy:
-                            p_space = smp_utils.get_param_range(pred.p_bound['min'], pred.p_bound['max'],
-                                                                config.smp_param_unit)
-                            pred.update_p_space(p_space)
-
-
-                        if satisfy:
                             print(f'new pred, grounded_objs:{objs}, action:{action}')
                             behavior = {'pred': pred,
                                         'grounded_objs': objs,
