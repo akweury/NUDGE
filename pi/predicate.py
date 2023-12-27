@@ -1,12 +1,14 @@
 # Created by jing at 28.11.23
 import torch
+
+
 class Ge():
     """ generate one micro-program
     """
 
     def __init__(self):
         super().__init__()
-        self.p_bound = {}
+        self.p_bound = {"min": 0, "max": 0}
         self.name = "greater_or_equal_than"
 
     def fit(self, t1, t2, objs):
@@ -37,7 +39,7 @@ class Similar():
 
     def __init__(self):
         super().__init__()
-        self.p_bound = {}
+        self.p_bound = {"min": 0, "max": 0}
         self.name = "as_similar_as"
 
     def fit(self, t1, t2, objs):
@@ -95,6 +97,10 @@ def similar(t1, t2, sr, p_values, batch_data=True, avg_data=True, given_paramete
             satisfy = dist < given_parameters["max"]
 
     return satisfy, p_bound, p_values
+
+
+def get_preds():
+    return [Ge(), Similar()]
 
 
 preds = [Ge(), Similar()]

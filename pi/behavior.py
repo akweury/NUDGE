@@ -97,17 +97,27 @@ def micro_program2behaviors(args, data):
                         continue
                     data_A = data_A[:, idx]
                     data_B = data_B[:, idx]
-                    for pred in predicate.preds:
+                    pred_true = []
+                    pred_false = []
+
+                    # distinguish predicates
+                    for p_i, pred in enumerate(predicate.get_preds()):
                         satisfy = pred.fit(data_A, data_B, objs)
                         if satisfy:
-                            print(f'new pred, grounded_objs:{objs}, action:{action}')
-                            behavior = {'pred': pred,
-                                        'grounded_objs': objs,
-                                        'grounded_prop': idx,
-                                        'action': action,
-                                        'mask': mask_name
-                                        }
-                            behaviors.append(behavior)
+                            pred_true.append(pred)
+                        else:
+                            pred.name = "not_" + pred.name
+                            pred_false.append(pred)
+                    if (len(pred_true)) > 0:
+                        print(f'new pred, grounded_objs:{objs}, action:{action}')
+                        behavior = {'true_pred': pred_true,
+                                    'false_pred': pred_false,
+                                    'grounded_objs': objs,
+                                    'grounded_prop': idx,
+                                    'action': action,
+                                    'mask': mask_name
+                                    }
+                        behaviors.append(behavior)
 
     return behaviors
 

@@ -66,8 +66,7 @@ def load_args(exp_args_path):
     make_deterministic(args.seed)
     if args.m == "getout":
         args.state_names = config.state_name_getout
-        args.action_names = config.action_name_getout
-        args.counter_action_names = config.counter_action_name_getout
+        args.action_names = config.action_names
         args.prop_names = config.prop_name_getout
     elif args.m == "threefish":
         args.state_names = config.state_name_threefish

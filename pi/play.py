@@ -61,10 +61,6 @@ def main():
     args = args_utils.load_args(config.path_exps)
     buffer = behavior.load_buffer(args)
 
-    # train an action predicting model
-    # action_imitation_model = train.train_clause_weights(args, buffer)
-    # pred_actions = action_imitation_model(buffer.logic_states.unsqueeze(1)).argmax(dim=1)
-
     # observe behaviors from buffer
     agent_behaviors = behavior.buffer2behaviors(args, buffer)
 

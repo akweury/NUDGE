@@ -41,7 +41,7 @@ path_log = path_output / "logs"
 if not os.path.exists(path_log):
     os.mkdir(path_log)
 
-path_exps = root/ "exps"
+path_exps = root / "exps"
 if not os.path.exists(path_exps):
     os.mkdir(path_exps)
 
@@ -65,8 +65,12 @@ state_idx_threefish_y = 4
 state_name_getout = ['agent', 'key', 'door', 'enemy']
 state_name_threefish = ['agent', 'fish1', 'fish2']
 
-action_name_getout = ["left", "right", "jump"]
-counter_action_name_getout = ["not_left", "not_right", "not_jump"]
+action_getout_dict = {"left": [1, 0, 0],
+                      "right": [0, 1, 0],
+                      "jump": [0, 0, 1],
+                      "idle": [0, 0, 0]}
+
+action_names = ["left", "right", "jump"]
 
 action_name_threefish = ["left", "right", "jump"]
 counter_action_name_threefish = ["not_left", "not_right", "not_jump"]
@@ -78,7 +82,7 @@ mask_splitter = "#"
 
 func_pred_name = "func_pred"
 exist_pred_name = "exist_pred"
-action_pred_name= "action_pred"
+action_pred_name = "action_pred"
 counter_action_pred_name = "counter_action_pred"
 
 model_name_weight = "checkpoint-99.pth.tar"

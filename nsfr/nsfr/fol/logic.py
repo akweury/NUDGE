@@ -354,8 +354,8 @@ class InvPredicate():
         dtypes (List[DataTypes]): The data types of the arguments for the invented predicate.
     """
 
-    def __init__(self, name, arity, dtypes, p_type, grounded_prop=None, grounded_objs=None, pred_func=None,
-                 parameter_min=None, parameter_max=None):
+    def __init__(self, name, arity, dtypes, p_type, grounded_prop=None, grounded_objs=None,
+                 pred_func=None, parameter_min=None, parameter_max=None):
         self.name = name
         self.arity = arity
         self.dtypes = dtypes  # mode = List[dtype]
