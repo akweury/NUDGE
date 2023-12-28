@@ -49,11 +49,13 @@ def extract_pred_func_data(args, behavior):
 def behavior2smp(args, behavior):
     action = extract_action(args, behavior)
     existence_mask = extract_existence_mask(args, behavior)
-    p_space = smp_utils.get_param_range(behavior['pred'].p_bound['min'], behavior['pred'].p_bound['max'],
-                                        config.smp_param_unit)
-    smp = MicroProgram(action, existence_mask, behavior['grounded_objs'], behavior['grounded_prop'],
-                       behavior['pred'], behavior['pred'].p_bound, p_space)
-
+    p_spaces = []
+    preds = []
+    for p_i, pred in enumerate(behavior["preds"]):
+        if behavior["p_satisfication"][p_i]:
+            preds.append(pred)
+            p_spaces.append(smp_utils.get_param_range(pred.p_bound['min'], pred.p_bound['max'], config.smp_param_unit))
+    smp = MicroProgram(action, existence_mask, behavior['grounded_objs'], behavior['grounded_prop'], preds, p_spaces)
     return smp
 
 
@@ -69,37 +71,35 @@ def behavior2smps(args, buffer, behaviors):
     return smps
 
 
-def extract_smp_counteract_params(smps, behavior_actions, neural_actions, params):
+def extract_smp_counteract_params(smps, behavior_actions, neural_actions, counter_params):
     # smp_counter_params = {i: [] for i in range(len(smps))}
     for state_i in range(len(behavior_actions)):
         counter_actions = behavior_actions[state_i]
         neural_action = neural_actions[state_i]
-        param = params[state_i]
+        state_params = counter_params[state_i]
 
-        for smp_i, counter_action in enumerate(counter_actions):
+        for smp_i, smp in enumerate(smps):
+            counter_action = counter_actions[smp_i]
             # if counter action is not equal to neural action
             if counter_action.sum() > 0 and torch.prod(counter_action == neural_action) == 0:
                 # counter action should not be inferred under such scenarios
-                smp = smps[smp_i]
-                parameter = param[smp_i]
-                if parameter in smp.p_space:
-                    smp.p_space = torch.where(smp.p_space == parameter, 0, smp.p_space)
-                # smp_counter_params[smp_i].append(parameter.unsqueeze(0))
-    # for smp_i in smp_counter_params.keys():
-    #     if len(smp_counter_params[smp_i]) > 0:
-    #         smp_counter_params[smp_i] = torch.cat(smp_counter_params[smp_i], dim=0)
+                smp_params = state_params[smp_i]
+                for p_i, p_space in enumerate(smp.p_spaces):
+                    p_param = smp_params[p_i]
+                    if p_param in p_space:
+                        smp.p_spaces[p_i] = torch.where(p_space == p_param, 0, p_space)
 
 
 def pred_action_by_smps(args, smps, states):
     behavior_actions = torch.zeros(size=(len(smps), states.size(0), len(args.action_names))).to(args.device)
-    parameters = []
+    p_parameters = []
     for s_i, smp in enumerate(smps):
-        action, params = smp(states)
+        action, p_params = smp(states)
         behavior_actions[s_i] = action
-        parameters.append(params.unsqueeze(0))
-
-    parameters = torch.cat(parameters, dim=0)
-    parameters = parameters.permute(1, 0)
+        p_params = torch.cat(p_params, dim=0)
+        p_parameters.append(p_params.unsqueeze(0))
+    p_parameters = torch.cat(p_parameters, dim=0)
+    parameters = p_parameters.permute(2, 0, 1)
     behavior_actions = behavior_actions.permute(1, 0, 2)
 
     return behavior_actions, parameters

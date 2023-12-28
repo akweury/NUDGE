@@ -9,15 +9,15 @@ class MicroProgram(nn.Module):
     """ generate one micro-program
     """
 
-    def __init__(self, action, mask, obj_codes, prop_codes, pred_funcs, p_bound, p_space):
+    def __init__(self, action, mask, obj_codes, prop_codes, preds, p_spaces):
         super().__init__()
         self.action = action
         self.mask = mask
         self.obj_codes = obj_codes
         self.prop_codes = prop_codes
-        self.pred_funcs = pred_funcs
-        self.p_bound = p_bound
-        self.p_space = p_space
+        self.preds = preds
+        self.p_spaces = p_spaces
+
         assert len(self.prop_codes) == 1
 
     def check_exists(self, x):
@@ -43,9 +43,13 @@ class MicroProgram(nn.Module):
 
         data_A = x[:, self.obj_codes[0], self.prop_codes].reshape(-1)
         data_B = x[:, self.obj_codes[1], self.prop_codes].reshape(-1)
-        func_satisfy, p_values = self.pred_funcs.eval(data_A, data_B, self.p_space)
 
-        satisfies *= func_satisfy
+        p_spaces = []
+        for p_i, pred in enumerate(self.preds):
+            p_space = self.p_spaces[p_i]
+            func_satisfy, p_values = pred.eval(data_A, data_B, p_space)
+            p_spaces.append(p_values.unsqueeze(0))
+            satisfies *= func_satisfy
 
         exist_satisfy = self.check_exists(x)
         satisfies *= exist_satisfy
@@ -53,7 +57,6 @@ class MicroProgram(nn.Module):
         # return action probs
         action_probs = torch.zeros(x.size(0), len(self.action))
         action_probs[satisfies] += self.action
-
         action_probs[satisfies] = action_probs[satisfies] / (action_probs[satisfies] + 1e-20)
 
-        return action_probs, p_values
+        return action_probs, p_spaces

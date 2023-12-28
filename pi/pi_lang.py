@@ -40,10 +40,11 @@ def generate_exist_predicate(existence, obj_name):
     return pred
 
 
-def generate_func_predicate(args, behavior, pred):
+def generate_func_predicate(args, behavior, p_i):
     obj_A = args.state_names[behavior["grounded_objs"][0]]
     obj_B = args.state_names[behavior["grounded_objs"][1]]
     prop_name = args.prop_names[behavior['grounded_prop'][0]]
+    pred = behavior["preds"][p_i]
     pred_func_name = pred.name
 
     pred_name = obj_A + "_" + prop_name + "_" + pred_func_name + "_" + obj_B
@@ -68,9 +69,10 @@ def behavior_predicate_as_func_atom(args, behavior):
     # behavior['grounded_objs'] determines terms in the clause
     terms = extract_behavior_terms(args, behavior)
     func_atom = []
-    for pred in behavior["true_pred"] + behavior["false_pred"]:
-        func_pred = generate_func_predicate(args, behavior, pred)
-        func_atom.append(Atom(func_pred, terms))
+    for p_i, pred in enumerate(behavior['preds']):
+        if behavior["p_satisfication"][p_i]:
+            func_pred = generate_func_predicate(args, behavior, p_i)
+            func_atom.append(Atom(func_pred, terms))
     return func_atom
 
 

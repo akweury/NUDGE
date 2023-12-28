@@ -97,26 +97,16 @@ def micro_program2behaviors(args, data):
                         continue
                     data_A = data_A[:, idx]
                     data_B = data_B[:, idx]
-                    pred_true = []
-                    pred_false = []
-
                     # distinguish predicates
-                    for p_i, pred in enumerate(predicate.get_preds()):
-                        satisfy = pred.fit(data_A, data_B, objs)
-                        if satisfy:
-                            pred_true.append(pred)
-                        else:
-                            pred.name = "not_" + pred.name
-                            pred_false.append(pred)
-                    if (len(pred_true)) > 0:
+                    all_preds = predicate.get_preds()
+                    p_satisfication = torch.zeros(len(all_preds), dtype=torch.bool)
+                    for p_i, pred in enumerate(all_preds):
+                        p_satisfication[p_i] = pred.fit(data_A, data_B, objs)
+                    if (p_satisfication.sum()) > 0:
                         print(f'new pred, grounded_objs:{objs}, action:{action}')
-                        behavior = {'true_pred': pred_true,
-                                    'false_pred': pred_false,
-                                    'grounded_objs': objs,
-                                    'grounded_prop': idx,
-                                    'action': action,
-                                    'mask': mask_name
-                                    }
+                        behavior = {'preds': all_preds, 'p_satisfication': p_satisfication,
+                                    'grounded_objs': objs, 'grounded_prop': idx,
+                                    'action': action, 'mask': mask_name}
                         behaviors.append(behavior)
 
     return behaviors
