@@ -142,16 +142,7 @@ python -m src.collect_data -m getout -env getout -mo get_out_ppo
 python -m src.collect_data -m threefish -env threefish -mo three_fish
 ```
 
-
-##### RUN Symbolic Micro Program Searching
-``` 
-python3 smp_search.py -m getout -r getout_root -t 3 -n 8 --scoring True -d getout.json
-```
-
 ##### Play SMP Player
 ``` 
-python3 play.py -s 0 --agent logic -m getout -env getout  -r getout_human_assisted --render
-python3 play.py -s 0 --agent smp -m getout -env getout --render -d getout.json
-python3 play.py -s 0 --agent smp -m getout -env getout --render -d getout.json
-python3 micro_program_generator.py -s 0 --agent smp -m getout -env getout --render -d getout.json
+python3 play.py -s 0 --agent smp -m getout -env getout -d getout.json --render
 ```

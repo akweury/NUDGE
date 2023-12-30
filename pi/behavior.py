@@ -78,7 +78,7 @@ def state_exist_mask(state, state_names):
 def micro_program2behaviors(args, data):
     # micro-programs
     # TODO: print micro-programs structure
-    idx_list = get_idx(args)
+    prop_list = get_idx(args)
     state_name_list = get_state_names(args)
 
     state_relate_2_aries = [[i_1, i_2] for i_1, s_1 in enumerate(state_name_list) for i_2, s_2 in
@@ -89,14 +89,14 @@ def micro_program2behaviors(args, data):
         masks = all_exist_mask(states, state_name_list)
         for objs in state_relate_2_aries:
             for mask_name, mask in masks.items():
-                for idx in idx_list:
+                for prop_idx in prop_list:
                     # select data
                     data_A = states[mask, objs[0]]
                     data_B = states[mask, objs[1]]
                     if len(data_A) == 0:
                         continue
-                    data_A = data_A[:, idx]
-                    data_B = data_B[:, idx]
+                    data_A = data_A[:, prop_idx]
+                    data_B = data_B[:, prop_idx]
                     # distinguish predicates
                     all_preds = predicate.get_preds()
                     p_satisfication = torch.zeros(len(all_preds), dtype=torch.bool)
@@ -105,7 +105,7 @@ def micro_program2behaviors(args, data):
                     if (p_satisfication.sum()) > 0:
                         print(f'new pred, grounded_objs:{objs}, action:{action}')
                         behavior = {'preds': all_preds, 'p_satisfication': p_satisfication,
-                                    'grounded_objs': objs, 'grounded_prop': idx,
+                                    'grounded_objs': objs, 'grounded_prop': prop_idx,
                                     'action': action, 'mask': mask_name}
                         behaviors.append(behavior)
 

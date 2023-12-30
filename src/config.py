@@ -34,8 +34,11 @@ path_check_point = root / "checkpoints"
 path_image = root / "image"
 path_runs = root / "runs"
 path_model = root / 'models'
-path_output = root / ".." / ".." / "storage"
 path_bs_data = root / "bs_data"
+
+path_output = root / ".." / ".." / "storage"
+if not os.path.exists(path_output):
+    os.mkdir(path_output)
 
 path_log = path_output / "logs"
 if not os.path.exists(path_log):
