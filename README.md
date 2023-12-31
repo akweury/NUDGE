@@ -33,7 +33,31 @@ docker run --gpus all -it -v /home/ml-jsha/storage:/NUDGE/storage --rm ml-sha/nu
 
 ```
 
+
+
+
+
+---
 ## How to use
+
+### Train SMP Agent 
+
+##### Run a neural agent and save the game buffer
+``` 
+python -m src.collect_data -m getout -env getout -mo get_out_ppo
+python -m src.collect_data -m threefish -env threefish -mo three_fish
+```
+
+##### Run a SMP Player to learn the neural agent behavior from game buffer 
+Go to the folder `NUDGE/pi` and execute the python file `play.py`
+
+``` 
+python3 play.py -s 0 --agent smp -m getout -env getout -d getout.json --render
+```
+
+---
+
+### Logic agent
 
 **Example to play with a trained ppo agent**
 
@@ -135,14 +159,3 @@ python3 beam_search.py -m threefish -r threefishm_root -t 3 -n 8
 * **--scoring**: To score the searched rules, a dataset of states information is required.
 * **-d**: The name of dataset to be used for scoring.
 
----
-##### collect data
-``` 
-python -m src.collect_data -m getout -env getout -mo get_out_ppo
-python -m src.collect_data -m threefish -env threefish -mo three_fish
-```
-
-##### Play SMP Player
-``` 
-python3 play.py -s 0 --agent smp -m getout -env getout -d getout.json --render
-```
