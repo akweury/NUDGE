@@ -23,12 +23,11 @@ from pi import Reasoner
 
 
 class SymbolicMicroProgramModel(nn.Module):
-    def __init__(self, args, clauses,smps, rng=None):
+    def __init__(self, args, rng=None):
         super(SymbolicMicroProgramModel, self).__init__()
         self.rng = random.Random() if rng is None else rng
         self.args = args
-        self.actor = Reasoner.SmpReasoner(args, smps)
-
+        self.actor = Reasoner.SmpReasoner(args)
 
     def forward(self):
         raise NotImplementedError
@@ -211,9 +210,12 @@ class LogicPPO:
 
 
 class SymbolicMicroProgramPlayer:
-    def __init__(self, args, clauses, smps):
+    def __init__(self, args):
         self.args = args
-        self.model = SymbolicMicroProgramModel(args, clauses, smps).actor.to(args.device)
+        self.model = SymbolicMicroProgramModel(args).actor.to(args.device)
+
+    def update(self, smps):
+        self.model.update(smps)
 
     def act(self, state):
         if self.args.m == 'getout':

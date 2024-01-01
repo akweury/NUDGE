@@ -1,6 +1,8 @@
 # Created by jing at 01.12.23
 
 import torch
+
+import pi.game_env
 from pi import behavior, predicate
 from pi.MicroProgram import MicroProgram
 from pi.utils import args_utils, smp_utils, log_utils
@@ -146,7 +148,7 @@ def rectify_smps(args, buffer, behavior_smps):
 
 if __name__ == "__main__":
     args = args_utils.load_args(config.path_exps)
-    buffer = behavior.load_buffer(args)
+    buffer = pi.game_env.load_buffer(args)
     clauses = behavior.buffer2clauses(args, buffer)
 
     smps = behavior2smps(args, clauses)

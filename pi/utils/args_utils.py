@@ -9,8 +9,6 @@ from src.utils import make_deterministic
 from src import config
 from pi.utils import log_utils
 
-
-
 date_now = datetime.datetime.today().date()
 time_now = datetime.datetime.now().strftime("%H_%M_%S")
 
@@ -51,7 +49,7 @@ def load_args(exp_args_path):
     parser.add_argument("--resume", type=bool, default=False, help="Resume training from previous work")
     parser.add_argument("--eval_loss_best", type=float, default=1e+20, help="Best up-to-date evaluation loss")
     parser.add_argument("--rectify_num", type=int, default=5, help="Repeat times of smp rectification.")
-
+    parser.add_argument("--teacher_agent", type=str, default="neural", help="Type of the teacher agent.")
 
     args = parser.parse_args()
 
@@ -96,5 +94,3 @@ def load_args_from_file(args_file_path, given_args):
     else:
         print('\n==> Args file "{}" was not found!'.format(args_file_path))
     return None
-
-

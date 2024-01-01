@@ -1,13 +1,10 @@
 # Created by jing at 27.11.23
 
 import torch
-import json
 from itertools import compress
+
 from pi import pi_lang, predicate
 from pi.game_settings import get_idx, get_state_names
-from pi.utils import args_utils, smp_utils
-
-from src import config
 
 
 def split_data_by_action(states, actions):
@@ -216,56 +213,7 @@ def buffer2behaviors(args, buffer):
     return behaviors
 
 
-class RolloutBuffer:
-    def __init__(self):
-        self.actions = []
-        self.logic_states = []
-        self.neural_states = []
-        self.action_probs = []
-        self.logprobs = []
-        self.rewards = []
-        self.terminated = []
-        self.predictions = []
-
-    def clear(self):
-        del self.actions[:]
-        del self.logic_states[:]
-        del self.neural_states[:]
-        del self.action_probs[:]
-        del self.logprobs[:]
-        del self.rewards[:]
-        del self.terminated[:]
-        del self.predictions[:]
-
-    def load_buffer(self, args):
-        file_name = str(config.path_bs_data / args.d)
-        with open(file_name, 'r') as f:
-            state_info = json.load(f)
-
-        self.actions = torch.tensor(state_info['actions']).to(args.device)
-        self.logic_states = torch.tensor(state_info['logic_states']).to(args.device)
-        self.neural_states = torch.tensor(state_info['neural_states']).to(args.device)
-        self.action_probs = torch.tensor(state_info['action_probs']).to(args.device)
-        self.logprobs = torch.tensor(state_info['logprobs']).to(args.device)
-        self.rewards = torch.tensor(state_info['reward']).to(args.device)
-        self.terminated = torch.tensor(state_info['terminated']).to(args.device)
-        self.predictions = torch.tensor(state_info['predictions']).to(args.device)
-
-
 def buffer2clauses(args, buffer):
     agent_behaviors = buffer2behaviors(args, buffer)
     clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
     return clauses
-
-
-def load_buffer(args):
-    buffer = RolloutBuffer()
-    buffer.load_buffer(args)
-    return buffer
-
-
-if __name__ == "__main__":
-    args = args_utils.load_args()
-    buffer = load_buffer(args)
-    clauses = buffer2clauses(args, buffer)
-    print("program finished!")

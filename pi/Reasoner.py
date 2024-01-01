@@ -10,12 +10,15 @@ class SmpReasoner(nn.Module):
     """ take game state as input, produce conf. of each actions
     """
 
-    def __init__(self, args, smps):
+    def __init__(self, args):
         super().__init__()
         self.args = args
-        self.smps = smps
+        self.smps = None
         self.action_prob = None
         # self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
+
+    def update(self, smps):
+        self.smps = smps
 
     def action_combine(self):
 

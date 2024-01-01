@@ -1,17 +1,14 @@
 # Created by jing at 01.12.23
 import torch
 
-import pi.sm_program
+from pi.game_env import create_agent
 from src.utils_game import render_getout, render_threefish, render_loot, render_ecoinrun, render_atari
-from src.agents.neural_agent import ActorCritic, NeuralPlayer
-from src.agents.logic_agent import NSFR_ActorCritic, LogicPlayer
-from src.agents.random_agent import RandomPlayer
-from src.agents import smp_agent
+from src.agents.neural_agent import ActorCritic
+from src.agents.logic_agent import NSFR_ActorCritic
 from src import config
 
-from pi.utils import log_utils, args_utils
-from pi import behavior, sm_program, pi_lang
-
+from pi.utils import args_utils
+from pi import behavior, sm_program, pi_lang, game_env
 
 
 def load_model(args, set_eval=True):
@@ -43,23 +40,29 @@ def load_model(args, set_eval=True):
     return model
 
 
-def create_agent(args, clauses, smps):
-    #### create agent
-    if args.agent == "smp":
-        agent = smp_agent.SymbolicMicroProgramPlayer(args, clauses, smps)
-    elif args.agent == 'random':
-        agent = RandomPlayer(args)
-    elif args.agent == 'human':
-        agent = 'human'
+def load_buffer(args):
+    if args.teacher_agent == "neural":
+        buffer = game_env.load_buffer(args)
+    elif args.teacher_agent == "random":
+        buffer = game_env.run_random_game(args)
     else:
         raise ValueError
 
-    return agent
+    return buffer
 
 
 def main():
+    # load arguments
     args = args_utils.load_args(config.path_exps)
-    buffer = behavior.load_buffer(args)
+
+    # create a game agent
+    agent = create_agent(args)
+
+    # prepare training data
+    game_env.play_games_and_collect_data(args, agent)
+
+    # load game buffer
+    buffer = load_buffer(args)
 
     # observe behaviors from buffer
     agent_behaviors = behavior.buffer2behaviors(args, buffer)
@@ -68,24 +71,13 @@ def main():
     clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
 
     # making behavior symbolic microprogram
-    behavior_smps = sm_program.behavior2smps(args,buffer, agent_behaviors)
+    behavior_smps = sm_program.behavior2smps(args, buffer, agent_behaviors)
 
-    # create a game agent
-    agent = create_agent(args, clauses, behavior_smps)
+    # update game agent
+    agent.update(behavior_smps)
 
-    #### Continue to render
-    if args.m == 'getout':
-        render_getout(agent, args)
-    elif args.m == 'threefish':
-        render_threefish(agent, args)
-    elif args.m == 'loot':
-        render_loot(agent, args)
-    elif args.m == 'ecoinrun':
-        render_ecoinrun(agent, args)
-    elif args.m == 'atari':
-        render_atari(agent, args)
-    else:
-        raise ValueError("Game not exist.")
+    # Test updated agent
+    game_env.play_games_and_render(args, agent)
 
 
 if __name__ == "__main__":
