@@ -40,17 +40,6 @@ def load_model(args, set_eval=True):
     return model
 
 
-def load_buffer(args):
-    if args.teacher_agent == "neural":
-        buffer = game_env.load_buffer(args)
-    elif args.teacher_agent == "random":
-        buffer = game_env.run_random_game(args)
-    else:
-        raise ValueError
-
-    return buffer
-
-
 def main():
     # load arguments
     args = args_utils.load_args(config.path_exps)
@@ -58,11 +47,11 @@ def main():
     # create a game agent
     agent = create_agent(args)
 
-    # prepare training data
+    # prepare training data and saved as a json file
     game_env.play_games_and_collect_data(args, agent)
 
     # load game buffer
-    buffer = load_buffer(args)
+    buffer = game_env.load_buffer(args)
 
     # observe behaviors from buffer
     agent_behaviors = behavior.buffer2behaviors(args, buffer)
