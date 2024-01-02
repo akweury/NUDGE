@@ -1,5 +1,6 @@
 # Created by shaji at 01/01/2024
 import json
+import shutil
 import os
 import random
 import torch
@@ -16,7 +17,8 @@ from nsfr.nsfr.utils import extract_for_cgen_explaining
 
 
 class RolloutBuffer:
-    def __init__(self):
+    def __init__(self, filename):
+        self.filename = config.path_output / 'bs_data' / filename
         self.actions = []
         self.logic_states = []
         self.neural_states = []
@@ -37,8 +39,7 @@ class RolloutBuffer:
         del self.predictions[:]
 
     def load_buffer(self, args):
-        file_name = str(config.path_bs_data / args.d)
-        with open(file_name, 'r') as f:
+        with open(config.path_bs_data / args.filename, 'r') as f:
             state_info = json.load(f)
 
         self.actions = torch.tensor(state_info['actions']).to(args.device)
@@ -50,23 +51,24 @@ class RolloutBuffer:
         self.terminated = torch.tensor(state_info['terminated']).to(args.device)
         self.predictions = torch.tensor(state_info['predictions']).to(args.device)
 
-    def save_data(self, args):
-        dict = {'actions': self.actions, 'logic_states': self.logic_states, 'neural_states': self.neural_states,
-                'action_probs': self.action_probs, 'logprobs': self.logprobs, 'reward': self.rewards,
-                'terminated': self.terminated, 'predictions': self.predictions}
+    def save_data(self):
+        data = {'actions': self.actions,
+                'logic_states': self.logic_states,
+                'neural_states': self.neural_states,
+                'action_probs': self.action_probs,
+                'logprobs': self.logprobs,
+                'reward': self.rewards,
+                'terminated': self.terminated,
+                'predictions': self.predictions
+                }
 
-        dataset = args.m + '_' + args.model_file + '.json'
-        path = config.path_output / 'bs_data'
-        if not os.path.exists(path):
-            os.mkdir(path)
-        file_name = path / dataset
-        with open(file_name, 'w') as f:
-            json.dump(dict, f)
-        print(f'data saved in file {file_name}')
+        with open(self.filename, 'w') as f:
+            json.dump(data, f)
+        print(f'data saved in file {self.filename}')
 
 
 def load_buffer(args):
-    buffer = RolloutBuffer()
+    buffer = RolloutBuffer(args.filename)
     buffer.load_buffer(args)
     return buffer
 
@@ -115,21 +117,27 @@ def create_getout_instance(seed=None):
 
 def play_games_and_collect_data(args, agent):
     if args.teacher_agent == "neural":
+        args.filename = args.m + ".json"
+        if not os.path.exists(config.path_bs_data / args.filename):
+            shutil.copyfile(config.path_saved_bs_data / args.filename, config.path_bs_data / args.filename)
         return
     elif args.teacher_agent == "random":
         args.model_file = "random"
+        max_states = 10000
         # play games using the random agent
         seed = random.seed() if args.seed is None else int(args.seed)
-        buffer = RolloutBuffer()
+        args.filename = args.m + '_' + args.model_file + '_' + str(max_states) + '.json'
+
+        buffer = RolloutBuffer(args.filename)
+        if os.path.exists(buffer.filename):
+            return
         # collect data
-        max_states = 50
-        save_frequence = 5
+
         step = 0
         collected_states = 0
         if args.m == 'getout':
             coin_jump = create_getout_instance(seed=seed)
             # frame rate limiting
-            fps = 10
             for i in tqdm(range(max_states)):
                 step += 1
                 # predict actions
@@ -137,20 +145,21 @@ def play_games_and_collect_data(args, agent):
                     action_probs = torch.rand(3)
                     action = torch.argmax(action_probs).cpu().item() + 1
                     logic_state = extract_for_cgen_explaining(coin_jump)
+                    reward = coin_jump.step(action)
                     # save state/actions
-                    if step % save_frequence == 0:
-                        collected_states += 1
-                        buffer.logic_states.append(logic_state.detach().tolist())
-                        buffer.actions.append(action - 1)
-                        buffer.action_probs.append(action_probs.tolist())
+                    # if reward > 0:
+                    collected_states += 1
+                    buffer.logic_states.append(logic_state.detach().tolist())
+                    buffer.actions.append(action - 1)
+                    buffer.action_probs.append(action_probs.tolist())
+                    buffer.rewards.append(reward)
+                    # print(f"- collected states: {collected_states}/{max_states}")
                 # start a new game
                 else:
                     coin_jump = create_getout_instance(seed=seed)
                     action = 0
 
-                reward = coin_jump.step(action)
-
-            buffer.save_data(args)
+            buffer.save_data()
         return
     else:
         raise ValueError("Teacher agent not exist.")

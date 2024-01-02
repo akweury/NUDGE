@@ -1,6 +1,7 @@
 # Created by jing at 28.11.23
 import torch
 
+
 class Ge():
     """ generate one micro-program
     """
@@ -11,12 +12,18 @@ class Ge():
         self.name = "greater_or_equal_than"
 
     def fit(self, t1, t2, objs):
+        th = 1e-1
+
         if t1.sum() == 0 or t2.sum() == 0:
             return False
 
-        # If all of A greater than B
-        th = 1e-1
-        var, mean = torch.var_mean(torch.ge(t1, t2).float())
+        # single state
+        if len(t1) == 1:
+            var, mean = torch.tensor(0), torch.ge(t1, t2).float()
+        # multiple states
+        else:
+            th = 1e-1
+            var, mean = torch.var_mean(torch.ge(t1, t2).float())
 
         satisfy = False
         if var < th and (1 - mean) < th:
@@ -42,12 +49,14 @@ class Le():
         self.name = "less_or_equal_than"
 
     def fit(self, t1, t2, objs):
+        th = 1e-1
         if t1.sum() == 0 or t2.sum() == 0:
             return False
 
-        # If all of A less than B
-        th = 1e-1
-        var, mean = torch.var_mean(torch.le(t1, t2).float())
+        if len(t1) == 1:
+            var, mean = torch.tensor(0), torch.le(t1, t2).float()
+        else:
+            var, mean = torch.var_mean(torch.le(t1, t2).float())
 
         satisfy = False
         if var < th and (1 - mean) < th:
@@ -73,13 +82,16 @@ class Similar():
         self.name = "as_similar_as"
 
     def fit(self, t1, t2, objs):
+        th = 0.6
+
         # repeat situation
         if objs[1] < objs[0] or t1.sum() == 0 or t2.sum() == 0:
             return False
 
-        th = 0.6
-        # If x distance between A and B is similar for all
-        var, mean = torch.var_mean(torch.abs(torch.sub(t1, t2)))
+        if len(t1) == 1:
+            var, mean = torch.tensor(0), torch.abs(torch.sub(t1, t2))
+        else:
+            var, mean = torch.var_mean(torch.abs(torch.sub(t1, t2)))
         satisfy = False
         if torch.abs(var / mean) < th:
             satisfy = True
@@ -95,6 +107,7 @@ class Similar():
                 satisfy[v_i] = True
 
         return satisfy, p_values
+
 
 class Different():
     """ generate one micro-program """
@@ -131,6 +144,7 @@ class Different():
 
 def get_preds():
     return [Ge(), Le(), Similar()]
+
 
 preds = [Ge(), Le(), Similar()]
 

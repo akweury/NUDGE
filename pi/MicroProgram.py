@@ -9,7 +9,7 @@ class MicroProgram(nn.Module):
     """ generate one micro-program
     """
 
-    def __init__(self, action, mask, obj_codes, prop_codes, preds, p_spaces):
+    def __init__(self, action, mask, obj_codes, prop_codes, preds, p_spaces, p_satisfication):
         super().__init__()
         self.action = action
         self.mask = mask
@@ -17,6 +17,7 @@ class MicroProgram(nn.Module):
         self.prop_codes = prop_codes
         self.preds = preds
         self.p_spaces = p_spaces
+        self.p_satisfication = p_satisfication
 
         assert len(self.prop_codes) == 1
 
@@ -47,7 +48,11 @@ class MicroProgram(nn.Module):
         p_spaces = []
         for p_i, pred in enumerate(self.preds):
             p_space = self.p_spaces[p_i]
-            func_satisfy, p_values = pred.eval(data_A, data_B, p_space)
+            p_satisfied = self.p_satisfication[p_i]
+            if not p_satisfied:
+                func_satisfy, p_values = torch.ones(data_A.size()).bool(), torch.zeros(size=data_A.size())
+            else:
+                func_satisfy, p_values = pred.eval(data_A, data_B, p_space)
             p_spaces.append(p_values.unsqueeze(0))
             satisfies *= func_satisfy
 

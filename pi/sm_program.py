@@ -52,12 +52,10 @@ def behavior2smp(args, behavior):
     action = extract_action(args, behavior)
     existence_mask = extract_existence_mask(args, behavior)
     p_spaces = []
-    preds = []
     for p_i, pred in enumerate(behavior["preds"]):
-        if behavior["p_satisfication"][p_i]:
-            preds.append(pred)
-            p_spaces.append(smp_utils.get_param_range(pred.p_bound['min'], pred.p_bound['max'], config.smp_param_unit))
-    smp = MicroProgram(action, existence_mask, behavior['grounded_objs'], behavior['grounded_prop'], preds, p_spaces)
+        p_spaces.append(smp_utils.get_param_range(pred.p_bound['min'], pred.p_bound['max'], config.smp_param_unit))
+    smp = MicroProgram(action, existence_mask, behavior['grounded_objs'], behavior['grounded_prop'], behavior["preds"],
+                       p_spaces, behavior["p_satisfication"])
     return smp
 
 
@@ -144,12 +142,3 @@ def rectify_smps(args, buffer, behavior_smps):
     # for s_i, smp in enumerate(behavior_smps):
     #     params = smp_counteract_params[s_i]
     #     rectify_smp(smp, params)
-
-
-if __name__ == "__main__":
-    args = args_utils.load_args(config.path_exps)
-    buffer = pi.game_env.load_buffer(args)
-    clauses = behavior.buffer2clauses(args, buffer)
-
-    smps = behavior2smps(args, clauses)
-    print("program finished!")

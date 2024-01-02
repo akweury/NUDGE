@@ -69,11 +69,11 @@ def get_args():
     if args.device != "cpu":
         args.device = int(args.device)
     if args.m == "getout":
-        args.state_names = config.state_name_getout
+        args.state_names = config.obj_name_getout
         args.action_names = config.action_getout_dict
         args.prop_names = config.prop_name_getout
     elif args.m == "threefish":
-        args.state_names = config.state_name_threefish
+        args.state_names = config.obj_name_threefish
         args.action_names = config.action_name_threefish
         args.prop_names = config.prop_name_threefish
     else:

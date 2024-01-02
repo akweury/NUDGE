@@ -21,11 +21,11 @@ def get_idx(args):
     return idx_list
 
 
-def get_state_names(args):
+def get_obj_names(args):
     if args.m == "threefish":
-        names = config.state_name_threefish
+        names = config.obj_name_threefish
     elif args.m == "getout":
-        names = config.state_name_getout
+        names = config.obj_name_getout
     else:
         raise ValueError
     return names

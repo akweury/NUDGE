@@ -34,11 +34,15 @@ path_check_point = root / "checkpoints"
 path_image = root / "image"
 path_runs = root / "runs"
 path_model = root / 'models'
-path_bs_data = root / "bs_data"
+path_saved_bs_data = root / "bs_data"
 
 path_output = root / ".." / ".." / "storage"
 if not os.path.exists(path_output):
     os.mkdir(path_output)
+
+path_bs_data = path_output / "bs_data"
+if not os.path.exists(path_bs_data):
+    os.mkdir(path_bs_data)
 
 path_log = path_output / "logs"
 if not os.path.exists(path_log):
@@ -65,8 +69,8 @@ state_idx_threefish_radius = 2
 state_idx_threefish_x = 3
 state_idx_threefish_y = 4
 
-state_name_getout = ['agent', 'key', 'door', 'enemy']
-state_name_threefish = ['agent', 'fish1', 'fish2']
+obj_name_getout = ['agent', 'key', 'door', 'enemy']
+obj_name_threefish = ['agent', 'fish1', 'fish2']
 
 action_getout_dict = {"left": [1, 0, 0],
                       "right": [0, 1, 0],

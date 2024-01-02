@@ -49,7 +49,7 @@ def load_args(exp_args_path):
     parser.add_argument("--resume", type=bool, default=False, help="Resume training from previous work")
     parser.add_argument("--eval_loss_best", type=float, default=1e+20, help="Best up-to-date evaluation loss")
     parser.add_argument("--rectify_num", type=int, default=5, help="Repeat times of smp rectification.")
-    parser.add_argument("--teacher_agent", type=str, default="random", help="Type of the teacher agent.")
+    parser.add_argument("--teacher_agent", type=str, default="neural", help="Type of the teacher agent.")
 
 
     args = parser.parse_args()
@@ -64,11 +64,11 @@ def load_args(exp_args_path):
     args.log_file = log_utils.create_log_file(config.path_log, args.exp_name)
     make_deterministic(args.seed)
     if args.m == "getout":
-        args.state_names = config.state_name_getout
+        args.state_names = config.obj_name_getout
         args.action_names = config.action_names
         args.prop_names = config.prop_name_getout
     elif args.m == "threefish":
-        args.state_names = config.state_name_threefish
+        args.state_names = config.obj_name_threefish
         args.action_names = config.action_name_threefish
         args.prop_names = config.prop_name_threefish
     else:
