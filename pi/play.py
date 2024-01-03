@@ -53,6 +53,9 @@ def main():
     # load game buffer
     buffer = game_env.load_buffer(args)
 
+    # TODO: remove lazy code:
+    args.env = 'getout'
+
     # observe behaviors from buffer
     agent_behaviors = behavior.buffer2behaviors(args, buffer)
 
@@ -63,7 +66,10 @@ def main():
     behavior_smps = sm_program.behavior2smps(args, buffer, agent_behaviors)
 
     # update game agent
-    agent.update(behavior_smps)
+    agent.update(behavior_smps, args.obj_type_indices)
+
+    # TODO: remove lazy code:
+    args.env = 'getoutplus'
 
     # Test updated agent
     game_env.play_games_and_render(args, agent)

@@ -54,8 +54,14 @@ def behavior2smp(args, behavior):
     p_spaces = []
     for p_i, pred in enumerate(behavior["preds"]):
         p_spaces.append(smp_utils.get_param_range(pred.p_bound['min'], pred.p_bound['max'], config.smp_param_unit))
-    smp = MicroProgram(action, existence_mask, behavior['grounded_objs'], behavior['grounded_prop'], behavior["preds"],
-                       p_spaces, behavior["p_satisfication"])
+    smp = MicroProgram(args.obj_type_names,
+                       action,
+                       existence_mask,
+                       behavior['grounded_types'],
+                       behavior['grounded_prop'],
+                       behavior["preds"],
+                       p_spaces,
+                       behavior["p_satisfication"])
     return smp
 
 
@@ -94,7 +100,7 @@ def pred_action_by_smps(args, smps, states):
     behavior_actions = torch.zeros(size=(len(smps), states.size(0), len(args.action_names))).to(args.device)
     p_parameters = []
     for s_i, smp in enumerate(smps):
-        action, p_params = smp(states)
+        action, p_params = smp(states, config.obj_type_indices_getout)
         behavior_actions[s_i] = action
         p_params = torch.cat(p_params, dim=0)
         p_parameters.append(p_params.unsqueeze(0))

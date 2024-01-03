@@ -11,7 +11,7 @@ from src import config
 
 def extract_behavior_terms(args, behavior):
     terms = []
-    for obj_code in behavior["grounded_objs"]:
+    for obj_code in behavior["grounded_types"]:
         obj_name = args.state_names[obj_code]
         terms.append(Var(obj_name))
 
@@ -41,8 +41,8 @@ def generate_exist_predicate(existence, obj_name):
 
 
 def generate_func_predicate(args, behavior, p_i):
-    obj_A = args.state_names[behavior["grounded_objs"][0]]
-    obj_B = args.state_names[behavior["grounded_objs"][1]]
+    obj_A = args.state_names[behavior["grounded_types"][0]]
+    obj_B = args.state_names[behavior["grounded_types"][1]]
     prop_name = args.prop_names[behavior['grounded_prop'][0]]
     pred = behavior["preds"][p_i]
     pred_func_name = pred.name

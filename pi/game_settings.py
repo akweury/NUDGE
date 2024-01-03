@@ -21,11 +21,20 @@ def get_idx(args):
     return idx_list
 
 
-def get_obj_names(args):
+def get_game_info(args):
+
     if args.m == "threefish":
-        names = config.obj_name_threefish
+        obj_types = config.obj_name_threefish
     elif args.m == "getout":
-        names = config.obj_name_getout
+        obj_types = config.obj_type_name_getout
     else:
         raise ValueError
-    return names
+
+    if args.env == 'getout':
+        obj_names = config.obj_type_indices_getout
+    elif args.env == 'getoutplus':
+        obj_names = config.obj_type_indices_getout_plus
+    else:
+        raise ValueError
+
+    return obj_types, obj_names

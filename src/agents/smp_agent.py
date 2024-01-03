@@ -214,8 +214,8 @@ class SymbolicMicroProgramPlayer:
         self.args = args
         self.model = SymbolicMicroProgramModel(args).actor.to(args.device)
 
-    def update(self, smps):
-        self.model.update(smps)
+    def update(self, smps, obj_type_indices):
+        self.model.update(smps, obj_type_indices)
 
     def act(self, state):
         if self.args.m == 'getout':

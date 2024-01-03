@@ -64,6 +64,7 @@ def load_args(exp_args_path):
     args.log_file = log_utils.create_log_file(config.path_log, args.exp_name)
     make_deterministic(args.seed)
     if args.m == "getout":
+        args.obj_type_names = config.obj_type_name_getout
         args.state_names = config.obj_name_getout
         args.action_names = config.action_names
         args.prop_names = config.prop_name_getout
@@ -71,6 +72,13 @@ def load_args(exp_args_path):
         args.state_names = config.obj_name_threefish
         args.action_names = config.action_name_threefish
         args.prop_names = config.prop_name_threefish
+    else:
+        raise ValueError
+
+    if args.env == 'getoutplus':
+        args.obj_type_indices = config.obj_type_indices_getout_plus
+    elif args.env == 'getout':
+        args.obj_type_indices = config.obj_type_indices_getout
     else:
         raise ValueError
 

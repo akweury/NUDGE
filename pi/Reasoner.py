@@ -3,8 +3,6 @@
 import torch
 import torch.nn as nn
 
-from pi import sm_program
-
 
 class SmpReasoner(nn.Module):
     """ take game state as input, produce conf. of each actions
@@ -14,11 +12,14 @@ class SmpReasoner(nn.Module):
         super().__init__()
         self.args = args
         self.smps = None
+        self.obj_type_indices = None
         self.action_prob = None
+
         # self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
 
-    def update(self, smps):
+    def update(self, smps, obj_type_indices):
         self.smps = smps
+        self.obj_type_indices = obj_type_indices
 
     def action_combine(self):
 
@@ -43,9 +44,8 @@ class SmpReasoner(nn.Module):
         #       action equals to 0 <==> action is not passed for this smp
         # calculate the switches of each action
         self.action_prob = torch.zeros(1, len(self.args.action_names)).to(self.args.device)
-
         for smp in self.smps:
-            action_probs, params = smp(x)
+            action_probs, params = smp(x, self.obj_type_indices)
             self.action_prob += action_probs
 
         self.action_prob = self.action_prob / (self.action_prob + 1e-20)
