@@ -148,7 +148,7 @@ def micro_program2action_behaviors(prop_indices, obj_types, obj_names, data):
                     for obj_1_index in obj_1_indices:
                         for obj_2_index in obj_2_indices:
                             # select data
-                            if obj_2_index >=4:
+                            if obj_2_index >= 4:
                                 raise ValueError
                             data_A = states[mask, obj_1_index]
                             data_B = states[mask, obj_2_index]
@@ -168,6 +168,54 @@ def micro_program2action_behaviors(prop_indices, obj_types, obj_names, data):
                         behaviors.append(behavior)
 
     return behaviors
+
+
+def filter_reward_behaviors(all_behaviors, data, obj_names, rewards, actions):
+    passed_behaviors = []
+
+    for reward, reward_states in data.items():
+        if reward == -0.1:
+            continue
+        for action_type, action_states in reward_states.items():
+            masks = all_exist_mask(action_states, obj_names)
+
+            for behavior in all_behaviors:
+                all_preds = predicate.get_preds()
+
+                # filter out states following the same mask as current behavior
+                state_mask = masks[behavior['mask']]
+
+                data_A = action_states[state_mask, behavior["grounded_objs"][0]]
+                data_B = action_states[state_mask, behavior["grounded_objs"][1]]
+
+                sample_num = len(data_A)
+                if sample_num <= 1:
+                    continue
+
+                data_A = data_A[:, behavior["grounded_prop"]]
+                data_B = data_B[:, behavior["grounded_prop"]]
+
+                p_satisfaction = torch.zeros(len(all_preds), dtype=torch.bool)
+                for p_i, pred in enumerate(all_preds):
+                    p_satisfaction[p_i] = pred.fit(data_A, data_B, behavior["grounded_objs"])
+                if (sum(p_satisfaction)) > 0 and (behavior['pred_validation'] == p_satisfaction).float().sum() == len(
+                        p_satisfaction):
+                    # decide action
+
+                    print(f'new pred, grounded_objs:{behavior["grounded_objs"]}, action:{action_type}')
+                    behavior_dict = {'preds': all_preds,
+                                     'p_satisfication': p_satisfaction,
+                                     'grounded_types': behavior["grounded_objs"],
+                                     'grounded_prop': behavior["grounded_prop"],
+                                     'action': action_type,
+                                     'mask': behavior['mask'],
+                                     'reward': reward,
+                                     'sample_num': sample_num}
+                    passed_behaviors.append(behavior_dict)
+
+    print(f'all behaviors: {len(all_behaviors)}')
+    print(f'passed behaviors: {len(passed_behaviors)}')
+    return passed_behaviors
 
 
 def micro_program2reward_behaviors(prop_indices, obj_names, data):
@@ -220,7 +268,7 @@ def get_all_validations(data):
     return all_combs
 
 
-def gen_all_smps(args, obj_names, prop_indices):
+def gen_all_behaviors(args, obj_names, prop_indices):
     all_smps = []
     relate_2_objs = [[i_1, i_2] for i_1, s_1 in enumerate(obj_names) for i_2, s_2 in
                      enumerate(obj_names) if s_1 != s_2]
@@ -234,10 +282,11 @@ def gen_all_smps(args, obj_names, prop_indices):
                 for pred_validation in pred_validations:
                     # distinguish predicates
                     smp = {'preds': all_preds,
-                           'pred_validation': pred_validation,
                            'grounded_objs': objs,
+                           'mask': mask_name,
                            'grounded_prop': prop_idx,
-                           'mask': mask_name}
+                           'pred_validation': pred_validation
+                           }
                     all_smps.append(smp)
     return all_smps
 
@@ -247,15 +296,19 @@ def buffer2behaviors(args, buffer):
     actions = buffer.actions
     states = buffer.logic_states
     rewards = buffer.rewards
-
+    behaviors = []
     # TODO: print micro-programs structure
     prop_indices = get_idx(args)
     obj_types, obj_names = get_game_info(args)
 
     # learn wrong actions and key actions from rewards
-    smps = gen_all_smps(args, obj_types, prop_indices)
+
+    # data_rewards = split_data_by_reward(states, actions, rewards)
+    # behaviors = micro_program2reward_behaviors(prop_indices, obj_types, data_rewards)
+
+    all_behaviors = gen_all_behaviors(args, obj_types, prop_indices)
     data_rewards = split_data_by_reward(states, actions, rewards)
-    behaviors = micro_program2reward_behaviors(prop_indices, obj_types, data_rewards)
+    behaviors += filter_reward_behaviors(all_behaviors, data_rewards, obj_types, rewards, actions)
 
     data_actions = split_data_by_action(states, actions)
     behaviors += micro_program2action_behaviors(prop_indices, obj_types, obj_names, data_actions)
