@@ -122,7 +122,7 @@ def render_getout(agent, args):
     last_frame_time = 0
 
     num_epi = 1
-    max_epi = 20
+    max_epi = 5
     total_reward = 0
     epi_reward = 0
     current_reward = 0
@@ -234,10 +234,10 @@ def render_getout(agent, args):
         if num_epi > 100:
             break
 
-    df = pd.DataFrame({'reward': scores})
+    # df = pd.DataFrame({'reward': scores})
     # df.to_csv(f"logs/{envname}/random_{envname}_log_{args.seed}.csv", index=False)
-    df.to_csv(f"logs/{envname}/{args.agent}_{envname}_log_{args.seed}.csv", index=False)
-    print(f"saved in logs/{envname}/{args.agent}_{envname}_log_{args.seed}.csv")
+    # df.to_csv(f"logs/{envname}/{args.agent}_{envname}_log_{args.seed}.csv", index=False)
+    # print(f"saved in logs/{envname}/{args.agent}_{envname}_log_{args.seed}.csv")
 
 
 

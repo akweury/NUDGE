@@ -50,6 +50,10 @@ class RolloutBuffer:
         self.rewards = torch.tensor(state_info['reward']).to(args.device)
         self.terminated = torch.tensor(state_info['terminated']).to(args.device)
         self.predictions = torch.tensor(state_info['predictions']).to(args.device)
+        if "reason_source" in list(state_info.keys()):
+            self.reason_source = torch.tensor(state_info['reason_source']).to(args.device)
+        else:
+            self.reason_source = torch.tensor(state_info['reason_source']).to(args.device)
 
     def save_data(self):
         data = {'actions': self.actions,
@@ -87,7 +91,20 @@ def create_agent(args):
     return agent
 
 
-def play_games_and_render(args, agent):
+def create_getout_instance(seed=None):
+    seed = random.randint(0, 100000000) if seed is None else seed
+
+    # level_generator = DummyGenerator()
+    coin_jump = Getout(start_on_first_action=False)
+    level_generator = ParameterizedLevelGenerator()
+
+    level_generator.generate(coin_jump, seed=seed)
+    coin_jump.render()
+
+    return coin_jump
+
+
+def render_game(agent, args):
     if args.m == 'getout':
         render_getout(agent, args)
     elif args.m == 'threefish':
@@ -102,20 +119,7 @@ def play_games_and_render(args, agent):
         raise ValueError("Game not exist.")
 
 
-def create_getout_instance(seed=None):
-    seed = random.randint(0, 100000000) if seed is None else seed
-
-    # level_generator = DummyGenerator()
-    coin_jump = Getout(start_on_first_action=False)
-    level_generator = ParameterizedLevelGenerator()
-
-    level_generator.generate(coin_jump, seed=seed)
-    coin_jump.render()
-
-    return coin_jump
-
-
-def play_games_and_collect_data(args, agent):
+def collect_data_getout(agent, args):
     if args.teacher_agent == "neural":
         args.filename = args.m + ".json"
         if not os.path.exists(config.path_bs_data / args.filename):
@@ -132,7 +136,6 @@ def play_games_and_collect_data(args, agent):
         if os.path.exists(buffer.filename):
             return
         # collect data
-
         step = 0
         collected_states = 0
         if args.m == 'getout':
@@ -142,8 +145,8 @@ def play_games_and_collect_data(args, agent):
                 step += 1
                 # predict actions
                 if not coin_jump.level.terminated:
-                    action_probs = torch.rand(3)
-                    action = torch.argmax(action_probs).cpu().item() + 1
+                    # random actions
+                    action, explaining = agent.act(coin_jump)
                     logic_state = extract_for_cgen_explaining(coin_jump)
                     reward = coin_jump.step(action)
                     # save state/actions
@@ -151,7 +154,7 @@ def play_games_and_collect_data(args, agent):
                     collected_states += 1
                     buffer.logic_states.append(logic_state.detach().tolist())
                     buffer.actions.append(action - 1)
-                    buffer.action_probs.append(action_probs.tolist())
+                    # buffer.action_probs.append(action_probs.tolist())
                     buffer.rewards.append(reward)
                     # print(f"- collected states: {collected_states}/{max_states}")
                 # start a new game
@@ -163,3 +166,19 @@ def play_games_and_collect_data(args, agent):
         return
     else:
         raise ValueError("Teacher agent not exist.")
+
+
+def collect_data_game(agent, args):
+    if args.m == 'getout':
+        collect_data_getout(agent, args)
+    else:
+        raise ValueError
+
+
+def play_games(args, agent, collect_data=False, render=False):
+    if render:
+        render_game(agent, args)
+    elif collect_data:
+        collect_data_game(agent, args)
+    else:
+        raise ValueError

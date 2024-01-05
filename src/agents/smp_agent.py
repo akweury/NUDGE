@@ -214,8 +214,8 @@ class SymbolicMicroProgramPlayer:
         self.args = args
         self.model = SymbolicMicroProgramModel(args).actor.to(args.device)
 
-    def update(self, smps, obj_type_indices):
-        self.model.update(smps, obj_type_indices)
+    def update(self, smps, obj_type_indices, explains):
+        self.model.update(smps, obj_type_indices, explains)
 
     def act(self, state):
         if self.args.m == 'getout':
@@ -257,8 +257,14 @@ class SymbolicMicroProgramPlayer:
     def getout_actor(self, getout):
         extracted_state = extract_logic_state_getout(getout, self.args)
         predictions = self.model(extracted_state)
-        prediction = torch.argmax(predictions).cpu().item()
-        explaining = None
+        if torch.sum(predictions) != 0:
+            prediction = torch.argmax(predictions).cpu().item()
+            explaining = self.model.explains[prediction]
+        else:
+            # random choose one action
+            predictions = torch.rand(3)
+            prediction = torch.argmax(predictions).cpu().item()
+            explaining = 'random_action'
         action = prediction + 1
         return action, explaining
 

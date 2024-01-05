@@ -111,8 +111,9 @@ def behavior2clause(args, behavior):
 def behaviors2clauses(args, behaviors):
     clauses = []
     for behavior in behaviors:
-        clause = behavior2clause(args, behavior)
-        clauses.append(clause)
+        if behavior["is_grounded"]:
+            clause = behavior2clause(args, behavior)
+            clauses.append(clause)
         # clause_weights.append()
     print('======= Clauses from Behaviors ======')
     for c in clauses:

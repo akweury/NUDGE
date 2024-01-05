@@ -4,7 +4,7 @@ import torch
 
 import pi.game_env
 from pi import behavior, predicate
-from pi.MicroProgram import MicroProgram
+from pi.MicroProgram import MicroProgram, UngroundedMicroProgram
 from pi.utils import args_utils, smp_utils, log_utils
 
 from src import config
@@ -54,26 +54,61 @@ def behavior2smp(args, behavior):
     p_spaces = []
     for p_i, pred in enumerate(behavior["preds"]):
         p_spaces.append(smp_utils.get_param_range(pred.p_bound['min'], pred.p_bound['max'], config.smp_param_unit))
+
+    if behavior["is_grounded"]:
+        smp = MicroProgram(args.obj_type_names,
+                           action,
+                           existence_mask,
+                           behavior['grounded_types'],
+                           behavior['grounded_prop'],
+                           behavior["preds"],
+                           p_spaces,
+                           behavior["p_satisfication"])
+    else:
+        smp = UngroundedMicroProgram(args.obj_type_names,
+                                     action,
+                                     existence_mask,
+                                     behavior['grounded_types'],
+                                     behavior['grounded_prop'],
+                                     behavior["preds"],
+                                     p_spaces,
+                                     behavior["p_satisfication"])
+    return smp
+
+
+def ungrounded_behavior2smp(args, ungrounded_behavior):
+    action = extract_action(args, ungrounded_behavior)
+    existence_mask = extract_existence_mask(args, ungrounded_behavior)
+    p_spaces = []
+    for p_i, pred in enumerate(ungrounded_behavior["preds"]):
+        p_spaces.append(smp_utils.get_param_range(pred.p_bound['min'], pred.p_bound['max'], config.smp_param_unit))
     smp = MicroProgram(args.obj_type_names,
                        action,
                        existence_mask,
-                       behavior['grounded_types'],
-                       behavior['grounded_prop'],
-                       behavior["preds"],
+                       ungrounded_behavior['grounded_types'],
+                       ungrounded_behavior['grounded_prop'],
+                       ungrounded_behavior["preds"],
                        p_spaces,
-                       behavior["p_satisfication"])
+                       ungrounded_behavior["p_satisfication"])
     return smp
 
 
 def behavior2smps(args, buffer, behaviors):
-    smps = []
+    grounded_smps = []
+    ungrounded_smps = []
     for behavior in behaviors:
         smp = behavior2smp(args, behavior)
-        smps.append(smp)
+        if isinstance(smp, MicroProgram):
+            grounded_smps.append(smp)
+        elif isinstance(smp, UngroundedMicroProgram):
+            ungrounded_smps.append(smp)
+        else:
+            raise ValueError
 
     # update parameters in smps
-    rectify_smps(args, buffer, smps)
+    rectify_smps(args, buffer, grounded_smps)
 
+    smps = grounded_smps + ungrounded_smps
     return smps
 
 

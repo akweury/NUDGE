@@ -47,32 +47,35 @@ def main():
     # create a game agent
     agent = create_agent(args)
 
-    # prepare training data and saved as a json file
-    game_env.play_games_and_collect_data(args, agent)
+    for episode in range(args.episode_num):
+        print(f"- Episode {episode}")
 
-    # load game buffer
-    buffer = game_env.load_buffer(args)
+        # prepare training data and saved as a json file
+        game_env.play_games(args, agent, collect_data=True, render=False)
 
-    # # TODO: remove lazy code:
-    # args.env = 'getout'
+        # load game buffer
+        buffer = game_env.load_buffer(args)
 
-    # observe behaviors from buffer
-    agent_behaviors = behavior.buffer2behaviors(args, buffer)
+        # # TODO: remove lazy code:
+        # args.env = 'getout'
 
-    # HCI: making clauses from behaviors
-    clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
+        # observe behaviors from buffer
+        agent_behaviors = behavior.buffer2behaviors(args, buffer)
 
-    # making behavior symbolic microprogram
-    behavior_smps = sm_program.behavior2smps(args, buffer, agent_behaviors)
+        # HCI: making clauses from behaviors
+        clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
 
-    # update game agent
-    agent.update(behavior_smps, args.obj_type_indices)
+        # making behavior symbolic microprogram
+        behavior_smps = sm_program.behavior2smps(args, buffer, agent_behaviors)
 
-    # TODO: remove lazy code:
-    # args.env = 'getoutplus'
+        # update game agent
+        agent.update(behavior_smps, args.obj_type_indices, clauses)
 
-    # Test updated agent
-    game_env.play_games_and_render(args, agent)
+        # TODO: remove lazy code:
+        # args.env = 'getoutplus'
+
+        # Test updated agent
+        game_env.play_games(args, agent, collect_data=False, render=True)
 
 
 if __name__ == "__main__":

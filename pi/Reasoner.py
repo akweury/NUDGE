@@ -14,12 +14,14 @@ class SmpReasoner(nn.Module):
         self.smps = None
         self.obj_type_indices = None
         self.action_prob = None
+        self.explains = None
 
         # self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
 
-    def update(self, smps, obj_type_indices):
+    def update(self, smps, obj_type_indices, explains):
         self.smps = smps
         self.obj_type_indices = obj_type_indices
+        self.explains = explains
 
     def action_combine(self):
 
