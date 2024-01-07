@@ -72,7 +72,8 @@ def behavior2smp(args, behavior):
                                      behavior['grounded_prop'],
                                      behavior["preds"],
                                      p_spaces,
-                                     behavior["p_satisfication"])
+                                     behavior["p_satisfication"],
+                                     behavior["reward"])
     return smp
 
 

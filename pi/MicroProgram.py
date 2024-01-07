@@ -97,7 +97,7 @@ class UngroundedMicroProgram(nn.Module):
     """
 
     def __init__(self, obj_type_name, action, mask, type_codes, prop_codes, preds, p_spaces,
-                 p_satisfication):
+                 p_satisfication, expected_reward):
         super().__init__()
         self.obj_type_names = obj_type_name
         self.action = action
@@ -108,6 +108,7 @@ class UngroundedMicroProgram(nn.Module):
         self.p_spaces = p_spaces
         self.p_satisfication = p_satisfication
         self.obj_type_num = len(obj_type_name)
+        self.expected_reward = expected_reward
 
         assert len(self.prop_codes) == 1
 
@@ -131,47 +132,42 @@ class UngroundedMicroProgram(nn.Module):
     def forward(self, x, obj_type_indices, avg_data=False):
         # game Getout: tensor with size batch_size * 4 * 6
         satisfies = torch.zeros(x.size(0), dtype=torch.bool)
-        # if use_given_parameters:
-        #     given_parameters = self.p_bound
-        # else:
-        #     given_parameters = None
-        type_1_name = self.obj_type_names[self.type_codes[0]]
-        type_1_obj_codes = obj_type_indices[type_1_name]
-        type_2_name = self.obj_type_names[self.type_codes[1]]
-        type_2_obj_codes = obj_type_indices[type_2_name]
 
-        # check predicates satisfaction
-        for obj_1 in type_1_obj_codes:
-            for obj_2 in type_2_obj_codes:
-                data_A = x[:, obj_1, self.prop_codes].reshape(-1)
-                data_B = x[:, obj_2, self.prop_codes].reshape(-1)
+        for type_code in self.type_codes:
+            type_1_obj_codes = obj_type_indices[self.obj_type_names[type_code[0]]]
+            type_2_obj_codes = obj_type_indices[self.obj_type_names[type_code[1]]]
+            # check predicates satisfaction
+            for obj_1 in type_1_obj_codes:
+                for obj_2 in type_2_obj_codes:
+                    data_A = x[:, obj_1, self.prop_codes].reshape(-1)
+                    data_B = x[:, obj_2, self.prop_codes].reshape(-1)
 
-                obj_comb_satisfies = torch.ones(x.size(0), dtype=torch.bool)
-                p_spaces = []
-                for p_i, pred in enumerate(self.preds):
-                    p_space = self.p_spaces[p_i]
-                    p_satisfied = self.p_satisfication[p_i]
-                    if not p_satisfied:
-                        func_satisfy, p_values = torch.ones(data_A.size()).bool(), torch.zeros(size=data_A.size())
-                    else:
-                        func_satisfy, p_values = pred.eval(data_A, data_B, p_space)
-                    p_spaces.append(p_values.unsqueeze(0))
+                    obj_comb_satisfies = torch.ones(x.size(0), dtype=torch.bool)
+                    p_spaces = []
+                    for p_i, pred in enumerate(self.preds):
+                        p_space = self.p_spaces[p_i]
+                        p_satisfied = self.p_satisfication[p_i]
+                        if not p_satisfied:
+                            func_satisfy, p_values = torch.ones(data_A.size()).bool(), torch.zeros(size=data_A.size())
+                        else:
+                            func_satisfy, p_values = pred.eval(data_A, data_B, p_space)
+                        p_spaces.append(p_values.unsqueeze(0))
 
-                    # satisfy all
-                    obj_comb_satisfies *= func_satisfy
+                        # satisfy all
+                        obj_comb_satisfies *= func_satisfy
 
-                # satisfy any
-                satisfies += obj_comb_satisfies
+                    # satisfy any
+                    satisfies += obj_comb_satisfies
 
-        # check mask satisfaction
-        exist_satisfy = self.check_exists(x, obj_type_indices)
+            # check mask satisfaction
+            exist_satisfy = self.check_exists(x, obj_type_indices)
 
-        # satisfy all
-        satisfies *= exist_satisfy
+            # satisfy all
+            satisfies *= exist_satisfy
 
-        # return action probs
-        action_probs = torch.zeros(x.size(0), len(self.action))
-        action_probs[satisfies] += self.action
-        action_probs[satisfies] = action_probs[satisfies] / (action_probs[satisfies] + 1e-20)
+            # return action probs
+            action_probs = torch.zeros(x.size(0), len(self.action))
+            action_probs[satisfies] += self.action
+            action_probs[satisfies] = action_probs[satisfies] / (action_probs[satisfies] + 1e-20)
 
         return action_probs, p_spaces
