@@ -316,7 +316,7 @@ def gen_all_behaviors(args, obj_names, prop_indices):
 def buffer2behaviors(args, buffer):
     # data preparation
     actions = buffer.actions
-    reason_sources = buffer.reason_sources
+    reason_source = buffer.reason_source
     states = buffer.logic_states
     rewards = buffer.rewards
     behaviors = []
@@ -331,7 +331,8 @@ def buffer2behaviors(args, buffer):
     obj_ungrounded_behaviors = filter_reward_behaviors(data_rewards, obj_types, prop_indices)
     behaviors += obj_ungrounded_behaviors
 
-    data_actions = split_data_by_action(states, actions)
-    behaviors += micro_program2action_behaviors(prop_indices, obj_types, obj_names, data_actions)
+    if reason_source is not "random":
+        data_actions = split_data_by_action(states, actions)
+        behaviors += micro_program2action_behaviors(prop_indices, obj_types, obj_names, data_actions)
 
     return behaviors

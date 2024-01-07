@@ -140,8 +140,6 @@ class UngroundedMicroProgram(nn.Module):
         type_2_name = self.obj_type_names[self.type_codes[1]]
         type_2_obj_codes = obj_type_indices[type_2_name]
 
-        if len(type_2_obj_codes) > 1 or len(type_1_obj_codes) > 1:
-            print("WARNING:")
         # check predicates satisfaction
         for obj_1 in type_1_obj_codes:
             for obj_2 in type_2_obj_codes:

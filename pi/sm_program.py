@@ -156,6 +156,9 @@ def rectify_smp(smp, params):
 
 
 def rectify_smps(args, buffer, behavior_smps):
+    if len(behavior_smps) == 0:
+        return
+
     neural_actions = buffer.action_probs.squeeze()
     neural_actions[neural_actions > 0.8] = 1
     neural_actions[neural_actions < 0.8] = 0
@@ -178,8 +181,3 @@ def rectify_smps(args, buffer, behavior_smps):
     behavior_types = behavior_actions.sum(dim=1) / (behavior_actions.sum(dim=1) + 1e-20)
     cs_indices = behavior_types.sum(dim=1) > 1
     log_utils.add_lines(f'(after rectification) counteract state number: {cs_indices.sum()}', args.log_file)
-    # smp_counteract_params = micro_program2counteract_params(args, actions, states, behavior_smps)
-    # using counteract behaviors to rectify smp parameters
-    # for s_i, smp in enumerate(behavior_smps):
-    #     params = smp_counteract_params[s_i]
-    #     rectify_smp(smp, params)

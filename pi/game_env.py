@@ -17,7 +17,7 @@ from nsfr.nsfr.utils import extract_for_cgen_explaining
 
 
 class RolloutBuffer:
-    def __init__(self, filename):
+    def __init__(self, filename, reason_source):
         self.filename = config.path_output / 'bs_data' / filename
         self.actions = []
         self.logic_states = []
@@ -27,6 +27,7 @@ class RolloutBuffer:
         self.rewards = []
         self.terminated = []
         self.predictions = []
+        self.reason_source = reason_source
 
     def clear(self):
         del self.actions[:]
@@ -37,11 +38,11 @@ class RolloutBuffer:
         del self.rewards[:]
         del self.terminated[:]
         del self.predictions[:]
+        del self.reason_source[:]
 
     def load_buffer(self, args):
         with open(config.path_bs_data / args.filename, 'r') as f:
             state_info = json.load(f)
-
         self.actions = torch.tensor(state_info['actions']).to(args.device)
         self.logic_states = torch.tensor(state_info['logic_states']).to(args.device)
         self.neural_states = torch.tensor(state_info['neural_states']).to(args.device)
@@ -50,10 +51,8 @@ class RolloutBuffer:
         self.rewards = torch.tensor(state_info['reward']).to(args.device)
         self.terminated = torch.tensor(state_info['terminated']).to(args.device)
         self.predictions = torch.tensor(state_info['predictions']).to(args.device)
-        if "reason_source" in list(state_info.keys()):
-            self.reason_source = torch.tensor(state_info['reason_source']).to(args.device)
-        else:
-            self.reason_source = torch.tensor(state_info['reason_source']).to(args.device)
+
+        # self.reason_source = state_info['reason_source']
 
     def save_data(self):
         data = {'actions': self.actions,
@@ -63,7 +62,8 @@ class RolloutBuffer:
                 'logprobs': self.logprobs,
                 'reward': self.rewards,
                 'terminated': self.terminated,
-                'predictions': self.predictions
+                'predictions': self.predictions,
+                "reason_source": self.reason_source
                 }
 
         with open(self.filename, 'w') as f:
@@ -72,7 +72,7 @@ class RolloutBuffer:
 
 
 def load_buffer(args):
-    buffer = RolloutBuffer(args.filename)
+    buffer = RolloutBuffer(args.filename, args.teacher_agent)
     buffer.load_buffer(args)
     return buffer
 
@@ -124,15 +124,20 @@ def collect_data_getout(agent, args):
         args.filename = args.m + ".json"
         if not os.path.exists(config.path_bs_data / args.filename):
             shutil.copyfile(config.path_saved_bs_data / args.filename, config.path_bs_data / args.filename)
+        with open(config.path_bs_data / args.filename, 'a') as f:
+            state_info = json.load(f)
+            state_info.update({"reason_source": "neural"})
+
         return
     elif args.teacher_agent == "random":
         args.model_file = "random"
         max_states = 10000
         # play games using the random agent
         seed = random.seed() if args.seed is None else int(args.seed)
-        args.filename = args.m + '_' + args.model_file + '_' + str(max_states) + '.json'
+        args.filename = args.m + '_' + args.teacher_agent + '_' + str(max_states) + '.json'
 
-        buffer = RolloutBuffer(args.filename)
+        buffer = RolloutBuffer(args.filename, args.teacher_agent)
+
         if os.path.exists(buffer.filename):
             return
         # collect data
