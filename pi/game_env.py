@@ -25,6 +25,7 @@ class RolloutBuffer:
         self.action_probs = []
         self.logprobs = []
         self.rewards = []
+        self.ungrounded_rewards = []
         self.terminated = []
         self.predictions = []
         self.reason_source = reason_source
@@ -36,6 +37,7 @@ class RolloutBuffer:
         del self.action_probs[:]
         del self.logprobs[:]
         del self.rewards[:]
+        del self.ungrounded_rewards[:]
         del self.terminated[:]
         del self.predictions[:]
         del self.reason_source[:]
@@ -49,6 +51,7 @@ class RolloutBuffer:
         self.action_probs = torch.tensor(state_info['action_probs']).to(args.device)
         self.logprobs = torch.tensor(state_info['logprobs']).to(args.device)
         self.rewards = torch.tensor(state_info['reward']).to(args.device)
+        self.ungrounded_rewards = state_info['ungrounded_rewards']
         self.terminated = torch.tensor(state_info['terminated']).to(args.device)
         self.predictions = torch.tensor(state_info['predictions']).to(args.device)
 
@@ -61,6 +64,7 @@ class RolloutBuffer:
                 'action_probs': self.action_probs,
                 'logprobs': self.logprobs,
                 'reward': self.rewards,
+                'ungrounded_rewards': self.ungrounded_rewards,
                 'terminated': self.terminated,
                 'predictions': self.predictions,
                 "reason_source": self.reason_source
@@ -127,14 +131,13 @@ def collect_data_getout(agent, args):
         with open(config.path_bs_data / args.filename, 'a') as f:
             state_info = json.load(f)
             state_info.update({"reason_source": "neural"})
-
         return
     elif args.teacher_agent == "random":
         args.model_file = "random"
         max_states = 10000
         # play games using the random agent
         seed = random.seed() if args.seed is None else int(args.seed)
-        args.filename = args.m + '_' + args.teacher_agent + '_' + str(max_states) + '.json'
+        args.filename = args.m + '_' + args.teacher_agent + '_episode_' + str(args.episode) + '.json'
 
         buffer = RolloutBuffer(args.filename, args.teacher_agent)
 
@@ -151,9 +154,22 @@ def collect_data_getout(agent, args):
                 # predict actions
                 if not coin_jump.level.terminated:
                     # random actions
-                    action, explaining = agent.act(coin_jump)
+                    action, ungrounded_smp_dicts, explaining, extracted_state = agent.reasoning_act(coin_jump)
                     logic_state = extract_for_cgen_explaining(coin_jump)
                     reward = coin_jump.step(action)
+
+                    ungrounded_rewards = []
+                    if ungrounded_smp_dicts is not None and len(ungrounded_smp_dicts) > 0:
+                        for ungrounded_smp_dict in ungrounded_smp_dicts:
+                            ungrounded_smp_rewards = []
+                            for v_i, valid in enumerate(ungrounded_smp_dict["valid"]):
+                                if valid:
+                                    smp_reward = coin_jump.step(ungrounded_smp_dict["action"][v_i].item())
+                                    ungrounded_smp_rewards.append(smp_reward)
+                                else:
+                                    ungrounded_smp_rewards.append(0)
+
+                            ungrounded_rewards.append(ungrounded_smp_rewards)
                     # save state/actions
                     # if reward > 0:
                     collected_states += 1
@@ -161,6 +177,7 @@ def collect_data_getout(agent, args):
                     buffer.actions.append(action - 1)
                     # buffer.action_probs.append(action_probs.tolist())
                     buffer.rewards.append(reward)
+                    buffer.ungrounded_rewards.append(ungrounded_rewards)
                     # print(f"- collected states: {collected_states}/{max_states}")
                 # start a new game
                 else:

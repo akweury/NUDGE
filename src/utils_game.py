@@ -122,7 +122,7 @@ def render_getout(agent, args):
     last_frame_time = 0
 
     num_epi = 1
-    max_epi = 5
+    max_epi = 1
     total_reward = 0
     epi_reward = 0
     current_reward = 0

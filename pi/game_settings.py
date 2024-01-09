@@ -14,7 +14,9 @@ def get_idx(args):
 
     elif args.m == "getout":
         idx_x = config.state_idx_getout_x
+        idx_y = config.state_idx_getout_y
         idx_list.append([idx_x])
+        idx_list.append([idx_y])
     else:
         raise ValueError
 

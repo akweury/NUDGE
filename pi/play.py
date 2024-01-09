@@ -2,13 +2,13 @@
 import torch
 
 from pi.game_env import create_agent
-from src.utils_game import render_getout, render_threefish, render_loot, render_ecoinrun, render_atari
+from pi.MicroProgram import SymbolicMicroProgram
 from src.agents.neural_agent import ActorCritic
 from src.agents.logic_agent import NSFR_ActorCritic
 from src import config
 
 from pi.utils import args_utils
-from pi import behavior, sm_program, pi_lang, game_env
+from pi import behavior, sm_program, pi_lang, game_env, game_settings
 
 
 def load_model(args, set_eval=True):
@@ -49,6 +49,7 @@ def main():
 
     for episode in range(args.episode_num):
         print(f"- Episode {episode}")
+        args.episode = episode
 
         # prepare training data and saved as a json file
         game_env.play_games(args, agent, collect_data=True, render=False)
@@ -56,23 +57,18 @@ def main():
         # load game buffer
         buffer = game_env.load_buffer(args)
 
-        # # TODO: remove lazy code:
-        # args.env = 'getout'
+        # building symbolic microprogram
+        prop_indices = game_settings.get_idx(args)
+        obj_types, obj_names = game_settings.get_game_info(args)
+        smp = SymbolicMicroProgram(args, buffer)
 
-        # observe behaviors from buffer
-        agent_behaviors = behavior.buffer2behaviors(args, buffer)
-
+        # searching for valid behaviors
+        agent_behaviors, ungrounded_behaviors = smp.programming(obj_types, prop_indices)
         # HCI: making clauses from behaviors
         clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
 
-        # making behavior symbolic microprogram
-        behavior_smps = sm_program.behavior2smps(args, buffer, agent_behaviors)
-
         # update game agent
-        agent.update(behavior_smps, args.obj_type_indices, clauses)
-
-        # TODO: remove lazy code:
-        # args.env = 'getoutplus'
+        agent.update(agent_behaviors, ungrounded_behaviors, args.obj_type_indices, clauses)
 
         # Test updated agent
         game_env.play_games(args, agent, collect_data=False, render=True)
