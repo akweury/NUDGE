@@ -46,32 +46,36 @@ def main():
 
     # create a game agent
     agent = create_agent(args)
-
+    smp = SymbolicMicroProgram(args)
     for episode in range(args.episode_num):
-        print(f"- Episode {episode}")
+        print(f"### Episode {episode} ###")
         args.episode = episode
 
         # prepare training data and saved as a json file
-        game_env.play_games(args, agent, collect_data=True, render=False)
+        # agent predicts two kinds of actions:
+        # first kind of actions: based on grounded smps
+        # second kind of actions: based on ungrounded smps
+        game_env.collect_data_game(agent, args)
 
         # load game buffer
-        buffer = game_env.load_buffer(args)
-
+        smp.load_buffer(game_env.load_buffer(args))
         # building symbolic microprogram
         prop_indices = game_settings.get_idx(args)
         obj_types, obj_names = game_settings.get_game_info(args)
-        smp = SymbolicMicroProgram(args, buffer)
+
 
         # searching for valid behaviors
-        agent_behaviors, ungrounded_behaviors = smp.programming(obj_types, prop_indices)
+        agent_behaviors = smp.programming(obj_types, prop_indices)
+
         # HCI: making clauses from behaviors
         clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
 
-        # update game agent
-        agent.update(agent_behaviors, ungrounded_behaviors, args.obj_type_indices, clauses)
+        # convert ungrounded behaviors to grounded behaviors
+        # update game agent, update smps
+        agent.update(agent_behaviors, obj_types, prop_indices, clauses)
 
         # Test updated agent
-        game_env.play_games(args, agent, collect_data=False, render=True)
+        game_env.render_game(agent, args)
 
 
 if __name__ == "__main__":

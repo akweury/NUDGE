@@ -17,7 +17,7 @@ from nsfr.nsfr.utils import extract_for_cgen_explaining
 
 
 class RolloutBuffer:
-    def __init__(self, filename, reason_source):
+    def __init__(self, filename):
         self.filename = config.path_output / 'bs_data' / filename
         self.actions = []
         self.logic_states = []
@@ -28,7 +28,7 @@ class RolloutBuffer:
         self.ungrounded_rewards = []
         self.terminated = []
         self.predictions = []
-        self.reason_source = reason_source
+        self.reason_source = []
 
     def clear(self):
         del self.actions[:]
@@ -45,6 +45,7 @@ class RolloutBuffer:
     def load_buffer(self, args):
         with open(config.path_bs_data / args.filename, 'r') as f:
             state_info = json.load(f)
+        print(f"buffer file: {args.filename}")
         self.actions = torch.tensor(state_info['actions']).to(args.device)
         self.logic_states = torch.tensor(state_info['logic_states']).to(args.device)
         self.neural_states = torch.tensor(state_info['neural_states']).to(args.device)
@@ -54,8 +55,7 @@ class RolloutBuffer:
         self.ungrounded_rewards = state_info['ungrounded_rewards']
         self.terminated = torch.tensor(state_info['terminated']).to(args.device)
         self.predictions = torch.tensor(state_info['predictions']).to(args.device)
-
-        # self.reason_source = state_info['reason_source']
+        self.reason_source = state_info['reason_source']
 
     def save_data(self):
         data = {'actions': self.actions,
@@ -76,7 +76,7 @@ class RolloutBuffer:
 
 
 def load_buffer(args):
-    buffer = RolloutBuffer(args.filename, args.teacher_agent)
+    buffer = RolloutBuffer(args.filename)
     buffer.load_buffer(args)
     return buffer
 
@@ -139,7 +139,7 @@ def collect_data_getout(agent, args):
         seed = random.seed() if args.seed is None else int(args.seed)
         args.filename = args.m + '_' + args.teacher_agent + '_episode_' + str(args.episode) + '.json'
 
-        buffer = RolloutBuffer(args.filename, args.teacher_agent)
+        buffer = RolloutBuffer(args.filename)
 
         if os.path.exists(buffer.filename):
             return
@@ -154,36 +154,19 @@ def collect_data_getout(agent, args):
                 # predict actions
                 if not coin_jump.level.terminated:
                     # random actions
-                    action, ungrounded_smp_dicts, explaining, extracted_state = agent.reasoning_act(coin_jump)
+                    action, explaining = agent.reasoning_act(coin_jump)
                     logic_state = extract_for_cgen_explaining(coin_jump)
                     reward = coin_jump.step(action)
 
-                    ungrounded_rewards = []
-                    if ungrounded_smp_dicts is not None and len(ungrounded_smp_dicts) > 0:
-                        for ungrounded_smp_dict in ungrounded_smp_dicts:
-                            ungrounded_smp_rewards = []
-                            for v_i, valid in enumerate(ungrounded_smp_dict["valid"]):
-                                if valid:
-                                    smp_reward = coin_jump.step(ungrounded_smp_dict["action"][v_i].item())
-                                    ungrounded_smp_rewards.append(smp_reward)
-                                else:
-                                    ungrounded_smp_rewards.append(0)
-
-                            ungrounded_rewards.append(ungrounded_smp_rewards)
-                    # save state/actions
-                    # if reward > 0:
                     collected_states += 1
+
                     buffer.logic_states.append(logic_state.detach().tolist())
                     buffer.actions.append(action - 1)
-                    # buffer.action_probs.append(action_probs.tolist())
                     buffer.rewards.append(reward)
-                    buffer.ungrounded_rewards.append(ungrounded_rewards)
-                    # print(f"- collected states: {collected_states}/{max_states}")
+                    buffer.reason_source.append(explaining)
                 # start a new game
                 else:
                     coin_jump = create_getout_instance(seed=seed)
-                    action = 0
-
             buffer.save_data()
         return
     else:
@@ -193,14 +176,5 @@ def collect_data_getout(agent, args):
 def collect_data_game(agent, args):
     if args.m == 'getout':
         collect_data_getout(agent, args)
-    else:
-        raise ValueError
-
-
-def play_games(args, agent, collect_data=False, render=False):
-    if render:
-        render_game(agent, args)
-    elif collect_data:
-        collect_data_game(agent, args)
     else:
         raise ValueError

@@ -100,6 +100,8 @@ class Similar():
         return satisfy
 
     def eval(self, t1, t2, p_space):
+        t1 = t1.reshape(-1)
+        t2 = t2.reshape(-1)
         p_values = torch.round(torch.abs(torch.sub(t1, t2)), decimals=2)
         satisfy = torch.zeros(p_values.size(), dtype=torch.bool)
         for v_i, value in enumerate(p_values):
@@ -142,8 +144,11 @@ class Different():
         return satisfy, p_values
 
 
-def get_preds():
-    return [Ge(), Le(), Similar()]
+def get_preds(repeats=1):
+    all_preds = []
+    for i in range(repeats):
+        all_preds += [Ge(), Le(), Similar()]
+    return all_preds
 
 
 preds = [Ge(), Le(), Similar()]

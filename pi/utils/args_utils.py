@@ -50,7 +50,7 @@ def load_args(exp_args_path):
     parser.add_argument("--eval_loss_best", type=float, default=1e+20, help="Best up-to-date evaluation loss")
     parser.add_argument("--rectify_num", type=int, default=5, help="Repeat times of smp rectification.")
     parser.add_argument("--teacher_agent", type=str, default="random", help="Type of the teacher agent.")
-    parser.add_argument("--episode_num", type=int, default=3, help="Number of episodes to update the agent.")
+    parser.add_argument("--episode_num", type=int, default=5, help="Number of episodes to update the agent.")
 
 
     args = parser.parse_args()

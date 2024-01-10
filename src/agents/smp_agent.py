@@ -214,8 +214,8 @@ class SymbolicMicroProgramPlayer:
         self.args = args
         self.model = SymbolicMicroProgramModel(args).actor.to(args.device)
 
-    def update(self, smps, ungrounded_smps, obj_type_indices, explains):
-        self.model.update(smps, ungrounded_smps, obj_type_indices, explains)
+    def update(self, smps, obj_types, prop_indices, explains):
+        self.model.update(smps, obj_types, prop_indices, explains)
 
     def act(self, state):
         if self.args.m == 'getout':
@@ -232,10 +232,10 @@ class SymbolicMicroProgramPlayer:
 
     def reasoning_act(self, state):
         if self.args.m == 'getout':
-            action, ungrounded_actions, explaining, extracted_state = self.getout_reasoning_actor(state)
+            action, explaining = self.getout_reasoning_actor(state)
         else:
             raise ValueError
-        return action, ungrounded_actions, explaining, extracted_state
+        return action, explaining
 
     def get_probs(self):
         probs = self.model.get_probs()
@@ -272,12 +272,11 @@ class SymbolicMicroProgramPlayer:
 
     def getout_reasoning_actor(self, getout):
         extracted_state = extract_logic_state_getout(getout, self.args)
-        predictions, ungrounded_actions, explains = self.model.grounding(extracted_state)
+        predictions, explain = self.model(extracted_state)
         prediction = torch.argmax(predictions).cpu().item()
-        explaining = explains[prediction]
 
         action = prediction + 1
-        return action, ungrounded_actions, explaining, extracted_state
+        return action, explain
 
     def atari_actor(self, atari_env):
         # import ipdb; ipdb.set_trace()
