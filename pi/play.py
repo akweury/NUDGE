@@ -71,7 +71,7 @@ def main():
         clauses =None
         # convert ungrounded behaviors to grounded behaviors
         # update game agent, update smps
-        agent.update(agent_behaviors, obj_types, prop_indices, clauses)
+        agent.update(agent_behaviors, obj_types, prop_indices, clauses, smp.preds)
 
         # Test updated agent
         game_env.render_game(agent, args)

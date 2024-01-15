@@ -183,8 +183,6 @@ class Behavior():
         self.reward = reward
 
     def update_pred_params(self, preds, x):
-        satisfactions = torch.ones(len(self.fact["preds"]), len(x), dtype=torch.bool)
-        params = torch.zeros(len(self.fact["preds"]), len(x))
         for i in range(len(preds)):
             if self.fact["pred_tensors"][i]:
                 obj_0 = self.fact["objs"][0]
@@ -196,7 +194,23 @@ class Behavior():
                 preds[i].update_space(data_A, data_B)
                 # func_satisfy, p_values = pred.eval(data_A, data_B, p_space)
 
-        return satisfactions, params
+    def eval_behavior(self, preds, x, obj_types):
+        satisfaction = True
+        # check if current state has the same mask as the behavior
+        if not self.fact["mask"] == smp_utils.mask_name_from_state(x, obj_types, config.mask_splitter):
+            return False, None
+        for i in range(len(preds)):
+            if self.fact["pred_tensors"][i]:
+                obj_0 = self.fact["objs"][0]
+                obj_1 = self.fact["objs"][1]
+                prop = self.fact["props"]
+                data_A = x[:, obj_0, prop].reshape(-1)
+                data_B = x[:, obj_1, prop].reshape(-1)
+
+                satisfy, values = preds[i].eval(data_A, data_B)
+                satisfaction *= satisfy
+
+        return satisfaction, self.action
 
 
 class SymbolicMicroProgram(nn.Module):

@@ -12,17 +12,18 @@ class SmpReasoner(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.smps = None
+        self.behaviors = None
         self.obj_type_indices = None
         self.explains = None
 
         # self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
 
-    def update(self, smps, obj_types, prop_indices, explains):
-        self.smps = smps
+    def update(self, behaviors, obj_types, prop_indices, explains, preds):
+        self.behaviors = behaviors
         self.obj_types = obj_types
         self.prop_indices = prop_indices
         self.explains = explains
+        self.preds = preds
 
     def action_combine(self, action_prob):
 
@@ -47,15 +48,16 @@ class SmpReasoner(nn.Module):
         explains = "unknown"
 
         # taking a random action
-        if self.smps is None or len(self.smps) == 0:
+        if self.behaviors is None or len(self.behaviors) == 0:
             action_prob = torch.zeros(1, len(self.args.action_names))
             action_prob[0, torch.randint(0, len(self.args.action_names), (1,))] = 1
             explains = "random"
         else:
-            for smp in self.smps:
-                action_probs, params = smp(x, self.obj_type_indices)
-                action_prob += action_probs
-                explains = self.explains
+            for behavior in self.behaviors:
+                satisfaction, action_probs = behavior.eval_behavior(self.preds, x, self.obj_types)
+                if satisfaction:
+                    action_prob += action_probs
+                    explains = self.explains
 
         action_prob = action_prob / (action_prob + 1e-20)
         action_prob = self.action_combine(action_prob)

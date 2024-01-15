@@ -37,7 +37,7 @@ class GT():
     def update_space(self, t1, t2):
         return
 
-    def eval(self, t1, t2, p_space):
+    def eval(self, t1, t2):
         satisfy = torch.gt(t1, t2).float().bool()
         p_values = torch.zeros(size=satisfy.size())
         return satisfy, p_values
@@ -107,7 +107,7 @@ class LT():
 
         return satisfy
 
-    def eval(self, t1, t2, p_space):
+    def eval(self, t1, t2):
         satisfy = torch.lt(t1, t2).float().bool()
         p_values = torch.zeros(size=satisfy.size())
         return satisfy, p_values
@@ -161,13 +161,13 @@ class Similar():
             satisfy = True
         return satisfy
 
-    def eval(self, t1, t2, p_space):
+    def eval(self, t1, t2):
         t1 = t1.reshape(-1)
         t2 = t2.reshape(-1)
         p_values = torch.round(torch.abs(torch.sub(t1, t2)), decimals=2)
         satisfy = torch.zeros(p_values.size(), dtype=torch.bool)
         for v_i, value in enumerate(p_values):
-            if value in p_space:
+            if value in self.p_spaces:
                 satisfy[v_i] = True
 
         return satisfy, p_values

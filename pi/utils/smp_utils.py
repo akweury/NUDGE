@@ -353,7 +353,5 @@ def satisfy_fact(fact, states, mask_dict):
 def update_pred_parameters(preds, action_states, behavior):
     # predict actions for each state using given behavior
     # all the params are valid
-    satisfactions, params = behavior.update_pred_params(preds, action_states)
-
+    behavior.update_pred_params(preds, action_states)
     # for the states return not satisfaction, the params have to be added to the p_space
-    params[~satisfactions]
