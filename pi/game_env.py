@@ -52,10 +52,14 @@ class RolloutBuffer:
         self.action_probs = torch.tensor(state_info['action_probs']).to(args.device)
         self.logprobs = torch.tensor(state_info['logprobs']).to(args.device)
         self.rewards = torch.tensor(state_info['reward']).to(args.device)
-        self.ungrounded_rewards = state_info['ungrounded_rewards']
         self.terminated = torch.tensor(state_info['terminated']).to(args.device)
         self.predictions = torch.tensor(state_info['predictions']).to(args.device)
-        self.reason_source = state_info['reason_source']
+
+
+        if 'ungrounded_rewards' in list(state_info.keys()):
+            self.ungrounded_rewards = state_info['ungrounded_rewards']
+        if "reason_source" not in list(state_info.keys()):
+            self.reason_source = "neural"
 
     def save_data(self):
         data = {'actions': self.actions,
@@ -128,13 +132,60 @@ def collect_data_getout(agent, args):
         args.filename = args.m + ".json"
         if not os.path.exists(config.path_bs_data / args.filename):
             shutil.copyfile(config.path_saved_bs_data / args.filename, config.path_bs_data / args.filename)
+        return
+    elif args.teacher_agent == "random":
+        args.model_file = "random"
+        max_states = 100000
+        # play games using the random agent
+        seed = random.seed() if args.seed is None else int(args.seed)
+        args.filename = args.m + '_' + args.teacher_agent + '_episode_' + str(args.episode) + '.json'
+
+        buffer = RolloutBuffer(args.filename)
+
+        if os.path.exists(buffer.filename):
+            return
+        # collect data
+        step = 0
+        collected_states = 0
+        if args.m == 'getout':
+            coin_jump = create_getout_instance(seed=seed)
+            # frame rate limiting
+            for i in tqdm(range(max_states)):
+                step += 1
+                # predict actions
+                if not coin_jump.level.terminated:
+                    # random actions
+                    action, explaining = agent.reasoning_act(coin_jump)
+                    logic_state = extract_for_cgen_explaining(coin_jump)
+                    reward = coin_jump.step(action)
+
+                    collected_states += 1
+
+                    buffer.logic_states.append(logic_state.detach().tolist())
+                    buffer.actions.append(action - 1)
+                    buffer.rewards.append(reward)
+                    buffer.reason_source.append(explaining)
+                # start a new game
+                else:
+                    coin_jump = create_getout_instance(seed=seed)
+            buffer.save_data()
+        return
+    else:
+        raise ValueError("Teacher agent not exist.")
+
+
+def collect_data_atari(agent, args):
+    if args.teacher_agent == "neural":
+        args.filename = args.m + ".json"
+        if not os.path.exists(config.path_bs_data / args.filename):
+            shutil.copyfile(config.path_saved_bs_data / args.filename, config.path_bs_data / args.filename)
         with open(config.path_bs_data / args.filename, 'a') as f:
             state_info = json.load(f)
             state_info.update({"reason_source": "neural"})
         return
     elif args.teacher_agent == "random":
         args.model_file = "random"
-        max_states = 10000
+        max_states = 100000
         # play games using the random agent
         seed = random.seed() if args.seed is None else int(args.seed)
         args.filename = args.m + '_' + args.teacher_agent + '_episode_' + str(args.episode) + '.json'
@@ -176,5 +227,7 @@ def collect_data_getout(agent, args):
 def collect_data_game(agent, args):
     if args.m == 'getout':
         collect_data_getout(agent, args)
+    elif args.m == 'atari':
+        collect_data_atari(agent, args)
     else:
         raise ValueError

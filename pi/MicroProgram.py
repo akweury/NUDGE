@@ -172,6 +172,33 @@ class UngroundedMicroProgram(nn.Module):
         return satisfactions
 
 
+class Behavior():
+    """ generate one micro-program
+    """
+
+    def __init__(self, fact, action, reward):
+        super().__init__()
+        self.fact = fact
+        self.action = action
+        self.reward = reward
+
+    def update_pred_params(self, preds, x):
+        satisfactions = torch.ones(len(self.fact["preds"]), len(x), dtype=torch.bool)
+        params = torch.zeros(len(self.fact["preds"]), len(x))
+        for i in range(len(preds)):
+            if self.fact["pred_tensors"][i]:
+                obj_0 = self.fact["objs"][0]
+                obj_1 = self.fact["objs"][1]
+                prop = self.fact["props"]
+                data_A = x[:, obj_0, prop].reshape(-1)
+                data_B = x[:, obj_1, prop].reshape(-1)
+
+                preds[i].update_space(data_A, data_B)
+                # func_satisfy, p_values = pred.eval(data_A, data_B, p_space)
+
+        return satisfactions, params
+
+
 class SymbolicMicroProgram(nn.Module):
     """ generate one micro-program
     """
@@ -194,7 +221,21 @@ class SymbolicMicroProgram(nn.Module):
                                                            self.buffer.rewards, self.action_num)
         self.data_actions = smp_utils.split_data_by_action(self.buffer.logic_states, self.buffer.actions,
                                                            self.action_num)
-        self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards)
+        if len(self.buffer.rewards) > 0:
+            self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards)
+
+    def teacher_searching(self, obj_types):
+        # strategy: action, objects, mask, properties, if predicates are valid
+        behaviors = []
+        for action, action_states in self.data_actions.items():
+            all_masks = smp_utils.all_exist_mask(action_states, obj_types)
+            for fact in self.facts:
+                satisfy = smp_utils.satisfy_fact(fact, action_states, all_masks)
+                if satisfy:
+                    behavior = Behavior(fact, action, None)
+                    smp_utils.update_pred_parameters(self.preds, action_states, behavior)
+                    behaviors.append(behavior)
+        return behaviors
 
     def forward_searching(self, relate_2_obj_types, relate_2_prop_types, obj_types):
         # ungrounded behaviors:
@@ -249,27 +290,26 @@ class SymbolicMicroProgram(nn.Module):
             if reward == -0.1:
                 continue
             for action_prob, action_states in reward_states.items():
-                new_ungrounded_behaviors = []
                 for behavior in self.ungrounded_behaviors:
 
                     if behavior.expected_reward == reward and torch.equal(behavior.action, action_prob):
                         # check which explains can satisfy more states
-                        satisfactions = []
-                        for state in action_states:
-                            satisfaction = behavior(state.unsqueeze(0))
-                            satisfactions.append(satisfaction)
+
+                        satisfactions = behavior(action_states)
                         # filter out wrong groundings, until only one option left
                         # update behavior's oppm combs
                         behavior.oppm_combs = self.grounding(behavior.oppm_combs, satisfactions)
                         # top scored explains shall be kept
                         # how to remove them?
-                        if len(behavior.oppm_combs) > 0:
-                            new_ungrounded_behaviors.append(behavior)
-                self.ungrounded_behaviors = new_ungrounded_behaviors
+        new_ungrounded_behaviors = []
+        for behavior in self.ungrounded_behaviors:
+            if len(behavior.oppm_combs) > 0:
+                new_ungrounded_behaviors.append(behavior)
+        self.ungrounded_behaviors = new_ungrounded_behaviors
 
     def backward_searching2(self):
         print(f"- backward searching 2...")
-        new_ungrounded_behaviors = []
+        # consider batching evaluation
         for behavior in self.ungrounded_behaviors:
             satisfactions_behavior = []
             satisfactions_mask = []
@@ -288,7 +328,8 @@ class SymbolicMicroProgram(nn.Module):
                             comb_prop_id = [oppm_comb[idx] for idx in behavior.oppm_keys["prop"]]
                             comb_preds = [oppm_comb[idx] for idx in behavior.oppm_keys["pred"]]
                             state_preds, _ = smp_utils.check_pred_satisfaction(state, behavior.preds, None, comb_obj_id,
-                                                                               comb_prop_id)
+                                                                               comb_prop_id, behavior.p_spaces,
+                                                                               mode="eval")
                             same_pred = state_preds == comb_preds
                             if same_pred:
                                 satisfactions_data.append(True)
@@ -304,14 +345,18 @@ class SymbolicMicroProgram(nn.Module):
             passed_states = [satisfactions_behavior[s_i] for s_i, state in enumerate(satisfactions_mask) if state]
 
             behavior.oppm_combs = self.grounding(behavior.oppm_combs, passed_states)
+
+        new_ungrounded_behaviors = []
+        for behavior in self.ungrounded_behaviors:
             if len(behavior.oppm_combs) > 0:
                 new_ungrounded_behaviors.append(behavior)
-
         self.ungrounded_behaviors = new_ungrounded_behaviors
 
     def grounding(self, combs, satisfactions):
 
-        satisfaction_count = torch.tensor(satisfactions).float().sum(dim=0)
+        satisfaction_count = torch.tensor(satisfactions).float()
+        if len(satisfaction_count.size()) == 2:
+            satisfaction_count = satisfaction_count.sum(0)
         if len(combs) != len(satisfaction_count):
             print("Warning:")
         satisfactions = satisfaction_count > 0
@@ -322,12 +367,15 @@ class SymbolicMicroProgram(nn.Module):
     def programming(self, obj_types, prop_indices):
         relate_2_obj_types = smp_utils.get_all_2_combinations(obj_types)
         relate_2_prop_types = smp_utils.get_all_subsets(prop_indices, empty_set=False)
+        self.preds = predicate.get_preds()
+        self.facts = smp_utils.get_smp_facts(obj_types, relate_2_obj_types, relate_2_prop_types, self.preds)
 
-        obj_grounded_behaviors = self.forward_searching(relate_2_obj_types, relate_2_prop_types, obj_types)
-        self.backward_searching()
-        self.backward_searching2()
+        behaviors = self.teacher_searching(obj_types)
+        # obj_grounded_behaviors = self.forward_searching(relate_2_obj_types, relate_2_prop_types, obj_types)
+        # self.backward_searching()
+        # self.backward_searching2()
 
-        return obj_grounded_behaviors
+        return behaviors
 
     # def behaviors_from_actions(self, relate_2_obj_types, relate_2_prop_types, obj_types):
     #     behaviors = []

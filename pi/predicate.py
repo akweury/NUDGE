@@ -2,7 +2,7 @@
 import torch
 
 
-class Ge():
+class GT():
     """ generate one micro-program
     """
 
@@ -10,6 +10,7 @@ class Ge():
         super().__init__()
         self.p_bound = {"min": 0, "max": 0}
         self.name = "greater_or_equal_than"
+        self.p_spaces = []
 
     def fit(self, t1, t2, objs):
         th = 1e-1
@@ -19,11 +20,11 @@ class Ge():
 
         # single state
         if len(t1) == 1:
-            var, mean = torch.tensor(0), torch.ge(t1, t2).float()
+            var, mean = torch.tensor(0), torch.gt(t1, t2).float()
         # multiple states
         else:
             th = 1e-1
-            var, mean = torch.var_mean(torch.ge(t1, t2).float())
+            var, mean = torch.var_mean(torch.gt(t1, t2).float())
 
         satisfy = False
         if var < th and (1 - mean) < th:
@@ -33,13 +34,34 @@ class Ge():
 
         return satisfy
 
+    def update_space(self, t1, t2):
+        return
+
     def eval(self, t1, t2, p_space):
-        satisfy = torch.ge(t1, t2).float().bool()
+        satisfy = torch.gt(t1, t2).float().bool()
         p_values = torch.zeros(size=satisfy.size())
         return satisfy, p_values
 
+    def eval_batch(self, t1, t2, p_space):
+        th = 1e-1
+        if t1.sum() == 0 or t2.sum() == 0:
+            return False
 
-class Le():
+        # single state
+        if len(t1) == 1:
+            var, mean = torch.tensor(0), torch.gt(t1, t2).float()
+        # multiple states
+        else:
+            th = 1e-1
+            var, mean = torch.var_mean(torch.gt(t1, t2).float())
+
+        satisfy = False
+        if var < th and (1 - mean) < th:
+            satisfy = True
+        return satisfy
+
+
+class LT():
     """ generate one micro-program
     """
 
@@ -47,6 +69,7 @@ class Le():
         super().__init__()
         self.p_bound = {"min": 0, "max": 0}
         self.name = "less_or_equal_than"
+        self.p_spaces = []
 
     def fit(self, t1, t2, objs):
         th = 1e-1
@@ -54,9 +77,9 @@ class Le():
             return False
 
         if len(t1) == 1:
-            var, mean = torch.tensor(0), torch.le(t1, t2).float()
+            var, mean = torch.tensor(0), torch.lt(t1, t2).float()
         else:
-            var, mean = torch.var_mean(torch.le(t1, t2).float())
+            var, mean = torch.var_mean(torch.lt(t1, t2).float())
 
         satisfy = False
         if var < th and (1 - mean) < th:
@@ -66,8 +89,26 @@ class Le():
 
         return satisfy
 
+    def update_space(self, t1, t2):
+        return
+
+    def eval_batch(self, t1, t2, p_space):
+        th = 1e-1
+        if t1.sum() == 0 or t2.sum() == 0:
+            return False
+        if len(t1) == 1:
+            var, mean = torch.tensor(0), torch.lt(t1, t2).float()
+        else:
+            var, mean = torch.var_mean(torch.lt(t1, t2).float())
+
+        satisfy = False
+        if var < th and (1 - mean) < th:
+            satisfy = True
+
+        return satisfy
+
     def eval(self, t1, t2, p_space):
-        satisfy = torch.le(t1, t2).float().bool()
+        satisfy = torch.lt(t1, t2).float().bool()
         p_values = torch.zeros(size=satisfy.size())
         return satisfy, p_values
 
@@ -80,6 +121,7 @@ class Similar():
         super().__init__()
         self.p_bound = {"min": 0, "max": 0}
         self.name = "as_similar_as"
+        self.p_spaces = []
 
     def fit(self, t1, t2, objs):
         th = 0.6
@@ -97,6 +139,26 @@ class Similar():
             satisfy = True
             self.p_bound['min'] = torch.zeros(1)
             self.p_bound['max'] = torch.round(mean + var * 0.5, decimals=2)
+        return satisfy
+
+    def update_space(self, t1, t2):
+        t1 = t1.reshape(-1)
+        t2 = t2.reshape(-1)
+        p_values = torch.round(torch.abs(torch.sub(t1, t2)), decimals=2)
+        for value in p_values:
+            if value not in self.p_spaces:
+                self.p_spaces.append(value)
+
+    def eval_batch(self, t1, t2, p_space):
+        th = 0.6
+
+        if len(t1) == 1:
+            var, mean = torch.tensor(0), torch.abs(torch.sub(t1, t2))
+        else:
+            var, mean = torch.var_mean(torch.abs(torch.sub(t1, t2)))
+        satisfy = False
+        if torch.abs(var / mean) < th:
+            satisfy = True
         return satisfy
 
     def eval(self, t1, t2, p_space):
@@ -147,13 +209,13 @@ class Different():
 def get_preds(repeats=1):
     all_preds = []
     for i in range(repeats):
-        all_preds += [Ge(), Le(), Similar()]
+        all_preds += [GT(), LT(), Similar()]
     return all_preds
 
 
-preds = [Ge(), Le(), Similar()]
+preds = [GT(), LT(), Similar()]
 
-pred_dict = {"greater_or_equal_than": Ge(),
-             "less_or_equal_than": Le(),
+pred_dict = {"greater_or_equal_than": GT(),
+             "less_or_equal_than": LT(),
              "as_similar_as": Similar()
              }

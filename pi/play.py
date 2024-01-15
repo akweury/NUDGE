@@ -63,13 +63,12 @@ def main():
         prop_indices = game_settings.get_idx(args)
         obj_types, obj_names = game_settings.get_game_info(args)
 
-
         # searching for valid behaviors
         agent_behaviors = smp.programming(obj_types, prop_indices)
 
         # HCI: making clauses from behaviors
-        clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
-
+        # clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
+        clauses =None
         # convert ungrounded behaviors to grounded behaviors
         # update game agent, update smps
         agent.update(agent_behaviors, obj_types, prop_indices, clauses)

@@ -1,6 +1,7 @@
 # Created by jing at 23.12.23
 import torch
 
+from src import config
 
 def get_param_range(min, max, unit):
     length = (max - min) // unit
@@ -90,6 +91,46 @@ def mask_name_from_state(state, obj_names, splitter):
     return mask_name
 
 
+def all_mask_tensors(obj_names):
+    mask_tensors = []
+    name_combs = get_all_subsets(obj_names)
+    for name_comb in name_combs:
+        mask_tensor = torch.zeros(len(obj_names), dtype=torch.bool)
+        for i in range(len(obj_names)):
+            if obj_names[i] in name_comb:
+                mask_tensor[i] = True
+
+        mask_tensors.append(mask_tensor)
+
+    return mask_tensors
+
+
+def all_pred_tensors(all_preds):
+    pred_tensors = []
+    pred_combs = get_all_subsets(all_preds, empty_set=False)
+    for pred_comb in pred_combs:
+        pred_tensor = torch.zeros(len(all_preds), dtype=torch.bool)
+        for i in range(len(all_preds)):
+            if all_preds[i] in pred_comb:
+                pred_tensor[i] = True
+        if pred_tensor[0] and pred_tensor[1]:
+            continue
+        pred_tensors.append(pred_tensor)
+
+    return pred_tensors
+
+
+def all_mask_names(obj_names):
+    # states that following different masks
+    masks = []
+    switches = get_all_subsets(obj_names)
+    for switch in switches:
+        mask_name = gen_mask_name(switch, obj_names)
+        masks.append(mask_name)
+
+    return masks
+
+
 def all_exist_mask(states, obj_names):
     obj_masks = {}
     for obj_i, obj_name in enumerate(obj_names):
@@ -127,7 +168,7 @@ def mask_name_to_tensor(mask_name, splitter):
     return existence
 
 
-def check_pred_satisfaction(states, all_preds, mask, objs, prop_indices):
+def check_pred_satisfaction(states, all_preds, mask, objs, prop_indices, p_spaces=None, mode="fit"):
     # filter out states following the same mask as current behavior
     if mask is not None:
         obj_A = states[mask, objs[0]]
@@ -143,7 +184,12 @@ def check_pred_satisfaction(states, all_preds, mask, objs, prop_indices):
                                                                                                                  len(all_preds)))
     p_satisfactions = []
     for p_i, pred in enumerate(all_preds):
-        p_satisfaction = pred.fit(data_A[:, p_i], data_B[:, p_i], objs)
+        if mode == "fit":
+            p_satisfaction = pred.fit(data_A[:, p_i], data_B[:, p_i], objs)
+        elif mode == "eval":
+            p_satisfaction, p_values = pred.eval(data_A[:, p_i], data_B[:, p_i], p_spaces[p_i])
+        else:
+            raise ValueError
         p_satisfactions.append(p_satisfaction)
 
     return p_satisfactions, sample_num
@@ -153,12 +199,13 @@ def arrange_mps(combs_obj_type, prop_combs, mask_combs, obj_dict, pred_satisfact
     # get all obj combinations
     key_nums = 0
     combs_obj, keys_obj_combs, key_nums = get_obj_combs(combs_obj_type, obj_dict, key_nums)
-    combs_obj_prop, keys_obj_prop_combs, key_nums = get_obj_prop_combs(combs_obj, prop_combs, keys_obj_combs, key_nums)
-    combs_obj_prop_pred, keys_obj_prop_pred_combs, key_nums = get_obj_prop_pred_combs(combs_obj_prop,
-                                                                                      pred_satisfactions,
-                                                                                      keys_obj_prop_combs, key_nums)
+    combs_obj_pred, keys_obj_pred_combs, key_nums = get_obj_pred_combs(combs_obj, pred_satisfactions, keys_obj_combs,
+                                                                       key_nums)
+    combs_obj_pred_prop, keys_obj_pred_prop_combs, key_nums = get_obj_pred_prop_combs(combs_obj_pred, prop_combs,
+                                                                                      keys_obj_pred_combs, key_nums)
+
     combs_obj_prop_pred_mask, keys_obj_prop_pred_mask_combs, key_nums = get_obj_prop_pred_mask_combs(
-        combs_obj_prop_pred, keys_obj_prop_pred_combs, mask_combs, key_nums)
+        combs_obj_pred_prop, keys_obj_pred_prop_combs, mask_combs, key_nums)
     return combs_obj_prop_pred_mask, keys_obj_prop_pred_mask_combs, key_nums
 
 
@@ -177,10 +224,10 @@ def get_obj_combs(obj_type_combs, obj_dict, key_nums):
     return obj_combs, key_dict, key_nums_update
 
 
-def get_obj_prop_combs(obj_combs, prop_codes, obj_combs_keys, key_nums):
+def get_obj_pred_prop_combs(obj_pred_combs, prop_codes, obj_combs_keys, key_nums):
     obj_prop_combs = []
-    for obj_comb in obj_combs:
-        obj_prop_combs.append(obj_comb + prop_codes)
+    for obj_pred_comb in obj_pred_combs:
+        obj_prop_combs.append(obj_pred_comb + prop_codes)
     new_key_nums = len(prop_codes)
     obj_combs_keys["prop"] = list(range(key_nums, key_nums + new_key_nums))
     key_nums_update = key_nums + new_key_nums
@@ -188,11 +235,10 @@ def get_obj_prop_combs(obj_combs, prop_codes, obj_combs_keys, key_nums):
     return obj_prop_combs, obj_combs_keys, key_nums_update
 
 
-def get_obj_prop_pred_combs(obj_prop_combs, pred_satisfactions, obj_prop_combs_keys, key_nums):
+def get_obj_pred_combs(obj_combs, pred_satisfactions, obj_prop_combs_keys, key_nums):
     obj_prop_pred_combs = []
-    for obj_prop_comb in obj_prop_combs:
-        for pred_satisfaction in pred_satisfactions:
-            obj_prop_pred_combs.append(obj_prop_comb + pred_satisfaction)
+    for o_i, obj_comb in enumerate(obj_combs):
+        obj_prop_pred_combs.append(obj_comb + pred_satisfactions[o_i])
 
     new_key_nums = len(pred_satisfactions[0])
     obj_prop_combs_keys["pred"] = list(range(key_nums, key_nums + new_key_nums))
@@ -200,15 +246,15 @@ def get_obj_prop_pred_combs(obj_prop_combs, pred_satisfactions, obj_prop_combs_k
     return obj_prop_pred_combs, obj_prop_combs_keys, key_nums_update
 
 
-def get_obj_prop_pred_mask_combs(obj_prop_pred_combs, obj_prop_pred_combs_keys, mask_combs, key_nums):
+def get_obj_prop_pred_mask_combs(combs_obj_pred_prop, keys_obj_pred_prop_combs, mask_combs, key_nums):
     obj_prop_pred_mask_combs = []
-    for obj_prop_comb in obj_prop_pred_combs:
+    for obj_prop_comb in combs_obj_pred_prop:
         obj_prop_pred_mask_combs.append(obj_prop_comb + mask_combs)
     new_key_nums = len(mask_combs)
-    obj_prop_pred_combs_keys["mask"] = list(range(key_nums, key_nums + new_key_nums))
+    keys_obj_pred_prop_combs["mask"] = list(range(key_nums, key_nums + new_key_nums))
     key_nums_update = key_nums + new_key_nums
 
-    return obj_prop_pred_mask_combs, obj_prop_pred_combs_keys, key_nums_update
+    return obj_prop_pred_mask_combs, keys_obj_pred_prop_combs, key_nums_update
 
 
 def get_obj_type_existence(data, obj_type_indices, obj_type_names):
@@ -225,25 +271,23 @@ def get_obj_type_existence(data, obj_type_indices, obj_type_names):
 
 
 def oppm_eval(data, oppm_comb, oppm_keys, preds, p_spaces, obj_type_indices, obj_type_names):
-    assert data.shape[0] == 1
-
     id_objs = [oppm_comb[idx] for idx in oppm_keys["obj"]]
     id_props = [oppm_comb[idx] for idx in oppm_keys["prop"]]
     satisfy_predicates = [oppm_comb[idx] for idx in oppm_keys["pred"]]
     satisfy_masks = [oppm_comb[idx] for idx in oppm_keys["mask"]]
 
-    data_A = data[0, id_objs[0], id_props]
-    data_B = data[0, id_objs[1], id_props]
+    data_A = data[:, id_objs[0], id_props]
+    data_B = data[:, id_objs[1], id_props]
 
-    data_As = data_A.unsqueeze(-1).repeat(1, int(len(preds) / len(id_props))).reshape(len(preds))
-    data_Bs = data_B.unsqueeze(-1).repeat(1, int(len(preds) / len(id_props))).reshape(len(preds))
+    data_As = data_A.repeat(1, int(len(preds) / len(id_props)))
+    data_Bs = data_B.repeat(1, int(len(preds) / len(id_props)))
 
     # predicates satisfaction of given data
     state_predicates = []
     p_spaces = p_spaces * len(id_props)
 
     for p_i, pred in enumerate(preds):
-        satisfy, p_values = pred.eval(data_As[p_i], data_Bs[p_i], p_spaces[p_i])
+        satisfy = pred.eval_batch(data_As[:, p_i], data_Bs[:, p_i], p_spaces[p_i])
         state_predicates.append(satisfy)
 
     # mask satisfaction of given data
@@ -257,3 +301,59 @@ def oppm_eval(data, oppm_comb, oppm_keys, preds, p_spaces, obj_type_indices, obj
         return True
 
     return satisfaction
+
+
+def get_smp_facts(types, relate_2_obj_types, relate_2_prop_types, all_preds):
+    facts = []
+
+    masks = all_mask_names(types)
+    pred_combs = all_pred_tensors(all_preds)
+    for type_comb in relate_2_obj_types:
+        for mask in masks:
+            for prop_types in relate_2_prop_types:
+                for pred_comb in pred_combs:
+                    facts.append({"mask": mask, "objs": type_comb, "props": prop_types, "pred_tensors": pred_comb,
+                                  "preds": all_preds})
+
+    return facts
+
+
+def is_trivial(mask, objs):
+    mask_tensor = mask_name_to_tensor(mask, config.mask_splitter)
+    for obj in objs:
+        if not mask_tensor[obj]:
+            return True
+    return False
+
+def satisfy_fact(fact, states, mask_dict):
+    mask = mask_dict[fact["mask"]]
+    objs = fact["objs"]
+    props = fact["props"]
+    pred_fact = fact["pred_tensors"]
+    preds = fact["preds"]
+
+    if is_trivial(fact["mask"], objs):
+        return False
+
+    obj_A = states[mask, objs[0]]
+    obj_B = states[mask, objs[1]]
+    if len(obj_A) == 0:
+        return False
+    data_A = obj_A[:, props]
+    data_B = obj_B[:, props]
+
+    pred_states = torch.zeros(pred_fact.size(), dtype=torch.bool)
+    for i in range(len(preds)):
+        pred_states[i] = preds[i].fit(data_A, data_B, objs)
+
+    pred_satisfy = torch.equal(pred_states, pred_fact)
+    return pred_satisfy
+
+
+def update_pred_parameters(preds, action_states, behavior):
+    # predict actions for each state using given behavior
+    # all the params are valid
+    satisfactions, params = behavior.update_pred_params(preds, action_states)
+
+    # for the states return not satisfaction, the params have to be added to the p_space
+    params[~satisfactions]
