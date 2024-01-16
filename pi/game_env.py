@@ -135,7 +135,7 @@ def collect_data_getout(agent, args):
         return
     elif args.teacher_agent == "random":
         args.model_file = "random"
-        max_states = 100000
+        max_states = 10000
         # play games using the random agent
         seed = random.seed() if args.seed is None else int(args.seed)
         args.filename = args.m + '_' + args.teacher_agent + '_episode_' + str(args.episode) + '.json'

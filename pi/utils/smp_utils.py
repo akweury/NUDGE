@@ -92,7 +92,13 @@ def mask_name_from_state(state, game_info, splitter):
     mask_name = mask_name[:-1]
     return mask_name
 
+def mask_tensors_from_states(states, game_info):
+    mask_tensors = torch.zeros((len(states), len(game_info)))
+    for i in range(len(game_info)):
+        name, obj_indices, prop_index = game_info[i]
+        mask_tensors[:,i] = states[:, obj_indices, prop_index].sum() >0
 
+    return mask_tensors
 def all_mask_tensors(obj_names):
     mask_tensors = []
     name_combs = get_all_subsets(obj_names)
@@ -336,6 +342,13 @@ def enumerate_two_combs(list_A, list_B):
             combs.append((a, b))
     return combs
 
+def get_obj_type_combs(game_info, fact):
+    objs = fact["objs"]
+    _, obj_A_indices, _ = game_info[objs[0]]
+    _, obj_B_indices, _ = game_info[objs[1]]
+    obj_combs = enumerate_two_combs(obj_A_indices, obj_B_indices)
+
+    return obj_combs
 
 def satisfy_fact(fact, states, mask_dict, game_info):
     mask = mask_dict[fact["mask"]]
@@ -347,11 +360,7 @@ def satisfy_fact(fact, states, mask_dict, game_info):
     if is_trivial(fact["mask"], objs):
         return False
 
-    _, obj_A_indices, _ = game_info[objs[0]]
-    _, obj_B_indices, _ = game_info[objs[1]]
-
-    obj_combs = enumerate_two_combs(obj_A_indices, obj_B_indices)
-
+    obj_combs = get_obj_type_combs(game_info, fact)
     # fact is true if at least one comb is true
     fact_satisfaction = False
     for obj_comb in obj_combs:
@@ -372,8 +381,26 @@ def satisfy_fact(fact, states, mask_dict, game_info):
     return fact_satisfaction
 
 
-def update_pred_parameters(preds, action_states, behavior):
+def update_pred_parameters(preds, action_states, behaviors, game_info):
     # predict actions for each state using given behavior
     # all the params are valid
-    behavior.update_pred_params(preds, action_states)
-    # for the states return not satisfaction, the params have to be added to the p_space
+
+    for behavior in behaviors:
+        obj_combs = get_obj_type_combs(game_info, behavior.fact)
+
+        for action, state_actions in action_states.items():
+            if not torch.equal(behavior.action, action):
+                behavior_satisfaction, _ = behavior.eval_behavior(preds, state_actions, game_info)
+
+                # wrong satisfied states
+                wrong_satisfied_states = state_actions[behavior_satisfaction]
+
+                for p_i in range(len(preds)):
+                    if behavior.fact["pred_tensors"][p_i]:
+                        for obj_comb in obj_combs:
+                            obj_A = wrong_satisfied_states[:, obj_comb[0]]
+                            obj_B = wrong_satisfied_states[:, obj_comb[1]]
+                            data_A = obj_A[:, behavior.fact['props']]
+                            data_B = obj_B[:, behavior.fact['props']]
+                            preds[p_i].refine_space(data_A, data_B)
+

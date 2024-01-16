@@ -34,6 +34,9 @@ class GT():
 
         return satisfy
 
+    def refine_space(self, t1, t2):
+        pass
+
     def update_space(self, t1, t2):
         return
 
@@ -59,6 +62,9 @@ class GT():
         if var < th and (1 - mean) < th:
             satisfy = True
         return satisfy
+
+    def expand_space(self):
+        pass
 
 
 class LT():
@@ -89,6 +95,9 @@ class LT():
 
         return satisfy
 
+    def refine_space(self, t1, t2):
+        pass
+
     def update_space(self, t1, t2):
         return
 
@@ -111,6 +120,9 @@ class LT():
         satisfy = torch.lt(t1, t2).float().bool()
         p_values = torch.zeros(size=satisfy.size())
         return satisfy, p_values
+
+    def expand_space(self):
+        pass
 
 
 class Similar():
@@ -148,6 +160,18 @@ class Similar():
         for value in p_values:
             if value not in self.p_spaces:
                 self.p_spaces.append(value)
+
+    def expand_space(self):
+        if len(self.p_spaces) > 0:
+            min_value, max_value = min(self.p_spaces), max(self.p_spaces)
+            self.p_spaces = torch.round(torch.arange(min_value, max_value, 0.01), decimals=2)
+
+    def refine_space(self, t1, t2):
+        t1 = t1.reshape(-1)
+        t2 = t2.reshape(-1)
+        p_values = torch.round(torch.abs(torch.sub(t1, t2)), decimals=2)
+        for value in p_values:
+            self.p_spaces = torch.where(self.p_spaces == value, 0, self.p_spaces)
 
     def eval_batch(self, t1, t2, p_space):
         th = 0.6

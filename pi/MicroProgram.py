@@ -175,37 +175,40 @@ class Behavior():
                 data_B = x[:, obj_1, prop].reshape(-1)
 
                 preds[i].update_space(data_A, data_B)
-                # func_satisfy, p_values = pred.eval(data_A, data_B, p_space)
+            # preds[i].expand_space()
+            # func_satisfy, p_values = pred.eval(data_A, data_B, p_space)
 
     def eval_behavior(self, preds, x, game_info):
 
-        # check if current state has the same mask as the behavior
-        if not self.fact["mask"] == smp_utils.mask_name_from_state(x, game_info, config.mask_splitter):
-            return False, None
+        type_0_index = self.fact["objs"][0]
+        type_1_index = self.fact["objs"][1]
+        prop = self.fact["props"]
+        _, obj_0_indices, _ = game_info[type_0_index]
+        _, obj_1_indices, _ = game_info[type_1_index]
+        obj_combs = smp_utils.enumerate_two_combs(obj_0_indices, obj_1_indices)
 
-        # behavior is true if all pred is true (and)
-        satisfaction = True
-        for i in range(len(preds)):
-            if self.fact["pred_tensors"][i]:
-                type_0_index = self.fact["objs"][0]
-                type_1_index = self.fact["objs"][1]
-                _, obj_0_indices, _ = game_info[type_0_index]
-                _, obj_1_indices, _ = game_info[type_1_index]
-                obj_combs = smp_utils.enumerate_two_combs(obj_0_indices, obj_1_indices)
-                # pred is true if any comb is true (or)
-                pred_satisfaction = False
-                for obj_comb in obj_combs:
-                    prop = self.fact["props"]
-                    data_A = x[:, obj_comb[0], prop].reshape(-1)
-                    data_B = x[:, obj_comb[1], prop].reshape(-1)
+        # pred is true if any comb is true (or)
+        satisfaction = torch.tensor([False] * len(x))
+        for obj_comb in obj_combs:
+            data_A = x[:, obj_comb[0], prop].reshape(-1)
+            data_B = x[:, obj_comb[1], prop].reshape(-1)
+
+            # behavior is true if all pred is true (and)
+            pred_satisfaction = torch.tensor([True] * len(x))
+            for i in range(len(preds)):
+                if self.fact["pred_tensors"][i]:
                     satisfy, values = preds[i].eval(data_A, data_B)
-                    pred_satisfaction += satisfy
-                satisfaction *= pred_satisfaction
+                    pred_satisfaction *= satisfy
+
+            satisfaction += pred_satisfaction
+
+        # check if current state has the same mask as the behavior
+        fact_mask_tensor = smp_utils.mask_name_to_tensor(self.fact["mask"], config.mask_splitter)
+        fact_mask_tensor = torch.repeat_interleave(fact_mask_tensor.unsqueeze(0), len(x), 0)
+        mask_satisfaction = (fact_mask_tensor == smp_utils.mask_tensors_from_states(x, game_info)).prod(dim=-1).bool()
+        satisfaction *= mask_satisfaction
 
         return satisfaction, self.action
-
-
-
 
 
 class SymbolicRewardMicroProgram(nn.Module):
@@ -239,10 +242,9 @@ class SymbolicRewardMicroProgram(nn.Module):
         for action, action_states in self.data_actions.items():
             all_masks = smp_utils.all_exist_mask(action_states, game_info)
             for fact in self.facts:
-                satisfy = smp_utils.satisfy_fact(fact, action_states, all_masks)
+                satisfy = smp_utils.satisfy_fact(fact, action_states, all_masks, game_info)
                 if satisfy:
                     behavior = Behavior(fact, action, None)
-                    smp_utils.update_pred_parameters(self.preds, action_states, behavior)
                     behaviors.append(behavior)
         return behaviors
 
@@ -380,12 +382,13 @@ class SymbolicRewardMicroProgram(nn.Module):
         self.facts = smp_utils.get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types, self.preds)
 
         behaviors = self.teacher_searching(game_info)
+        smp_utils.update_pred_parameters(self.preds, self.data_actions, behaviors, game_info)
+
         # obj_grounded_behaviors = self.forward_searching(relate_2_obj_types, relate_2_prop_types, obj_types)
         # self.backward_searching()
         # self.backward_searching2()
 
         return behaviors
-
 
 
 class SymbolicMicroProgram(nn.Module):
@@ -402,6 +405,8 @@ class SymbolicMicroProgram(nn.Module):
         self.data_actions = None
         self.data_combs = None
         self.obj_ungrounded_behavior_ids = []
+        self.facts = None
+        self.preds = None
 
     def load_buffer(self, buffer):
         print(f'- SMP new buffer, total states: {len(buffer.logic_states)}')
@@ -422,7 +427,7 @@ class SymbolicMicroProgram(nn.Module):
                 satisfy = smp_utils.satisfy_fact(fact, action_states, all_masks, game_info)
                 if satisfy:
                     behavior = Behavior(fact, action, None)
-                    smp_utils.update_pred_parameters(self.preds, action_states, behavior)
+                    behavior.update_pred_params(self.preds, action_states)
                     behaviors.append(behavior)
         return behaviors
 
@@ -560,6 +565,7 @@ class SymbolicMicroProgram(nn.Module):
         self.facts = smp_utils.get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types, self.preds)
 
         behaviors = self.teacher_searching(game_info)
+        # smp_utils.update_pred_parameters(self.preds, self.data_actions, behaviors, game_info)
         # obj_grounded_behaviors = self.forward_searching(relate_2_obj_types, relate_2_prop_types, obj_types)
         # self.backward_searching()
         # self.backward_searching2()
