@@ -18,12 +18,19 @@ class SmpReasoner(nn.Module):
 
         # self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
 
-    def update(self, behaviors, obj_types, prop_indices, explains, preds):
-        self.behaviors = behaviors
-        self.obj_types = obj_types
-        self.prop_indices = prop_indices
-        self.explains = explains
-        self.preds = preds
+    def update(self, args, behaviors, game_info, prop_indices, explains, preds):
+        if args is not None:
+            self.args = args
+        if behaviors is not None:
+            self.behaviors = behaviors
+        if game_info is not None:
+            self.game_info = game_info
+        if prop_indices is not None:
+            self.prop_indices = prop_indices
+        if explains is not None:
+            self.explains = explains
+        if preds is not None:
+            self.preds = preds
 
     def action_combine(self, action_prob):
 
@@ -54,7 +61,7 @@ class SmpReasoner(nn.Module):
             explains = "random"
         else:
             for behavior in self.behaviors:
-                satisfaction, action_probs = behavior.eval_behavior(self.preds, x, self.obj_types)
+                satisfaction, action_probs = behavior.eval_behavior(self.preds, x, self.game_info)
                 if satisfaction:
                     action_prob += action_probs
                     explains = self.explains

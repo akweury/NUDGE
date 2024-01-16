@@ -13,7 +13,7 @@ date_now = datetime.datetime.today().date()
 time_now = datetime.datetime.now().strftime("%H_%M_%S")
 
 
-def load_args(exp_args_path):
+def load_args(exp_args_path, agent, m, env, teacher_agent):
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--seed", help="Seed for pytorch + env", default=0,
                         required=False, action="store", dest="seed", type=int)
@@ -52,8 +52,17 @@ def load_args(exp_args_path):
     parser.add_argument("--teacher_agent", type=str, default="neural", help="Type of the teacher agent.")
     parser.add_argument("--episode_num", type=int, default=5, help="Number of episodes to update the agent.")
 
-
     args = parser.parse_args()
+
+    # over-written args
+    if agent is not None:
+        args.agent = agent
+    if m is not None:
+        args.m = m
+    if env is not None:
+        args.env = env
+    if teacher_agent is not None:
+        args.teacher_agent = teacher_agent
 
     # load args from json file
     args_file = exp_args_path / f"{args.exp}.json"

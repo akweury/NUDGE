@@ -70,6 +70,9 @@ state_idx_threefish_x = 3
 state_idx_threefish_y = 4
 
 obj_type_name_getout = ['agent', 'key', 'door', 'enemy']
+obj_data_getout = [('agent', [0], [0]), ('key', [1], [1]), ('door', [2], [2]), ('enemy', [3], [3])]
+
+obj_data_getoutplus = [('agent', [0], [0]), ('key', [1], [1]), ('door', [2], [2]), ('enemy', [3, 4, 5, 6, 7], [3])]
 
 obj_name_getout = ['agent', 'key', 'door', 'enemy']
 obj_name_getout_plus = ['agent', 'key', 'door', 'enemy', 'enemy', 'enemy', 'buzzsaw', 'buzzsaw']

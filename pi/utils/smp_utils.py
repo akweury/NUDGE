@@ -3,6 +3,7 @@ import torch
 
 from src import config
 
+
 def get_param_range(min, max, unit):
     length = (max - min) // unit
     if length == 0:
@@ -14,9 +15,9 @@ def get_param_range(min, max, unit):
     return space
 
 
-def get_all_2_combinations(data):
-    all_combinations = [[i_1, i_2] for i_1, s_1 in enumerate(data) for i_2, s_2 in
-                        enumerate(data) if s_1 != s_2]
+def get_all_2_combinations(game_info):
+    all_combinations = [[i_1, i_2] for i_1, s_1 in enumerate(game_info) for i_2, s_2 in
+                        enumerate(game_info) if s_1 != s_2]
     return all_combinations
 
 
@@ -79,10 +80,11 @@ def gen_mask_name(switch, names):
     return mask_name
 
 
-def mask_name_from_state(state, obj_names, splitter):
+def mask_name_from_state(state, game_info, splitter):
     mask_name = ""
-    for obj_i, obj_name in enumerate(obj_names):
-        if state[:, obj_i, obj_i] > 0:
+
+    for obj_name, obj_indices, prop_obj_exist in game_info:
+        if state[:, obj_indices, prop_obj_exist].sum() > 0:
             mask_name += f"exist_{obj_name}"
         else:
             mask_name += f"not_exist_{obj_name}"
@@ -131,24 +133,25 @@ def all_mask_names(obj_names):
     return masks
 
 
-def all_exist_mask(states, obj_names):
+def all_exist_mask(states, game_info):
+    obj_names = [name for name, _, _ in game_info]
     obj_masks = {}
-    for obj_i, obj_name in enumerate(obj_names):
-        obj_exist = states[:, obj_i, obj_i] > 0
-        obj_masks[f'{obj_name}'] = obj_exist
+    for name, obj_indices, prop_index in game_info:
+        obj_exist = states[:, obj_indices, prop_index].sum(dim=-1) > 0
+        obj_masks[f'{name}'] = obj_exist
 
     # states that following different masks
     masks = {}
-    switches = get_all_subsets(obj_names)
-    for switch in switches:
+    obj_type_combs = get_all_subsets(obj_names)
+    for obj_type_comb in obj_type_combs:
         switch_masks = []
-        for name in obj_names:
+        for name, obj_indices, prop_index in game_info:
             mask = ~obj_masks[name]
-            if name in switch:
+            if name in obj_type_comb:
                 mask = ~mask
             switch_masks.append(mask.tolist())
         switch_mask = torch.prod(torch.tensor(switch_masks).float(), dim=0).bool()
-        mask_name = gen_mask_name(switch, obj_names)
+        mask_name = gen_mask_name(obj_type_comb, obj_names)
         masks[mask_name] = switch_mask
         if torch.sum(switch_mask) > 0:
             print(f'mask: {mask_name}, number: {torch.sum(switch_mask)}')
@@ -165,7 +168,7 @@ def mask_name_to_tensor(mask_name, splitter):
         else:
             existence.append(True)
 
-    return existence
+    return torch.tensor(existence)
 
 
 def check_pred_satisfaction(states, all_preds, mask, objs, prop_indices, p_spaces=None, mode="fit"):
@@ -303,10 +306,10 @@ def oppm_eval(data, oppm_comb, oppm_keys, preds, p_spaces, obj_type_indices, obj
     return satisfaction
 
 
-def get_smp_facts(types, relate_2_obj_types, relate_2_prop_types, all_preds):
+def get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types, all_preds):
     facts = []
-
-    masks = all_mask_names(types)
+    obj_names = [name for name, _, _ in game_info]
+    masks = all_mask_names(obj_names)
     pred_combs = all_pred_tensors(all_preds)
     for type_comb in relate_2_obj_types:
         for mask in masks:
@@ -325,7 +328,16 @@ def is_trivial(mask, objs):
             return True
     return False
 
-def satisfy_fact(fact, states, mask_dict):
+
+def enumerate_two_combs(list_A, list_B):
+    combs = []
+    for a in list_A:
+        for b in list_B:
+            combs.append((a, b))
+    return combs
+
+
+def satisfy_fact(fact, states, mask_dict, game_info):
     mask = mask_dict[fact["mask"]]
     objs = fact["objs"]
     props = fact["props"]
@@ -335,19 +347,29 @@ def satisfy_fact(fact, states, mask_dict):
     if is_trivial(fact["mask"], objs):
         return False
 
-    obj_A = states[mask, objs[0]]
-    obj_B = states[mask, objs[1]]
-    if len(obj_A) == 0:
-        return False
-    data_A = obj_A[:, props]
-    data_B = obj_B[:, props]
+    _, obj_A_indices, _ = game_info[objs[0]]
+    _, obj_B_indices, _ = game_info[objs[1]]
 
-    pred_states = torch.zeros(pred_fact.size(), dtype=torch.bool)
-    for i in range(len(preds)):
-        pred_states[i] = preds[i].fit(data_A, data_B, objs)
+    obj_combs = enumerate_two_combs(obj_A_indices, obj_B_indices)
 
-    pred_satisfy = torch.equal(pred_states, pred_fact)
-    return pred_satisfy
+    # fact is true if at least one comb is true
+    fact_satisfaction = False
+    for obj_comb in obj_combs:
+        obj_A = states[mask, obj_comb[0]]
+        obj_B = states[mask, obj_comb[1]]
+        if len(obj_A) == 0:
+            return False
+        data_A = obj_A[:, props]
+        data_B = obj_B[:, props]
+
+        pred_states = torch.zeros(pred_fact.size(), dtype=torch.bool)
+        for i in range(len(preds)):
+            pred_states[i] = preds[i].fit(data_A, data_B, objs)
+
+        pred_satisfy = torch.equal(pred_states, pred_fact)
+        fact_satisfaction += pred_satisfy
+
+    return fact_satisfaction
 
 
 def update_pred_parameters(preds, action_states, behavior):

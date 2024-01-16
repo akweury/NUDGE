@@ -25,10 +25,12 @@ def get_idx(args):
 
 def get_game_info(args):
 
-    if args.m == "threefish":
-        obj_types = config.obj_name_threefish
-    elif args.m == "getout":
-        obj_types = config.obj_type_name_getout
+    if args.env == "threefish":
+        obj_data = config.obj_name_threefish
+    elif args.env == "getout":
+        obj_data = config.obj_data_getout
+    elif args.env == 'getoutplus':
+        obj_data= config.obj_data_getoutplus
     else:
         raise ValueError
 
@@ -39,4 +41,4 @@ def get_game_info(args):
     else:
         raise ValueError
 
-    return obj_types, obj_names
+    return obj_data

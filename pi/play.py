@@ -40,41 +40,38 @@ def load_model(args, set_eval=True):
     return model
 
 
-def main():
+def main(render=True, agent=None, m=None, env=None, teacher_agent=None):
     # load arguments
-    args = args_utils.load_args(config.path_exps)
+    args = args_utils.load_args(config.path_exps, agent, m, env, teacher_agent)
 
     # create a game agent
     agent = create_agent(args)
     smp = SymbolicMicroProgram(args)
-    for episode in range(args.episode_num):
-        print(f"### Episode {episode} ###")
-        args.episode = episode
+    game_env.collect_data_game(agent, args)
 
-        # prepare training data and saved as a json file
-        # agent predicts two kinds of actions:
-        # first kind of actions: based on grounded smps
-        # second kind of actions: based on ungrounded smps
-        game_env.collect_data_game(agent, args)
+    # load game buffer
+    smp.load_buffer(game_env.load_buffer(args))
+    # building symbolic microprogram
+    prop_indices = game_settings.get_idx(args)
+    game_info = game_settings.get_game_info(args)
 
-        # load game buffer
-        smp.load_buffer(game_env.load_buffer(args))
-        # building symbolic microprogram
-        prop_indices = game_settings.get_idx(args)
-        obj_types, obj_names = game_settings.get_game_info(args)
+    # searching for valid behaviors
+    agent_behaviors = smp.programming(game_info, prop_indices)
 
-        # searching for valid behaviors
-        agent_behaviors = smp.programming(obj_types, prop_indices)
+    # HCI: making clauses from behaviors
+    # clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
+    clauses = None
+    # convert ungrounded behaviors to grounded behaviors
+    # update game agent, update smps
+    agent.update(args, agent_behaviors, game_info, prop_indices, clauses, smp.preds)
 
-        # HCI: making clauses from behaviors
-        # clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
-        clauses =None
-        # convert ungrounded behaviors to grounded behaviors
-        # update game agent, update smps
-        agent.update(agent_behaviors, obj_types, prop_indices, clauses, smp.preds)
-
+    if render:
         # Test updated agent
         game_env.render_game(agent, args)
+
+    print(f'- env: {args.env}, teacher agent: {teacher_agent}, learned behaviors: {len(agent_behaviors)}')
+
+    return agent
 
 
 if __name__ == "__main__":
