@@ -79,6 +79,7 @@ obj_name_getout_plus = ['agent', 'key', 'door', 'enemy', 'enemy', 'enemy', 'buzz
 
 obj_type_indices_getout = {'agent': [0], 'key': [1], 'door': [2], 'enemy': [3]}
 obj_type_indices_getout_plus = {'agent': [0], 'key': [1], 'door': [2], 'enemy': [3, 4, 5], 'buzzsaw': [6, 7]}
+obj_type_indices_threefish = {'agent': [0], 'fish': [1, 2]}
 
 obj_name_threefish = ['agent', 'fish1', 'fish2']
 

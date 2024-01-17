@@ -8,19 +8,17 @@ import pandas as pd
 from tqdm import tqdm
 import sys
 import io
-import os
-import cv2
-from ocatari.core import OCAtari
-from PIL import Image, ImageFont, ImageDraw
+import matplotlib.pyplot as plt
 
+from ocatari.core import OCAtari
+from ocatari.vision.utils import mark_bb, make_darker
+from PIL import Image, ImageFont, ImageDraw
 
 from src.environments.procgen.procgen import ProcgenGym3Env
 from src.environments.getout.getout.imageviewer import ImageViewer
 from src.environments.getout.getout.getout.paramLevelGenerator import ParameterizedLevelGenerator
 from src.environments.getout.getout.getout.getout import Getout
 from src.environments.getout.getout.getout.actions import GetoutActions
-
-
 
 # font_path = os.path.join(cv2.__path__[0], 'qt', 'fonts', 'DejaVuSans.ttf')
 # font = ImageFont.truetype(font_path, size=40)
@@ -30,6 +28,7 @@ repeated = 10
 
 def hexify(la):
     return hex(int("".join([str(l) for l in la])))
+
 
 def run(env, nb_games=20):
     """
@@ -72,6 +71,36 @@ def get_values(summaries, key_str, stype=float):
         dico = ast.literal_eval(line[11:])
         all_values.append(stype(dico[key_str]))
     return all_values
+
+
+def render_assault(agent, args):
+    MODE = "revised"
+    HUD = True
+    env = OCAtari('Assault', mode=MODE, hud=HUD, render_mode='rgb_array')
+    observation, info = env.reset()
+    for i in range(10000):
+        action, _ = agent(env.dqn_obs)
+        obs, reward, terminated, truncated, info = env.step(action)
+        ram = env._env.unwrapped.ale.getRAM()
+
+        if i % 5 == 0:
+            print(ram[40])
+            for obj in env.objects:
+                x, y = obj.xy
+                if x < 160 and y < 210:  # and obj.visible
+                    opos = obj.xywh
+                    ocol = obj.rgb
+                    sur_col = make_darker(ocol)
+                    mark_bb(obs, opos, color=sur_col)
+                # mark_point(obs, *opos[:2], color=(255, 255, 0))
+
+            plt.imshow(obs)
+            plt.savefig(args.output_folder  / f"{i}.png")
+
+        if terminated or truncated:
+            observation, info = env.reset()
+        # modify and display render
+    env.close()
 
 
 def render_getout(agent, args):
@@ -163,7 +192,8 @@ def render_getout(agent, args):
                     action.append(GetoutActions.MOVE_LEFT)
                 if KEY_d in viewer.pressed_keys or KEY_RIGHT in viewer.pressed_keys:
                     action.append(GetoutActions.MOVE_RIGHT)
-                if (KEY_SPACE in viewer.pressed_keys) or (KEY_w in viewer.pressed_keys) or KEY_UP in viewer.pressed_keys:
+                if (KEY_SPACE in viewer.pressed_keys) or (
+                        KEY_w in viewer.pressed_keys) or KEY_UP in viewer.pressed_keys:
                     action.append(GetoutActions.MOVE_UP)
                 if KEY_s in viewer.pressed_keys:
                     action.append(GetoutActions.MOVE_DOWN)
@@ -240,7 +270,6 @@ def render_getout(agent, args):
     # print(f"saved in logs/{envname}/{args.agent}_{envname}_log_{args.seed}.csv")
 
 
-
 def render_threefish(agent, args):
     envname = args.env
     env = ProcgenGym3Env(num=1, env_name=args.env, render_mode="rgb_array", rand_seed=args.seed, start_level=args.seed)
@@ -309,7 +338,6 @@ def render_threefish(agent, args):
                     ImageDraw.Draw(screen).text((40, 60), disp_text, (120, 20, 20))
                     screen.save(f"renderings/{step:03}.png")
 
-
             df = pd.DataFrame({'reward': scores})
             df.to_csv(f"logs/{envname}/{args.agent}_{envname}_log_{args.seed}.csv", index=False)
 
@@ -329,7 +357,7 @@ def render_loot(agent, args):
             writer.writerow(head)
 
     if agent == "human":
-        ia = gym3.Interactive(env, info_key="rgb", height=768*2, width=768*2)
+        ia = gym3.Interactive(env, info_key="rgb", height=768 * 2, width=768 * 2)
         all_summaries = run(ia, 20)
 
         scores = get_values(all_summaries, "episode_return")
@@ -370,7 +398,7 @@ def render_loot(agent, args):
                     screen = Image.fromarray(env._get_image())
                     ImageDraw.Draw(screen).text((40, 60), disp_text, (20, 170, 20))
                     screen.save(f"renderings/{nsteps:03}.png")
-                
+
                 # if args.log:
                 #     if args.agent == 'logic':
                 #         probs = agent.get_probs()
@@ -390,11 +418,10 @@ def render_loot(agent, args):
 
                 if epi > 100:
                     break
-                
+
             # import ipdb; ipdb.set_trace()
             df = pd.DataFrame({'reward': scores})
             df.to_csv(f"logs/{envname}/{args.agent}_{envname}_log_{args.seed}.csv", index=False)
-
 
 
 def render_ecoinrun(agent, args):
@@ -415,6 +442,7 @@ def render_ecoinrun(agent, args):
             #     print(obs["positions"])
             i += 1
 
+
 def render_atari(agent, args):
     # gamename = 
     from ocatari.vision.utils import mark_bb, make_darker
@@ -433,7 +461,7 @@ def render_atari(agent, args):
         total_r = 0
         step = 0
         print(f"Episode {epi}")
-        print(f"==========")        
+        print(f"==========")
         while True:
             # action = random.randint(0, env.nb_actions-1)
             if args.agent == 'logic':
@@ -456,4 +484,3 @@ def render_atari(agent, args):
                 step = 0
                 break
     print(np.average(scores))
-        

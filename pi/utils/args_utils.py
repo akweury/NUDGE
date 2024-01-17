@@ -17,17 +17,11 @@ def load_args(exp_args_path, agent, m, env, teacher_agent):
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--seed", help="Seed for pytorch + env", default=0,
                         required=False, action="store", dest="seed", type=int)
-    parser.add_argument("--agent", help="agent type", required=True,
-                        choices=['ppo', 'logic', 'random', 'human', "smp"])
+    parser.add_argument("--agent", help="agent type", required=True)
     parser.add_argument("-m", "--mode", help="the game mode you want to play with",
-                        required=True, action="store", dest="m",
-                        choices=['getout', 'threefish', 'loot', 'ecoinrun', 'atari'])
+                        required=True, action="store", dest="m")
     parser.add_argument("-env", "--environment", help="environment of game to use",
-                        required=True, action="store", dest="env",
-                        choices=['getout', 'getoutplus', 'getout4en',
-                                 'threefish', 'threefishcolor',
-                                 'loot', 'lootcolor', 'lootplus', 'loothard',
-                                 'ecoinrun', 'freeway', 'kangaroo', 'asterix'])
+                        required=True, action="store", dest="env")
     parser.add_argument("-r", "--rules", type=str)
     parser.add_argument("-l", "--log", help="record the information of games", action="store_true")
     parser.add_argument("-rec", "--record", help="record the rendering of the game", action="store_true")
@@ -64,6 +58,8 @@ def load_args(exp_args_path, agent, m, env, teacher_agent):
     if teacher_agent is not None:
         args.teacher_agent = teacher_agent
 
+    args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
+
     # load args from json file
     args_file = exp_args_path / f"{args.exp}.json"
     load_args_from_file(str(args_file), args)
@@ -78,7 +74,7 @@ def load_args(exp_args_path, agent, m, env, teacher_agent):
         args.state_names = config.obj_name_getout
         args.action_names = config.action_names
         args.prop_names = config.prop_name_getout
-    elif args.m == "threefish":
+    elif args.m == "Assault":
         args.state_names = config.obj_name_threefish
         args.action_names = config.action_name_threefish
         args.prop_names = config.prop_name_threefish
@@ -89,6 +85,8 @@ def load_args(exp_args_path, agent, m, env, teacher_agent):
         args.obj_type_indices = config.obj_type_indices_getout_plus
     elif args.env == 'getout':
         args.obj_type_indices = config.obj_type_indices_getout
+    elif args.env == 'Assault':
+        args.obj_type_indices = config.obj_type_indices_threefish
     else:
         raise ValueError
 

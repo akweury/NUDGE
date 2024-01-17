@@ -43,9 +43,14 @@ def load_model(args, set_eval=True):
 def main(render=True, agent=None, m=None, env=None, teacher_agent=None):
     # load arguments
     args = args_utils.load_args(config.path_exps, agent, m, env, teacher_agent)
-
+    args.episode = 0
     # create a game agent
     agent = create_agent(args)
+
+    if render:
+        # Test updated agent
+        game_env.render_game(agent, args)
+
     smp = SymbolicMicroProgram(args)
     game_env.collect_data_game(agent, args)
 
