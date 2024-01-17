@@ -48,11 +48,11 @@ def split_data_by_action(states, actions, action_num):
     return data
 
 
-def comb_buffers(states, actions, rewards):
-    assert len(states) == len(actions) == len(rewards)
+def comb_buffers(states, actions, rewards, reason_source):
+    assert len(states) == len(actions) == len(rewards) == len(reason_source)
     data = []
     for i in range(len(states)):
-        data.append([states[i].unsqueeze(0), actions[i], rewards[i]])
+        data.append([states[i].unsqueeze(0), actions[i], rewards[i], reason_source[i]])
     return data
 
 

@@ -14,6 +14,7 @@ from src.environments.getout.getout.getout.paramLevelGenerator import Parameteri
 from src.utils_game import render_getout, render_threefish, render_loot, render_ecoinrun, render_atari
 
 from nsfr.nsfr.utils import extract_for_cgen_explaining
+from src.agents.utils_getout import extract_logic_state_getout
 
 
 class RolloutBuffer:
@@ -55,12 +56,12 @@ class RolloutBuffer:
         self.terminated = torch.tensor(state_info['terminated']).to(args.device)
         self.predictions = torch.tensor(state_info['predictions']).to(args.device)
 
-
         if 'ungrounded_rewards' in list(state_info.keys()):
             self.ungrounded_rewards = state_info['ungrounded_rewards']
         if "reason_source" not in list(state_info.keys()):
-            self.reason_source = "neural"
-
+            self.reason_source = ["neural"] * len(self.actions)
+        else:
+            self.reason_source = state_info['reason_source']
     def save_data(self):
         data = {'actions': self.actions,
                 'logic_states': self.logic_states,
@@ -99,17 +100,22 @@ def create_agent(args):
     return agent
 
 
-def create_getout_instance(seed=None):
-    seed = random.randint(0, 100000000) if seed is None else seed
 
+
+def create_getout_instance(args, seed=None):
+    if args.env == 'getoutplus':
+        enemies = True
+    else:
+        enemies = False
     # level_generator = DummyGenerator()
-    coin_jump = Getout(start_on_first_action=False)
-    level_generator = ParameterizedLevelGenerator()
+    getout = Getout()
+    level_generator = ParameterizedLevelGenerator(enemies=enemies)
+    level_generator.generate(getout, seed=seed)
+    getout.render()
 
-    level_generator.generate(coin_jump, seed=seed)
-    coin_jump.render()
+    return getout
 
-    return coin_jump
+
 
 
 def render_game(agent, args):
@@ -148,7 +154,8 @@ def collect_data_getout(agent, args):
         step = 0
         collected_states = 0
         if args.m == 'getout':
-            coin_jump = create_getout_instance(seed=seed)
+            coin_jump = create_getout_instance(args)
+
             # frame rate limiting
             for i in tqdm(range(max_states)):
                 step += 1
@@ -156,7 +163,8 @@ def collect_data_getout(agent, args):
                 if not coin_jump.level.terminated:
                     # random actions
                     action, explaining = agent.reasoning_act(coin_jump)
-                    logic_state = extract_for_cgen_explaining(coin_jump)
+
+                    logic_state = extract_logic_state_getout(coin_jump, args).squeeze()
                     reward = coin_jump.step(action)
 
                     collected_states += 1
@@ -167,7 +175,7 @@ def collect_data_getout(agent, args):
                     buffer.reason_source.append(explaining)
                 # start a new game
                 else:
-                    coin_jump = create_getout_instance(seed=seed)
+                    coin_jump = create_getout_instance(args)
             buffer.save_data()
         return
     else:
@@ -206,7 +214,7 @@ def collect_data_atari(agent, args):
                 if not coin_jump.level.terminated:
                     # random actions
                     action, explaining = agent.reasoning_act(coin_jump)
-                    logic_state = extract_for_cgen_explaining(coin_jump)
+                    logic_state = extract_logic_state_getout(coin_jump, args)
                     reward = coin_jump.step(action)
 
                     collected_states += 1

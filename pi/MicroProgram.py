@@ -167,16 +167,55 @@ class Behavior():
 
     def update_pred_params(self, preds, x):
         for i in range(len(preds)):
-            if self.fact["pred_tensors"][i]:
-                obj_0 = self.fact["objs"][0]
-                obj_1 = self.fact["objs"][1]
-                prop = self.fact["props"]
-                data_A = x[:, obj_0, prop].reshape(-1)
-                data_B = x[:, obj_1, prop].reshape(-1)
-
-                preds[i].update_space(data_A, data_B)
-            # preds[i].expand_space()
+            # if self.fact["pred_tensors"][i]:
+            #     obj_0 = self.fact["objs"][0]
+            #     obj_1 = self.fact["objs"][1]
+            #     prop = self.fact["props"]
+            #     data_A = x[:, obj_0, prop].reshape(-1)
+            #     data_B = x[:, obj_1, prop].reshape(-1)
+            #
+            #     preds[i].update_space(data_A, data_B)
+            preds[i].expand_space()
             # func_satisfy, p_values = pred.eval(data_A, data_B, p_space)
+
+    def falsify_pred_params(self, preds, x, game_info):
+        pred_tensor = self.fact['pred_tensors']
+        prop = self.fact["props"]
+        obj_type_combs = smp_utils.get_obj_type_combs(game_info,self.fact)
+
+        satisafaction = []
+        params = []
+        for i in range(len(preds)):
+            pred_satisfaction = []
+            pred_params = []
+            for obj_comb in obj_type_combs:
+                data_A = x[:, obj_comb[0], prop].reshape(-1)
+                data_B = x[:, obj_comb[1], prop].reshape(-1)
+                satisfy, param = preds[i].eval(data_A, data_B)
+                pred_satisfaction.append(satisfy)
+                pred_params.append(param)
+            satisafaction.extend(pred_satisfaction)
+            params.extend(pred_params)
+
+    def validify_pred_params(self, preds, x, game_info):
+        pred_tensor = self.fact['pred_tensors']
+        prop = self.fact["props"]
+        obj_type_combs = smp_utils.get_obj_type_combs(game_info,self.fact)
+
+        satisafaction = []
+        params = []
+        for i in range(len(preds)):
+            pred_satisfaction = []
+            pred_params = []
+            for obj_comb in obj_type_combs:
+                data_A = x[:, obj_comb[0], prop].reshape(-1)
+                data_B = x[:, obj_comb[1], prop].reshape(-1)
+                satisfy, param = preds[i].eval(data_A, data_B)
+                pred_satisfaction.append(satisfy)
+                pred_params.append(param)
+            satisafaction.append(pred_satisfaction)
+            params.append(pred_params)
+        print('test')
 
     def eval_behavior(self, preds, x, game_info):
 
@@ -225,6 +264,8 @@ class SymbolicRewardMicroProgram(nn.Module):
         self.data_actions = None
         self.data_combs = None
         self.obj_ungrounded_behavior_ids = []
+        self.preds = None
+        self.facts = None
 
     def load_buffer(self, buffer):
         print(f'- SMP new buffer, total states: {len(buffer.logic_states)}')
@@ -234,19 +275,30 @@ class SymbolicRewardMicroProgram(nn.Module):
         self.data_actions = smp_utils.split_data_by_action(self.buffer.logic_states, self.buffer.actions,
                                                            self.action_num)
         if len(self.buffer.rewards) > 0:
-            self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards)
+            self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards,
+                                                     self.buffer.reason_source)
 
-    def teacher_searching(self, game_info):
-        # strategy: action, objects, mask, properties, if predicates are valid
-        behaviors = []
-        for action, action_states in self.data_actions.items():
-            all_masks = smp_utils.all_exist_mask(action_states, game_info)
-            for fact in self.facts:
-                satisfy = smp_utils.satisfy_fact(fact, action_states, all_masks, game_info)
-                if satisfy:
-                    behavior = Behavior(fact, action, None)
-                    behaviors.append(behavior)
-        return behaviors
+    def student_searching(self, agent):
+        behaviors = agent.model.behaviors
+        game_info = agent.model.game_info
+        for state, action, reward, behavior_ids in self.data_combs:
+            if behavior_ids is not None:
+                # predict actions based on behaviors
+                # reward is negative, thus this behavior should not be activated
+                if reward < -0.1:
+                    for b_id in range(len(behaviors)):
+                        if b_id in behavior_ids:
+                            behaviors[b_id].falsify_pred_params(self.preds, state, game_info)
+                        else:
+                            behaviors[b_id].validify_pred_params(self.preds, state, game_info)
+
+    def update(self, args=None, preds=None, facts=None):
+        if args is not None:
+            self.args = args
+        if preds is not None:
+            self.preds = preds
+        if facts is not None:
+            self.facts = facts
 
     def forward_searching(self, relate_2_obj_types, relate_2_prop_types, obj_types):
         # ungrounded behaviors:
@@ -375,14 +427,12 @@ class SymbolicRewardMicroProgram(nn.Module):
         print(f"behavior grounded reasons from {len(combs)} to {len(grounded_combs)}")
         return grounded_combs
 
-    def programming(self, game_info, prop_indices):
+    def programming(self, agent, game_info, prop_indices):
         relate_2_obj_types = smp_utils.get_all_2_combinations(game_info)
         relate_2_prop_types = smp_utils.get_all_subsets(prop_indices, empty_set=False)
-        self.preds = predicate.get_preds()
-        self.facts = smp_utils.get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types, self.preds)
 
-        behaviors = self.teacher_searching(game_info)
-        smp_utils.update_pred_parameters(self.preds, self.data_actions, behaviors, game_info)
+        self.facts = smp_utils.get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types, self.preds)
+        behaviors = self.student_searching(agent)
 
         # obj_grounded_behaviors = self.forward_searching(relate_2_obj_types, relate_2_prop_types, obj_types)
         # self.backward_searching()

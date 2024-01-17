@@ -46,12 +46,13 @@ def main():
     agent = teacher_play.main(render=False, agent='smp', m='getout', env='getout', teacher_agent='neural')
     # load arguments
     args = args_utils.load_args(config.path_exps, None, None, None, None)
+
     agent.update(args=args, game_info=game_settings.get_game_info(args))
     # Render game after learning from teacher agent
-    game_env.render_game(agent, args)
+    # game_env.render_game(agent, args)
 
     smp = MicroProgram.SymbolicRewardMicroProgram(args)
-
+    smp.update(preds=agent.preds)
     # update from new games
     for episode in range(args.episode_num):
         print(f"### Episode {episode} ###")
@@ -69,14 +70,14 @@ def main():
         game_info = game_settings.get_game_info(args)
 
         # searching for valid behaviors
-        agent_behaviors = smp.programming(game_info, prop_indices)
+        agent_behaviors = smp.programming(agent, game_info, prop_indices)
 
         # HCI: making clauses from behaviors
         # clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
         clauses = None
         # convert ungrounded behaviors to grounded behaviors
         # update game agent, update smps
-        agent.update(agent_behaviors, game_info, prop_indices, clauses, smp.preds)
+        agent.update(args, agent_behaviors, game_info, prop_indices, clauses, smp.preds)
 
         # Test updated agent
         game_env.render_game(agent, args)

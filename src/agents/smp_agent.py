@@ -212,10 +212,17 @@ class LogicPPO:
 class SymbolicMicroProgramPlayer:
     def __init__(self, args):
         self.args = args
+        self.preds = None
         self.model = SymbolicMicroProgramModel(args).actor.to(args.device)
 
     def update(self, args=None, behaviors=None, game_info=None, prop_indices=None, explains=None, preds=None):
-        self.args = args
+        if args is not None:
+            self.args = args
+        if preds is not None:
+            self.preds = preds
+        if game_info is not None:
+            self.game_info = game_info
+
         self.model.update(args, behaviors, game_info, prop_indices, explains, preds)
 
     def act(self, state):

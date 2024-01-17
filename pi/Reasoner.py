@@ -32,22 +32,26 @@ class SmpReasoner(nn.Module):
         if preds is not None:
             self.preds = preds
 
-    def action_combine(self, action_prob):
+    def action_combine(self, action_prob, explains):
 
         if action_prob.sum() <= 1:
-            return action_prob
+            explains = [b_i for action_prob, b_i in explains]
+            return action_prob, explains
 
         # left canceled out right
         if action_prob[0, 0] == action_prob[0, 1] == 1:
             action_prob[0, 0] = 0
             action_prob[0, 1] = 0
+            explains = [b_i for action_prob, b_i in explains if not (action_prob[0] == 1 or action_prob[1] == 1)]
         elif action_prob[0, 0] == action_prob[0, 2] == 1:
             action_prob[0, 0] = 0
+            explains = [b_i for action_prob, b_i in explains if not (action_prob[ 0] == 1)]
         elif action_prob[0, 1] == action_prob[0, 2] == 1:
             action_prob[0, 1] = 0
+            explains = [b_i for action_prob, b_i in explains if not (action_prob[1] == 1)]
         else:
             raise ValueError
-        return action_prob
+        return action_prob, explains
 
     def forward(self, x):
         # game Getout: tensor with size 1 * 4 * 6
@@ -60,13 +64,19 @@ class SmpReasoner(nn.Module):
             action_prob[0, torch.randint(0, len(self.args.action_names), (1,))] = 1
             explains = "random"
         else:
-            for behavior in self.behaviors:
-                satisfaction, action_probs = behavior.eval_behavior(self.preds, x, self.game_info)
+            explains = []
+            for b_i in range(len(self.behaviors)):
+                satisfaction, action_probs = self.behaviors[b_i].eval_behavior(self.preds, x, self.game_info)
                 if satisfaction:
                     action_prob += action_probs
-                    explains = self.explains
+                    explains.append((action_probs, b_i))
 
         action_prob = action_prob / (action_prob + 1e-20)
-        action_prob = self.action_combine(action_prob)
+        action_prob, explains = self.action_combine(action_prob, explains)
+
+        if explains is None or len(explains) == 0:
+            explains = [-1]
+            action_prob = torch.zeros(1, len(self.args.action_names))
+            action_prob[0, torch.randint(0, len(self.args.action_names), (1,))] = 1
 
         return action_prob, explains

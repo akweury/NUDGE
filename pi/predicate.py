@@ -149,8 +149,8 @@ class Similar():
         satisfy = False
         if torch.abs(var / mean) < th:
             satisfy = True
-            self.p_bound['min'] = torch.zeros(1)
-            self.p_bound['max'] = torch.round(mean + var * 0.5, decimals=2)
+            self.p_bound['min'] = torch.zeros(1).item()
+            self.p_bound['max'] = torch.round(mean + var * 0.5, decimals=2).item()
         return satisfy
 
     def update_space(self, t1, t2):
@@ -162,9 +162,12 @@ class Similar():
                 self.p_spaces.append(value)
 
     def expand_space(self):
-        if len(self.p_spaces) > 0:
-            min_value, max_value = min(self.p_spaces), max(self.p_spaces)
+        min_value, max_value = self.p_bound['min'], self.p_bound['max']
+        if max_value - min_value > 0:
             self.p_spaces = torch.round(torch.arange(min_value, max_value, 0.01), decimals=2)
+        # if len(self.p_spaces) > 0:
+        #     min_value, max_value = min(self.p_spaces), max(self.p_spaces)
+        #     self.p_spaces = torch.round(torch.arange(min_value, max_value, 0.01), decimals=2)
 
     def refine_space(self, t1, t2):
         t1 = t1.reshape(-1)
