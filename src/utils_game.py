@@ -95,7 +95,7 @@ def render_assault(agent, args):
                 # mark_point(obs, *opos[:2], color=(255, 255, 0))
 
             plt.imshow(obs)
-            plt.savefig(args.output_folder  / f"{i}.png")
+            plt.savefig(args.output_folder / f"{i}.png")
 
         if terminated or truncated:
             observation, info = env.reset()
@@ -104,7 +104,6 @@ def render_assault(agent, args):
 
 
 def render_getout(agent, args):
-    envname = args.env
     # envname = "getout"
     KEY_SPACE = 32
     # KEY_SPACE = 32
@@ -128,7 +127,7 @@ def render_getout(agent, args):
         return viewer
 
     def create_getout_instance(args, seed=None):
-        if args.env == 'getoutplus':
+        if args.m == 'getoutplus':
             enemies = True
         else:
             enemies = False
@@ -151,7 +150,9 @@ def render_getout(agent, args):
     last_frame_time = 0
 
     num_epi = 1
-    max_epi = 10
+    max_epi = 100
+    win_count = 0
+    game_count = 0
     total_reward = 0
     epi_reward = 0
     current_reward = 0
@@ -183,11 +184,11 @@ def render_getout(agent, args):
         step += 1
         action = []
         if not getout.level.terminated:
-            if args.agent in ['logic', "smp"]:
+            if args.agent_type in ['logic', "smp"]:
                 action, explaining = agent.act(getout)
-            elif args.agent == 'ppo':
+            elif args.agent_type == 'ppo':
                 action = agent.act(getout)
-            elif args.agent == 'human':
+            elif args.agent_type == 'human':
                 if KEY_a in viewer.pressed_keys or KEY_LEFT in viewer.pressed_keys:
                     action.append(GetoutActions.MOVE_LEFT)
                 if KEY_d in viewer.pressed_keys or KEY_RIGHT in viewer.pressed_keys:
@@ -197,15 +198,18 @@ def render_getout(agent, args):
                     action.append(GetoutActions.MOVE_UP)
                 if KEY_s in viewer.pressed_keys:
                     action.append(GetoutActions.MOVE_DOWN)
-            elif args.agent == 'random':
+            elif args.agent_type == 'random':
                 action = agent.act(getout)
         else:
+            game_count += 1
+            if epi_reward > 1:
+                win_count += 1
             getout = create_getout_instance(args)
             # print("epi_reward: ", round(epi_reward, 2))
             # print("--------------------------     next game    --------------------------")
-            print(f"Episode {num_epi}")
+            print(f"Episode {num_epi} Win: {win_count}/{game_count}")
             print(f"==========")
-            if args.agent == 'human':
+            if args.agent_type == 'human':
                 data = [(num_epi, round(epi_reward, 2))]
                 # writer.writerows(data)
             total_reward += epi_reward
@@ -220,7 +224,7 @@ def render_getout(agent, args):
         current_reward += reward
         average_reward = round(current_reward / num_epi, 2)
         disp_text = ""
-        if args.agent == 'logic':
+        if args.agent_type == 'logic':
             if last_explaining is None or (explaining != last_explaining and repeated > 4):
                 print(explaining)
                 last_explaining = explaining
@@ -229,12 +233,12 @@ def render_getout(agent, args):
             repeated += 1
 
         if args.log:
-            if args.agent == 'logic':
+            if args.agent_type == 'logic':
                 probs = agent.get_probs()
                 logic_state = agent.get_state(getout)
                 data = [(num_epi, step, reward, average_reward, logic_state, probs)]
                 writer.writerows(data)
-            elif args.agent == 'ppo' or args.agent == 'random':
+            elif args.agent_type == 'ppo' or args.agent == 'random':
                 data = [(num_epi, step, reward, average_reward)]
                 writer.writerows(data)
         # print(reward)

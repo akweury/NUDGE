@@ -13,15 +13,12 @@ date_now = datetime.datetime.today().date()
 time_now = datetime.datetime.now().strftime("%H_%M_%S")
 
 
-def load_args(exp_args_path, agent, m, env, teacher_agent):
+def load_args(exp_args_path, m):
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--seed", help="Seed for pytorch + env", default=0,
                         required=False, action="store", dest="seed", type=int)
-    parser.add_argument("--agent", help="agent type", required=True)
     parser.add_argument("-m", "--mode", help="the game mode you want to play with",
                         required=True, action="store", dest="m")
-    parser.add_argument("-env", "--environment", help="environment of game to use",
-                        required=True, action="store", dest="env")
     parser.add_argument("-r", "--rules", type=str)
     parser.add_argument("-l", "--log", help="record the information of games", action="store_true")
     parser.add_argument("-rec", "--record", help="record the rendering of the game", action="store_true")
@@ -48,15 +45,8 @@ def load_args(exp_args_path, agent, m, env, teacher_agent):
 
     args = parser.parse_args()
 
-    # over-written args
-    if agent is not None:
-        args.agent = agent
     if m is not None:
         args.m = m
-    if env is not None:
-        args.env = env
-    if teacher_agent is not None:
-        args.teacher_agent = teacher_agent
 
     args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
 
@@ -74,21 +64,21 @@ def load_args(exp_args_path, agent, m, env, teacher_agent):
         args.state_names = config.obj_name_getout
         args.action_names = config.action_names
         args.prop_names = config.prop_name_getout
+        args.obj_type_indices = config.obj_type_indices_getout
+    elif args.m == "getoutplus":
+        args.obj_type_names = config.obj_type_name_getout
+        args.state_names = config.obj_name_getout
+        args.action_names = config.action_names
+        args.prop_names = config.prop_name_getout
+        args.obj_type_indices = config.obj_type_indices_getout_plus
     elif args.m == "Assault":
-        args.state_names = config.obj_name_threefish
-        args.action_names = config.action_name_threefish
-        args.prop_names = config.prop_name_threefish
+        args.state_names = config.obj_name_assault
+        args.action_names = config.action_name_assault
+        args.prop_names = config.prop_name_assault
+        args.obj_type_indices = config.obj_type_indices_assault
     else:
         raise ValueError
 
-    if args.env == 'getoutplus':
-        args.obj_type_indices = config.obj_type_indices_getout_plus
-    elif args.env == 'getout':
-        args.obj_type_indices = config.obj_type_indices_getout
-    elif args.env == 'Assault':
-        args.obj_type_indices = config.obj_type_indices_threefish
-    else:
-        raise ValueError
 
     # output folder
     args.output_folder = config.path_log / f"{args.exp}_{date_now}_{time_now}"

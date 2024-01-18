@@ -36,6 +36,7 @@ class RolloutBuffer:
         self.terminated = []
         self.predictions = []
         self.reason_source = []
+        self.game_number = []
 
     def clear(self):
         del self.actions[:]
@@ -48,26 +49,36 @@ class RolloutBuffer:
         del self.terminated[:]
         del self.predictions[:]
         del self.reason_source[:]
+        del self.game_number[:]
 
     def load_buffer(self, args):
         with open(config.path_bs_data / args.filename, 'r') as f:
             state_info = json.load(f)
         print(f"buffer file: {args.filename}")
-        self.actions = torch.tensor(state_info['actions']).to(args.device)
-        self.logic_states = torch.tensor(state_info['logic_states']).to(args.device)
-        self.neural_states = torch.tensor(state_info['neural_states']).to(args.device)
-        self.action_probs = torch.tensor(state_info['action_probs']).to(args.device)
-        self.logprobs = torch.tensor(state_info['logprobs']).to(args.device)
-        self.rewards = torch.tensor(state_info['reward']).to(args.device)
-        self.terminated = torch.tensor(state_info['terminated']).to(args.device)
-        self.predictions = torch.tensor(state_info['predictions']).to(args.device)
 
+        self.actions = torch.tensor(state_info['actions']).to(args.device)
+        self.logic_states = torch.tensor(state_info['logic_states']).to(args.device).squeeze()
+        self.rewards = torch.tensor(state_info['reward']).to(args.device)
+
+        if 'neural_states' in list(state_info.keys()):
+            self.neural_states = torch.tensor(state_info['neural_states']).to(args.device)
+        if 'action_probs' in list(state_info.keys()):
+            self.action_probs = torch.tensor(state_info['action_probs']).to(args.device)
+        if 'logprobs' in list(state_info.keys()):
+            self.logprobs = torch.tensor(state_info['logprobs']).to(args.device)
+        if 'terminated' in list(state_info.keys()):
+            self.terminated = torch.tensor(state_info['terminated']).to(args.device)
+        if 'predictions' in list(state_info.keys()):
+            self.predictions = torch.tensor(state_info['predictions']).to(args.device)
         if 'ungrounded_rewards' in list(state_info.keys()):
             self.ungrounded_rewards = state_info['ungrounded_rewards']
-        if "reason_source" not in list(state_info.keys()):
-            self.reason_source = ["neural"] * len(self.actions)
-        else:
+        if 'game_number' in list(state_info.keys()):
+            self.game_number = state_info['game_number']
+
+        if "reason_source" in list(state_info.keys()):
             self.reason_source = state_info['reason_source']
+        else:
+            self.reason_source = ["neural"] * len(self.actions)
 
     def save_data(self):
         data = {'actions': self.actions,
@@ -79,7 +90,8 @@ class RolloutBuffer:
                 'ungrounded_rewards': self.ungrounded_rewards,
                 'terminated': self.terminated,
                 'predictions': self.predictions,
-                "reason_source": self.reason_source
+                "reason_source": self.reason_source,
+                'game_number': self.game_number
                 }
 
         with open(self.filename, 'w') as f:
@@ -150,15 +162,16 @@ def _epsilon_greedy(obs, model, eps=0.001):
     q_val, argmax_a = model(obs).max(1)
     return argmax_a.item(), q_val
 
-def create_agent(args):
+
+def create_agent(args, agent_type):
     #### create agent
-    if args.agent == "smp":
+    if agent_type == "smp":
         agent = SymbolicMicroProgramPlayer(args)
-    elif args.agent == 'random':
+    elif agent_type == 'random':
         agent = RandomPlayer(args)
-    elif args.agent == 'human':
+    elif agent_type == 'human':
         agent = 'human'
-    elif args.agent == 'ppo':
+    elif agent_type == 'ppo':
         # game/seed/model
         args.model_path = config.path_model / 'atari' / 'model_50000000.gz'
         ckpt = _load_checkpoint(args.model_path)
@@ -190,7 +203,7 @@ def create_agent(args):
 
 
 def create_getout_instance(args, seed=None):
-    if args.env == 'getoutplus':
+    if args.m == 'getoutplus':
         enemies = True
     else:
         enemies = False
@@ -204,7 +217,7 @@ def create_getout_instance(args, seed=None):
 
 
 def render_game(agent, args):
-    if args.m == 'getout':
+    if args.m == 'getout' or args.m == "getoutplus":
         render_getout(agent, args)
     elif args.m == 'Assault':
         render_assault(agent, args)
@@ -220,7 +233,7 @@ def render_game(agent, args):
 
 def collect_data_getout(agent, args):
     if args.teacher_agent == "neural":
-        args.filename = args.m + ".json"
+        args.filename ="getout.json"
         if not os.path.exists(config.path_bs_data / args.filename):
             shutil.copyfile(config.path_saved_bs_data / args.filename, config.path_bs_data / args.filename)
         return
@@ -265,76 +278,104 @@ def collect_data_getout(agent, args):
 
 
 def extract_logic_state_assault(objects, args, noise=False):
-    num_of_feature = 6
-    num_of_object = 8
-    representation = objects.level.get_representation()
+    extracted_states = {'Player': {'name': 'Player', 'exist': False, 'x': [], 'y': []},
+                        'PlayerMissileVertical': {'name': 'PlayerMissileVertical', 'exist': False, 'x': [], 'y': []},
+                        'PlayerMissileHorizontal': {'name': 'PlayerMissileHorizontal', 'exist': False, 'x': [],
+                                                    'y': []},
+                        'EnemyMissile': {'name': 'EnemyMissile', 'exist': False, 'x': [], 'y': []},
+                        'Enemy': {'name': 'Enemy', 'exist': False, 'x': [], 'y': []}
+                        }
     # import ipdb; ipdb.set_trace()
-    extracted_states = torch.zeros((num_of_object, num_of_feature))
-    for entity in representation["entities"]:
-        if entity[0].name == 'PLAYER':
-            extracted_states[0][0] = 1
-            extracted_states[0][-2:] = entity[1:3]
+    for object in objects:
+        if object.category == 'Player':
+            extracted_states['Player']['exist'] = True
+            extracted_states['Player']['x'].append(object.x)
+            extracted_states['Player']['y'].append(object.y)
             # 27 is the width of map, this is normalization
             # extracted_states[0][-2:] /= 27
-        elif entity[0].name == 'KEY':
-            extracted_states[1][1] = 1
-            extracted_states[1][-2:] = entity[1:3]
-            # extracted_states[1][-2:] /= 27
-        elif entity[0].name == 'DOOR':
-            extracted_states[2][2] = 1
-            extracted_states[2][-2:] = entity[1:3]
-            # extracted_states[2][-2:] /= 27
-        elif entity[0].name == 'GROUND_ENEMY':
-            extracted_states[3][3] = 1
-            extracted_states[3][-2:] = entity[1:3]
-            # extracted_states[3][-2:] /= 27
-        elif entity[0].name == 'GROUND_ENEMY2':
-            extracted_states[4][3] = 1
-            # extracted_states[3][-2:] /= 27
-        elif entity[0].name == 'GROUND_ENEMY3':
-            extracted_states[5][3] = 1
-            extracted_states[5][-2:] = entity[1:3]
-        elif entity[0].name == 'BUZZSAW1':
-            extracted_states[6][3] = 1
-            extracted_states[6][-2:] = entity[1:3]
-        elif entity[0].name == 'BUZZSAW2':
-            extracted_states[7][3] = 1
-            extracted_states[7][-2:] = entity[1:3]
+        elif object.category == 'PlayerMissileVertical':
+            extracted_states['PlayerMissileVertical']['exist'] = True
+            extracted_states['PlayerMissileVertical']['x'].append(object.x)
+            extracted_states['PlayerMissileVertical']['y'].append(object.y)
+        elif object.category == 'PlayerMissileHorizontal':
+            extracted_states['PlayerMissileHorizontal']['exist'] = True
+            extracted_states['PlayerMissileHorizontal']['x'].append(object.x)
+            extracted_states['PlayerMissileHorizontal']['y'].append(object.y)
+        elif object.category == 'Enemy':
+            extracted_states['Enemy']['exist'] = True
+            extracted_states['Enemy']['x'].append(object.x)
+            extracted_states['Enemy']['y'].append(object.y)
+        elif object.category == 'EnemyMissile':
+            extracted_states['EnemyMissile']['exist'] = True
+            extracted_states['EnemyMissile']['x'].append(object.x)
+            extracted_states['EnemyMissile']['y'].append(object.y)
+        elif object.category == "MotherShip":
+            pass
+        elif object.category == "PlayerScore":
+            pass
+        elif object.category == "Health":
+            pass
+        elif object.category == "Lives":
+            pass
+        else:
+            raise ValueError
+    player_id = 0
+    player_missile_vertical_id = 1
+    player_missile_horizontal_id = 3
+    enemy_id = 5
+    enemy_missile_id = 10
 
-    if sum(extracted_states[:, 1]) == 0:
-        key_picked = True
-    else:
-        key_picked = False
+    player_exist_id = 0
+    player_missile_vertical_exist_id = 1
+    player_missile_horizontal_exist_id = 2
+    enemy_exist_id = 3
+    enemy_missile_exist_id = 4
+    x_idx = 5
+    y_idx = 6
 
-    def simulate_prob(extracted_states, num_of_objs, key_picked):
-        for i, obj in enumerate(extracted_states):
-            obj = add_noise(obj, i, num_of_objs)
-            extracted_states[i] = obj
-        if key_picked:
-            extracted_states[:, 1] = 0
-        return extracted_states
+    states = torch.zeros((12, 7))
+    if extracted_states['Player']['exist']:
+        states[player_id, player_exist_id] = 1
+        assert len(extracted_states['Player']['x']) == 1
+        states[player_id, x_idx] = extracted_states['Player']['x'][0]
+        states[player_id, y_idx] = extracted_states['Player']['y'][0]
 
-    def add_noise(obj, index_obj, num_of_objs):
-        mean = torch.tensor(0.2)
-        std = torch.tensor(0.05)
-        noise = torch.abs(torch.normal(mean=mean, std=std)).item()
-        rand_noises = torch.randint(1, 5, (num_of_objs - 1,)).tolist()
-        rand_noises = [i * noise / sum(rand_noises) for i in rand_noises]
-        rand_noises.insert(index_obj, 1 - noise)
+    if extracted_states['PlayerMissileVertical']['exist']:
+        for i in range(len(extracted_states['PlayerMissileVertical']['x'])):
+            states[player_missile_vertical_id + i, player_missile_vertical_exist_id] = 1
+            states[player_missile_vertical_id + i, x_idx] = extracted_states['PlayerMissileVertical']['x'][i]
+            states[player_missile_vertical_id + i, y_idx] = extracted_states['PlayerMissileVertical']['y'][i]
+            if i > 1:
+                raise ValueError
+    if extracted_states['PlayerMissileHorizontal']['exist']:
+        for i in range(len(extracted_states['PlayerMissileHorizontal']['x'])):
+            states[player_missile_horizontal_id+i, player_missile_horizontal_exist_id] = 1
+            states[player_missile_horizontal_id+i, x_idx] = extracted_states['PlayerMissileHorizontal']['x'][i]
+            states[player_missile_horizontal_id+i, y_idx] = extracted_states['PlayerMissileHorizontal']['y'][i]
+            if i > 1:
+                raise ValueError
 
-        for i, noise in enumerate(rand_noises):
-            obj[i] = rand_noises[i]
-        return obj
+    if extracted_states['Enemy']['exist']:
+        for i in range(len(extracted_states['Enemy']['x'])):
+            states[enemy_id + i, enemy_exist_id] = 1
+            states[enemy_id + i, x_idx] = extracted_states['Enemy']['x'][i]
+            states[enemy_id + i, y_idx] = extracted_states['Enemy']['y'][i]
+            if i > 5:
+                raise ValueError
+    if extracted_states['EnemyMissile']['exist']:
+        for i in range(len(extracted_states['EnemyMissile']['x'])):
+            states[enemy_missile_id+i, enemy_missile_exist_id] = 1
+            states[enemy_missile_id+i, x_idx] = extracted_states['EnemyMissile']['x'][i]
+            states[enemy_missile_id+i, y_idx] = extracted_states['EnemyMissile']['y'][i]
+            if i > 1:
+                raise ValueError
 
-    if noise:
-        extracted_states = simulate_prob(extracted_states, num_of_object, key_picked)
-    states = torch.tensor(extracted_states, dtype=torch.float32, device="cpu").unsqueeze(0)
     return states
 
 
 def collect_data_assault(agent, args):
     args.model_file = "neural"
-    args.filename = args.m + '_' + args.teacher_agent + '_episode_' + str(args.episode) + '.json'
+    args.filename = args.m + '_' + args.teacher_agent  + '.json'
     max_states = 10000
     buffer = RolloutBuffer(args.filename)
     if os.path.exists(buffer.filename):
@@ -342,30 +383,36 @@ def collect_data_assault(agent, args):
 
     step = 0
     collected_states = 0
-    env = OCAtari(args.m, mode="raw", hud=True, render_mode="rgb_array")
+    game_num = 0
+    env = OCAtari(args.m, mode="vision", hud=True, render_mode="rgb_array")
     observation, info = env.reset()
+
     for i in tqdm(range(max_states)):
         # step game
         step += 1
-        neural_state = observation
-        # logic_state = extract_logic_state_assault(env.objects, args)
-        predictions = agent(neural_state)
-
-        action = torch.argmax(predictions)
-        action = simplify_action_loot(action)
+        logic_state = extract_logic_state_assault(env.objects, args)
+        action, _ = agent(env.dqn_obs)
 
         obs, reward, terminated, truncated, info = env.step(action)
+        if terminated:
+            game_num += 1
+            env.reset()
 
         collected_states += 1
         # buffer.logic_states.append(logic_state.detach().tolist())
-        buffer.actions.append(torch.argmax(predictions.detach()).tolist())
-        buffer.action_probs.append(predictions.detach().tolist())
-        buffer.neural_states.append(neural_state.tolist())
+        buffer.actions.append(action)
+        buffer.logic_states.append(logic_state.tolist())
+        buffer.rewards.append(reward)
+        buffer.reason_source.append('neural')
+        buffer.game_number.append(game_num)
+
     buffer.save_data()
 
 
 def collect_data_game(agent, args):
     if args.m == 'getout':
+        collect_data_getout(agent, args)
+    elif args.m == 'getoutplus':
         collect_data_getout(agent, args)
     elif args.m == 'Assault':
         collect_data_assault(agent, args)

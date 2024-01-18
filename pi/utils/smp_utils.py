@@ -92,13 +92,16 @@ def mask_name_from_state(state, game_info, splitter):
     mask_name = mask_name[:-1]
     return mask_name
 
+
 def mask_tensors_from_states(states, game_info):
     mask_tensors = torch.zeros((len(states), len(game_info)))
     for i in range(len(game_info)):
         name, obj_indices, prop_index = game_info[i]
-        mask_tensors[:,i] = states[:, obj_indices, prop_index].sum() >0
+        mask_tensors[:, i] = states[:, obj_indices, prop_index].sum() > 0
 
     return mask_tensors
+
+
 def all_mask_tensors(obj_names):
     mask_tensors = []
     name_combs = get_all_subsets(obj_names)
@@ -342,6 +345,7 @@ def enumerate_two_combs(list_A, list_B):
             combs.append((a, b))
     return combs
 
+
 def get_obj_type_combs(game_info, fact):
     objs = fact["objs"]
     _, obj_A_indices, _ = game_info[objs[0]]
@@ -349,6 +353,7 @@ def get_obj_type_combs(game_info, fact):
     obj_combs = enumerate_two_combs(obj_A_indices, obj_B_indices)
 
     return obj_combs
+
 
 def satisfy_fact(fact, states, mask_dict, game_info):
     mask = mask_dict[fact["mask"]]
@@ -403,4 +408,3 @@ def update_pred_parameters(preds, action_states, behaviors, game_info):
                             data_A = obj_A[:, behavior.fact['props']]
                             data_B = obj_B[:, behavior.fact['props']]
                             preds[p_i].refine_space(data_A, data_B)
-

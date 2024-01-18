@@ -226,7 +226,7 @@ class SymbolicMicroProgramPlayer:
         self.model.update(args, behaviors, game_info, prop_indices, explains, preds)
 
     def act(self, state):
-        if self.args.m == 'getout':
+        if self.args.m == 'getout' or self.args.m == "getoutplus":
             action, explaining = self.getout_actor(state)
         elif self.args.m == 'threefish':
             action, explaining = self.threefish_actor(state)

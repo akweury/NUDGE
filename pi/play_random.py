@@ -43,7 +43,7 @@ def load_model(args, set_eval=True):
 
 def main():
     # create a game agent
-    agent = teacher_play.main(render=False, agent='smp', m='getout', env='getout', teacher_agent='neural')
+    agent = teacher_play.main(render=False, m='getout')
     # load arguments
     args = args_utils.load_args(config.path_exps, None, None, None, None)
 

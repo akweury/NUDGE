@@ -466,7 +466,8 @@ class SymbolicMicroProgram(nn.Module):
         self.data_actions = smp_utils.split_data_by_action(self.buffer.logic_states, self.buffer.actions,
                                                            self.action_num)
         if len(self.buffer.rewards) > 0:
-            self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards)
+            self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards,
+                                                     self.buffer.reason_source)
 
     def teacher_searching(self, game_info):
         # strategy: action, objects, mask, properties, if predicates are valid

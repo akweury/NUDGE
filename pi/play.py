@@ -40,31 +40,24 @@ def load_model(args, set_eval=True):
     return model
 
 
-def main(render=True, agent=None, m=None, env=None, teacher_agent=None):
+def main(render=True, m=None):
     # load arguments
-    args = args_utils.load_args(config.path_exps, agent, m, env, teacher_agent)
-    args.episode = 0
-    # create a game agent
-    agent = create_agent(args)
+    args = args_utils.load_args(config.path_exps, m)
+    # collect data
+    teacher_agent = create_agent(args, agent_type='ppo')
+    game_env.collect_data_game(teacher_agent, args)
 
-    if render:
-        # Test updated agent
-        game_env.render_game(agent, args)
-
+    # learn behaviors from data
+    agent = create_agent(args, agent_type='smp')
+    args.agent_type = 'smp'
     smp = SymbolicMicroProgram(args)
-    game_env.collect_data_game(agent, args)
-
-    # load game buffer
     smp.load_buffer(game_env.load_buffer(args))
     # building symbolic microprogram
     prop_indices = game_settings.get_idx(args)
     game_info = game_settings.get_game_info(args)
-
     # searching for valid behaviors
     agent_behaviors = smp.programming(game_info, prop_indices)
 
-    # HCI: making clauses from behaviors
-    # clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
     clauses = None
     # convert ungrounded behaviors to grounded behaviors
     # update game agent, update smps
