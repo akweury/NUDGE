@@ -1,18 +1,14 @@
 import csv
-import random
 import time
 import gym3
 import numpy as np
 import ast
 import pandas as pd
-from tqdm import tqdm
 import sys
 import io
-import matplotlib.pyplot as plt
 
 from ocatari.core import OCAtari
-from ocatari.vision.utils import mark_bb, make_darker
-from PIL import Image, ImageFont, ImageDraw
+from PIL import Image, ImageDraw
 
 from src.environments.procgen.procgen import ProcgenGym3Env
 from src.environments.getout.getout.imageviewer import ImageViewer
@@ -71,36 +67,6 @@ def get_values(summaries, key_str, stype=float):
         dico = ast.literal_eval(line[11:])
         all_values.append(stype(dico[key_str]))
     return all_values
-
-
-def render_assault(agent, args):
-    MODE = "revised"
-    HUD = True
-    env = OCAtari('Assault', mode=MODE, hud=HUD, render_mode='rgb_array')
-    observation, info = env.reset()
-    for i in range(10000):
-        action, _ = agent(env.dqn_obs)
-        obs, reward, terminated, truncated, info = env.step(action)
-        ram = env._env.unwrapped.ale.getRAM()
-
-        if i % 5 == 0:
-            print(ram[40])
-            for obj in env.objects:
-                x, y = obj.xy
-                if x < 160 and y < 210:  # and obj.visible
-                    opos = obj.xywh
-                    ocol = obj.rgb
-                    sur_col = make_darker(ocol)
-                    mark_bb(obs, opos, color=sur_col)
-                # mark_point(obs, *opos[:2], color=(255, 255, 0))
-
-            plt.imshow(obs)
-            plt.savefig(args.output_folder / f"{i}.png")
-
-        if terminated or truncated:
-            observation, info = env.reset()
-        # modify and display render
-    env.close()
 
 
 def render_getout(agent, args):
@@ -449,8 +415,6 @@ def render_ecoinrun(agent, args):
 
 def render_atari(agent, args):
     # gamename = 
-    from ocatari.vision.utils import mark_bb, make_darker
-    import matplotlib.pyplot as plt
     rdr_mode = "human" if args.render else "rgb_array"
     env = OCAtari(env_name=args.env.capitalize(), render_mode=rdr_mode, mode="revised")
     obs = env.reset()

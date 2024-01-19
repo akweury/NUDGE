@@ -27,10 +27,13 @@ class GT():
             var, mean = torch.var_mean(torch.gt(t1, t2).float())
 
         satisfy = False
-        if var < th and (1 - mean) < th:
-            satisfy = True
-            self.p_bound['min'] = torch.round(mean - var, decimals=2)
-            self.p_bound['max'] = torch.round(mean + var, decimals=2)
+        try:
+            if var < th and (1 - mean) < th:
+                satisfy = True
+                self.p_bound['min'] = torch.round(mean - var, decimals=2)
+                self.p_bound['max'] = torch.round(mean + var, decimals=2)
+        except RuntimeError:
+            print("Warning:")
 
         return satisfy
 

@@ -48,7 +48,6 @@ def load_args(exp_args_path, m):
     if m is not None:
         args.m = m
 
-    args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
 
     # load args from json file
     args_file = exp_args_path / f"{args.exp}.json"
@@ -60,6 +59,7 @@ def load_args(exp_args_path, m):
     args.log_file = log_utils.create_log_file(config.path_log, args.exp_name)
     make_deterministic(args.seed)
     if args.m == "getout":
+        args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
         args.obj_type_names = config.obj_type_name_getout
         args.state_names = config.obj_name_getout
         args.action_names = config.action_names
@@ -72,6 +72,7 @@ def load_args(exp_args_path, m):
         args.prop_names = config.prop_name_getout
         args.obj_type_indices = config.obj_type_indices_getout_plus
     elif args.m == "Assault":
+        args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.state_names = config.obj_name_assault
         args.action_names = config.action_name_assault
         args.prop_names = config.prop_name_assault

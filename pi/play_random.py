@@ -1,7 +1,7 @@
 # Created by jing at 16.01.24
 import torch
 
-from pi.game_env import create_agent
+import pi.utils.game_utils
 from pi import MicroProgram
 from src.agents.neural_agent import ActorCritic
 from src.agents.logic_agent import NSFR_ActorCritic
@@ -64,7 +64,7 @@ def main():
         game_env.collect_data_game(agent, args)
 
         # load game buffer
-        smp.load_buffer(game_env.load_buffer(args))
+        smp.load_buffer(pi.utils.game_utils.load_buffer(args))
         # building symbolic microprogram
         prop_indices = game_settings.get_idx(args)
         game_info = game_settings.get_game_info(args)

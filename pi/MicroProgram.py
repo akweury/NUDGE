@@ -181,7 +181,7 @@ class Behavior():
     def falsify_pred_params(self, preds, x, game_info):
         pred_tensor = self.fact['pred_tensors']
         prop = self.fact["props"]
-        obj_type_combs = smp_utils.get_obj_type_combs(game_info,self.fact)
+        obj_type_combs = smp_utils.get_obj_type_combs(game_info, self.fact)
 
         satisafaction = []
         params = []
@@ -200,7 +200,7 @@ class Behavior():
     def validify_pred_params(self, preds, x, game_info):
         pred_tensor = self.fact['pred_tensors']
         prop = self.fact["props"]
-        obj_type_combs = smp_utils.get_obj_type_combs(game_info,self.fact)
+        obj_type_combs = smp_utils.get_obj_type_combs(game_info, self.fact)
 
         satisafaction = []
         params = []
@@ -611,7 +611,7 @@ class SymbolicMicroProgram(nn.Module):
 
     def programming(self, game_info, prop_indices):
         relate_2_obj_types = smp_utils.get_all_2_combinations(game_info)
-        relate_2_prop_types = smp_utils.get_all_subsets(prop_indices, empty_set=False)
+        relate_2_prop_types = [[each] for each in prop_indices]
         self.preds = predicate.get_preds()
         self.facts = smp_utils.get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types, self.preds)
 
