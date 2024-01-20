@@ -18,13 +18,11 @@ class SmpReasoner(nn.Module):
 
         # self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
 
-    def update(self, args, behaviors, game_info, prop_indices, explains, preds):
+    def update(self, args, behaviors, prop_indices, explains, preds):
         if args is not None:
             self.args = args
         if behaviors is not None:
             self.behaviors = behaviors
-        if game_info is not None:
-            self.game_info = game_info
         if prop_indices is not None:
             self.prop_indices = prop_indices
         if explains is not None:
@@ -45,7 +43,7 @@ class SmpReasoner(nn.Module):
             explains = [b_i for action_prob, b_i in explains if not (action_prob[0] == 1 or action_prob[1] == 1)]
         elif action_prob[0, 0] == action_prob[0, 2] == 1:
             action_prob[0, 0] = 0
-            explains = [b_i for action_prob, b_i in explains if not (action_prob[ 0] == 1)]
+            explains = [b_i for action_prob, b_i in explains if not (action_prob[0] == 1)]
         elif action_prob[0, 1] == action_prob[0, 2] == 1:
             action_prob[0, 1] = 0
             explains = [b_i for action_prob, b_i in explains if not (action_prob[1] == 1)]
@@ -57,7 +55,7 @@ class SmpReasoner(nn.Module):
         # game Getout: tensor with size 1 * 4 * 6
         action_prob = torch.zeros(1, len(self.args.action_names)).to(self.args.device)
         explains = "unknown"
-
+        print(x)
         # taking a random action
         if self.behaviors is None or len(self.behaviors) == 0:
             action_prob = torch.zeros(1, len(self.args.action_names))
@@ -66,13 +64,13 @@ class SmpReasoner(nn.Module):
         else:
             explains = []
             for b_i in range(len(self.behaviors)):
-                satisfaction, action_probs = self.behaviors[b_i].eval_behavior(self.preds, x, self.game_info)
+                satisfaction = self.behaviors[b_i].eval_behavior(self.preds, x, self.args.obj_info)
                 if satisfaction:
-                    action_prob += action_probs
-                    explains.append((action_probs, b_i))
+                    action_prob += self.behaviors[b_i].action
+                    explains.append((self.behaviors[b_i].action, b_i))
+                    print(f"behavior: {self.behaviors[b_i].clause}")
 
         action_prob = action_prob / (action_prob + 1e-20)
-        action_prob, explains = self.action_combine(action_prob, explains)
 
         if explains is None or len(explains) == 0:
             explains = [-1]

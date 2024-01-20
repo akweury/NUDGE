@@ -17,7 +17,7 @@ def extract_action(args, behavior):
 
 
 def extract_existence_mask(args, behavior):
-    mask = torch.ones(len(args.state_names), dtype=torch.bool)
+    mask = torch.ones(len(args.obj_names), dtype=torch.bool)
     existences = behavior['mask'].split(config.mask_splitter)
     for e_i, existence in enumerate(existences):
         if 'not' in existence:
@@ -38,7 +38,7 @@ def extract_pred_func_data(args, behavior):
             parameters = atom.pred.p_bound
 
             grounded_prop_code = args.prop_names.index(grounded_prop)
-            grounded_obj_codes = [args.state_names.index(obj) for obj in grounded_obj]
+            grounded_obj_codes = [args.obj_names.index(obj) for obj in grounded_obj]
             pred_func = predicate.pred_dict[pred_func_name]
 
             pred_funcs.append(pred_func)

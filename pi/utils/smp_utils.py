@@ -97,7 +97,8 @@ def mask_tensors_from_states(states, game_info):
     mask_tensors = torch.zeros((len(states), len(game_info)))
     for i in range(len(game_info)):
         name, obj_indices, prop_index = game_info[i]
-        mask_tensors[:, i] = states[:, obj_indices, prop_index].sum() > 0
+        obj_exist_counter = states[:, obj_indices, prop_index].sum()
+        mask_tensors[:, i] = obj_exist_counter > 0
 
     return mask_tensors
 
@@ -356,7 +357,7 @@ def get_obj_type_combs(game_info, fact):
 
 
 def satisfy_fact(fact, states, mask_dict, game_info):
-    mask = mask_dict[fact["mask"]]
+    fact_mask = mask_dict[fact["mask"]]
     objs = fact["objs"]
     props = fact["props"]
     pred_fact = fact["pred_tensors"]
@@ -369,9 +370,9 @@ def satisfy_fact(fact, states, mask_dict, game_info):
     # fact is true if at least one comb is true
     fact_satisfaction = False
     for obj_comb in obj_combs:
-        obj_A = states[mask, obj_comb[0]]
-        obj_B = states[mask, obj_comb[1]]
-        if len(obj_A) == 0:
+        obj_A = states[fact_mask, obj_comb[0]]
+        obj_B = states[fact_mask, obj_comb[1]]
+        if len(obj_A) < 10:
             return False
         data_A = obj_A[:, props]
         data_B = obj_B[:, props]

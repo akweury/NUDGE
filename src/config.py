@@ -52,14 +52,13 @@ path_exps = root / "exps"
 if not os.path.exists(path_exps):
     os.mkdir(path_exps)
 
-action_idx_getout_left = 0
-action_idx_getout_right = 1
-action_idx_getout_jump = 2
+############## settings ###############
 
-state_idx_getout_player = 0
-state_idx_getout_key = 1
-state_idx_getout_door = 2
-state_idx_getout_enemy = 3
+mask_splitter = "#"
+smp_param_unit = 0.01
+
+########### properties ################
+
 state_idx_getout_x = 4
 state_idx_getout_y = 5
 
@@ -72,54 +71,46 @@ state_idx_threefish_radius = 2
 state_idx_threefish_x = 3
 state_idx_threefish_y = 4
 
+############## object info ##########################
+
 obj_type_name_getout = ['agent', 'key', 'door', 'enemy']
 obj_data_getout = [('agent', [0], [0]), ('key', [1], [1]), ('door', [2], [2]), ('enemy', [3], [3])]
 obj_data_getoutplus = [('agent', [0], [0]), ('key', [1], [1]), ('door', [2], [2]), ('enemy', [3, 4, 5, 6, 7], [3])]
-obj_data_assault = [('agent', [0], [0]),
+
+obj_info_assault = [('agent', [0], [0]),
                     ('player_missile_vertical', [1, 2], [1]),
                     ('player_missile_horizontal', [3, 4], [2]),
                     ('enemy', [5, 6, 7, 8, 9], [3]),
-                    ('enemy_missile', [10, 11], [4])
-                    ]
+                    ('enemy_missile', [10, 11], [4])]
 
-obj_name_getout = ['agent', 'key', 'door', 'enemy']
-obj_name_getout_plus = ['agent', 'key', 'door', 'enemy', 'enemy', 'enemy', 'buzzsaw', 'buzzsaw']
-obj_name_threefish = ['agent', 'fish1', 'fish2']
-obj_name_assault = ['agent', 'player_missile_vertical', 'player_missile_vertical',
-                    "player_missile_horizontal", "player_missile_horizontal",
-                    "enemy", "enemy", "enemy", "enemy", "enemy",
-                    "enemy_missile", "enemy_missile", ]
+obj_data_asterix = [('agent', [0], [0]),
+                    ('player_missile_vertical', [1, 2], [1]),
+                    ('player_missile_horizontal', [3, 4], [2]),
+                    ('enemy', [5, 6, 7, 8, 9], [3]),
+                    ('enemy_missile', [10, 11], [4])]
 
-obj_type_indices_getout = {'agent': [0], 'key': [1], 'door': [2], 'enemy': [3]}
-obj_type_indices_getout_plus = {'agent': [0], 'key': [1], 'door': [2], 'enemy': [3, 4, 5], 'buzzsaw': [6, 7]}
-obj_type_indices_threefish = {'agent': [0], 'fish': [1, 2]}
-obj_type_indices_assault = {'agent': [0], 'player_missile_vertical': [1, 2],
-                            'player_missile_horizontal': [3, 4],
-                            'enemy': [5, 6, 7, 8, 9],
-                            'enemy_missile': [10, 11]}
-
-action_getout_dict = {"left": [1, 0, 0],
-                      "right": [0, 1, 0],
-                      "jump": [0, 0, 1],
-                      "idle": [0, 0, 0]}
+########### action info ############################
 
 action_names = ["left", "right", "jump"]
 action_name_assault = ["noop", "fire", "up", "right", "left", "rightfire", "leftfire"]
 action_name_threefish = ["left", "right", "jump"]
-counter_action_name_threefish = ["not_left", "not_right", "not_jump"]
+
+################### prop info ########################
 
 prop_name_getout = ['agent', 'key', 'door', 'enemy', "axis_x", "axis_y"]
 prop_name_threefish = ['agent', 'fish', "radius", "axis_x", "axis_y"]
 prop_name_assault = ['agent', 'player_missile_vertical', "player_missile_horizontal", "enemy", "enemy_missile",
                      "axis_x", "axis_y"]
 
-mask_splitter = "#"
+########## language ########################
 
 func_pred_name = "func_pred"
 exist_pred_name = "exist_pred"
 action_pred_name = "action_pred"
 counter_action_pred_name = "counter_action_pred"
 
-model_name_weight = "checkpoint-99.pth.tar"
+################# remove in the future #############
 
-smp_param_unit = 0.01
+obj_type_indices_getout = {'agent': [0], 'key': [1], 'door': [2], 'enemy': [3]}
+obj_type_indices_getout_plus = {'agent': [0], 'key': [1], 'door': [2], 'enemy': [3, 4, 5], 'buzzsaw': [6, 7]}
+obj_type_indices_threefish = {'agent': [0], 'fish': [1, 2]}

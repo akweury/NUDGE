@@ -8,6 +8,7 @@ from torch.distributions import Categorical
 from pi import Reasoner
 from pi.utils import oc_utils
 
+
 class SymbolicMicroProgramModel(nn.Module):
     def __init__(self, args, rng=None):
         super(SymbolicMicroProgramModel, self).__init__()
@@ -54,14 +55,12 @@ class SymbolicMicroProgramPlayer:
         self.preds = None
         self.model = SymbolicMicroProgramModel(args).actor.to(args.device)
 
-    def update(self, args=None, behaviors=None, game_info=None, prop_indices=None, explains=None, preds=None):
+    def update(self, args=None, behaviors=None, prop_indices=None, explains=None, preds=None):
         if args is not None:
             self.args = args
         if preds is not None:
             self.preds = preds
-        if game_info is not None:
-            self.game_info = game_info
-        self.model.update(args, behaviors, game_info, prop_indices, explains, preds)
+        self.model.update(args, behaviors, prop_indices, explains, preds)
 
     def act(self, state):
         if self.args.m == 'getout' or self.args.m == "getoutplus":
@@ -114,13 +113,52 @@ class SymbolicMicroProgramPlayer:
         action = prediction + 1
         return action, explaining
 
+    def action_combine_assault(self, action_prob, explains):
+
+        if explains == [-1]:
+            return action_prob, explains
+
+        if action_prob.sum() <= 1:
+            explains = [b_i for action_prob, b_i in explains]
+            return action_prob, explains
+
+        if action_prob[0, 0] == 1:
+            action_prob[0, 0] = 0
+            explains = [(action_prob, b_i) for action_prob, b_i in explains if not action_prob[0] == 1]
+
+        if action_prob[0, 1] == action_prob[0, 2] == 1:
+            action_prob[0, 2] = 0
+            explains = [(action_prob, b_i) for action_prob, b_i in explains if not action_prob[2] == 1]
+
+        # left and right
+        if action_prob[0, 3] == action_prob[0, 4] == 1:
+            action_prob[0, 3] = 0
+            action_prob[0, 4] = 0
+            explains = [(action_prob, b_i) for action_prob, b_i in explains if
+                        not (action_prob[3] == 1 or action_prob[4] == 1)]
+
+        # left fire and right fire
+        if action_prob[0, 5] == action_prob[0, 6] == 1:
+            action_prob[0, 5] = 0
+            explains = [(action_prob, b_i) for action_prob, b_i in explains if not (action_prob[5] == 1)]
+
+        if sum(action_prob[0, [5, 6]]) > 0 and action_prob[0, 1] == 1:
+            action_prob[0, 1] = 0
+            explains = [(action_prob, b_i) for action_prob, b_i in explains if not (action_prob[1] == 1)]
+
+        if action_prob.sum() > 1:
+            raise ValueError
+        explains = [b_i for action_prob, b_i in explains]
+        return action_prob, explains
+
     def assault_actor(self, getout):
         extracted_state = oc_utils.extract_logic_state_assault(getout, self.args).unsqueeze(0)
         predictions, explains = self.model(extracted_state)
+        predictions, explains = self.action_combine_assault(predictions, explains)
         prediction = torch.argmax(predictions).cpu().item()
         # explaining = explains[prediction]
         explaining = None
-        action = prediction + 1
+        action = prediction
         return action, explaining
 
     def getout_reasoning_actor(self, getout):

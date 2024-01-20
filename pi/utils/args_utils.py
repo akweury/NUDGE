@@ -61,22 +61,23 @@ def load_args(exp_args_path, m):
     if args.m == "getout":
         args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
         args.obj_type_names = config.obj_type_name_getout
-        args.state_names = config.obj_name_getout
+        args.obj_names = config.obj_name_getout
         args.action_names = config.action_names
         args.prop_names = config.prop_name_getout
         args.obj_type_indices = config.obj_type_indices_getout
     elif args.m == "getoutplus":
         args.obj_type_names = config.obj_type_name_getout
-        args.state_names = config.obj_name_getout
+        args.obj_names = config.obj_name_getout
         args.action_names = config.action_names
         args.prop_names = config.prop_name_getout
         args.obj_type_indices = config.obj_type_indices_getout_plus
     elif args.m == "Assault":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
-        args.state_names = config.obj_name_assault
+        args.obj_info = config.obj_info_assault
         args.action_names = config.action_name_assault
         args.prop_names = config.prop_name_assault
-        args.obj_type_indices = config.obj_type_indices_assault
+    elif args.m == "Asterix":
+        args.model_path = config.path_model / args.m / 'model_50000000.gz'
     else:
         raise ValueError
 

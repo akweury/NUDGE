@@ -6,7 +6,7 @@ import torch.nn as nn
 
 from pi.utils import smp_utils
 from pi import predicate
-
+from pi import pi_lang
 from src import config
 
 
@@ -164,6 +164,7 @@ class Behavior():
         self.fact = fact
         self.action = action
         self.reward = reward
+        self.clause = None
 
     def update_pred_params(self, preds, x):
         for i in range(len(preds)):
@@ -247,7 +248,7 @@ class Behavior():
         mask_satisfaction = (fact_mask_tensor == smp_utils.mask_tensors_from_states(x, game_info)).prod(dim=-1).bool()
         satisfaction *= mask_satisfaction
 
-        return satisfaction, self.action
+        return satisfaction
 
 
 class SymbolicRewardMicroProgram(nn.Module):
@@ -477,9 +478,12 @@ class SymbolicMicroProgram(nn.Module):
             for fact in self.facts:
                 satisfy = smp_utils.satisfy_fact(fact, action_states, all_masks, game_info)
                 if satisfy:
-                    behavior = Behavior(fact, action, None)
+                    passed_state_num = sum(all_masks[fact["mask"]])
+                    behavior = Behavior(fact, action, passed_state_num)
+                    behavior.clause = pi_lang.behavior2clause(self.args, behavior)
                     behavior.update_pred_params(self.preds, action_states)
                     behaviors.append(behavior)
+            print(f"behaviors num: {len(behaviors)}")
         return behaviors
 
     def forward_searching(self, relate_2_obj_types, relate_2_prop_types, obj_types):

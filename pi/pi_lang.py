@@ -11,24 +11,17 @@ from src import config
 
 def extract_behavior_terms(args, behavior):
     terms = []
-    for obj_code in behavior["grounded_types"]:
-        obj_name = args.state_names[obj_code]
+    for obj_code in behavior.fact["objs"]:
+        obj_name, _, _ = args.obj_info[obj_code]
         terms.append(Var(obj_name))
 
     return terms
 
 
 def generate_action_predicate(args, behavior):
-    if "counter_action" in behavior.keys():
-        action_code = behavior["counter_action"].argmax()
-        action_name = args.counter_action_names[action_code]
-        action_predicate = InvPredicate(action_name, 1, [DataType("agent")], config.counter_action_pred_name)
-    elif "action" in behavior.keys():
-        action_code = behavior["action"]
-        action_name = args.action_names[action_code]
-        action_predicate = InvPredicate(action_name, 1, [DataType("agent")], config.action_pred_name)
-    else:
-        raise ValueError
+    action_code = behavior.action.argmax()
+    action_name = args.action_names[action_code]
+    action_predicate = InvPredicate(action_name, 1, [DataType("agent")], config.action_pred_name)
 
     return action_predicate
 
@@ -41,10 +34,10 @@ def generate_exist_predicate(existence, obj_name):
 
 
 def generate_func_predicate(args, behavior, p_i):
-    obj_A = args.state_names[behavior["grounded_types"][0]]
-    obj_B = args.state_names[behavior["grounded_types"][1]]
-    prop_name = args.prop_names[behavior['grounded_prop'][0]]
-    pred = behavior["preds"][p_i]
+    obj_A, _, _ = args.obj_info[behavior.fact["objs"][0]]
+    obj_B,_,_ = args.obj_info[behavior.fact["objs"][1]]
+    prop_name = args.prop_names[behavior.fact['props'][0]]
+    pred = behavior.fact["preds"][p_i]
     pred_func_name = pred.name
 
     pred_name = obj_A + "_" + prop_name + "_" + pred_func_name + "_" + obj_B
@@ -69,15 +62,15 @@ def behavior_predicate_as_func_atom(args, behavior):
     # behavior['grounded_objs'] determines terms in the clause
     terms = extract_behavior_terms(args, behavior)
     func_atom = []
-    for p_i, pred in enumerate(behavior['preds']):
-        if behavior["p_satisfication"][p_i]:
+    for p_i in range(len(behavior.fact["preds"])):
+        if behavior.fact["pred_tensors"][p_i]:
             func_pred = generate_func_predicate(args, behavior, p_i)
             func_atom.append(Atom(func_pred, terms))
     return func_atom
 
 
 def behavior_existence_as_env_atoms(args, behavior):
-    obj_existence = behavior["mask"].split(config.mask_splitter)
+    obj_existence = behavior.fact["mask"].split(config.mask_splitter)
     exist_atoms = []
     for exist_obj in obj_existence:
 
@@ -111,9 +104,8 @@ def behavior2clause(args, behavior):
 def behaviors2clauses(args, behaviors):
     clauses = []
     for behavior in behaviors:
-        if behavior["is_grounded"]:
-            clause = behavior2clause(args, behavior)
-            clauses.append(clause)
+        clause = behavior2clause(args, behavior)
+        clauses.append(clause)
         # clause_weights.append()
     print(f'======= Clauses from Behaviors {len(clauses)} ======')
     for c in clauses:

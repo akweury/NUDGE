@@ -7,11 +7,11 @@ from torch import nn
 from tqdm import tqdm
 from ocatari.core import OCAtari
 from functools import partial
-from ale_env import ALEModern, ALEClassic
+from ale_env import ALEModern
 
 from pi.Player import SymbolicMicroProgramPlayer
 from pi.utils.game_utils import RolloutBuffer, _load_checkpoint, _epsilon_greedy, print_atari_screen
-from pi.utils.oc_utils import extract_logic_state_assault
+from pi.utils.oc_utils import extract_logic_state_assault, extract_logic_state_asterix
 
 from src import config
 from src.agents.random_agent import RandomPlayer
@@ -75,14 +75,10 @@ def create_agent(args, agent_type):
         agent = 'human'
     elif agent_type == 'ppo':
         # game/seed/model
-
         ckpt = _load_checkpoint(args.model_path)
-        game = 'Assault'
-
         # set env
-        ALE = ALEModern if "_modern/" in str(args.model_path) else ALEClassic
-        env = ALE(
-            game,
+        env = ALEModern(
+            args.m,
             torch.randint(100_000, (1,)).item(),
             sdl=True,
             device="cpu",
@@ -92,11 +88,9 @@ def create_agent(args, agent_type):
 
         # init model
         model = AtariNet(env.action_space.n, distributional="C51_" in str(args.model_path))
-
         model.load_state_dict(ckpt["estimator_state"])
         # configure policy
         policy = partial(_epsilon_greedy, model=model, eps=0.001)
-
         agent = policy
     else:
         raise ValueError
@@ -179,17 +173,6 @@ def collect_data_getout(agent, args):
         raise ValueError("Teacher agent not exist.")
 
 
-def collect_data_game(agent, args):
-    if args.m == 'getout':
-        collect_data_getout(agent, args)
-    elif args.m == 'getoutplus':
-        collect_data_getout(agent, args)
-    elif args.m == 'Assault':
-        collect_data_assault(agent, args)
-    else:
-        raise ValueError
-
-
 def render_assault(agent, args):
     env = OCAtari(args.m, mode="vision", hud=True, render_mode='rgb_array')
     game_num = 0
@@ -198,7 +181,7 @@ def render_assault(agent, args):
     for i in range(10000):
         if args.agent_type == "smp":
             action, _ = agent.act(env.objects)
-            action = 0
+
         elif args.agent_type == "ppo":
             action, _ = agent(env.dqn_obs)
         else:
@@ -241,7 +224,7 @@ def collect_data_assault(agent, args):
         action, _ = agent(env.dqn_obs)
 
         obs, reward, terminated, truncated, info = env.step(action)
-        print(f'Game {game_num} : Frame {i} : Action {action} : Reward {reward}')
+        # print(f'Game {game_num} : Frame {i} : Action {action} : Reward {reward}')
 
         if terminated:
             game_num += 1
@@ -256,3 +239,58 @@ def collect_data_assault(agent, args):
         buffer.game_number.append(game_num)
 
     buffer.save_data()
+
+
+def collect_data_asterix(agent, args):
+    args.model_file = "neural"
+    args.filename = args.m + '_' + args.teacher_agent + '.json'
+    max_states = 100000
+    buffer = RolloutBuffer(args.filename)
+    if os.path.exists(buffer.filename):
+        return
+
+    step = 0
+    collected_states = 0
+    game_num = 0
+    env = OCAtari(args.m, mode="vision", hud=True, render_mode="rgb_array")
+    observation, info = env.reset()
+
+    for i in tqdm(range(max_states)):
+        # step game
+        step += 1
+        logic_state = extract_logic_state_asterix(env.objects, args)
+        action, _ = agent(env.dqn_obs)
+        action = 0
+
+        obs, reward, terminated, truncated, info = env.step(action)
+        if reward < 0:
+            print("Reward")
+        # print(f'Game {game_num} : Frame {i} : Action {action} : Reward {reward}')
+
+        if terminated:
+            game_num += 1
+            env.reset()
+
+        collected_states += 1
+        continue
+        # buffer.logic_states.append(logic_state.detach().tolist())
+        buffer.actions.append(action)
+        buffer.logic_states.append(logic_state.tolist())
+        buffer.rewards.append(reward)
+        buffer.reason_source.append('neural')
+        buffer.game_number.append(game_num)
+
+    buffer.save_data()
+
+
+def collect_data_game(agent, args):
+    if args.m == 'getout':
+        collect_data_getout(agent, args)
+    elif args.m == 'getoutplus':
+        collect_data_getout(agent, args)
+    elif args.m == 'Assault':
+        collect_data_assault(agent, args)
+    elif args.m == "Asterix":
+        collect_data_asterix(agent, args)
+    else:
+        raise ValueError

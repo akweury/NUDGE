@@ -1,16 +1,15 @@
 # Created by jing at 01.12.23
 import torch
 
-import pi.utils.game_utils
+
 from pi.game_env import create_agent
 from pi.MicroProgram import SymbolicMicroProgram
+from pi import game_env, game_settings
+from pi.utils import game_utils, args_utils
+from pi import pi_lang
 from src.agents.neural_agent import ActorCritic
 from src.agents.logic_agent import NSFR_ActorCritic
 from src import config
-
-from pi.utils import args_utils
-from pi import game_env, game_settings
-
 
 def load_model(args, set_eval=True):
     if args.agent in ['random', 'human']:
@@ -52,17 +51,17 @@ def main(render=True, m=None):
     agent = create_agent(args, agent_type='smp')
     args.agent_type = 'smp'
     smp = SymbolicMicroProgram(args)
-    smp.load_buffer(pi.utils.game_utils.load_buffer(args))
+    smp.load_buffer(game_utils.load_buffer(args))
     # building symbolic microprogram
     prop_indices = game_settings.get_idx(args)
-    game_info = game_settings.get_game_info(args)
-    # searching for valid behaviors
-    agent_behaviors = smp.programming(game_info, prop_indices)
 
-    clauses = None
+    # searching for valid behaviors
+    agent_behaviors = smp.programming(args.obj_info, prop_indices)
+
+    clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
     # convert ungrounded behaviors to grounded behaviors
     # update game agent, update smps
-    agent.update(args, agent_behaviors, game_info, prop_indices, clauses, smp.preds)
+    agent.update(args, agent_behaviors, prop_indices, clauses, smp.preds)
 
     if render:
         # Test updated agent
