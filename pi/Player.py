@@ -105,8 +105,10 @@ class SymbolicMicroProgramPlayer:
         return result
 
     def getout_actor(self, getout):
-        extracted_state = extract_logic_state_getout(getout, self.args)
+        extracted_state = oc_utils.extract_logic_state_getout(getout, self.args)
         predictions, explains = self.model(extracted_state)
+        if predictions.sum() > 1:
+            print("watch")
         prediction = torch.argmax(predictions).cpu().item()
         # explaining = explains[prediction]
         explaining = None

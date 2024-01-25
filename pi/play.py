@@ -1,7 +1,6 @@
 # Created by jing at 01.12.23
 import torch
 
-
 from pi.game_env import create_agent
 from pi.MicroProgram import SymbolicMicroProgram
 from pi import game_env, game_settings
@@ -10,6 +9,7 @@ from pi import pi_lang
 from src.agents.neural_agent import ActorCritic
 from src.agents.logic_agent import NSFR_ActorCritic
 from src import config
+
 
 def load_model(args, set_eval=True):
     if args.agent in ['random', 'human']:
@@ -43,10 +43,14 @@ def load_model(args, set_eval=True):
 def main(render=True, m=None):
     # load arguments
     args = args_utils.load_args(config.path_exps, m)
-    # collect data
-    teacher_agent = create_agent(args, agent_type='ppo')
-    game_env.collect_data_game(teacher_agent, args)
 
+    if not args.m == "getout":
+        # collect data
+        teacher_agent = create_agent(args, agent_type='ppo')
+    else:
+        teacher_agent = create_agent(args, agent_type='smp')
+
+    game_env.collect_data_game(teacher_agent, args)
     # learn behaviors from data
     agent = create_agent(args, agent_type='smp')
     args.agent_type = 'smp'

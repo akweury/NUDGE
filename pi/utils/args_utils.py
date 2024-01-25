@@ -60,15 +60,13 @@ def load_args(exp_args_path, m):
     make_deterministic(args.seed)
     if args.m == "getout":
         args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
-        args.obj_type_names = config.obj_type_name_getout
-        args.obj_names = config.obj_name_getout
-        args.action_names = config.action_names
+        args.obj_info = config.obj_info_getout
+        args.action_names= config.action_name_getout
         args.prop_names = config.prop_name_getout
-        args.obj_type_indices = config.obj_type_indices_getout
     elif args.m == "getoutplus":
         args.obj_type_names = config.obj_type_name_getout
         args.obj_names = config.obj_name_getout
-        args.action_names = config.action_names
+        args.action_names = config.action_name_getout
         args.prop_names = config.prop_name_getout
         args.obj_type_indices = config.obj_type_indices_getout_plus
     elif args.m == "Assault":

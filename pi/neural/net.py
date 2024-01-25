@@ -37,6 +37,6 @@ class WeightPredModel(nn.Module):
 
 def choose_net(net_name, args):
     if net_name == "simple_nn":
-        return WeightPredModel(in_channels=1, label_channels=len(args.action_names))
+        return WeightPredModel(in_channels=1, label_channels=len(args.action_name_getout))
     else:
         raise ValueError

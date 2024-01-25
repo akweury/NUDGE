@@ -9,9 +9,9 @@ from pi import predicate
 from src import config
 
 
-def extract_behavior_terms(args, behavior):
+def extract_fact_terms(args, fact):
     terms = []
-    for obj_code in behavior.fact["objs"]:
+    for obj_code in fact["objs"]:
         obj_name, _, _ = args.obj_info[obj_code]
         terms.append(Var(obj_name))
 
@@ -33,11 +33,11 @@ def generate_exist_predicate(existence, obj_name):
     return pred
 
 
-def generate_func_predicate(args, behavior, p_i):
-    obj_A, _, _ = args.obj_info[behavior.fact["objs"][0]]
-    obj_B,_,_ = args.obj_info[behavior.fact["objs"][1]]
-    prop_name = args.prop_names[behavior.fact['props'][0]]
-    pred = behavior.fact["preds"][p_i]
+def generate_func_predicate(args, fact, p_i):
+    obj_A, _, _ = args.obj_info[fact["objs"][0]]
+    obj_B, _, _ = args.obj_info[fact["objs"][1]]
+    prop_name = args.prop_names[fact['props'][0]]
+    pred = fact["preds"][p_i]
     pred_func_name = pred.name
 
     pred_name = obj_A + "_" + prop_name + "_" + pred_func_name + "_" + obj_B
@@ -60,17 +60,19 @@ def behavior_action_as_head_atom(args, behavior):
 
 def behavior_predicate_as_func_atom(args, behavior):
     # behavior['grounded_objs'] determines terms in the clause
-    terms = extract_behavior_terms(args, behavior)
-    func_atom = []
-    for p_i in range(len(behavior.fact["preds"])):
-        if behavior.fact["pred_tensors"][p_i]:
-            func_pred = generate_func_predicate(args, behavior, p_i)
-            func_atom.append(Atom(func_pred, terms))
-    return func_atom
+    func_atoms = []
+    for fact in behavior.fact:
+        terms = extract_fact_terms(args, fact)
+        for p_i in range(len(fact["preds"])):
+            if fact["pred_tensors"][p_i]:
+                func_pred = generate_func_predicate(args, fact, p_i)
+                func_atoms.append(Atom(func_pred, terms))
+    return func_atoms
 
 
 def behavior_existence_as_env_atoms(args, behavior):
-    obj_existence = behavior.fact["mask"].split(config.mask_splitter)
+    mask = behavior.fact[0]["mask"]
+    obj_existence = mask.split(config.mask_splitter)
     exist_atoms = []
     for exist_obj in obj_existence:
 

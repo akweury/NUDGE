@@ -11,7 +11,7 @@ from src import config
 
 
 def extract_action(args, behavior):
-    action = torch.zeros(len(args.action_names))
+    action = torch.zeros(len(args.action_name_getout))
     action[behavior['action']] = 1
     return action
 
@@ -133,7 +133,7 @@ def extract_smp_counteract_params(smps, behavior_actions, neural_actions, counte
 
 
 def pred_action_by_smps(args, smps, states):
-    behavior_actions = torch.zeros(size=(len(smps), states.size(0), len(args.action_names))).to(args.device)
+    behavior_actions = torch.zeros(size=(len(smps), states.size(0), len(args.action_name_getout))).to(args.device)
     p_parameters = []
     for s_i, smp in enumerate(smps):
         action, p_params = smp(states, config.obj_type_indices_getout)

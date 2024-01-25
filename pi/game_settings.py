@@ -33,7 +33,7 @@ def get_game_info(args):
     if args.m == "threefish":
         obj_data = config.obj_name_threefish
     elif args.m == "getout":
-        obj_data = config.obj_data_getout
+        obj_data = config.obj_info_getout
     elif args.m == 'getoutplus':
         obj_data= config.obj_data_getoutplus
     elif args.m == 'Assault':

@@ -1,6 +1,6 @@
 # Created by jing at 18.01.24
 import torch
-
+import numpy as np
 
 def extract_logic_state_assault(objects, args, noise=False):
     extracted_states = {'Player': {'name': 'Player', 'exist': False, 'x': [], 'y': []},
@@ -185,3 +185,107 @@ def extract_logic_state_asterix(objects, args, noise=False):
                 raise ValueError
 
     return states
+
+
+def extract_logic_state_getout(coin_jump, args, noise=False):
+    if args.m == 'getoutplus':
+        num_of_feature = 6
+        num_of_object = 8
+        representation = coin_jump.level.get_representation()
+        # import ipdb; ipdb.set_trace()
+        extracted_states = np.zeros((num_of_object, num_of_feature))
+        for entity in representation["entities"]:
+            if entity[0].name == 'PLAYER':
+                extracted_states[0][0] = 1
+                extracted_states[0][-2:] = entity[1:3]
+                # 27 is the width of map, this is normalization
+                # extracted_states[0][-2:] /= 27
+            elif entity[0].name == 'KEY':
+                extracted_states[1][1] = 1
+                extracted_states[1][-2:] = entity[1:3]
+                # extracted_states[1][-2:] /= 27
+            elif entity[0].name == 'DOOR':
+                extracted_states[2][2] = 1
+                extracted_states[2][-2:] = entity[1:3]
+                # extracted_states[2][-2:] /= 27
+            elif entity[0].name == 'GROUND_ENEMY':
+                extracted_states[3][3] = 1
+                extracted_states[3][-2:] = entity[1:3]
+                # extracted_states[3][-2:] /= 27
+            elif entity[0].name == 'GROUND_ENEMY2':
+                extracted_states[4][3] = 1
+                # extracted_states[3][-2:] /= 27
+            elif entity[0].name == 'GROUND_ENEMY3':
+                extracted_states[5][3] = 1
+                extracted_states[5][-2:] = entity[1:3]
+            elif entity[0].name == 'BUZZSAW1':
+                extracted_states[6][3] = 1
+                extracted_states[6][-2:] = entity[1:3]
+            elif entity[0].name == 'BUZZSAW2':
+                extracted_states[7][3] = 1
+                extracted_states[7][-2:] = entity[1:3]
+    else:
+        """
+        extract state to metric
+        input: coin_jump instance
+        output: extracted_state to be explained
+        set noise to True to add noise
+
+        x:  agent, key, door, enemy, position_X, position_Y
+        y:  obj1(agent), obj2(key), obj3(door)，obj4(enemy)
+
+        To be changed when using object-detection tech
+        """
+        num_of_feature = 6
+        num_of_object = 4
+        representation = coin_jump.level.get_representation()
+        extracted_states = np.zeros((num_of_object, num_of_feature))
+        for entity in representation["entities"]:
+            if entity[0].name == 'PLAYER':
+                extracted_states[0][0] = 1
+                extracted_states[0][-2:] = entity[1:3]
+                # 27 is the width of map, this is normalization
+                # extracted_states[0][-2:] /= 27
+            elif entity[0].name == 'KEY':
+                extracted_states[1][1] = 1
+                extracted_states[1][-2:] = entity[1:3]
+                # extracted_states[1][-2:] /= 27
+            elif entity[0].name == 'DOOR':
+                extracted_states[2][2] = 1
+                extracted_states[2][-2:] = entity[1:3]
+                # extracted_states[2][-2:] /= 27
+            elif entity[0].name == 'GROUND_ENEMY':
+                extracted_states[3][3] = 1
+                extracted_states[3][-2:] = entity[1:3]
+                # extracted_states[3][-2:] /= 27
+
+    if sum(extracted_states[:, 1]) == 0:
+        key_picked = True
+    else:
+        key_picked = False
+
+    def simulate_prob(extracted_states, num_of_objs, key_picked):
+        for i, obj in enumerate(extracted_states):
+            obj = add_noise(obj, i, num_of_objs)
+            extracted_states[i] = obj
+        if key_picked:
+            extracted_states[:, 1] = 0
+        return extracted_states
+
+    def add_noise(obj, index_obj, num_of_objs):
+        mean = torch.tensor(0.2)
+        std = torch.tensor(0.05)
+        noise = torch.abs(torch.normal(mean=mean, std=std)).item()
+        rand_noises = torch.randint(1, 5, (num_of_objs - 1,)).tolist()
+        rand_noises = [i * noise / sum(rand_noises) for i in rand_noises]
+        rand_noises.insert(index_obj, 1 - noise)
+
+        for i, noise in enumerate(rand_noises):
+            obj[i] = rand_noises[i]
+        return obj
+
+    if noise:
+        extracted_states = simulate_prob(extracted_states, num_of_object, key_picked)
+    states = torch.tensor(np.array(extracted_states), dtype=torch.float32, device="cpu").unsqueeze(0)
+    return states
+

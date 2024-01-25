@@ -166,19 +166,6 @@ class Behavior():
         self.reward = reward
         self.clause = None
 
-    def update_pred_params(self, preds, x):
-        for i in range(len(preds)):
-            # if self.fact["pred_tensors"][i]:
-            #     obj_0 = self.fact["objs"][0]
-            #     obj_1 = self.fact["objs"][1]
-            #     prop = self.fact["props"]
-            #     data_A = x[:, obj_0, prop].reshape(-1)
-            #     data_B = x[:, obj_1, prop].reshape(-1)
-            #
-            #     preds[i].update_space(data_A, data_B)
-            preds[i].expand_space()
-            # func_satisfy, p_values = pred.eval(data_A, data_B, p_space)
-
     def falsify_pred_params(self, preds, x, game_info):
         pred_tensor = self.fact['pred_tensors']
         prop = self.fact["props"]
@@ -218,37 +205,43 @@ class Behavior():
             params.append(pred_params)
         print('test')
 
-    def eval_behavior(self, preds, x, game_info):
+    def eval_behavior(self, x, game_info):
+        for fact in self.fact:
+            type_0_index = fact["objs"][0]
+            type_1_index = fact["objs"][1]
+            prop = fact["props"]
+            _, obj_0_indices, _ = game_info[type_0_index]
+            _, obj_1_indices, _ = game_info[type_1_index]
+            obj_combs = smp_utils.enumerate_two_combs(obj_0_indices, obj_1_indices)
 
-        type_0_index = self.fact["objs"][0]
-        type_1_index = self.fact["objs"][1]
-        prop = self.fact["props"]
-        _, obj_0_indices, _ = game_info[type_0_index]
-        _, obj_1_indices, _ = game_info[type_1_index]
-        obj_combs = smp_utils.enumerate_two_combs(obj_0_indices, obj_1_indices)
+            # check if current state has the same mask as the behavior
+            fact_mask_tensor = smp_utils.mask_name_to_tensor(fact["mask"], config.mask_splitter)
+            fact_mask_tensor = torch.repeat_interleave(fact_mask_tensor.unsqueeze(0), len(x), 0)
+            mask_satisfaction = (fact_mask_tensor == smp_utils.mask_tensors_from_states(x, game_info)).prod(
+                dim=-1).bool().reshape(-1)
 
-        # pred is true if any comb is true (or)
-        satisfaction = torch.tensor([False] * len(x))
-        for obj_comb in obj_combs:
-            data_A = x[:, obj_comb[0], prop].reshape(-1)
-            data_B = x[:, obj_comb[1], prop].reshape(-1)
+            if not mask_satisfaction:
+                return False
 
-            # behavior is true if all pred is true (and)
-            pred_satisfaction = torch.tensor([True] * len(x))
-            for i in range(len(preds)):
-                if self.fact["pred_tensors"][i]:
-                    satisfy, values = preds[i].eval(data_A, data_B)
-                    pred_satisfaction *= satisfy
+            # pred is true if any comb is true (or)
+            fact_satisfaction = False
+            for obj_comb in obj_combs:
+                data_A = x[:, obj_comb[0], prop].reshape(-1)
+                data_B = x[:, obj_comb[1], prop].reshape(-1)
 
-            satisfaction += pred_satisfaction
+                # behavior is true if all pred is true (and)
+                state_pred_satisfaction = True
+                for i in range(len(fact['preds'])):
+                    if fact["pred_tensors"][i]:
+                        pred_satisfaction = fact['preds'][i].eval(data_A, data_B, obj_comb)
+                        state_pred_satisfaction *= pred_satisfaction
+                # print(f"state preds: {state_pred_satisfaction}")
+                fact_satisfaction += state_pred_satisfaction
 
-        # check if current state has the same mask as the behavior
-        fact_mask_tensor = smp_utils.mask_name_to_tensor(self.fact["mask"], config.mask_splitter)
-        fact_mask_tensor = torch.repeat_interleave(fact_mask_tensor.unsqueeze(0), len(x), 0)
-        mask_satisfaction = (fact_mask_tensor == smp_utils.mask_tensors_from_states(x, game_info)).prod(dim=-1).bool()
-        satisfaction *= mask_satisfaction
+            if not fact_satisfaction:
+                return False
 
-        return satisfaction
+        return True
 
 
 class SymbolicRewardMicroProgram(nn.Module):
@@ -456,7 +449,6 @@ class SymbolicMicroProgram(nn.Module):
         self.data_actions = None
         self.data_combs = None
         self.obj_ungrounded_behavior_ids = []
-        self.facts = None
         self.preds = None
 
     def load_buffer(self, buffer):
@@ -466,24 +458,161 @@ class SymbolicMicroProgram(nn.Module):
                                                            self.buffer.rewards, self.action_num)
         self.data_actions = smp_utils.split_data_by_action(self.buffer.logic_states, self.buffer.actions,
                                                            self.action_num)
-        if len(self.buffer.rewards) > 0:
-            self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards,
-                                                     self.buffer.reason_source)
+        if len(self.buffer.rewards) != len(self.buffer.logic_states):
+            self.buffer.rewards = [0] * len(self.buffer.logic_states)
+        self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards,
+                                                 self.buffer.reason_source)
 
-    def teacher_searching(self, game_info):
+    def teacher_searching(self, game_info, prop_indices):
         # strategy: action, objects, mask, properties, if predicates are valid
         behaviors = []
+        # states do the same action, but they can still have different reasons for doing this action
         for action, action_states in self.data_actions.items():
+            # states with same object existence
+            relate_2_obj_types = smp_utils.get_all_2_combinations(game_info)
+            relate_2_prop_types = [[each] for each in prop_indices]
+            facts = smp_utils.get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types)
             all_masks = smp_utils.all_exist_mask(action_states, game_info)
-            for fact in self.facts:
+            for f_i, fact in enumerate(facts):
+                if fact["mask"] == "exist_agent#exist_key#exist_door#exist_enemy" and fact["objs"] == [1, 2] and \
+                        fact["props"] == [4] and torch.equal(fact["pred_tensors"],
+                                                             torch.tensor([False, False, False, True])):
+                    print("watch")
+
                 satisfy = smp_utils.satisfy_fact(fact, action_states, all_masks, game_info)
                 if satisfy:
+                    if fact["pred_tensors"][3] == False and fact["preds"][3].dist is not None:
+                        print("watch")
                     passed_state_num = sum(all_masks[fact["mask"]])
-                    behavior = Behavior(fact, action, passed_state_num)
+                    behavior = Behavior([fact], action, passed_state_num)
                     behavior.clause = pi_lang.behavior2clause(self.args, behavior)
-                    behavior.update_pred_params(self.preds, action_states)
                     behaviors.append(behavior)
-            print(f"behaviors num: {len(behaviors)}")
+
+        for b in behaviors:
+            print(f"teacher beh: {b.clause}")
+        print(f"teacher behaviors num: {len(behaviors)}")
+        return behaviors
+
+    def student_search(self, teacher_behaviors, game_info,prop_indices ):
+
+        student_behaviors = []
+        un_checked_behaviors = teacher_behaviors
+        for i in range(3):
+            child_behaviors = []
+            for t_beh in un_checked_behaviors:
+                satisfied_data, conflict_data = smp_utils.search_behavior_conflict_states(t_beh, self.data_combs,
+                                                                                          game_info, self.action_num)
+                if len(satisfied_data) / len(self.data_combs) > 0.995 or conflict_data is None:
+                    student_behaviors.append(t_beh)
+                else:
+                    child_behaviors.append({"beh": t_beh, "pos": satisfied_data, "neg": conflict_data})
+            print(f"round {i}, child behaviors: {len(child_behaviors)}")
+            un_checked_behaviors = []
+            for t_i, c_beh in enumerate(child_behaviors):
+                conflict_behaviors = self.teacher_search(self.args, c_beh["neg"], game_info, prop_indices)
+                combined_behaviors = self.combine_behaviors(c_beh["beh"], conflict_behaviors)
+                conflict_behaviors = smp_utils.back_check(c_beh["pos"], combined_behaviors, game_info, self.action_num)
+                un_checked_behaviors += conflict_behaviors
+
+            print(f"round {i}, unchecked behaviors: {len(un_checked_behaviors)}")
+
+        return student_behaviors
+
+    def student_searching(self, game_info, teacher_behaviors):
+        # strategy: action, objects, mask, properties, if predicates are valid
+        student_behaviors = []
+
+        for i in range(len(teacher_behaviors)):
+            beh_match_result = []
+            teacher_behavior = teacher_behaviors[i]
+            for data_comb in self.data_combs:
+                state, action, reward, reason_resource = data_comb
+
+                # all facts have to be matched
+                fact_match = teacher_behavior.eval_behavior(state, game_info)
+                if not fact_match:
+                    beh_match_result.append(True)
+                if fact_match:
+                    action_match = teacher_behavior.action.argmax() == action
+                    state_match = fact_match * action_match
+                    beh_match_result.append(state_match)
+
+            beh_not_match_result = ~torch.tensor(beh_match_result)
+            print(f"\n- behavior {i} failed states: {sum(beh_not_match_result)} / {len(self.data_combs)}")
+            print(f"parent: {teacher_behavior.clause}")
+            beh_not_match_states = [self.data_combs[i][0].tolist() for i in range(len(beh_not_match_result)) if
+                                    beh_not_match_result[i]]
+            beh_not_match_state_actions = [self.data_combs[i][1].tolist() for i in range(len(beh_not_match_result)) if
+                                           beh_not_match_result[i]]
+            beh_not_match_states = torch.tensor(beh_not_match_states).squeeze()
+            beh_not_match_state_actions = torch.tensor(beh_not_match_state_actions)
+
+            data_actions = smp_utils.split_data_by_action(beh_not_match_states, beh_not_match_state_actions,
+                                                          self.action_num)
+            variation_behaviors = self.teacher_search(self.args, self.facts, data_actions, game_info)
+            combined_behaviors = self.combine_behaviors(teacher_behavior, variation_behaviors)
+            print(f"child behaviors: {len(variation_behaviors)}")
+            for behavior in combined_behaviors:
+                print(f"child: {behavior.clause}")
+
+            student_behaviors += combined_behaviors
+            print(f"studend behaviors num: {len(student_behaviors)}")
+            print("")
+        return student_behaviors
+
+    def combine_behaviors(self, parent_behavior, child_behaviors):
+        combined_behaviors = []
+        for conflict_behavior in child_behaviors:
+            combined_behavior = self.combine_behavior(parent_behavior, conflict_behavior)
+            if combined_behavior is not None:
+                combined_behaviors.append(combined_behavior)
+        for beh in combined_behaviors:
+            print(f"combined beh: {beh.clause}")
+        return combined_behaviors
+
+    def combine_behavior(self, parent_behavior, child_behavior):
+        parent_mask = parent_behavior.fact[0]["mask"]
+        child_mask = child_behavior.fact[0]["mask"]
+        assert parent_mask == child_mask
+
+        child_repeat_facts = torch.zeros(len(child_behavior.fact), dtype=torch.bool)
+        for cf_i, c_fact in enumerate(child_behavior.fact):
+            repeat_fact = False
+            for p_fact in parent_behavior.fact:
+                if c_fact["mask"] == p_fact["mask"] and c_fact["objs"] == p_fact["objs"] and c_fact["props"] == \
+                        p_fact["props"] and torch.equal(c_fact["pred_tensors"], p_fact["pred_tensors"]):
+                    repeat_fact = True
+            if repeat_fact:
+                child_repeat_facts[cf_i] = True
+
+        child_facts = [child_behavior.fact[rf_i] for rf_i in range(len(child_repeat_facts)) if
+                       not child_repeat_facts[rf_i]]
+        if len(child_facts) == 0:
+            return None
+        comb_fact = parent_behavior.fact + child_facts
+
+        new_behavior = Behavior(comb_fact, child_behavior.action, 0)
+        new_behavior.clause = pi_lang.behavior2clause(self.args, new_behavior)
+        # print(f"new combined behavior : {new_behavior.clause}")
+
+        return new_behavior
+
+    def teacher_search(self, args, action_splitted_states, game_info,prop_indices, eval_mode=False):
+        relate_2_obj_types = smp_utils.get_all_2_combinations(game_info)
+        relate_2_prop_types = [[each] for each in prop_indices]
+        facts = smp_utils.get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types)
+
+        behaviors = []
+        for action, action_states in action_splitted_states.items():
+            # states with same object existence
+            all_masks = smp_utils.all_exist_mask(action_states, game_info)
+            for fact in facts:
+                satisfy = smp_utils.satisfy_fact(fact, action_states, all_masks, game_info, eval_mode)
+                if satisfy:
+                    passed_state_num = sum(all_masks[fact["mask"]])
+                    behavior = Behavior([fact], action, passed_state_num)
+                    behavior.clause = pi_lang.behavior2clause(args, behavior)
+                    behaviors.append(behavior)
         return behaviors
 
     def forward_searching(self, relate_2_obj_types, relate_2_prop_types, obj_types):
@@ -614,17 +743,15 @@ class SymbolicMicroProgram(nn.Module):
         return grounded_combs
 
     def programming(self, game_info, prop_indices):
-        relate_2_obj_types = smp_utils.get_all_2_combinations(game_info)
-        relate_2_prop_types = [[each] for each in prop_indices]
-        self.preds = predicate.get_preds()
-        self.facts = smp_utils.get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types, self.preds)
-
-        behaviors = self.teacher_searching(game_info)
+        # for loop the teacher searching, different iteration use different obj combs, or maybe different facts
+        behaviors = self.teacher_searching(game_info, prop_indices)
+        behaviors = self.student_search(behaviors, game_info, prop_indices)
         # smp_utils.update_pred_parameters(self.preds, self.data_actions, behaviors, game_info)
         # obj_grounded_behaviors = self.forward_searching(relate_2_obj_types, relate_2_prop_types, obj_types)
         # self.backward_searching()
         # self.backward_searching2()
-
+        for beh in behaviors:
+            print(f"programed clause: {beh.clause}")
         return behaviors
 
     # def behaviors_from_actions(self, relate_2_obj_types, relate_2_prop_types, obj_types):

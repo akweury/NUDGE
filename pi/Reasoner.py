@@ -64,7 +64,7 @@ class SmpReasoner(nn.Module):
         else:
             explains = []
             for b_i in range(len(self.behaviors)):
-                satisfaction = self.behaviors[b_i].eval_behavior(self.preds, x, self.args.obj_info)
+                satisfaction = self.behaviors[b_i].eval_behavior(x, self.args.obj_info)
                 if satisfaction:
                     action_prob += self.behaviors[b_i].action
                     explains.append((self.behaviors[b_i].action, b_i))

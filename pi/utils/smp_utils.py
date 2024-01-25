@@ -2,6 +2,8 @@
 import torch
 
 from src import config
+from pi import predicate
+from pi import pi_lang
 
 
 def get_param_range(min, max, unit):
@@ -38,7 +40,10 @@ def split_data_by_action(states, actions, action_num):
     data = {}
     for action_type in action_types:
         index_action = actions == action_type
-        states_one_action = states[index_action]
+        try:
+            states_one_action = states[index_action]
+        except IndexError:
+            print("Index error")
         states_one_action = states_one_action.squeeze()
         if len(states_one_action.shape) == 2:
             states_one_action = states_one_action.unsqueeze(0)
@@ -163,8 +168,8 @@ def all_exist_mask(states, game_info):
         switch_mask = torch.prod(torch.tensor(switch_masks).float(), dim=0).bool()
         mask_name = gen_mask_name(obj_type_comb, obj_names)
         masks[mask_name] = switch_mask
-        if torch.sum(switch_mask) > 0:
-            print(f'mask: {mask_name}, number: {torch.sum(switch_mask)}')
+        # if torch.sum(switch_mask) > 0:
+        #     print(f'mask: {mask_name}, number: {torch.sum(switch_mask)}')
 
     return masks
 
@@ -316,17 +321,17 @@ def oppm_eval(data, oppm_comb, oppm_keys, preds, p_spaces, obj_type_indices, obj
     return satisfaction
 
 
-def get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types, all_preds):
+def get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types):
     facts = []
     obj_names = [name for name, _, _ in game_info]
     masks = all_mask_names(obj_names)
-    pred_combs = all_pred_tensors(all_preds)
+    pred_combs = all_pred_tensors(predicate.get_preds())
     for type_comb in relate_2_obj_types:
         for mask in masks:
             for prop_types in relate_2_prop_types:
                 for pred_comb in pred_combs:
                     facts.append({"mask": mask, "objs": type_comb, "props": prop_types, "pred_tensors": pred_comb,
-                                  "preds": all_preds})
+                                  "preds": predicate.get_preds()})
 
     return facts
 
@@ -356,7 +361,7 @@ def get_obj_type_combs(game_info, fact):
     return obj_combs
 
 
-def satisfy_fact(fact, states, mask_dict, game_info):
+def satisfy_fact(fact, states, mask_dict, game_info, eval_mode=False):
     fact_mask = mask_dict[fact["mask"]]
     objs = fact["objs"]
     props = fact["props"]
@@ -368,7 +373,7 @@ def satisfy_fact(fact, states, mask_dict, game_info):
 
     obj_combs = get_obj_type_combs(game_info, fact)
     # fact is true if at least one comb is true
-    fact_satisfaction = False
+
     for obj_comb in obj_combs:
         obj_A = states[fact_mask, obj_comb[0]]
         obj_B = states[fact_mask, obj_comb[1]]
@@ -379,12 +384,35 @@ def satisfy_fact(fact, states, mask_dict, game_info):
 
         pred_states = torch.zeros(pred_fact.size(), dtype=torch.bool)
         for i in range(len(preds)):
-            pred_states[i] = preds[i].fit(data_A, data_B, objs)
+            if eval_mode:
+                try:
+                    pred_satisfactions = preds[i].eval(data_A, data_B, objs)
+
+                    # if len(data_A) > 1:
+                    #     satisfy_percent = pred_satisfactions.sum()/len(pred_satisfactions)
+                    #     if satisfy_percent > 0.9:
+                    #         pred_satisfactions = True
+                    #     else:
+                    #         pred_satisfactions = False
+
+                    pred_states[i] = pred_satisfactions
+                except RuntimeError:
+                    print("watch")
+                    preds[i].eval(data_A, data_B, objs)
+            else:
+                pred_states[i] = preds[i].fit(data_A, data_B, objs)
 
         pred_satisfy = torch.equal(pred_states, pred_fact)
-        fact_satisfaction += pred_satisfy
 
-    return fact_satisfaction
+        # expanding parameters
+        if pred_satisfy:
+            # for i in range(len(preds)):
+            #     if pred_fact[i]:
+            #         preds[i].expand_space(data_A, data_B)
+
+            return True
+
+    return False
 
 
 def update_pred_parameters(preds, action_states, behaviors, game_info):
@@ -409,3 +437,73 @@ def update_pred_parameters(preds, action_states, behaviors, game_info):
                             data_A = obj_A[:, behavior.fact['props']]
                             data_B = obj_B[:, behavior.fact['props']]
                             preds[p_i].refine_space(data_A, data_B)
+
+
+def search_behavior_conflict_states(behavior, data_combs, game_info, action_num):
+    conflict_indices = torch.zeros(len(data_combs), dtype=torch.bool)
+    for d_i in range(len(data_combs)):
+        state, action, reward, reason_resource = data_combs[d_i]
+
+        # if action == 2 and state[0, 0, 4] > state[0, 1, 4] and state[0, 1, 1] > 0.6:
+        #     print(f"agent enemy distance: ")
+        #     print(f"agent key distance: ")
+        # all facts have to be matched
+        fact_match = behavior.eval_behavior(state, game_info)
+        if not fact_match:
+            conflict_indices[d_i] = False
+        if fact_match:
+            # if action == 2:
+            #     print("watch")
+            action_not_match = behavior.action.argmax() != action
+            conflict_indices[d_i] = action_not_match
+
+    # beh_not_match_states = [data_combs[i][0].tolist() for i in range(len(conflict_indices)) if conflict_indices[i]]
+    # beh_not_match_state_actions = [data_combs[i][1].tolist() for i in range(len(conflict_indices)) if
+    #                                conflict_indices[i]]
+    # beh_not_match_states = torch.tensor(beh_not_match_states).squeeze()
+    # beh_not_match_state_actions = torch.tensor(beh_not_match_state_actions)
+
+    conflict_percent = sum(conflict_indices) / len(data_combs)
+    # print(f"\n- Teacher Behavior: "
+    #       f"{teacher_behavior.clause}, "
+    #       f"conflict indices: {sum(conflict_indices)}/{len(self.data_combs)}, "
+    #       f"conflict percent: {conflict_percent}\n")
+
+    satisfied_data, conflict_data = prepare_student_data(conflict_indices, data_combs, action_num)
+
+    return satisfied_data, conflict_data
+
+
+def prepare_student_data(conflict_indices, data_combs, action_num):
+    beh_not_match_states = [data_combs[i][0].tolist() for i in range(len(conflict_indices)) if conflict_indices[i]]
+    beh_not_match_states = torch.tensor(beh_not_match_states).squeeze()
+    if conflict_indices.sum()<2:
+        return data_combs, None
+    beh_match_states = [data_combs[i][0].tolist() for i in range(len(conflict_indices)) if not conflict_indices[i]]
+    beh_match_states = torch.tensor(beh_match_states).squeeze()
+
+    beh_not_match_state_actions = [data_combs[i][1].tolist() for i in range(len(conflict_indices)) if
+                                   conflict_indices[i]]
+    beh_not_match_state_actions = torch.tensor(beh_not_match_state_actions)
+
+    beh_match_state_actions = [data_combs[i][1].tolist() for i in range(len(conflict_indices)) if
+                               not conflict_indices[i]]
+    beh_match_state_actions = torch.tensor(beh_match_state_actions)
+
+    conflict_data = split_data_by_action(beh_not_match_states, beh_not_match_state_actions, action_num)
+
+    zero_rewards = torch.zeros(len(beh_match_states))
+    zero_reason_source = torch.zeros(len(beh_match_states))
+    satisfied_data = comb_buffers(beh_match_states, beh_match_state_actions, zero_rewards, zero_reason_source)
+
+    return satisfied_data, conflict_data
+
+
+def back_check(data, conflict_behaviors, game_info, action_num):
+    behaviors = []
+    for c_beh in conflict_behaviors:
+        satisfied_data, conflict_data = search_behavior_conflict_states(c_beh, data, game_info, action_num)
+        print(f"student behavior: {c_beh.clause}, satisfy percent: {len(satisfied_data)}/{len(data)}")
+        if len(satisfied_data)/len(data) > 0.999:
+            behaviors.append(c_beh)
+    return behaviors
