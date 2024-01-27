@@ -19,7 +19,7 @@ def extract_fact_terms(args, fact):
 
 
 def generate_action_predicate(args, behavior):
-    action_code = behavior.action.argmax()
+    action_code = behavior.action
     action_name = args.action_names[action_code]
     action_predicate = InvPredicate(action_name, 1, [DataType("agent")], config.action_pred_name)
 

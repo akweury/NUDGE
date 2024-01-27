@@ -115,3 +115,7 @@ counter_action_pred_name = "counter_action_pred"
 obj_type_indices_getout = {'agent': [0], 'key': [1], 'door': [2], 'enemy': [3]}
 obj_type_indices_getout_plus = {'agent': [0], 'key': [1], 'door': [2], 'enemy': [3, 4, 5], 'buzzsaw': [6, 7]}
 obj_type_indices_threefish = {'agent': [0], 'fish': [1, 2]}
+
+##################### Predicate #######################
+dist_num = 10
+max_dist = 30

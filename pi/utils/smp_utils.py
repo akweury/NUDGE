@@ -1,9 +1,10 @@
 # Created by jing at 23.12.23
 import torch
-
+from tqdm import tqdm
 from src import config
 from pi import predicate
 from pi import pi_lang
+from itertools import combinations
 
 
 def get_param_range(min, max, unit):
@@ -21,6 +22,85 @@ def get_all_2_combinations(game_info):
     all_combinations = [[i_1, i_2] for i_1, s_1 in enumerate(game_info) for i_2, s_2 in
                         enumerate(game_info) if s_1 != s_2]
     return all_combinations
+
+
+def get_all_facts(game_info, prop_indices):
+    relate_2_obj_types = get_all_2_combinations(game_info)
+    relate_2_prop_types = [[each] for each in prop_indices]
+    facts = get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types)
+    print(f"fact number: {len(facts)}")
+    return facts
+
+
+def get_fact_obj_combs(game_info, fact):
+    type_0_index = fact["objs"][0]
+    type_1_index = fact["objs"][1]
+    _, obj_0_indices, _ = game_info[type_0_index]
+    _, obj_1_indices, _ = game_info[type_1_index]
+    obj_combs = enumerate_two_combs(obj_0_indices, obj_1_indices)
+    return obj_combs
+
+
+def get_fact_mask(fact, repeat):
+    fact_mask_tensor = mask_name_to_tensor(fact["mask"], config.mask_splitter)
+    fact_mask_tensor = torch.repeat_interleave(fact_mask_tensor.unsqueeze(0), repeat, 0)
+    return fact_mask_tensor
+
+
+def fact_is_true(states, fact, game_info):
+    prop = fact["props"]
+    obj_combs = get_fact_obj_combs(game_info, fact)
+    fact_mask = get_fact_mask(fact, len(states))
+    state_mask = mask_tensors_from_states(states, game_info)
+    fact_satisfaction = (fact_mask == state_mask).prod(dim=-1).bool()
+
+    # fact_satisfaction = torch.zeros(len(states), dtype=torch.bool)
+    pred_satisfaction = torch.zeros(len(states), dtype=torch.bool)
+    for obj_a, obj_b in obj_combs:
+        data_A = states[:, obj_a, prop].reshape(-1)
+        data_B = states[:, obj_b, prop].reshape(-1)
+
+        state_pred_satisfaction = torch.zeros((3, len(states)), dtype=torch.bool)
+        for i in range(len(fact['preds'])):
+            state_pred_satisfaction[i] = fact['preds'][i].eval(data_A, data_B)
+
+        pred_satisfaction += state_pred_satisfaction.prod(dim=0).bool()
+
+
+    fact_satisfaction *= pred_satisfaction
+
+    # satisfaction = mask_satisfaction * fact_satisfaction
+    assert len(fact_satisfaction) == len(states)
+    return fact_satisfaction
+
+
+def check_fact_truth(facts, data, game_info):
+    truth_table = torch.zeros((len(data), len(facts)), dtype=torch.bool)
+
+    states = torch.tensor([d[0].tolist() for d in data]).squeeze()
+    for f_i in tqdm(range(len(facts)), ascii=True, desc="Fact Table"):
+        fact_satisfaction = fact_is_true(states, facts[f_i], game_info)
+        truth_table[:, f_i] = fact_satisfaction
+
+    return truth_table
+
+
+def remove_trivial_facts(facts, fact_actions):
+    trivial_indices = fact_actions.sum(dim=-1) == len(facts[0]["pred_tensors"])
+    trivial_indices += fact_actions.sum(dim=-1) == 0
+    non_trivial_facts = facts[~trivial_indices]
+    return non_trivial_facts
+
+
+def extend_one_fact_to_fact(facts, fact_actions, base_facts, base_fact_actions):
+    new_facts = []
+    for f_i in range(len(facts) - 1):
+        fa_i = fact_actions[f_i]
+        for f_j in range(f_i + 1, len(fact_actions)):
+            fa_j = fact_actions[f_j]
+            if (fa_i * fa_j).sum() > 0:
+                new_facts.append([base_facts[f_i], base_facts[f_j]])
+    return new_facts
 
 
 def get_all_subsets(input_list, empty_set=True):
@@ -99,12 +179,12 @@ def mask_name_from_state(state, game_info, splitter):
 
 
 def mask_tensors_from_states(states, game_info):
-    mask_tensors = torch.zeros((len(states), len(game_info)))
+    mask_tensors = torch.zeros((len(states), len(game_info)), dtype=torch.bool)
     for i in range(len(game_info)):
         name, obj_indices, prop_index = game_info[i]
         obj_exist_counter = states[:, obj_indices, prop_index].sum()
         mask_tensors[:, i] = obj_exist_counter > 0
-
+    mask_tensors = mask_tensors.bool()
     return mask_tensors
 
 
@@ -143,6 +223,19 @@ def all_mask_names(obj_names):
     switches = get_all_subsets(obj_names)
     for switch in switches:
         mask_name = gen_mask_name(switch, obj_names)
+        masks.append(mask_name)
+
+    return masks
+
+
+def exist_mask_names(obj_names, exist_indices):
+    # states that following different masks
+    uncertain_obj_names = [obj_names[i] for i in range(len(obj_names)) if i not in exist_indices]
+    masks = []
+    switches = get_all_subsets(uncertain_obj_names)
+    for switch_names in switches:
+        switch_names += [obj_names[i] for i in exist_indices]
+        mask_name = gen_mask_name(switch_names, obj_names)
         masks.append(mask_name)
 
     return masks
@@ -321,17 +414,30 @@ def oppm_eval(data, oppm_comb, oppm_keys, preds, p_spaces, obj_type_indices, obj
     return satisfaction
 
 
+def all_pred_combs(pred_lists):
+    pred_combs = []
+    for dir_i in range(len(pred_lists[0])):
+        for al_i in range(len(pred_lists[1])):
+            for am_i in range(al_i, len(pred_lists[2])):
+                pred_combs.append([pred_lists[0][dir_i], pred_lists[1][al_i], pred_lists[2][am_i]])
+    return pred_combs
+
+
 def get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types):
+    at_least_preds = predicate.get_at_least_preds(1, config.dist_num, config.max_dist)
+    at_most_preds = predicate.get_at_most_preds(1, config.dist_num, config.max_dist)
+    dir_preds = [predicate.GT()]
+    pred_combs = all_pred_combs([dir_preds, at_least_preds, at_most_preds])
     facts = []
     obj_names = [name for name, _, _ in game_info]
-    masks = all_mask_names(obj_names)
-    pred_combs = all_pred_tensors(predicate.get_preds())
     for type_comb in relate_2_obj_types:
+        masks = exist_mask_names(obj_names, type_comb)
         for mask in masks:
             for prop_types in relate_2_prop_types:
-                for pred_comb in pred_combs:
-                    facts.append({"mask": mask, "objs": type_comb, "props": prop_types, "pred_tensors": pred_comb,
-                                  "preds": predicate.get_preds()})
+                for p_i in range(len(pred_combs)):
+                    fact_preds = pred_combs[p_i]
+                    facts.append({"mask": mask, "objs": type_comb, "props": prop_types,
+                                  "pred_tensors": torch.ones((3), dtype=torch.bool), "preds": fact_preds})
 
     return facts
 
@@ -477,7 +583,7 @@ def search_behavior_conflict_states(behavior, data_combs, game_info, action_num)
 def prepare_student_data(conflict_indices, data_combs, action_num):
     beh_not_match_states = [data_combs[i][0].tolist() for i in range(len(conflict_indices)) if conflict_indices[i]]
     beh_not_match_states = torch.tensor(beh_not_match_states).squeeze()
-    if conflict_indices.sum()<2:
+    if conflict_indices.sum() < 2:
         return data_combs, None
     beh_match_states = [data_combs[i][0].tolist() for i in range(len(conflict_indices)) if not conflict_indices[i]]
     beh_match_states = torch.tensor(beh_match_states).squeeze()
@@ -504,6 +610,12 @@ def back_check(data, conflict_behaviors, game_info, action_num):
     for c_beh in conflict_behaviors:
         satisfied_data, conflict_data = search_behavior_conflict_states(c_beh, data, game_info, action_num)
         print(f"student behavior: {c_beh.clause}, satisfy percent: {len(satisfied_data)}/{len(data)}")
-        if len(satisfied_data)/len(data) > 0.999:
+        if len(satisfied_data) / len(data) > 0.999:
             behaviors.append(c_beh)
     return behaviors
+
+
+def get_fact_combs(comb_iteration, total):
+    comb = torch.tensor(list(combinations(list(range(total)), comb_iteration)))
+    print(f"fact combinations: {len(comb)}")
+    return comb

@@ -3,7 +3,7 @@
 import torch
 
 import pi.game_env
-from pi import behavior, predicate
+from pi import behavior_old, predicate
 from pi.MicroProgram import MicroProgram, UngroundedMicroProgram
 from pi.utils import args_utils, smp_utils, log_utils
 

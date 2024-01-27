@@ -1,12 +1,13 @@
 # Created by jing at 04.12.23
 
-
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 
 from pi.utils import smp_utils
 from pi import predicate
 from pi import pi_lang
+from pi.Behavior import Behavior
 from src import config
 
 
@@ -153,95 +154,6 @@ class UngroundedMicroProgram(nn.Module):
             satisfactions.append(satisfaction)
 
         return satisfactions
-
-
-class Behavior():
-    """ generate one micro-program
-    """
-
-    def __init__(self, fact, action, reward):
-        super().__init__()
-        self.fact = fact
-        self.action = action
-        self.reward = reward
-        self.clause = None
-
-    def falsify_pred_params(self, preds, x, game_info):
-        pred_tensor = self.fact['pred_tensors']
-        prop = self.fact["props"]
-        obj_type_combs = smp_utils.get_obj_type_combs(game_info, self.fact)
-
-        satisafaction = []
-        params = []
-        for i in range(len(preds)):
-            pred_satisfaction = []
-            pred_params = []
-            for obj_comb in obj_type_combs:
-                data_A = x[:, obj_comb[0], prop].reshape(-1)
-                data_B = x[:, obj_comb[1], prop].reshape(-1)
-                satisfy, param = preds[i].eval(data_A, data_B)
-                pred_satisfaction.append(satisfy)
-                pred_params.append(param)
-            satisafaction.extend(pred_satisfaction)
-            params.extend(pred_params)
-
-    def validify_pred_params(self, preds, x, game_info):
-        pred_tensor = self.fact['pred_tensors']
-        prop = self.fact["props"]
-        obj_type_combs = smp_utils.get_obj_type_combs(game_info, self.fact)
-
-        satisafaction = []
-        params = []
-        for i in range(len(preds)):
-            pred_satisfaction = []
-            pred_params = []
-            for obj_comb in obj_type_combs:
-                data_A = x[:, obj_comb[0], prop].reshape(-1)
-                data_B = x[:, obj_comb[1], prop].reshape(-1)
-                satisfy, param = preds[i].eval(data_A, data_B)
-                pred_satisfaction.append(satisfy)
-                pred_params.append(param)
-            satisafaction.append(pred_satisfaction)
-            params.append(pred_params)
-        print('test')
-
-    def eval_behavior(self, x, game_info):
-        for fact in self.fact:
-            type_0_index = fact["objs"][0]
-            type_1_index = fact["objs"][1]
-            prop = fact["props"]
-            _, obj_0_indices, _ = game_info[type_0_index]
-            _, obj_1_indices, _ = game_info[type_1_index]
-            obj_combs = smp_utils.enumerate_two_combs(obj_0_indices, obj_1_indices)
-
-            # check if current state has the same mask as the behavior
-            fact_mask_tensor = smp_utils.mask_name_to_tensor(fact["mask"], config.mask_splitter)
-            fact_mask_tensor = torch.repeat_interleave(fact_mask_tensor.unsqueeze(0), len(x), 0)
-            mask_satisfaction = (fact_mask_tensor == smp_utils.mask_tensors_from_states(x, game_info)).prod(
-                dim=-1).bool().reshape(-1)
-
-            if not mask_satisfaction:
-                return False
-
-            # pred is true if any comb is true (or)
-            fact_satisfaction = False
-            for obj_comb in obj_combs:
-                data_A = x[:, obj_comb[0], prop].reshape(-1)
-                data_B = x[:, obj_comb[1], prop].reshape(-1)
-
-                # behavior is true if all pred is true (and)
-                state_pred_satisfaction = True
-                for i in range(len(fact['preds'])):
-                    if fact["pred_tensors"][i]:
-                        pred_satisfaction = fact['preds'][i].eval(data_A, data_B, obj_comb)
-                        state_pred_satisfaction *= pred_satisfaction
-                # print(f"state preds: {state_pred_satisfaction}")
-                fact_satisfaction += state_pred_satisfaction
-
-            if not fact_satisfaction:
-                return False
-
-        return True
 
 
 class SymbolicRewardMicroProgram(nn.Module):
@@ -463,15 +375,38 @@ class SymbolicMicroProgram(nn.Module):
         self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards,
                                                  self.buffer.reason_source)
 
+    def extract_behaviors(self, facts, fact_actions):
+        beh_indices = fact_actions.sum(dim=-1) == 1
+        beh_facts = facts[beh_indices]
+        beh_actions = fact_actions[beh_indices].argmax(dim=-1)
+        behaviors = []
+        for beh_i in range(len(beh_facts)):
+            behavior = Behavior(beh_facts[beh_i], beh_actions[beh_i], 0)
+            behaviors.append(behavior)
+        return behaviors
+
+    # def extend_facts(self, game_info, prop_indices):
+    #     behaviors = []
+    #     facts = smp_utils.get_all_facts(game_info, prop_indices)
+    #     base_fact_actions = smp_utils.check_corresponding_actions(facts, self.data_combs, game_info)
+    #     base_facts = smp_utils.remove_trivial_facts(facts, base_fact_actions)
+    #     new_behs = self.extract_behaviors(facts, base_fact_actions)
+    #     behaviors.append(new_behs)
+    #
+    #     facts = []
+    #     fact_actions = []
+    #     for i in range(3):
+    #         facts, fact_actions = smp_utils.extend_one_fact_to_fact(facts, fact_actions, base_facts, base_fact_actions)
+    #         new_behs = self.extract_behaviors(facts, fact_actions)
+    #         behaviors.append(new_behs)
+
     def teacher_searching(self, game_info, prop_indices):
         # strategy: action, objects, mask, properties, if predicates are valid
         behaviors = []
         # states do the same action, but they can still have different reasons for doing this action
         for action, action_states in self.data_actions.items():
             # states with same object existence
-            relate_2_obj_types = smp_utils.get_all_2_combinations(game_info)
-            relate_2_prop_types = [[each] for each in prop_indices]
-            facts = smp_utils.get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types)
+            facts = smp_utils.get_all_facts(game_info, prop_indices)
             all_masks = smp_utils.all_exist_mask(action_states, game_info)
             for f_i, fact in enumerate(facts):
                 if fact["mask"] == "exist_agent#exist_key#exist_door#exist_enemy" and fact["objs"] == [1, 2] and \
@@ -493,7 +428,7 @@ class SymbolicMicroProgram(nn.Module):
         print(f"teacher behaviors num: {len(behaviors)}")
         return behaviors
 
-    def student_search(self, teacher_behaviors, game_info,prop_indices ):
+    def student_search(self, teacher_behaviors, game_info, prop_indices):
 
         student_behaviors = []
         un_checked_behaviors = teacher_behaviors
@@ -597,7 +532,7 @@ class SymbolicMicroProgram(nn.Module):
 
         return new_behavior
 
-    def teacher_search(self, args, action_splitted_states, game_info,prop_indices, eval_mode=False):
+    def teacher_search(self, args, action_splitted_states, game_info, prop_indices, eval_mode=False):
         relate_2_obj_types = smp_utils.get_all_2_combinations(game_info)
         relate_2_prop_types = [[each] for each in prop_indices]
         facts = smp_utils.get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types)
@@ -744,14 +679,58 @@ class SymbolicMicroProgram(nn.Module):
 
     def programming(self, game_info, prop_indices):
         # for loop the teacher searching, different iteration use different obj combs, or maybe different facts
-        behaviors = self.teacher_searching(game_info, prop_indices)
-        behaviors = self.student_search(behaviors, game_info, prop_indices)
+        facts, fact_truth_table, actions = self.calc_truth_table(game_info, prop_indices)
+
+        behaviors = self.brute_search(facts, fact_truth_table, actions)
+        # behaviors = self.extend_facts(game_info, prop_indices)
+        # behaviors = self.teacher_searching(game_info, prop_indices)
+        # behaviors = self.student_search(behaviors, game_info, prop_indices)
         # smp_utils.update_pred_parameters(self.preds, self.data_actions, behaviors, game_info)
         # obj_grounded_behaviors = self.forward_searching(relate_2_obj_types, relate_2_prop_types, obj_types)
         # self.backward_searching()
         # self.backward_searching2()
         for beh in behaviors:
             print(f"programed clause: {beh.clause}")
+        return behaviors
+
+    def get_new_behavior(self, facts, action, passed_state_num):
+        if not isinstance(facts, list):
+            facts = [facts]
+        behavior = Behavior(facts, action, passed_state_num)
+        behavior.clause = pi_lang.behavior2clause(self.args, behavior)
+        return behavior
+
+    def calc_truth_table(self, game_info, prop_indices):
+        facts = smp_utils.get_all_facts(game_info, prop_indices)
+        actions = torch.tensor([d[1].tolist() for d in self.data_combs]).squeeze()
+
+        truth_table = smp_utils.check_fact_truth(facts, self.data_combs, game_info)
+        valid_indices = truth_table.sum(dim=0) > 0
+        valid_truth_table = truth_table[:, valid_indices]
+        valid_facts = [facts[i] for i in range(len(facts)) if valid_indices[i]]
+
+        return valid_facts, valid_truth_table, actions
+
+    def brute_search(self, facts, fact_truth_table, actions):
+        # searching behaviors
+        behaviors = []
+
+        for at_i, action_type in enumerate(actions.unique()):
+            fact_table = fact_truth_table[actions == at_i, :]
+            fact_anti_table = fact_truth_table[actions != at_i, :]
+            for repeat_i in range(2):
+                ci_combs = smp_utils.get_fact_combs(repeat_i + 1, fact_table.size(1))
+                for ci_i in tqdm(range(len(ci_combs)), ascii=True, desc=f"{repeat_i + 1} fact behavior search"):
+                    ci_comb = ci_combs[ci_i]
+                    fact_comb_state_indices = fact_table[:, ci_comb].prod(dim=-1).bool()
+                    fact_comb_neg_state_indices = fact_anti_table[:, ci_comb].prod(dim=-1).bool()
+                    passed_state_num = fact_comb_state_indices.sum()
+                    passed_neg_state_num = fact_comb_neg_state_indices.sum()
+                    if passed_state_num > 10 and passed_neg_state_num < 5:
+                        beh_facts = [facts[i] for i in ci_comb]
+                        behavior = self.get_new_behavior(beh_facts, action_type, passed_state_num)
+                        behaviors.append(behavior)
+
         return behaviors
 
     # def behaviors_from_actions(self, relate_2_obj_types, relate_2_prop_types, obj_types):
@@ -795,7 +774,7 @@ class SymbolicMicroProgram(nn.Module):
     #                         behaviors.append(behavior)
     #
     #     return behaviors
-
+    #
     # def check_exists(self, x, obj_type_dict):
     #     if x.ndim != 3:
     #         raise ValueError
@@ -812,7 +791,7 @@ class SymbolicMicroProgram(nn.Module):
     #     mask_batches = torch.repeat_interleave(mask_batches, x.size(0), dim=0)
     #     exist_res = torch.prod(mask_batches == obj_type_exists, dim=1)
     #     return exist_res.bool()
-
+    #
     # def forward(self, x, obj_type_indices, avg_data=False):
     #     # game Getout: tensor with size batch_size * 4 * 6
     #     action_probs = torch.zeros(len(self.type_codes), x.size(0), len(self.action))
