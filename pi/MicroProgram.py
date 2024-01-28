@@ -680,18 +680,31 @@ class SymbolicMicroProgram(nn.Module):
     def programming(self, game_info, prop_indices):
         # for loop the teacher searching, different iteration use different obj combs, or maybe different facts
         facts, fact_truth_table, actions = self.calc_truth_table(game_info, prop_indices)
-
-        behaviors = self.brute_search(facts, fact_truth_table, actions)
-        # behaviors = self.extend_facts(game_info, prop_indices)
-        # behaviors = self.teacher_searching(game_info, prop_indices)
-        # behaviors = self.student_search(behaviors, game_info, prop_indices)
-        # smp_utils.update_pred_parameters(self.preds, self.data_actions, behaviors, game_info)
-        # obj_grounded_behaviors = self.forward_searching(relate_2_obj_types, relate_2_prop_types, obj_types)
-        # self.backward_searching()
-        # self.backward_searching2()
+        merged_fact_truth_table = self.merge_truth_table_celles(facts, fact_truth_table)
+        behaviors = self.brute_search(facts, merged_fact_truth_table, actions)
         for beh in behaviors:
-            print(f"programed clause: {beh.clause}")
+            print(f"{beh.clause}")
         return behaviors
+
+    def merge_truth_table_celles(self, facts, fact_truth_table, actions):
+
+        head_types, fact_head_ids, fact_bodies, fact_heads = smp_utils.fact_grouping_by_head(facts)
+        for h_i, head_type in enumerate(head_types):
+            facts_i = [f_i for f_i in range(len(facts)) if fact_head_ids[f_i] == h_i]
+            fact_table_i = fact_truth_table[:, facts_i]
+            for f_i in range(len(facts_i) - 1):
+                assert fact_heads[facts_i[f_i]] == fact_heads[facts_i[f_i + 1]]
+                if fact_bodies[facts_i[f_i]]["max"] == fact_bodies[facts_i[f_i+1]]["min"]:
+                    print(f"{fact_bodies[facts_i[f_i]]}, {fact_bodies[facts_i[f_i + 1]]}")
+                else:
+                    print(f"")
+                both_true = fact_table_i[:, f_i] * fact_table_i[:, f_i + 1]
+
+                if both_true.sum() > 0:
+                    print("")
+                fact_table_i[both_true, f_i] = False
+            fact_truth_table[:, facts_i] = fact_table_i
+        return fact_truth_table
 
     def get_new_behavior(self, facts, action, passed_state_num):
         if not isinstance(facts, list):
@@ -714,7 +727,6 @@ class SymbolicMicroProgram(nn.Module):
     def brute_search(self, facts, fact_truth_table, actions):
         # searching behaviors
         behaviors = []
-
         for at_i, action_type in enumerate(actions.unique()):
             fact_table = fact_truth_table[actions == at_i, :]
             fact_anti_table = fact_truth_table[actions != at_i, :]
@@ -726,7 +738,7 @@ class SymbolicMicroProgram(nn.Module):
                     fact_comb_neg_state_indices = fact_anti_table[:, ci_comb].prod(dim=-1).bool()
                     passed_state_num = fact_comb_state_indices.sum()
                     passed_neg_state_num = fact_comb_neg_state_indices.sum()
-                    if passed_state_num > 10 and passed_neg_state_num < 5:
+                    if passed_state_num > 10 and passed_neg_state_num == 0:
                         beh_facts = [facts[i] for i in ci_comb]
                         behavior = self.get_new_behavior(beh_facts, action_type, passed_state_num)
                         behaviors.append(behavior)

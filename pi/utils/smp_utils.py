@@ -66,7 +66,6 @@ def fact_is_true(states, fact, game_info):
 
         pred_satisfaction += state_pred_satisfaction.prod(dim=0).bool()
 
-
     fact_satisfaction *= pred_satisfaction
 
     # satisfaction = mask_satisfaction * fact_satisfaction
@@ -418,8 +417,7 @@ def all_pred_combs(pred_lists):
     pred_combs = []
     for dir_i in range(len(pred_lists[0])):
         for al_i in range(len(pred_lists[1])):
-            for am_i in range(al_i, len(pred_lists[2])):
-                pred_combs.append([pred_lists[0][dir_i], pred_lists[1][al_i], pred_lists[2][am_i]])
+            pred_combs.append([pred_lists[0][dir_i], pred_lists[1][al_i], pred_lists[2][al_i]])
     return pred_combs
 
 
@@ -619,3 +617,22 @@ def get_fact_combs(comb_iteration, total):
     comb = torch.tensor(list(combinations(list(range(total)), comb_iteration)))
     print(f"fact combinations: {len(comb)}")
     return comb
+
+
+def fact_grouping_by_head(facts):
+    head_id = -1
+    checked_head = []
+    fact_head_ids = []
+    fact_bodies = []
+    fact_heads=[]
+    for f_i in range(len(facts)):
+        head = facts[f_i]["mask"] + str(facts[f_i]["objs"]) + str(facts[f_i]["props"])
+        body = {"min": facts[f_i]["preds"][1].p_bound["min"], "max": facts[f_i]["preds"][2].p_bound["max"]}
+        if head not in checked_head:
+            checked_head.append(head)
+            head_id += 1
+        fact_head_ids.append(head_id)
+        fact_bodies.append(body)
+        fact_heads.append(head)
+    fact_head_ids = torch.tensor(fact_head_ids)
+    return checked_head, fact_head_ids, fact_bodies, fact_heads
