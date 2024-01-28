@@ -117,5 +117,5 @@ obj_type_indices_getout_plus = {'agent': [0], 'key': [1], 'door': [2], 'enemy': 
 obj_type_indices_threefish = {'agent': [0], 'fish': [1, 2]}
 
 ##################### Predicate #######################
-dist_num = 30
+dist_num = 20
 max_dist = 20

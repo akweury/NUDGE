@@ -680,7 +680,7 @@ class SymbolicMicroProgram(nn.Module):
     def programming(self, game_info, prop_indices):
         # for loop the teacher searching, different iteration use different obj combs, or maybe different facts
         facts, fact_truth_table, actions = self.calc_truth_table(game_info, prop_indices)
-        merged_fact_truth_table = self.merge_truth_table_celles(facts, fact_truth_table)
+        merged_fact_truth_table = self.merge_truth_table_celles(facts, fact_truth_table, actions)
         behaviors = self.brute_search(facts, merged_fact_truth_table, actions)
         for beh in behaviors:
             print(f"{beh.clause}")
@@ -690,20 +690,58 @@ class SymbolicMicroProgram(nn.Module):
 
         head_types, fact_head_ids, fact_bodies, fact_heads = smp_utils.fact_grouping_by_head(facts)
         for h_i, head_type in enumerate(head_types):
-            facts_i = [f_i for f_i in range(len(facts)) if fact_head_ids[f_i] == h_i]
-            fact_table_i = fact_truth_table[:, facts_i]
-            for f_i in range(len(facts_i) - 1):
-                assert fact_heads[facts_i[f_i]] == fact_heads[facts_i[f_i + 1]]
-                if fact_bodies[facts_i[f_i]]["max"] == fact_bodies[facts_i[f_i+1]]["min"]:
-                    print(f"{fact_bodies[facts_i[f_i]]}, {fact_bodies[facts_i[f_i + 1]]}")
-                else:
-                    print(f"")
-                both_true = fact_table_i[:, f_i] * fact_table_i[:, f_i + 1]
+            head_type_i = [f_i for f_i in range(len(facts)) if fact_head_ids[f_i] == h_i]
+            if len(head_type_i) == 0:
+                continue
 
-                if both_true.sum() > 0:
-                    print("")
-                fact_table_i[both_true, f_i] = False
-            fact_truth_table[:, facts_i] = fact_table_i
+            fact_table_i = fact_truth_table[:, head_type_i]
+
+            for f_i in range(len(head_type_i) - 1):
+                action_types = actions[fact_table_i[:, f_i]].unique()
+                if len(action_types) == 1:
+                    min_value = facts[head_type_i[f_i]]["preds"][1].p_bound["min"]
+                    max_value = facts[head_type_i[f_i]]["preds"][2].p_bound["max"]
+
+                    # right_min = facts[head_type_i[f_i + 1]]["preds"][1].p_bound["min"]
+                    # right_shift = 1
+                    # # right_max = facts[head_type_i[f_i + 1]]["preds"][2].p_bound["max"]
+                    # right_border_index = f_i
+
+                    smaller_f_i = f_i
+                    for r_f_i in range(len(head_type_i)):
+                        right_action_types = actions[fact_table_i[:, r_f_i]].unique()
+                        right_min = facts[head_type_i[r_f_i]]["preds"][1].p_bound["min"]
+                        right_max = facts[head_type_i[r_f_i]]["preds"][2].p_bound["max"]
+                        if len(right_action_types) == 1 and right_action_types == action_types and right_min == min_value and right_max >= max_value:
+                            fact_table_i[:, smaller_f_i] = False
+                            smaller_f_i = r_f_i
+                            max_value = right_max
+
+                    #
+                    # while (right_max > max_value and right_min == min_value):
+                    #     right_action_types = actions[fact_table_i[:, f_i + right_shift]].unique()
+                    #     if len(right_action_types) == 1 and right_action_types == action_types:
+                    #         fact_table_i[:, f_i + right_shift - 1] = False  # merge from right side
+                    #         right_shift += 1
+                    #         right_border_index += 1
+                    #         try:
+                    #             right_min = facts[head_type_i[f_i + right_shift]]["preds"][1].p_bound["min"]
+                    #             right_max = facts[head_type_i[f_i + right_shift]]["preds"][2].p_bound["max"]
+                    #         except IndexError:
+                    #             print("")
+                    #     else:
+                    #         break
+                    #
+
+                    for l_f_i in range(len(head_type_i)):
+                        if l_f_i != smaller_f_i:
+                            lfi_action_types = actions[fact_table_i[:, l_f_i]].unique()
+                            left_min = facts[head_type_i[l_f_i]]["preds"][1].p_bound["min"]
+                            left_max = facts[head_type_i[l_f_i]]["preds"][2].p_bound["max"]
+                            if len(lfi_action_types) == 1 and lfi_action_types == action_types and left_min >= min_value and left_max == max_value:
+                                fact_table_i[:, l_f_i] = False  # merge from left side
+
+            fact_truth_table[:, head_type_i] = fact_table_i
         return fact_truth_table
 
     def get_new_behavior(self, facts, action, passed_state_num):

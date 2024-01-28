@@ -417,7 +417,8 @@ def all_pred_combs(pred_lists):
     pred_combs = []
     for dir_i in range(len(pred_lists[0])):
         for al_i in range(len(pred_lists[1])):
-            pred_combs.append([pred_lists[0][dir_i], pred_lists[1][al_i], pred_lists[2][al_i]])
+            for am_i in range(len(pred_lists[2])):
+                pred_combs.append([pred_lists[0][dir_i], pred_lists[1][al_i], pred_lists[2][am_i]])
     return pred_combs
 
 
