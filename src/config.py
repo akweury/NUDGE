@@ -48,6 +48,8 @@ path_log = path_output / "logs"
 if not os.path.exists(path_log):
     os.mkdir(path_log)
 
+path_truth_table = path_output / "truth_tables"
+
 path_exps = root / "exps"
 if not os.path.exists(path_exps):
     os.mkdir(path_exps)
@@ -117,5 +119,5 @@ obj_type_indices_getout_plus = {'agent': [0], 'key': [1], 'door': [2], 'enemy': 
 obj_type_indices_threefish = {'agent': [0], 'fish': [1, 2]}
 
 ##################### Predicate #######################
-dist_num = 20
-max_dist = 20
+# dist_num = 20
+# max_dist = 30

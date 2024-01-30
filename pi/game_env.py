@@ -9,7 +9,7 @@ from ocatari.core import OCAtari
 from functools import partial
 from ale_env import ALEModern
 
-from pi.Player import SymbolicMicroProgramPlayer
+from pi.Player import SymbolicMicroProgramPlayer, PpoPlayer
 from pi.utils.game_utils import RolloutBuffer, _load_checkpoint, _epsilon_greedy, print_atari_screen
 from pi.utils.oc_utils import extract_logic_state_assault, extract_logic_state_asterix
 
@@ -73,7 +73,9 @@ def create_agent(args, agent_type):
         agent = RandomPlayer(args)
     elif agent_type == 'human':
         agent = 'human'
-    elif agent_type == 'ppo':
+    elif agent_type == "ppo":
+        agent = PpoPlayer(args)
+    elif agent_type == 'pretrained':
         # game/seed/model
         ckpt = _load_checkpoint(args.model_path)
         # set env
@@ -128,49 +130,64 @@ def render_game(agent, args):
 
 
 def collect_data_getout(agent, args):
-    if args.teacher_agent == "neural":
-        args.filename = "getout.json"
-        if not os.path.exists(config.path_bs_data / args.filename):
-            shutil.copyfile(config.path_saved_bs_data / args.filename, config.path_bs_data / args.filename)
+    game_num = 100
+    # play games using the random agent
+    seed = random.seed() if args.seed is None else int(args.seed)
+    args.filename = args.m + '_' + args.teacher_agent + '_episode_' + str(game_num) + '.json'
+
+    buffer = RolloutBuffer(args.filename)
+
+    if os.path.exists(buffer.filename):
         return
-    elif args.teacher_agent == "random":
-        args.model_file = "random"
-        max_states = 10000
-        # play games using the random agent
-        seed = random.seed() if args.seed is None else int(args.seed)
-        args.filename = args.m + '_' + args.teacher_agent + '_episode_' + str(args.episode) + '.json'
+    # collect data
+    step = 0
+    win_count = 0
+    if args.m == 'getout':
+        game_env = create_getout_instance(args)
 
-        buffer = RolloutBuffer(args.filename)
+        # frame rate limiting
+        for i in tqdm(range(game_num), desc=f"win counter: {win_count}"):
+            step += 1
+            logic_states = []
+            actions = []
+            rewards = []
 
-        if os.path.exists(buffer.filename):
-            return
-        # collect data
-        step = 0
-        collected_states = 0
-        if args.m == 'getout':
-            coin_jump = create_getout_instance(args)
-
-            # frame rate limiting
-            for i in tqdm(range(max_states)):
-                step += 1
-                # predict actions
-                if not coin_jump.level.terminated:
+            while not (game_env.level.terminated):
+                if not game_env.level.terminated:
                     # random actions
-                    action, explaining = agent.reasoning_act(coin_jump)
-                    logic_state = extract_logic_state_getout(coin_jump, args).squeeze()
-                    reward = coin_jump.step(action)
-                    collected_states += 1
-                    buffer.logic_states.append(logic_state.detach().tolist())
-                    buffer.actions.append(action - 1)
-                    buffer.rewards.append(reward)
-                    buffer.reason_source.append(explaining)
-                # start a new game
-                else:
-                    coin_jump = create_getout_instance(args)
-            buffer.save_data()
-        return
-    else:
-        raise ValueError("Teacher agent not exist.")
+                    action = agent.reasoning_act(game_env)
+                    logic_state = extract_logic_state_getout(game_env, args).squeeze()
+                    if action not in [0, 1, 2, 3]:
+                        print("")
+                    try:
+                        reward = game_env.step(action)
+                    except KeyError:
+                        game_env.level.terminated = True
+                        game_env.level.lost = True
+                        print("")
+
+                    logic_states.append(logic_state.detach().tolist())
+                    actions.append(action - 1)
+                    rewards.append(reward)
+
+            # if win the game, save the buffer
+            if not game_env.level.lost:
+                buffer.logic_states.append(logic_states)
+                buffer.actions.append(actions)
+                buffer.rewards.append(rewards)
+                win_count += 1
+            else:
+                buffer.lost_logic_states.append(logic_states)
+                buffer.lost_actions.append(actions)
+                buffer.lost_rewards.append(rewards)
+
+            # start a new game
+            game_env = create_getout_instance(args)
+
+        buffer.win_rate = win_count / game_num
+        buffer.save_data()
+
+    return
 
 
 def render_assault(agent, args):

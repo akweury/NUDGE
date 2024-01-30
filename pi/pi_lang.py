@@ -64,9 +64,8 @@ def behavior_predicate_as_func_atom(args, behavior):
     for fact in behavior.fact:
         terms = extract_fact_terms(args, fact)
         for p_i in range(len(fact["preds"])):
-            if fact["pred_tensors"][p_i]:
-                func_pred = generate_func_predicate(args, fact, p_i)
-                func_atoms.append(Atom(func_pred, terms))
+            func_pred = generate_func_predicate(args, fact, p_i)
+            func_atoms.append(Atom(func_pred, terms))
     return func_atoms
 
 

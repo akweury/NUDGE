@@ -5,6 +5,8 @@ import torch
 from torch import nn as nn
 from torch.distributions import Categorical
 
+from src.agents.neural_agent import ActorCritic
+from src.agents.utils_getout import extract_neural_state_getout
 from pi import Reasoner
 from pi.utils import oc_utils
 
@@ -171,27 +173,81 @@ class SymbolicMicroProgramPlayer:
         action = prediction + 1
         return action, explain
 
-    def atari_actor(self, atari_env):
-        # import ipdb; ipdb.set_trace()
-        extracted_state = extract_logic_state_atari(atari_env, self.args)
+
+class PpoPlayer:
+    def __init__(self, args):
+        self.args = args
+        self.preds = None
+        self.model = self.load_model(args.model_path, args)
+
+    def update(self, args=None, behaviors=None, prop_indices=None, explains=None, preds=None):
+        if args is not None:
+            self.args = args
+        if preds is not None:
+            self.preds = preds
+        self.model.update(args, behaviors, prop_indices, explains, preds)
+
+    def act(self, state):
+        if self.args.m == 'getout' or self.args.m == "getoutplus":
+            action = self.getout_actor(state)
+        else:
+            raise ValueError
+        return action
+
+    def reasoning_act(self, state):
+        if self.args.m == 'getout':
+            action = self.getout_reasoning_actor(state)
+        else:
+            raise ValueError
+        return action
+
+    def get_probs(self):
+        probs = self.model.get_probs()
+        return probs
+
+    def get_explaining(self):
+        explaining = 0
+        return explaining
+
+    def get_state(self, state):
+        if self.args.m == 'Assault':
+            logic_state = oc_utils.extract_logic_state_assault(state, self.args).squeeze(0)
+        else:
+            raise ValueError
+        logic_state = logic_state.tolist()
+        result = []
+        for list in logic_state:
+            obj_state = [round(num, 2) for num in list]
+            result.append(obj_state)
+        return result
+
+    def getout_actor(self, getout):
+        extracted_state = extract_neural_state_getout(getout, self.args)
         predictions = self.model(extracted_state)
         prediction = torch.argmax(predictions).cpu().item()
-        explaining = self.prednames[prediction]
-        action = preds_to_action_atari(prediction, self.prednames)
-        return action, explaining
+        # explaining = explains[prediction]
+        explaining = None
+        action = prediction + 1
+        return action
 
-    def threefish_actor(self, state):
-        state = extract_logic_state_threefish(state, self.args)
-        predictions = self.model(state)
-        action = torch.argmax(predictions)
-        explaining = self.prednames[action.item()]
-        action = preds_to_action_threefish(action, self.prednames)
-        return action, explaining
+    def getout_reasoning_actor(self, getout):
+        extracted_state = extract_neural_state_getout(getout, self.args)
+        predictions = self.model(extracted_state)
+        prediction = torch.argmax(predictions).cpu().item()
 
-    def loot_actor(self, state):
-        state = extract_logic_state_loot(state, self.args)
-        predictions = self.model(state)
-        action = torch.argmax(predictions)
-        explaining = self.prednames[action.item()]
-        action = preds_to_action_loot(action, self.prednames)
-        return action, explaining
+        action = prediction + 1
+        return action
+
+    def load_model(self, model_path, args, set_eval=True):
+        print("Loading")
+        with open(model_path, "rb") as f:
+            model = ActorCritic(args)
+            model.load_state_dict(state_dict=torch.load(f, map_location=torch.device('cpu')))
+
+        model = model.actor
+        model.as_dict = True
+
+        if set_eval:
+            model = model.eval()
+
+        return model

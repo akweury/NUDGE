@@ -12,12 +12,16 @@ from src import config
 class RolloutBuffer:
     def __init__(self, filename):
         self.filename = config.path_output / 'bs_data' / filename
+        self.win_rate = 0
         self.actions = []
+        self.lost_actions = []
         self.logic_states = []
+        self.lost_logic_states = []
         self.neural_states = []
         self.action_probs = []
         self.logprobs = []
         self.rewards = []
+        self.lost_rewards = []
         self.ungrounded_rewards = []
         self.terminated = []
         self.predictions = []
@@ -25,12 +29,16 @@ class RolloutBuffer:
         self.game_number = []
 
     def clear(self):
+        del self.win_rate
         del self.actions[:]
+        del self.lost_actions[:]
         del self.logic_states[:]
+        del self.lost_logic_states[:]
         del self.neural_states[:]
         del self.action_probs[:]
         del self.logprobs[:]
         del self.rewards[:]
+        del self.lost_rewards[:]
         del self.ungrounded_rewards[:]
         del self.terminated[:]
         del self.predictions[:]
@@ -42,10 +50,15 @@ class RolloutBuffer:
             state_info = json.load(f)
         print(f"buffer file: {args.filename}")
 
-        self.actions = torch.tensor(state_info['actions']).to(args.device)
-        self.logic_states = torch.tensor(state_info['logic_states']).to(args.device).squeeze()
-        self.rewards = torch.tensor(state_info['reward']).to(args.device)
-
+        self.actions = [torch.tensor(state_info['actions'][i]) for i in range(len(state_info['actions']))]
+        self.lost_actions = [torch.tensor(state_info['lost_actions'][i]) for i in
+                             range(len(state_info['lost_actions']))]
+        self.logic_states = [torch.tensor(state_info['logic_states'][i]) for i in
+                             range(len(state_info['logic_states']))]
+        self.lost_logic_states = [torch.tensor(state_info['lost_logic_states'][i]) for i in
+                                  range(len(state_info['lost_logic_states']))]
+        self.rewards = [torch.tensor(state_info['reward'][i]) for i in range(len(state_info['reward']))]
+        self.lost_rewards = [torch.tensor(state_info['lost_rewards'][i]) for i in range(len(state_info['lost_rewards']))]
         if 'neural_states' in list(state_info.keys()):
             self.neural_states = torch.tensor(state_info['neural_states']).to(args.device)
         if 'action_probs' in list(state_info.keys()):
@@ -60,7 +73,8 @@ class RolloutBuffer:
             self.ungrounded_rewards = state_info['ungrounded_rewards']
         if 'game_number' in list(state_info.keys()):
             self.game_number = state_info['game_number']
-
+        if 'win_rate' in list(state_info.keys()):
+            self.win_rate = state_info['win_rate']
         if "reason_source" in list(state_info.keys()):
             self.reason_source = state_info['reason_source']
         else:
@@ -77,7 +91,12 @@ class RolloutBuffer:
                 'terminated': self.terminated,
                 'predictions': self.predictions,
                 "reason_source": self.reason_source,
-                'game_number': self.game_number
+                'game_number': self.game_number,
+                'win_rate': self.win_rate,
+                "lost_actions": self.lost_actions,
+                "lost_logic_states": self.lost_logic_states,
+                "lost_rewards": self.lost_rewards,
+
                 }
 
         with open(self.filename, 'w') as f:

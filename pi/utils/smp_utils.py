@@ -1,4 +1,5 @@
 # Created by jing at 23.12.23
+import os
 import torch
 from tqdm import tqdm
 from src import config
@@ -47,8 +48,22 @@ def get_fact_mask(fact, repeat):
     return fact_mask_tensor
 
 
+def get_states_delta(states, obj_a, obj_b, prop):
+    delta_satisfaction = torch.zeros((states.size(0)), dtype=torch.bool)
+    for s_i in range(1, len(states)):
+        dist_past = torch.abs(states[s_i - 1][obj_a][prop] - states[s_i - 1][obj_b][prop])
+        dist_current = torch.abs(states[s_i][obj_a][prop] - states[s_i][obj_b][prop])
+        if dist_past > dist_current:
+            delta_satisfaction[s_i] = True
+
+    # first delta equal to the second delta
+    delta_satisfaction[0] = delta_satisfaction[1]
+    return delta_satisfaction
+
+
 def fact_is_true(states, fact, game_info):
     prop = fact["props"]
+    fact_delta = fact["delta"]
     obj_combs = get_fact_obj_combs(game_info, fact)
     fact_mask = get_fact_mask(fact, len(states))
     state_mask = mask_tensors_from_states(states, game_info)
@@ -60,11 +75,15 @@ def fact_is_true(states, fact, game_info):
         data_A = states[:, obj_a, prop].reshape(-1)
         data_B = states[:, obj_b, prop].reshape(-1)
 
-        state_pred_satisfaction = torch.zeros((3, len(states)), dtype=torch.bool)
+        state_pred_satisfaction = torch.zeros((len(fact["preds"]), len(states)), dtype=torch.bool)
         for i in range(len(fact['preds'])):
             state_pred_satisfaction[i] = fact['preds'][i].eval(data_A, data_B)
 
-        pred_satisfaction += state_pred_satisfaction.prod(dim=0).bool()
+        obj_comb_pred_satisfaction = state_pred_satisfaction.prod(dim=0).bool()
+        state_delta = get_states_delta(states, obj_a, obj_b, prop)
+        obj_comb_delta_satisfaction = state_delta == fact_delta
+
+        pred_satisfaction += obj_comb_pred_satisfaction * obj_comb_delta_satisfaction
 
     fact_satisfaction *= pred_satisfaction
 
@@ -73,13 +92,20 @@ def fact_is_true(states, fact, game_info):
     return fact_satisfaction
 
 
-def check_fact_truth(facts, data, game_info):
-    truth_table = torch.zeros((len(data), len(facts)), dtype=torch.bool)
+def check_fact_truth(facts, states, game_info, truth_table_path):
+    truth_table_filename = truth_table_path / "truth_tables.pt"
+    if not os.path.exists(truth_table_filename):
+        truth_table = torch.zeros((len(states), len(facts)), dtype=torch.bool)
 
-    states = torch.tensor([d[0].tolist() for d in data]).squeeze()
-    for f_i in tqdm(range(len(facts)), ascii=True, desc="Fact Table"):
-        fact_satisfaction = fact_is_true(states, facts[f_i], game_info)
-        truth_table[:, f_i] = fact_satisfaction
+        for f_i in tqdm(range(len(facts)), ascii=True, desc=f"Fact Table"):
+            fact_satisfaction = fact_is_true(states, facts[f_i], game_info)
+            truth_table[:, f_i] = fact_satisfaction
+
+        assert truth_table.sum() > 0
+
+        save_truth_tables(truth_table, truth_table_filename)
+    else:
+        truth_table = torch.load(truth_table_filename)
 
     return truth_table
 
@@ -132,11 +158,14 @@ def split_data_by_action(states, actions, action_num):
     return data
 
 
-def comb_buffers(states, actions, rewards, reason_source):
-    assert len(states) == len(actions) == len(rewards) == len(reason_source)
+def comb_buffers(states, actions, rewards):
     data = []
-    for i in range(len(states)):
-        data.append([states[i].unsqueeze(0), actions[i], rewards[i], reason_source[i]])
+
+    for game_i in range(len(states)):
+        game_data = []
+        for s_i in range(len(states[game_i])):
+            game_data.append([states[game_i][s_i].unsqueeze(0), actions[game_i][s_i], rewards[game_i][s_i]])
+        data.append(game_data)
     return data
 
 
@@ -416,27 +445,30 @@ def oppm_eval(data, oppm_comb, oppm_keys, preds, p_spaces, obj_type_indices, obj
 def all_pred_combs(pred_lists):
     pred_combs = []
     for dir_i in range(len(pred_lists[0])):
-        for al_i in range(len(pred_lists[1])):
-            for am_i in range(len(pred_lists[2])):
-                pred_combs.append([pred_lists[0][dir_i], pred_lists[1][al_i], pred_lists[2][am_i]])
+        pred_combs.append([pred_lists[0][dir_i]])
     return pred_combs
 
 
 def get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types):
-    at_least_preds = predicate.get_at_least_preds(1, config.dist_num, config.max_dist)
-    at_most_preds = predicate.get_at_most_preds(1, config.dist_num, config.max_dist)
+    # at_least_preds = predicate.get_at_least_preds(1, config.dist_num, config.max_dist)
+    # at_most_preds = predicate.get_at_most_preds(1, config.dist_num, config.max_dist)
     dir_preds = [predicate.GT()]
-    pred_combs = all_pred_combs([dir_preds, at_least_preds, at_most_preds])
+    pred_combs = all_pred_combs([dir_preds])
     facts = []
     obj_names = [name for name, _, _ in game_info]
     for type_comb in relate_2_obj_types:
-        masks = exist_mask_names(obj_names, type_comb)
-        for mask in masks:
-            for prop_types in relate_2_prop_types:
-                for p_i in range(len(pred_combs)):
-                    fact_preds = pred_combs[p_i]
-                    facts.append({"mask": mask, "objs": type_comb, "props": prop_types,
-                                  "pred_tensors": torch.ones((3), dtype=torch.bool), "preds": fact_preds})
+        for delta_dist in [True, False]:
+            masks = exist_mask_names(obj_names, type_comb)
+            for mask in masks:
+                for prop_types in relate_2_prop_types:
+                    for p_i in range(len(pred_combs)):
+                        fact_preds = pred_combs[p_i]
+                        facts.append({"mask": mask,
+                                      "objs": type_comb,
+                                      "props": prop_types,
+                                      "preds": fact_preds,
+                                      "delta": delta_dist
+                                      })
 
     return facts
 
@@ -625,7 +657,7 @@ def fact_grouping_by_head(facts):
     checked_head = []
     fact_head_ids = []
     fact_bodies = []
-    fact_heads=[]
+    fact_heads = []
     for f_i in range(len(facts)):
         head = facts[f_i]["mask"] + str(facts[f_i]["objs"]) + str(facts[f_i]["props"])
         body = {"min": facts[f_i]["preds"][1].p_bound["min"], "max": facts[f_i]["preds"][2].p_bound["max"]}
@@ -637,3 +669,46 @@ def fact_grouping_by_head(facts):
         fact_heads.append(head)
     fact_head_ids = torch.tensor(fact_head_ids)
     return checked_head, fact_head_ids, fact_bodies, fact_heads
+
+
+def get_activities(buffer, activity_size):
+    pass
+
+
+def save_truth_tables(truth_tables, filename):
+    torch.save(truth_tables, filename)
+
+
+def stat_facts_in_states(fact_num, fact_table, fact_anti_table, rewards):
+    ci_combs = get_fact_combs(fact_num + 1, fact_table.size(1))
+    f_passed_state_nums = torch.zeros(ci_combs.size(0))
+    f_failed_state_nums = torch.zeros(ci_combs.size(0))
+    used_states = torch.zeros((len(ci_combs), fact_table.size(0)), dtype=torch.bool)
+    f_expected_rewards = torch.zeros(ci_combs.size(0))
+    for ci_i in tqdm(range(len(ci_combs)), ascii=True, desc=f"{fact_num + 1} fact behavior search"):
+        ci_comb = ci_combs[ci_i]
+        used_states[ci_i] = fact_table[:, ci_comb].prod(dim=-1).bool()
+        fact_comb_neg_state_indices = fact_anti_table[:, ci_comb].prod(dim=-1).bool()
+        passed_state_num = used_states[ci_i].sum()
+        failed_state_num = fact_comb_neg_state_indices.sum()
+        f_passed_state_nums[ci_i] = passed_state_num
+        f_failed_state_nums[ci_i] = failed_state_num
+        f_expected_rewards[ci_i] = rewards[used_states[ci_i]].median()
+
+    f_passed_state_nums_ranked, f_rank = f_passed_state_nums.sort(descending=True)
+    f_failed_state_nums_ranked = f_failed_state_nums[f_rank]
+    f_reward_ranked = f_expected_rewards[f_rank]
+    f_comb_ranked = ci_combs[f_rank]
+
+    return f_passed_state_nums_ranked, f_failed_state_nums_ranked, f_comb_ranked, used_states, f_reward_ranked
+
+
+def stat_negative_rewards(states, actions, rewards, zero_reward):
+    neg_rewards = rewards < zero_reward
+    neg_states = states[neg_rewards]
+    neg_actions = actions[neg_rewards]
+
+
+
+
+    print("stat_negative_rewards")

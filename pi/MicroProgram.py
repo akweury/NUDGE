@@ -1,8 +1,10 @@
 # Created by jing at 04.12.23
+import os.path
 
 from tqdm import tqdm
 import torch
 import torch.nn as nn
+from pi.utils import draw_utils
 
 from pi.utils import smp_utils
 from pi import predicate
@@ -359,6 +361,9 @@ class SymbolicMicroProgram(nn.Module):
         self.buffer = None
         self.data_rewards = None
         self.data_actions = None
+        self.actions = None
+        self.rewards = None
+        self.states = None
         self.data_combs = None
         self.obj_ungrounded_behavior_ids = []
         self.preds = None
@@ -366,14 +371,36 @@ class SymbolicMicroProgram(nn.Module):
     def load_buffer(self, buffer):
         print(f'- SMP new buffer, total states: {len(buffer.logic_states)}')
         self.buffer = buffer
-        self.data_rewards = smp_utils.split_data_by_reward(self.buffer.logic_states, self.buffer.actions,
-                                                           self.buffer.rewards, self.action_num)
-        self.data_actions = smp_utils.split_data_by_action(self.buffer.logic_states, self.buffer.actions,
-                                                           self.action_num)
-        if len(self.buffer.rewards) != len(self.buffer.logic_states):
-            self.buffer.rewards = [0] * len(self.buffer.logic_states)
-        self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards,
-                                                 self.buffer.reason_source)
+        # self.data_rewards = smp_utils.split_data_by_reward(self.buffer.logic_states, self.buffer.actions,
+        #                                                    self.buffer.rewards, self.action_num)
+        # self.data_actions = smp_utils.split_data_by_action(self.buffer.logic_states, self.buffer.actions,
+        #                                                    self.action_num)
+        # if len(self.buffer.rewards) != len(self.buffer.logic_states):
+        #     self.buffer.rewards = [0] * len(self.buffer.logic_states)
+        self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards)
+
+        self.actions = []
+        self.lost_actions = []
+        self.rewards = []
+        self.lost_rewards = []
+        self.states = []
+        self.lost_states = []
+        for g_i in range(len(buffer.actions)):
+            self.actions += buffer.actions[g_i]
+            self.rewards += buffer.rewards[g_i]
+            self.states += buffer.logic_states[g_i].tolist()
+
+        for g_i in range(len(buffer.lost_actions)):
+            self.lost_actions += buffer.lost_actions[g_i]
+            self.lost_rewards += buffer.lost_rewards[g_i]
+            self.lost_states += buffer.lost_logic_states[g_i].tolist()
+
+        self.actions = torch.tensor(self.actions)
+        self.lost_actions = torch.tensor(self.lost_actions)
+        self.rewards = torch.tensor(self.rewards)
+        self.lost_rewards = torch.tensor(self.lost_rewards)
+        self.states = torch.tensor(self.states)
+        self.lost_states = torch.tensor(self.lost_states)
 
     def extract_behaviors(self, facts, fact_actions):
         beh_indices = fact_actions.sum(dim=-1) == 1
@@ -678,12 +705,28 @@ class SymbolicMicroProgram(nn.Module):
         return grounded_combs
 
     def programming(self, game_info, prop_indices):
-        # for loop the teacher searching, different iteration use different obj combs, or maybe different facts
-        facts, fact_truth_table, actions = self.calc_truth_table(game_info, prop_indices)
-        merged_fact_truth_table = self.merge_truth_table_celles(facts, fact_truth_table, actions)
-        behaviors = self.brute_search(facts, merged_fact_truth_table, actions)
-        for beh in behaviors:
-            print(f"{beh.clause}")
+
+        neg_beh_data = smp_utils.stat_negative_rewards(self.lost_states, self.lost_actions, self.lost_rewards, self.args.zero_reward)
+
+
+
+        facts = smp_utils.get_all_facts(game_info, prop_indices)
+        fact_truth_table = smp_utils.check_fact_truth(facts, self.states, game_info, self.args.truth_table_path)
+        behavior_data = self.brute_search(facts, fact_truth_table, self.actions, self.rewards,
+                                          pass_th=self.args.pass_th, failed_th=self.args.failed_th)
+
+        # learn from negative rewards
+
+        # create behaviors
+        behaviors = []
+        for action_i in range(len(behavior_data)):
+            for beh in behavior_data[action_i]:
+                beh = self.get_new_behavior(beh, action_i)
+                print(
+                    f"{beh.clause} pass state percent: "
+                    f"{(beh.passed_state_num / beh.test_passed_state_num):.2f}, "
+                    f"failed state percent: {(beh.failed_state_num / beh.test_failed_state_num):.2f}")
+                behaviors.append(beh)
         return behaviors
 
     def merge_truth_table_celles(self, facts, fact_truth_table, actions):
@@ -744,44 +787,76 @@ class SymbolicMicroProgram(nn.Module):
             fact_truth_table[:, head_type_i] = fact_table_i
         return fact_truth_table
 
-    def get_new_behavior(self, facts, action, passed_state_num):
-        if not isinstance(facts, list):
-            facts = [facts]
-        behavior = Behavior(facts, action, passed_state_num)
+    def get_new_behavior(self, data, action):
+        facts = data["facts"]
+
+        reward = data["expected_reward"]
+        passed_state_num = data["passed_state_num"]
+        test_passed_state_num = data["test_passed_state_num"]
+        failed_state_num = data["failed_state_num"]
+        test_failed_state_num = data["test_failed_state_num"]
+        behavior = Behavior(facts, action, reward, passed_state_num, test_passed_state_num, failed_state_num,
+                            test_failed_state_num)
         behavior.clause = pi_lang.behavior2clause(self.args, behavior)
         return behavior
 
     def calc_truth_table(self, game_info, prop_indices):
         facts = smp_utils.get_all_facts(game_info, prop_indices)
-        actions = torch.tensor([d[1].tolist() for d in self.data_combs]).squeeze()
 
-        truth_table = smp_utils.check_fact_truth(facts, self.data_combs, game_info)
-        valid_indices = truth_table.sum(dim=0) > 0
-        valid_truth_table = truth_table[:, valid_indices]
-        valid_facts = [facts[i] for i in range(len(facts)) if valid_indices[i]]
+        truth_table_filename = self.args.truth_table_path / "truth_tables.pt"
+        if not os.path.exists(truth_table_filename):
+            truth_tables = smp_utils.check_fact_truth(facts, self.data_combs, game_info)
+            smp_utils.save_truth_tables(truth_tables, truth_table_filename)
+        else:
+            truth_tables = torch.load(truth_table_filename)
 
-        return valid_facts, valid_truth_table, actions
+        return facts, truth_tables
 
-    def brute_search(self, facts, fact_truth_table, actions):
+    def brute_search(self, facts, fact_truth_table, actions, rewards, pass_th=0.8, failed_th=0.1):
         # searching behaviors
-        behaviors = []
+        fact_state_table = []
+        learned_behaviors = []
         for at_i, action_type in enumerate(actions.unique()):
             fact_table = fact_truth_table[actions == at_i, :]
             fact_anti_table = fact_truth_table[actions != at_i, :]
-            for repeat_i in range(2):
-                ci_combs = smp_utils.get_fact_combs(repeat_i + 1, fact_table.size(1))
-                for ci_i in tqdm(range(len(ci_combs)), ascii=True, desc=f"{repeat_i + 1} fact behavior search"):
-                    ci_comb = ci_combs[ci_i]
-                    fact_comb_state_indices = fact_table[:, ci_comb].prod(dim=-1).bool()
-                    fact_comb_neg_state_indices = fact_anti_table[:, ci_comb].prod(dim=-1).bool()
-                    passed_state_num = fact_comb_state_indices.sum()
-                    passed_neg_state_num = fact_comb_neg_state_indices.sum()
-                    if passed_state_num > 10 and passed_neg_state_num == 0:
-                        beh_facts = [facts[i] for i in ci_comb]
-                        behavior = self.get_new_behavior(beh_facts, action_type, passed_state_num)
-                        behaviors.append(behavior)
+            action_rewards = rewards[actions == at_i]
+            learned_action_behivors = []
+            for fact_len in range(2):
+                f_passed_state_nums, f_failed_state_nums, f_rank, f_used_states, f_expected_rewards = smp_utils.stat_facts_in_states(
+                    fact_len, fact_table, fact_anti_table, action_rewards)
 
-        return behaviors
+                pass_state_percent = f_passed_state_nums / len(fact_table)
+                failed_state_percent = f_failed_state_nums / len(fact_anti_table)
+
+                fact_mask = (pass_state_percent > pass_th) * (failed_state_percent < failed_th)
+
+                passed_fact_indices = [f_rank[m_i] for m_i in range(len(fact_mask)) if fact_mask[m_i]]
+
+                passed_state_num = f_passed_state_nums[fact_mask]
+                test_passed_state_num = [len(fact_table)] * len(passed_state_num)
+                failed_state_num = f_failed_state_nums[fact_mask]
+                test_failed_state_num = [len(fact_anti_table)] * len(failed_state_num)
+                passed_rewards = f_expected_rewards[fact_mask]
+
+                for passed_i in range(len(passed_fact_indices)):
+                    passed_facts = [facts[i] for i in passed_fact_indices[passed_i]]
+                    learned_action_behivors.append({"facts": passed_facts,
+                                                    "expected_reward": passed_rewards[passed_i],
+                                                    "passed_state_num": passed_state_num[passed_i],
+                                                    "test_passed_state_num": test_passed_state_num[passed_i],
+                                                    "failed_state_num": failed_state_num[passed_i],
+                                                    "test_failed_state_num": test_failed_state_num[passed_i]})
+
+            learned_behaviors.append(learned_action_behivors)
+            # facts_ranked = [facts[r] for r in f_rank]
+            # for b_i in range(len(f_passed_state_nums_ranked)):
+            #     # create new behavior
+            #
+            #     beh_facts = [facts[int(f_passed_state_nums_ranked[b_i].item())]]
+            #     behavior = self.get_new_behavior(beh_facts, action_type, f_passed_state_nums_ranked[b_i])
+            #     behaviors.append(behavior)
+
+        return learned_behaviors
 
     # def behaviors_from_actions(self, relate_2_obj_types, relate_2_prop_types, obj_types):
     #     behaviors = []

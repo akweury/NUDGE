@@ -43,12 +43,17 @@ def load_model(args, set_eval=True):
 def main(render=True, m=None):
     # load arguments
     args = args_utils.load_args(config.path_exps, m)
-
-    if not args.m == "getout":
+    args.agent_type = "ppo"
+    if args.m == "getout":
         # collect data
         teacher_agent = create_agent(args, agent_type='ppo')
     else:
-        teacher_agent = create_agent(args, agent_type='smp')
+        teacher_agent = create_agent(args, agent_type='pretrained')
+
+
+    # if render:
+    #     # Test updated agent
+    #     game_env.render_game(teacher_agent, args)
 
     game_env.collect_data_game(teacher_agent, args)
     # learn behaviors from data

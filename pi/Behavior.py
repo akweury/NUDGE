@@ -8,11 +8,17 @@ class Behavior():
     """ generate one micro-program
     """
 
-    def __init__(self, fact, action, reward):
+    def __init__(self, facts, action, reward, passed_state_num, test_passed_state_num, failed_state_num,
+                            test_failed_state_num):
         super().__init__()
-        self.fact = fact
+        self.fact = facts
         self.action = action
         self.reward = reward
+        self.passed_state_num = passed_state_num
+        self.test_passed_state_num = test_passed_state_num
+        self.failed_state_num = failed_state_num
+        self.test_failed_state_num = test_failed_state_num
+
         self.clause = None
 
     def falsify_pred_params(self, preds, x, game_info):

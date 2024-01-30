@@ -59,6 +59,9 @@ def load_args(exp_args_path, m):
     args.log_file = log_utils.create_log_file(config.path_log, args.exp_name)
     make_deterministic(args.seed)
     if args.m == "getout":
+        args.zero_reward = -0.1
+        args.pass_th = 0.7
+        args.failed_th = 0.3
         args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
         args.obj_info = config.obj_info_getout
         args.action_names= config.action_name_getout
@@ -82,6 +85,7 @@ def load_args(exp_args_path, m):
 
     # output folder
     args.output_folder = config.path_log / f"{args.exp}_{date_now}_{time_now}"
+    args.truth_table_path = config.path_truth_table
     if not os.path.exists(str(args.output_folder)):
         os.mkdir(str(args.output_folder))
 

@@ -289,3 +289,4 @@ def extract_logic_state_getout(coin_jump, args, noise=False):
     states = torch.tensor(np.array(extracted_states), dtype=torch.float32, device="cpu").unsqueeze(0)
     return states
 
+
