@@ -2,10 +2,13 @@
 import os
 import torch
 from tqdm import tqdm
-from src import config
-from pi import predicate
-from pi import pi_lang
 from itertools import combinations
+import itertools
+
+from src import config
+
+from pi import predicate
+from pi.utils import fact_utils
 
 
 def get_param_range(min, max, unit):
@@ -19,17 +22,43 @@ def get_param_range(min, max, unit):
     return space
 
 
-def get_all_2_combinations(game_info):
-    all_combinations = [[i_1, i_2] for i_1, s_1 in enumerate(game_info) for i_2, s_2 in
-                        enumerate(game_info) if s_1 != s_2]
+def get_all_2_combinations(game_info, reverse=True):
+    if reverse:
+        all_combinations = [[i_1, i_2] for i_1, s_1 in enumerate(game_info) for i_2, s_2 in
+                            enumerate(game_info) if s_1[1] != s_2[1]]
+    else:
+        all_combinations = [[i_1, i_2] for i_1, s_1 in enumerate(game_info) for i_2, s_2 in
+                            enumerate(game_info) if s_2[1] > s_1[1]]
     return all_combinations
 
 
+def get_obj_prop_combs(game_info, prop_indices):
+    obj_combs = get_all_2_combinations(game_info, reverse=False)
+    all_combs = []
+    for prop in prop_indices:
+        for obj_comb in obj_combs:
+            all_combs.append(obj_comb + [prop])
+    return all_combs
+
+
 def get_all_facts(game_info, prop_indices):
-    relate_2_obj_types = get_all_2_combinations(game_info)
-    relate_2_prop_types = [[each] for each in prop_indices]
-    facts = get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types)
-    print(f"fact number: {len(facts)}")
+    delta_types = [True, False]
+    obj_types = get_all_2_combinations(game_info)
+    prop_types = [[each] for each in prop_indices]
+    obj_names = [name for name, _, _ in game_info]
+    facts = []
+    type_combs = list(itertools.product(delta_types, obj_types, prop_types))
+    for type_comb in type_combs:
+        masks = exist_mask_names(obj_names, type_comb[1])
+        for mask in masks:
+            mask_tensor = mask_name_to_tensor(mask, config.mask_splitter)
+            facts.append({"mask": mask_tensor.tolist(),
+                          "objs": type_comb[1],
+                          "props": type_comb[2],
+                          "preds": [0],
+                          "delta": type_comb[0]
+                          })
+    print(f"- Number of facts: {len(facts)}")
     return facts
 
 
@@ -40,13 +69,6 @@ def get_fact_obj_combs(game_info, fact):
     _, obj_1_indices, _ = game_info[type_1_index]
     obj_combs = enumerate_two_combs(obj_0_indices, obj_1_indices)
     return obj_combs
-
-
-def get_fact_mask(fact, repeat):
-    fact_mask_tensor = mask_name_to_tensor(fact["mask"], config.mask_splitter)
-    fact_mask_tensor = torch.repeat_interleave(fact_mask_tensor.unsqueeze(0), repeat, 0)
-    return fact_mask_tensor
-
 
 def get_states_delta(states, obj_a, obj_b, prop):
     delta_satisfaction = torch.zeros((states.size(0)), dtype=torch.bool)
@@ -65,48 +87,29 @@ def fact_is_true(states, fact, game_info):
     prop = fact["props"]
     fact_delta = fact["delta"]
     obj_combs = get_fact_obj_combs(game_info, fact)
-    fact_mask = get_fact_mask(fact, len(states))
+    fact_mask = torch.repeat_interleave(torch.tensor(fact["mask"]).unsqueeze(0), len(states), 0)
     state_mask = mask_tensors_from_states(states, game_info)
     fact_satisfaction = (fact_mask == state_mask).prod(dim=-1).bool()
-
-    # fact_satisfaction = torch.zeros(len(states), dtype=torch.bool)
     pred_satisfaction = torch.zeros(len(states), dtype=torch.bool)
     for obj_a, obj_b in obj_combs:
         data_A = states[:, obj_a, prop].reshape(-1)
         data_B = states[:, obj_b, prop].reshape(-1)
+        state_pred_satisfaction = torch.gt(data_A, data_B)
 
-        state_pred_satisfaction = torch.zeros((len(fact["preds"]), len(states)), dtype=torch.bool)
-        for i in range(len(fact['preds'])):
-            state_pred_satisfaction[i] = fact['preds'][i].eval(data_A, data_B)
-
-        obj_comb_pred_satisfaction = state_pred_satisfaction.prod(dim=0).bool()
         state_delta = get_states_delta(states, obj_a, obj_b, prop)
         obj_comb_delta_satisfaction = state_delta == fact_delta
-
-        pred_satisfaction += obj_comb_pred_satisfaction * obj_comb_delta_satisfaction
-
+        pred_satisfaction += state_pred_satisfaction * obj_comb_delta_satisfaction
     fact_satisfaction *= pred_satisfaction
-
-    # satisfaction = mask_satisfaction * fact_satisfaction
     assert len(fact_satisfaction) == len(states)
     return fact_satisfaction
 
 
-def check_fact_truth(facts, states, game_info, truth_table_path):
-    truth_table_filename = truth_table_path / "truth_tables.pt"
-    if not os.path.exists(truth_table_filename):
-        truth_table = torch.zeros((len(states), len(facts)), dtype=torch.bool)
-
-        for f_i in tqdm(range(len(facts)), ascii=True, desc=f"Fact Table"):
-            fact_satisfaction = fact_is_true(states, facts[f_i], game_info)
-            truth_table[:, f_i] = fact_satisfaction
-
-        assert truth_table.sum() > 0
-
-        save_truth_tables(truth_table, truth_table_filename)
-    else:
-        truth_table = torch.load(truth_table_filename)
-
+def check_fact_truth(facts, states, game_info):
+    truth_table = torch.zeros((len(states), len(facts)), dtype=torch.bool)
+    for f_i in tqdm(range(len(facts)), ascii=True, desc=f"Calculate fact table"):
+        fact_satisfaction = fact_is_true(states, facts[f_i], game_info)
+        truth_table[:, f_i] = fact_satisfaction
+    assert truth_table.sum() > 0
     return truth_table
 
 
@@ -452,8 +455,6 @@ def all_pred_combs(pred_lists):
 def get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types):
     # at_least_preds = predicate.get_at_least_preds(1, config.dist_num, config.max_dist)
     # at_most_preds = predicate.get_at_most_preds(1, config.dist_num, config.max_dist)
-    dir_preds = [predicate.GT()]
-    pred_combs = all_pred_combs([dir_preds])
     facts = []
     obj_names = [name for name, _, _ in game_info]
     for type_comb in relate_2_obj_types:
@@ -461,14 +462,12 @@ def get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types):
             masks = exist_mask_names(obj_names, type_comb)
             for mask in masks:
                 for prop_types in relate_2_prop_types:
-                    for p_i in range(len(pred_combs)):
-                        fact_preds = pred_combs[p_i]
-                        facts.append({"mask": mask,
-                                      "objs": type_comb,
-                                      "props": prop_types,
-                                      "preds": fact_preds,
-                                      "delta": delta_dist
-                                      })
+                    facts.append({"mask": mask,
+                                  "objs": type_comb,
+                                  "props": prop_types,
+                                  "preds": [0],
+                                  "delta": delta_dist
+                                  })
 
     return facts
 
@@ -703,12 +702,126 @@ def stat_facts_in_states(fact_num, fact_table, fact_anti_table, rewards):
     return f_passed_state_nums_ranked, f_failed_state_nums_ranked, f_comb_ranked, used_states, f_reward_ranked
 
 
-def stat_negative_rewards(states, actions, rewards, zero_reward):
-    neg_rewards = rewards < zero_reward
-    neg_states = states[neg_rewards]
-    neg_actions = actions[neg_rewards]
+def get_state_delta(state, state_last, obj_comb):
+    dist = torch.abs(state[obj_comb[0]] - state[obj_comb[1]])
+    dist_past = torch.abs(state_last[obj_comb[0]] - state_last[obj_comb[1]])
+    if dist_past > dist:
+        delta = True
+    else:
+        delta = False
+
+    return delta
 
 
+def stat_negative_rewards(game_ids, states, actions, rewards, zero_reward, game_info, prop_indices):
+    mask_neg_reward = rewards < zero_reward
+    neg_states = states[mask_neg_reward]
+    neg_actions = actions[mask_neg_reward]
+    neg_rewards = rewards[mask_neg_reward]
+    neg_masks = mask_tensors_from_states(neg_states, game_info)
+
+    delta_types = [True, False]
+    neg_mask_types = neg_masks.unique(dim=0)
+    neg_action_types = neg_actions.unique()
+    obj_types = get_all_2_combinations(game_info, reverse=False)
+    prop_types = [4]
+    type_combs = list(itertools.product(delta_types, neg_mask_types, neg_action_types, obj_types, prop_types))
+
+    states_stats = []
+    variances = []
+    means = []
+    for t_i in tqdm(range(len(type_combs)), desc=f"Reasoning on {len(type_combs)} negative explanations."):
+        delta_type = type_combs[t_i][0]
+        mask_type = type_combs[t_i][1]
+        action_type = type_combs[t_i][2]
+        obj_type = type_combs[t_i][3]
+        prop_type = type_combs[t_i][4]
+
+        deltas = fact_utils.delta_from_states(states, game_ids, obj_type[0], obj_type[1], prop_type)
+        neg_deltas = deltas[mask_neg_reward]
+
+        # calc distance between any two objects
+        # mask_type_repeated = torch.repeat_interleave(mask_type.unsqueeze(0), len(neg_masks), 0)
+        action_state_indices = (
+                (neg_actions == action_type) * (neg_masks == mask_type).prod(-1).bool() * (neg_deltas == delta_type))
+
+        action_states = neg_states[action_state_indices]
+        dist = torch.abs(action_states[:, obj_type[0], prop_type] - action_states[:, obj_type[1], prop_type])
+        var, mean = torch.var_mean(dist)
+        variances.append(var)
+        means.append(mean)
+
+        states_stats.append(
+            {"dists": dist, "means": mean, "variances": var, "action_type": action_type,
+             "mask_type": mask_type, "delta_type": delta_type, "prop_type": prop_type, "obj_types": obj_type,
+             "indices": action_state_indices})
+    variances_ranked, v_rank = torch.tensor(variances).sort()
+    means_ranked = torch.tensor(means)[v_rank]
+    passed_variances = variances_ranked < 0.5
+    passed_comb_indices = v_rank[passed_variances]
+    passed_stats = [states_stats[s_i] for s_i in passed_comb_indices]
+
+    neg_behs = []
+    for state_stat in passed_stats:
+        indices = state_stat["indices"]
+        neg_behs.append({
+            "dists": state_stat["dists"].tolist(),
+            "obj_combs": state_stat["obj_types"],
+            "prop_combs": state_stat["prop_type"],
+            "means": state_stat["means"].tolist(),
+            "variance": state_stat["variances"].tolist(),
+            "rewards": neg_rewards[indices].tolist(),
+            "action_type": state_stat["action_type"].tolist(),
+            "masks": state_stat["mask_type"].tolist(),
+            "delta": state_stat["delta_type"]
+
+        })
+
+    return neg_behs
 
 
-    print("stat_negative_rewards")
+def brute_search(facts, fact_truth_table, actions, rewards, pass_th=0.8, failed_th=0.1):
+    learned_behaviors = []
+    for at_i, action_type in enumerate(actions.unique()):
+        fact_table = fact_truth_table[actions == at_i, :]
+        fact_anti_table = fact_truth_table[actions != at_i, :]
+        action_rewards = rewards[actions == at_i]
+        learned_action_behivors = []
+        for fact_len in range(2):
+            f_passed_state_nums, f_failed_state_nums, f_rank, f_used_states, f_expected_rewards = stat_facts_in_states(
+                fact_len, fact_table, fact_anti_table, action_rewards)
+
+            pass_state_percent = f_passed_state_nums / len(fact_table)
+            failed_state_percent = f_failed_state_nums / len(fact_anti_table)
+
+            fact_mask = (pass_state_percent > pass_th) * (failed_state_percent < failed_th)
+
+            passed_fact_indices = [f_rank[m_i] for m_i in range(len(fact_mask)) if fact_mask[m_i]]
+
+            passed_state_num = f_passed_state_nums[fact_mask]
+            test_passed_state_num = [len(fact_table)] * len(passed_state_num)
+            failed_state_num = f_failed_state_nums[fact_mask]
+            test_failed_state_num = [len(fact_anti_table)] * len(failed_state_num)
+            passed_rewards = f_expected_rewards[fact_mask]
+
+            for passed_i in range(len(passed_fact_indices)):
+                passed_facts = [facts[i] for i in passed_fact_indices[passed_i]]
+
+                learned_action_behivors.append({"facts": passed_facts,
+                                                "expected_reward": passed_rewards[passed_i].tolist(),
+                                                "passed_state_num": passed_state_num[passed_i].tolist(),
+                                                "test_passed_state_num": test_passed_state_num[passed_i],
+                                                "failed_state_num": failed_state_num[passed_i].tolist(),
+                                                "test_failed_state_num": test_failed_state_num[passed_i]})
+
+        learned_behaviors.append(learned_action_behivors)
+    return learned_behaviors
+
+
+def stat_pos_data(states, actions, rewards, game_info, prop_indices, pass_th, failed_th):
+    facts = get_all_facts(game_info, prop_indices)
+    truth_table = check_fact_truth(facts, states, game_info)
+
+    behavior_data = brute_search(facts, truth_table, actions, rewards, pass_th=pass_th, failed_th=failed_th)
+
+    return behavior_data

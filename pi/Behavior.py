@@ -4,12 +4,13 @@ import torch
 from src import config
 from pi.utils import smp_utils
 
+
 class Behavior():
     """ generate one micro-program
     """
 
-    def __init__(self, facts, action, reward, passed_state_num, test_passed_state_num, failed_state_num,
-                            test_failed_state_num):
+    def __init__(self, neg_beh, facts, action, reward, passed_state_num, test_passed_state_num, failed_state_num,
+                 test_failed_state_num):
         super().__init__()
         self.fact = facts
         self.action = action
@@ -18,7 +19,7 @@ class Behavior():
         self.test_passed_state_num = test_passed_state_num
         self.failed_state_num = failed_state_num
         self.test_failed_state_num = test_failed_state_num
-
+        self.neg_beh = neg_beh
         self.clause = None
 
     def falsify_pred_params(self, preds, x, game_info):

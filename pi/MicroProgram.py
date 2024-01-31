@@ -4,9 +4,9 @@ import os.path
 from tqdm import tqdm
 import torch
 import torch.nn as nn
-from pi.utils import draw_utils
+from pi.utils import file_utils
 
-from pi.utils import smp_utils
+from pi.utils import smp_utils, Fact
 from pi import predicate
 from pi import pi_lang
 from pi.Behavior import Behavior
@@ -385,6 +385,7 @@ class SymbolicMicroProgram(nn.Module):
         self.lost_rewards = []
         self.states = []
         self.lost_states = []
+        self.lost_game_ids = []
         for g_i in range(len(buffer.actions)):
             self.actions += buffer.actions[g_i]
             self.rewards += buffer.rewards[g_i]
@@ -394,6 +395,7 @@ class SymbolicMicroProgram(nn.Module):
             self.lost_actions += buffer.lost_actions[g_i]
             self.lost_rewards += buffer.lost_rewards[g_i]
             self.lost_states += buffer.lost_logic_states[g_i].tolist()
+            self.lost_game_ids += [g_i] * len(buffer.lost_logic_states[g_i].tolist())
 
         self.actions = torch.tensor(self.actions)
         self.lost_actions = torch.tensor(self.lost_actions)
@@ -401,6 +403,7 @@ class SymbolicMicroProgram(nn.Module):
         self.lost_rewards = torch.tensor(self.lost_rewards)
         self.states = torch.tensor(self.states)
         self.lost_states = torch.tensor(self.lost_states)
+        self.lost_game_ids = torch.tensor(self.lost_game_ids)
 
     def extract_behaviors(self, facts, fact_actions):
         beh_indices = fact_actions.sum(dim=-1) == 1
@@ -705,28 +708,46 @@ class SymbolicMicroProgram(nn.Module):
         return grounded_combs
 
     def programming(self, game_info, prop_indices):
+        neg_states_stat_file = self.args.check_point_path / "neg_stats.json"
+        if os.path.exists(neg_states_stat_file):
+            def_beh_data = file_utils.load_json(neg_states_stat_file)
+        else:
+            # learn from negative rewards
+            def_beh_data = smp_utils.stat_negative_rewards(self.lost_game_ids,
+                                                           self.lost_states, self.lost_actions, self.lost_rewards,
+                                                           self.args.zero_reward, game_info, prop_indices)
+            file_utils.save_json(neg_states_stat_file, def_beh_data)
 
-        neg_beh_data = smp_utils.stat_negative_rewards(self.lost_states, self.lost_actions, self.lost_rewards, self.args.zero_reward)
+        # create defense behaviors
+        defense_behaviors = []
+        for beh in def_beh_data:
+            beh = self.get_new_def_behavior(beh)
+            print(f"{beh.clause} "
+                  f"+: {(beh.passed_state_num / ((beh.test_passed_state_num) + 1e-20)):.2f}, "
+                  f"-: {(beh.failed_state_num / (beh.test_failed_state_num + 1e-20)):.2f}. ")
+            defense_behaviors.append(beh)
 
+        # learn from positive rewards
+        pos_states_stat_file = self.args.check_point_path / "pos_states.json"
+        if os.path.exists(pos_states_stat_file):
+            pos_beh_data = file_utils.load_json(pos_states_stat_file)
+        else:
+            pos_beh_data = smp_utils.stat_pos_data(self.states, self.actions, self.rewards, game_info, prop_indices,
+                                                   self.args.pass_th, self.args.failed_th)
+            file_utils.save_json(pos_states_stat_file, pos_beh_data)
 
-
-        facts = smp_utils.get_all_facts(game_info, prop_indices)
-        fact_truth_table = smp_utils.check_fact_truth(facts, self.states, game_info, self.args.truth_table_path)
-        behavior_data = self.brute_search(facts, fact_truth_table, self.actions, self.rewards,
-                                          pass_th=self.args.pass_th, failed_th=self.args.failed_th)
-
-        # learn from negative rewards
-
-        # create behaviors
-        behaviors = []
-        for action_i in range(len(behavior_data)):
-            for beh in behavior_data[action_i]:
+        # create positive behaviors
+        path_behaviors = []
+        for action_i in range(len(pos_beh_data)):
+            for beh in pos_beh_data[action_i]:
                 beh = self.get_new_behavior(beh, action_i)
                 print(
                     f"{beh.clause} pass state percent: "
                     f"{(beh.passed_state_num / beh.test_passed_state_num):.2f}, "
                     f"failed state percent: {(beh.failed_state_num / beh.test_failed_state_num):.2f}")
-                behaviors.append(beh)
+                path_behaviors.append(beh)
+
+        behaviors = path_behaviors + defense_behaviors
         return behaviors
 
     def merge_truth_table_celles(self, facts, fact_truth_table, actions):
@@ -788,29 +809,49 @@ class SymbolicMicroProgram(nn.Module):
         return fact_truth_table
 
     def get_new_behavior(self, data, action):
-        facts = data["facts"]
 
+        beh_facts = []
+        for fact in data["facts"]:
+            beh_facts.append(Fact.ProbFact([predicate.GT()], fact["mask"], fact["objs"], fact["props"][0], fact["delta"]))
         reward = data["expected_reward"]
         passed_state_num = data["passed_state_num"]
         test_passed_state_num = data["test_passed_state_num"]
         failed_state_num = data["failed_state_num"]
         test_failed_state_num = data["test_failed_state_num"]
-        behavior = Behavior(facts, action, reward, passed_state_num, test_passed_state_num, failed_state_num,
+        neg_beh = False
+        behavior = Behavior(neg_beh, beh_facts, action, reward, passed_state_num, test_passed_state_num,
+                            failed_state_num,
                             test_failed_state_num)
         behavior.clause = pi_lang.behavior2clause(self.args, behavior)
         return behavior
 
-    def calc_truth_table(self, game_info, prop_indices):
-        facts = smp_utils.get_all_facts(game_info, prop_indices)
+    def get_new_def_behavior(self, data):
+        dists = data["dists"]
+        expected_reward = data["rewards"]
+        obj_combs = data["obj_combs"]
+        prop_combs = data["prop_combs"]
+        action_type = data["action_type"]
+        mask = data["masks"]
+        delta = data["delta"]
+        pred = [predicate.Dist(dists)]
+        beh_fact = Fact.VarianceFact(dists, mask, obj_combs, prop_combs, pred, delta)
+        neg_beh = True
 
-        truth_table_filename = self.args.truth_table_path / "truth_tables.pt"
-        if not os.path.exists(truth_table_filename):
-            truth_tables = smp_utils.check_fact_truth(facts, self.data_combs, game_info)
-            smp_utils.save_truth_tables(truth_tables, truth_table_filename)
-        else:
-            truth_tables = torch.load(truth_table_filename)
+        behavior = Behavior(neg_beh, [beh_fact], action_type, expected_reward, len(dists), len(dists), 0, 0)
+        behavior.clause = pi_lang.behavior2clause(self.args, behavior)
+        return behavior
 
-        return facts, truth_tables
+    # def calc_truth_table(self, game_info, prop_indices):
+    #     facts = smp_utils.get_all_facts(game_info, prop_indices)
+    #
+    #     truth_table_filename = self.args.truth_table_path / "truth_tables.pt"
+    #     if not os.path.exists(truth_table_filename):
+    #         truth_tables = smp_utils.check_fact_truth(facts, self.data_combs, game_info)
+    #         smp_utils.save_truth_tables(truth_tables, truth_table_filename)
+    #     else:
+    #         truth_tables = torch.load(truth_table_filename)
+    #
+    #     return facts, truth_tables
 
     def brute_search(self, facts, fact_truth_table, actions, rewards, pass_th=0.8, failed_th=0.1):
         # searching behaviors

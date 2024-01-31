@@ -11,7 +11,7 @@ from src import config
 
 def extract_fact_terms(args, fact):
     terms = []
-    for obj_code in fact["objs"]:
+    for obj_code in fact.obj_comb:
         obj_name, _, _ = args.obj_info[obj_code]
         terms.append(Var(obj_name))
 
@@ -21,6 +21,8 @@ def extract_fact_terms(args, fact):
 def generate_action_predicate(args, behavior):
     action_code = behavior.action
     action_name = args.action_names[action_code]
+    if behavior.neg_beh:
+        action_name = "not_" + action_name
     action_predicate = InvPredicate(action_name, 1, [DataType("agent")], config.action_pred_name)
 
     return action_predicate
@@ -34,10 +36,10 @@ def generate_exist_predicate(existence, obj_name):
 
 
 def generate_func_predicate(args, fact, p_i):
-    obj_A, _, _ = args.obj_info[fact["objs"][0]]
-    obj_B, _, _ = args.obj_info[fact["objs"][1]]
-    prop_name = args.prop_names[fact['props'][0]]
-    pred = fact["preds"][p_i]
+    obj_A, _, _ = args.obj_info[fact.obj_comb[0]]
+    obj_B, _, _ = args.obj_info[fact.obj_comb[1]]
+    prop_name = args.prop_names[fact.prop_comb]
+    pred = fact.preds[p_i]
     pred_func_name = pred.name
 
     pred_name = obj_A + "_" + prop_name + "_" + pred_func_name + "_" + obj_B
@@ -46,9 +48,7 @@ def generate_func_predicate(args, fact, p_i):
     pred = InvPredicate(pred_name, 2, dtypes, config.func_pred_name,
                         grounded_prop=prop_name,
                         grounded_objs=[obj_A, obj_B],
-                        pred_func=pred_func_name,
-                        parameter_min=pred.p_bound['min'],
-                        parameter_max=pred.p_bound['max'])
+                        pred_func=pred_func_name)
     return pred
 
 
@@ -63,24 +63,23 @@ def behavior_predicate_as_func_atom(args, behavior):
     func_atoms = []
     for fact in behavior.fact:
         terms = extract_fact_terms(args, fact)
-        for p_i in range(len(fact["preds"])):
+        for p_i in range(len(fact.preds)):
             func_pred = generate_func_predicate(args, fact, p_i)
             func_atoms.append(Atom(func_pred, terms))
     return func_atoms
 
 
 def behavior_existence_as_env_atoms(args, behavior):
-    mask = behavior.fact[0]["mask"]
-    obj_existence = mask.split(config.mask_splitter)
+    mask = behavior.fact[0].mask
     exist_atoms = []
-    for exist_obj in obj_existence:
+    for o_i, exist_obj in enumerate(mask):
 
-        if "not_exist" in exist_obj:
+        if not exist_obj:
             existence = "not_exist"
-            obj_name = exist_obj.split("not_exist_")[1]
+            obj_name = args.obj_info[o_i][0]
         else:
             existence = "exist"
-            obj_name = exist_obj.split("exist_")[1]
+            obj_name =  args.obj_info[o_i][0]
         pred = generate_exist_predicate(existence, obj_name)
         exist_atom = Atom(pred, [Var(obj_name)])
         exist_atoms.append(exist_atom)

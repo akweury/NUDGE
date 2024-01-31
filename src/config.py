@@ -30,7 +30,7 @@ epsilon_func = lambda episode: max(math.exp(-episode / 500), 0.02)
 ## paths
 root = Path(__file__).parents[0]
 
-path_check_point = root / "checkpoints"
+
 path_image = root / "image"
 path_runs = root / "runs"
 path_model = root / 'models'
@@ -48,7 +48,10 @@ path_log = path_output / "logs"
 if not os.path.exists(path_log):
     os.mkdir(path_log)
 
-path_truth_table = path_output / "truth_tables"
+path_check_point = path_output / "check_point"
+if not os.path.exists(path_check_point):
+    os.mkdir(path_check_point)
+
 
 path_exps = root / "exps"
 if not os.path.exists(path_exps):

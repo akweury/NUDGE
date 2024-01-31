@@ -267,63 +267,18 @@ class Dist():
     """ generate one micro-program
     """
 
-    def __init__(self, dist_factor, dist_num, max_dist):
+    def __init__(self, data):
         super().__init__()
-        self.name = f"is_{dist_factor}_away_from_"
-        self.dist_factor = dist_factor
-        self.dist_num = dist_num
-        self.max_dist = max_dist
-        self.unit_dist = max_dist / self.dist_num
+        self.name = f"distance_"
+        self.data = data
 
     def eval(self, t1, t2, objs):
-
-        # repeat situation
+        # repeat checking
         if objs[1] < objs[0] or t1.sum() == 0 or t2.sum() == 0:
             return False
+        th = 0.1
 
-        if len(t1) == 1:
-            dist = torch.tensor(0), torch.abs(torch.sub(t1, t2))
-        else:
-            dist = torch.abs(torch.sub(t1, t2))
+        dist = torch.abs(torch.sub(t1, t2))
 
-        satisfy = (self.unit_dist * (self.dist_factor + 1) > dist) * (dist > self.unit_dist * self.dist_factor)
-        satisfy_percent = satisfy.sum() / len(satisfy)
-        if satisfy_percent > pass_th:
-            pred_satisfy = True
-        else:
-            pred_satisfy = False
+        pred_satisfy = None
         return pred_satisfy
-
-
-def get_dist_preds(repeats):
-    dist_num = 20
-    max_dist = 20
-    dist_preds = []
-    for i in range(dist_num):
-        dist_preds.append(Dist(i, dist_num, max_dist))
-    return dist_preds
-
-
-def get_at_most_preds(repeats, dist_num, max_dist):
-    at_most_preds = []
-
-    for i in range(1, dist_num + 1):
-        at_most_preds.append(At_Most(i, dist_num, max_dist))
-    return at_most_preds
-
-
-def get_at_least_preds(repeats, dist_num, max_dist):
-    at_least_preds = []
-    for i in range(dist_num):
-        at_least_preds.append(At_Least(i, dist_num, max_dist))
-    return at_least_preds
-
-
-def get_preds(repeats=1):
-    all_preds = []
-
-    for i in range(repeats):
-        at_least_preds = get_at_least_preds(repeats, config.dist_num, config.max_dist)
-        at_most_preds = get_at_most_preds(repeats, config.dist_num, config.max_dist)
-        all_preds += [GT()] + at_least_preds + at_most_preds
-    return all_preds
