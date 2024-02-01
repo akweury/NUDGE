@@ -6,10 +6,10 @@ import torch
 import torch.nn as nn
 from pi.utils import file_utils
 
-from pi.utils import smp_utils, Fact
+from pi.utils import smp_utils, Fact, beh_utils
+from pi.utils.Behavior import Behavior
 from pi import predicate
 from pi import pi_lang
-from pi.Behavior import Behavior
 from src import config
 
 
@@ -415,21 +415,6 @@ class SymbolicMicroProgram(nn.Module):
             behaviors.append(behavior)
         return behaviors
 
-    # def extend_facts(self, game_info, prop_indices):
-    #     behaviors = []
-    #     facts = smp_utils.get_all_facts(game_info, prop_indices)
-    #     base_fact_actions = smp_utils.check_corresponding_actions(facts, self.data_combs, game_info)
-    #     base_facts = smp_utils.remove_trivial_facts(facts, base_fact_actions)
-    #     new_behs = self.extract_behaviors(facts, base_fact_actions)
-    #     behaviors.append(new_behs)
-    #
-    #     facts = []
-    #     fact_actions = []
-    #     for i in range(3):
-    #         facts, fact_actions = smp_utils.extend_one_fact_to_fact(facts, fact_actions, base_facts, base_fact_actions)
-    #         new_behs = self.extract_behaviors(facts, fact_actions)
-    #         behaviors.append(new_behs)
-
     def teacher_searching(self, game_info, prop_indices):
         # strategy: action, objects, mask, properties, if predicates are valid
         behaviors = []
@@ -481,48 +466,6 @@ class SymbolicMicroProgram(nn.Module):
 
             print(f"round {i}, unchecked behaviors: {len(un_checked_behaviors)}")
 
-        return student_behaviors
-
-    def student_searching(self, game_info, teacher_behaviors):
-        # strategy: action, objects, mask, properties, if predicates are valid
-        student_behaviors = []
-
-        for i in range(len(teacher_behaviors)):
-            beh_match_result = []
-            teacher_behavior = teacher_behaviors[i]
-            for data_comb in self.data_combs:
-                state, action, reward, reason_resource = data_comb
-
-                # all facts have to be matched
-                fact_match = teacher_behavior.eval_behavior(state, game_info)
-                if not fact_match:
-                    beh_match_result.append(True)
-                if fact_match:
-                    action_match = teacher_behavior.action.argmax() == action
-                    state_match = fact_match * action_match
-                    beh_match_result.append(state_match)
-
-            beh_not_match_result = ~torch.tensor(beh_match_result)
-            print(f"\n- behavior {i} failed states: {sum(beh_not_match_result)} / {len(self.data_combs)}")
-            print(f"parent: {teacher_behavior.clause}")
-            beh_not_match_states = [self.data_combs[i][0].tolist() for i in range(len(beh_not_match_result)) if
-                                    beh_not_match_result[i]]
-            beh_not_match_state_actions = [self.data_combs[i][1].tolist() for i in range(len(beh_not_match_result)) if
-                                           beh_not_match_result[i]]
-            beh_not_match_states = torch.tensor(beh_not_match_states).squeeze()
-            beh_not_match_state_actions = torch.tensor(beh_not_match_state_actions)
-
-            data_actions = smp_utils.split_data_by_action(beh_not_match_states, beh_not_match_state_actions,
-                                                          self.action_num)
-            variation_behaviors = self.teacher_search(self.args, self.facts, data_actions, game_info)
-            combined_behaviors = self.combine_behaviors(teacher_behavior, variation_behaviors)
-            print(f"child behaviors: {len(variation_behaviors)}")
-            for behavior in combined_behaviors:
-                print(f"child: {behavior.clause}")
-
-            student_behaviors += combined_behaviors
-            print(f"studend behaviors num: {len(student_behaviors)}")
-            print("")
         return student_behaviors
 
     def combine_behaviors(self, parent_behavior, child_behaviors):
@@ -580,121 +523,6 @@ class SymbolicMicroProgram(nn.Module):
                     behaviors.append(behavior)
         return behaviors
 
-    def forward_searching(self, relate_2_obj_types, relate_2_prop_types, obj_types):
-        # ungrounded behaviors:
-        # Existing at least one predicate is true,
-        # but not know which part of the data is the reason.
-
-        obj_grounded_behaviors = []
-        for reward, reward_states in self.data_rewards.items():
-            if reward == -0.1:
-                continue
-            for action_prob, action_states in reward_states.items():
-                masks = smp_utils.all_exist_mask(action_states, obj_types)
-                for mask_name, action_mask in masks.items():
-                    if action_mask.sum() == 0:
-                        continue
-                    for props in relate_2_prop_types:
-                        passed_obj_combs = []
-                        sample_nums = []
-                        p_satisfactions = []
-                        all_predicates = predicate.get_preds(len(props))
-                        for objs in relate_2_obj_types:
-                            p_satisfaction, sample_num = smp_utils.check_pred_satisfaction(action_states,
-                                                                                           all_predicates,
-                                                                                           action_mask, objs, props)
-                            if (sum(p_satisfaction)) > 0:
-                                passed_obj_combs.append(objs)
-                                sample_nums.append(sample_num)
-                                p_satisfactions.append(p_satisfaction)
-                        if len(passed_obj_combs) > 1:
-                            # obj ungrounded behavior
-                            behavior = UngroundedMicroProgram(self.args, all_predicates, p_satisfactions, sample_nums,
-                                                              passed_obj_combs, props, action_prob, mask_name,
-                                                              action_mask, reward)
-                            if behavior.id not in self.obj_ungrounded_behavior_ids:
-                                self.ungrounded_behaviors.append(behavior)
-                                self.obj_ungrounded_behavior_ids.append(behavior.id)
-                            else:
-                                print("should not be called.")
-                        elif len(passed_obj_combs) == 1:
-                            behavior = MicroProgram(self.args, all_predicates, p_satisfactions, sample_nums,
-                                                    passed_obj_combs, props, action_prob, mask_name, action_mask,
-                                                    reward)
-                            obj_grounded_behaviors.append(behavior)
-                print(f"reward: {reward}, action: {action_prob}, states: {len(action_states)}")
-        print(f'forward searched ungrounded behaviors: {len(self.ungrounded_behaviors)}')
-        print(f'forward searched grounded behaviors: {len(obj_grounded_behaviors)}')
-        return obj_grounded_behaviors
-
-    def backward_searching(self):
-        print(f"- backward searching ...")
-        for reward, reward_states in self.data_rewards.items():
-            if reward == -0.1:
-                continue
-            for action_prob, action_states in reward_states.items():
-                for behavior in self.ungrounded_behaviors:
-
-                    if behavior.expected_reward == reward and torch.equal(behavior.action, action_prob):
-                        # check which explains can satisfy more states
-
-                        satisfactions = behavior(action_states)
-                        # filter out wrong groundings, until only one option left
-                        # update behavior's oppm combs
-                        behavior.oppm_combs = self.grounding(behavior.oppm_combs, satisfactions)
-                        # top scored explains shall be kept
-                        # how to remove them?
-        new_ungrounded_behaviors = []
-        for behavior in self.ungrounded_behaviors:
-            if len(behavior.oppm_combs) > 0:
-                new_ungrounded_behaviors.append(behavior)
-        self.ungrounded_behaviors = new_ungrounded_behaviors
-
-    def backward_searching2(self):
-        print(f"- backward searching 2...")
-        # consider batching evaluation
-        for behavior in self.ungrounded_behaviors:
-            satisfactions_behavior = []
-            satisfactions_mask = []
-            for data in self.data_combs:
-                state, action, reward = data
-                if behavior.expected_reward == reward:
-
-                    satisfactions_data = []
-                    same_action_id = torch.argmax(behavior.action).item() == action
-                    same_mask = smp_utils.mask_name_from_state(state, self.args.obj_type_names,
-                                                               config.mask_splitter) == behavior.mask_name
-                    if same_action_id and same_mask:
-                        satisfactions_mask.append(True)
-                        for oppm_comb in behavior.oppm_combs:
-                            comb_obj_id = [oppm_comb[idx] for idx in behavior.oppm_keys["obj"]]
-                            comb_prop_id = [oppm_comb[idx] for idx in behavior.oppm_keys["prop"]]
-                            comb_preds = [oppm_comb[idx] for idx in behavior.oppm_keys["pred"]]
-                            state_preds, _ = smp_utils.check_pred_satisfaction(state, behavior.preds, None, comb_obj_id,
-                                                                               comb_prop_id, behavior.p_spaces,
-                                                                               mode="eval")
-                            same_pred = state_preds == comb_preds
-                            if same_pred:
-                                satisfactions_data.append(True)
-                            else:
-                                satisfactions_data.append(False)
-                    else:
-                        satisfactions_mask.append(False)
-                else:
-                    satisfactions_data = [False] * len(behavior.oppm_combs)
-                    satisfactions_mask.append(False)
-
-                satisfactions_behavior.append(satisfactions_data)
-            passed_states = [satisfactions_behavior[s_i] for s_i, state in enumerate(satisfactions_mask) if state]
-
-            behavior.oppm_combs = self.grounding(behavior.oppm_combs, passed_states)
-
-        new_ungrounded_behaviors = []
-        for behavior in self.ungrounded_behaviors:
-            if len(behavior.oppm_combs) > 0:
-                new_ungrounded_behaviors.append(behavior)
-        self.ungrounded_behaviors = new_ungrounded_behaviors
-
     def grounding(self, combs, satisfactions):
 
         satisfaction_count = torch.tensor(satisfactions).float()
@@ -708,26 +536,20 @@ class SymbolicMicroProgram(nn.Module):
         return grounded_combs
 
     def programming(self, game_info, prop_indices):
+        ######## learn from negative rewards
         neg_states_stat_file = self.args.check_point_path / "neg_stats.json"
         if os.path.exists(neg_states_stat_file):
             def_beh_data = file_utils.load_json(neg_states_stat_file)
         else:
-            # learn from negative rewards
+
             def_beh_data = smp_utils.stat_negative_rewards(self.lost_game_ids,
                                                            self.lost_states, self.lost_actions, self.lost_rewards,
                                                            self.args.zero_reward, game_info, prop_indices)
             file_utils.save_json(neg_states_stat_file, def_beh_data)
 
-        # create defense behaviors
-        defense_behaviors = []
-        for beh in def_beh_data:
-            beh = self.get_new_def_behavior(beh)
-            print(f"{beh.clause} "
-                  f"+: {(beh.passed_state_num / ((beh.test_passed_state_num) + 1e-20)):.2f}, "
-                  f"-: {(beh.failed_state_num / (beh.test_failed_state_num + 1e-20)):.2f}. ")
-            defense_behaviors.append(beh)
+        defense_behaviors = beh_utils.create_negative_behaviors(self.args, def_beh_data)
 
-        # learn from positive rewards
+        ############# learn from positive rewards
         pos_states_stat_file = self.args.check_point_path / "pos_states.json"
         if os.path.exists(pos_states_stat_file):
             pos_beh_data = file_utils.load_json(pos_states_stat_file)
@@ -736,18 +558,9 @@ class SymbolicMicroProgram(nn.Module):
                                                    self.args.pass_th, self.args.failed_th)
             file_utils.save_json(pos_states_stat_file, pos_beh_data)
 
-        # create positive behaviors
-        path_behaviors = []
-        for action_i in range(len(pos_beh_data)):
-            for beh in pos_beh_data[action_i]:
-                beh = self.get_new_behavior(beh, action_i)
-                print(
-                    f"{beh.clause} pass state percent: "
-                    f"{(beh.passed_state_num / beh.test_passed_state_num):.2f}, "
-                    f"failed state percent: {(beh.failed_state_num / beh.test_failed_state_num):.2f}")
-                path_behaviors.append(beh)
+        path_behaviors = beh_utils.create_positive_behaviors(self.args, pos_beh_data)
 
-        behaviors = path_behaviors + defense_behaviors
+        behaviors = defense_behaviors + path_behaviors
         return behaviors
 
     def merge_truth_table_celles(self, facts, fact_truth_table, actions):
@@ -812,7 +625,8 @@ class SymbolicMicroProgram(nn.Module):
 
         beh_facts = []
         for fact in data["facts"]:
-            beh_facts.append(Fact.ProbFact([predicate.GT()], fact["mask"], fact["objs"], fact["props"][0], fact["delta"]))
+            beh_facts.append(
+                Fact.ProbFact([predicate.GT()], fact["mask"], fact["objs"], fact["props"][0], fact["delta"]))
         reward = data["expected_reward"]
         passed_state_num = data["passed_state_num"]
         test_passed_state_num = data["test_passed_state_num"]
@@ -840,167 +654,3 @@ class SymbolicMicroProgram(nn.Module):
         behavior = Behavior(neg_beh, [beh_fact], action_type, expected_reward, len(dists), len(dists), 0, 0)
         behavior.clause = pi_lang.behavior2clause(self.args, behavior)
         return behavior
-
-    # def calc_truth_table(self, game_info, prop_indices):
-    #     facts = smp_utils.get_all_facts(game_info, prop_indices)
-    #
-    #     truth_table_filename = self.args.truth_table_path / "truth_tables.pt"
-    #     if not os.path.exists(truth_table_filename):
-    #         truth_tables = smp_utils.check_fact_truth(facts, self.data_combs, game_info)
-    #         smp_utils.save_truth_tables(truth_tables, truth_table_filename)
-    #     else:
-    #         truth_tables = torch.load(truth_table_filename)
-    #
-    #     return facts, truth_tables
-
-    def brute_search(self, facts, fact_truth_table, actions, rewards, pass_th=0.8, failed_th=0.1):
-        # searching behaviors
-        fact_state_table = []
-        learned_behaviors = []
-        for at_i, action_type in enumerate(actions.unique()):
-            fact_table = fact_truth_table[actions == at_i, :]
-            fact_anti_table = fact_truth_table[actions != at_i, :]
-            action_rewards = rewards[actions == at_i]
-            learned_action_behivors = []
-            for fact_len in range(2):
-                f_passed_state_nums, f_failed_state_nums, f_rank, f_used_states, f_expected_rewards = smp_utils.stat_facts_in_states(
-                    fact_len, fact_table, fact_anti_table, action_rewards)
-
-                pass_state_percent = f_passed_state_nums / len(fact_table)
-                failed_state_percent = f_failed_state_nums / len(fact_anti_table)
-
-                fact_mask = (pass_state_percent > pass_th) * (failed_state_percent < failed_th)
-
-                passed_fact_indices = [f_rank[m_i] for m_i in range(len(fact_mask)) if fact_mask[m_i]]
-
-                passed_state_num = f_passed_state_nums[fact_mask]
-                test_passed_state_num = [len(fact_table)] * len(passed_state_num)
-                failed_state_num = f_failed_state_nums[fact_mask]
-                test_failed_state_num = [len(fact_anti_table)] * len(failed_state_num)
-                passed_rewards = f_expected_rewards[fact_mask]
-
-                for passed_i in range(len(passed_fact_indices)):
-                    passed_facts = [facts[i] for i in passed_fact_indices[passed_i]]
-                    learned_action_behivors.append({"facts": passed_facts,
-                                                    "expected_reward": passed_rewards[passed_i],
-                                                    "passed_state_num": passed_state_num[passed_i],
-                                                    "test_passed_state_num": test_passed_state_num[passed_i],
-                                                    "failed_state_num": failed_state_num[passed_i],
-                                                    "test_failed_state_num": test_failed_state_num[passed_i]})
-
-            learned_behaviors.append(learned_action_behivors)
-            # facts_ranked = [facts[r] for r in f_rank]
-            # for b_i in range(len(f_passed_state_nums_ranked)):
-            #     # create new behavior
-            #
-            #     beh_facts = [facts[int(f_passed_state_nums_ranked[b_i].item())]]
-            #     behavior = self.get_new_behavior(beh_facts, action_type, f_passed_state_nums_ranked[b_i])
-            #     behaviors.append(behavior)
-
-        return learned_behaviors
-
-    # def behaviors_from_actions(self, relate_2_obj_types, relate_2_prop_types, obj_types):
-    #     behaviors = []
-    #     for action, states in self.data_actions.items():
-    #         masks = smp_utils.all_exist_mask(states, obj_types)
-    #         for mask_name, mask in masks.items():
-    #             for obj_types in relate_2_obj_types:
-    #                 obj_1_type = obj_types[obj_types[0]]
-    #                 obj_2_type = obj_types[obj_types[1]]
-    #                 obj_1_indices = obj_types[obj_1_type]
-    #                 obj_2_indices = obj_types[obj_2_type]
-    #                 for prop_types in relate_2_prop_types:
-    #                     # as long as any two objs satisfied
-    #                     all_preds = predicate.get_preds()
-    #                     p_satisfication = torch.zeros(len(all_preds), dtype=torch.bool)
-    #                     for obj_1_index in obj_1_indices:
-    #                         for obj_2_index in obj_2_indices:
-    #                             # select data
-    #                             if obj_2_index >= 4:
-    #                                 raise ValueError
-    #                             data_A = states[mask, obj_1_index]
-    #                             data_B = states[mask, obj_2_index]
-    #                             if len(data_A) == 0:
-    #                                 continue
-    #                             data_A = data_A[:, prop_types]
-    #                             data_B = data_B[:, prop_types]
-    #                             # distinguish predicates
-    #                             for p_i, pred in enumerate(all_preds):
-    #                                 p_satisfication[p_i] += pred.fit(data_A, data_B, obj_types)
-    #
-    #                     if (p_satisfication.sum()) > 0:
-    #                         print(f'new pred, grounded_objs:{obj_types}, action:{action}')
-    #                         behavior = {'preds': all_preds,
-    #                                     'p_satisfication': p_satisfication,
-    #                                     'is_grounded': True,
-    #                                     'grounded_types': obj_types,
-    #                                     'grounded_prop': prop_types,
-    #                                     'action': action,
-    #                                     'mask': mask_name}
-    #                         behaviors.append(behavior)
-    #
-    #     return behaviors
-    #
-    # def check_exists(self, x, obj_type_dict):
-    #     if x.ndim != 3:
-    #         raise ValueError
-    #     state_num = x.size(0)
-    #     mask_batches = self.mask.unsqueeze(0)
-    #     obj_type_exists = torch.ones(size=(state_num, self.obj_type_num), dtype=torch.bool)
-    #     for obj_type_name, obj_type_indices in obj_type_dict.items():
-    #         if obj_type_name in self.obj_type_names:
-    #             obj_indices = [n_i for n_i, name in enumerate(self.obj_type_names) if name == obj_type_name]
-    #             exist_objs = (x[:, obj_type_indices, obj_indices] > 0.8)
-    #             exist_type = exist_objs.prod(dim=-1, keepdims=True).bool()
-    #             obj_type_exists[:, obj_indices] *= exist_type
-    #
-    #     mask_batches = torch.repeat_interleave(mask_batches, x.size(0), dim=0)
-    #     exist_res = torch.prod(mask_batches == obj_type_exists, dim=1)
-    #     return exist_res.bool()
-    #
-    # def forward(self, x, obj_type_indices, avg_data=False):
-    #     # game Getout: tensor with size batch_size * 4 * 6
-    #     action_probs = torch.zeros(len(self.type_codes), x.size(0), len(self.action))
-    #     p_spaces = []
-    #     for t_i, type_code in enumerate(self.type_codes):
-    #         t_i_p_spaces = []
-    #         satisfies = torch.zeros(x.size(0), dtype=torch.bool)
-    #         type_1_obj_codes = obj_type_indices[self.obj_type_names[type_code[0]]]
-    #         type_2_obj_codes = obj_type_indices[self.obj_type_names[type_code[1]]]
-    #         # check predicates satisfaction
-    #         for obj_1 in type_1_obj_codes:
-    #             for obj_2 in type_2_obj_codes:
-    #                 for prop_code in self.prop_codes:
-    #                     data_A = x[:, obj_1, prop_code].reshape(-1)
-    #                     data_B = x[:, obj_2, prop_code].reshape(-1)
-    #
-    #                     obj_comb_satisfies = torch.ones(x.size(0), dtype=torch.bool)
-    #
-    #                     for p_i, pred in enumerate(self.preds):
-    #                         p_space = self.p_spaces[t_i][p_i]
-    #                         p_satisfied = self.p_satisfication[p_i]
-    #                         if not p_satisfied:
-    #                             func_satisfy, p_values = torch.ones(data_A.size()).bool(), torch.zeros(
-    #                                 size=data_A.size())
-    #                         else:
-    #                             func_satisfy, p_values = pred.eval(data_A, data_B, p_space)
-    #                         t_i_p_spaces.append(p_values.unsqueeze(0))
-    #
-    #                         # satisfy all
-    #                         obj_comb_satisfies *= func_satisfy
-    #
-    #                     # satisfy any
-    #                     satisfies += obj_comb_satisfies
-    #
-    #         # check mask satisfaction
-    #         exist_satisfy = self.check_exists(x, obj_type_indices)
-    #
-    #         # satisfy all
-    #         satisfies *= exist_satisfy
-    #
-    #         # return action probs
-    #         action_probs[t_i, satisfies] += self.action
-    #         action_probs[t_i, satisfies] = action_probs[t_i, satisfies] / (action_probs[t_i, satisfies] + 1e-20)
-    #         p_spaces.append(t_i_p_spaces)
-    #
-    #     return action_probs, p_spaces

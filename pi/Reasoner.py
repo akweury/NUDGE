@@ -56,6 +56,7 @@ class SmpReasoner(nn.Module):
         action_prob = torch.zeros(1, len(self.args.action_names)).to(self.args.device)
         explains = "unknown"
         print(x)
+        action_mask = torch.ones(1, len(self.args.action_names), dtype=torch.bool)
         # taking a random action
         if self.behaviors is None or len(self.behaviors) == 0:
             action_prob = torch.zeros(1, len(self.args.action_names))
@@ -63,16 +64,21 @@ class SmpReasoner(nn.Module):
             explains = "random"
         else:
             explains = []
-            for b_i in range(len(self.behaviors)):
-                satisfaction = self.behaviors[b_i].eval_behavior(x, self.args.obj_info)
+
+            for b_i, beh in enumerate(self.behaviors):
+                satisfaction = beh.eval_behavior(x, self.args.obj_info)
                 if satisfaction:
-                    action_prob += self.behaviors[b_i].action
-                    explains.append((self.behaviors[b_i].action, b_i))
-                    print(f"behavior: {self.behaviors[b_i].clause}")
-
+                    if beh.neg_beh:
+                        action_mask[0, beh.action] = False
+                    else:
+                        action_prob[0, beh.action] = 1
+                    explains.append((beh.action, b_i))
+                    print(f"pass behavior: {beh.clause}")
         action_prob = action_prob / (action_prob + 1e-20)
-
-        if explains is None or len(explains) == 0:
+        action_prob[~action_mask] = -1
+        print(f"action prob: {action_prob}")
+        # if no action was predicted
+        if torch.abs(action_prob).sum() == 0:
             explains = [-1]
             action_prob = torch.zeros(1, len(self.args.action_names))
             action_prob[0, torch.randint(0, len(self.args.action_names), (1,))] = 1

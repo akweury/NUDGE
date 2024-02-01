@@ -272,13 +272,9 @@ class Dist():
         self.name = f"distance_"
         self.data = data
 
-    def eval(self, t1, t2, objs):
-        # repeat checking
-        if objs[1] < objs[0] or t1.sum() == 0 or t2.sum() == 0:
-            return False
-        th = 0.1
-
+    def eval(self, t1, t2):
+        var, mean = torch.var_mean(torch.tensor(self.data))
         dist = torch.abs(torch.sub(t1, t2))
+        pred_satisfy = (dist < mean + var) * (dist > mean - var)
 
-        pred_satisfy = None
         return pred_satisfy

@@ -821,7 +821,6 @@ def brute_search(facts, fact_truth_table, actions, rewards, pass_th=0.8, failed_
 def stat_pos_data(states, actions, rewards, game_info, prop_indices, pass_th, failed_th):
     facts = get_all_facts(game_info, prop_indices)
     truth_table = check_fact_truth(facts, states, game_info)
-
     behavior_data = brute_search(facts, truth_table, actions, rewards, pass_th=pass_th, failed_th=failed_th)
 
     return behavior_data
