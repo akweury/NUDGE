@@ -107,7 +107,7 @@ def behaviors2clauses(args, behaviors):
         clause = behavior2clause(args, behavior)
         clauses.append(clause)
         # clause_weights.append()
-    print(f'======= Clauses from Behaviors {len(clauses)} ======')
-    for c in clauses:
-        print(c)
+    # print(f'======= Clauses from Behaviors {len(clauses)} ======')
+    # for c in clauses:
+    #     print(c)
     return clauses

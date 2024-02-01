@@ -31,6 +31,7 @@ class Behavior():
         return mask_tensors
 
     def eval_behavior(self, x, game_info):
+        score = 0
         for fact in self.fact:
             type_0_index = fact.obj_comb[0]
             type_1_index = fact.obj_comb[1]
@@ -43,7 +44,7 @@ class Behavior():
             mask_satisfaction = (fact_mask_tensor == self.mask_tensors_from_states(x, game_info)).prod(
                 dim=-1).bool().reshape(-1)
             if not mask_satisfaction:
-                return False
+                return False, score
             # pred is true if any comb is true (or)
             fact_satisfaction = False
             for obj_comb in obj_combs:
@@ -52,5 +53,7 @@ class Behavior():
                 # behavior is true if all pred is true (and)
                 fact_satisfaction += fact.preds[0].eval(data_A, data_B)
             if not fact_satisfaction:
-                return False
-        return True
+                return False, score
+        score = (self.passed_state_num / (self.test_passed_state_num + 1e-20)) * (
+                    1 - (self.failed_state_num / (self.test_failed_state_num + 1e-20)))
+        return True, score

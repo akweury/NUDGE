@@ -555,6 +555,7 @@ class SymbolicMicroProgram(nn.Module):
             pos_beh_data = file_utils.load_json(pos_states_stat_file)
         else:
             pos_beh_data = smp_utils.stat_pos_data(self.states, self.actions, self.rewards, game_info, prop_indices,
+                                                   self.args.top_kp,
                                                    self.args.pass_th, self.args.failed_th)
             file_utils.save_json(pos_states_stat_file, pos_beh_data)
 

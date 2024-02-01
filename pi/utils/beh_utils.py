@@ -1,4 +1,5 @@
 # Created by jing at 31.01.24
+import torch
 
 from pi.utils.Behavior import Behavior
 from pi.utils.Fact import ProbFact, VarianceFact
@@ -44,7 +45,8 @@ def create_negative_behaviors(args, def_beh_data):
         action_type = beh["action_type"]
         mask = beh["masks"]
         delta = beh["delta"]
-        pred = [predicate.Dist(dists)]
+        dists_var, dists_mean =torch.var_mean(torch.tensor(dists))
+        pred = [predicate.Dist(dists, dists_var.tolist(), dists_mean.tolist())]
         beh_fact = VarianceFact(dists, mask, obj_combs, prop_combs, pred, delta)
         neg_beh = True
 

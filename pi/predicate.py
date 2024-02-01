@@ -267,9 +267,9 @@ class Dist():
     """ generate one micro-program
     """
 
-    def __init__(self, data):
+    def __init__(self, data, var, mean):
         super().__init__()
-        self.name = f"distance_"
+        self.name = f"distance_var_{var:.2f}_mean_{mean:.2f}"
         self.data = data
 
     def eval(self, t1, t2):

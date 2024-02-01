@@ -64,16 +64,25 @@ class SmpReasoner(nn.Module):
             explains = "random"
         else:
             explains = []
+            scores = torch.zeros(len(self.behaviors))
+            satisfactions = torch.zeros(len(self.behaviors), dtype=torch.bool)
+            actions = torch.zeros(len(self.behaviors))
 
             for b_i, beh in enumerate(self.behaviors):
-                satisfaction = beh.eval_behavior(x, self.args.obj_info)
-                if satisfaction:
-                    if beh.neg_beh:
-                        action_mask[0, beh.action] = False
-                    else:
-                        action_prob[0, beh.action] = 1
-                    explains.append((beh.action, b_i))
-                    print(f"pass behavior: {beh.clause}")
+                satisfactions[b_i], scores[b_i] = beh.eval_behavior(x, self.args.obj_info)
+                if satisfactions[b_i] and beh.neg_beh:
+                    action_mask[0, beh.action] = False
+                    scores[b_i] = 0
+                actions[b_i] = beh.action
+
+
+            passed_scores = scores[satisfactions]
+            passed_actions = actions[satisfactions]
+            if len(passed_scores)>0:
+                beh_index = passed_scores.argmax()
+                pred_action = passed_actions[beh_index].int()
+                action_prob[0, pred_action] = 1
+                explains.append((pred_action, beh_index))
         action_prob = action_prob / (action_prob + 1e-20)
         action_prob[~action_mask] = -1
         print(f"action prob: {action_prob}")

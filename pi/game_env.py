@@ -130,7 +130,7 @@ def render_game(agent, args):
 
 
 def collect_data_getout(agent, args):
-    game_num = 100
+    game_num = 300
     # play games using the random agent
     seed = random.seed() if args.seed is None else int(args.seed)
     args.filename = args.m + '_' + args.teacher_agent + '_episode_' + str(game_num) + '.json'

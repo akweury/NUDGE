@@ -7,8 +7,7 @@ import itertools
 
 from src import config
 
-from pi import predicate
-from pi.utils import fact_utils
+from pi.utils import fact_utils, file_utils
 
 
 def get_param_range(min, max, unit):
@@ -69,6 +68,7 @@ def get_fact_obj_combs(game_info, fact):
     _, obj_1_indices, _ = game_info[type_1_index]
     obj_combs = enumerate_two_combs(obj_0_indices, obj_1_indices)
     return obj_combs
+
 
 def get_states_delta(states, obj_a, obj_b, prop):
     delta_satisfaction = torch.zeros((states.size(0)), dtype=torch.bool)
@@ -213,7 +213,7 @@ def mask_tensors_from_states(states, game_info):
     mask_tensors = torch.zeros((len(states), len(game_info)), dtype=torch.bool)
     for i in range(len(game_info)):
         name, obj_indices, prop_index = game_info[i]
-        obj_exist_counter = states[:, obj_indices, prop_index].sum()
+        obj_exist_counter = states[:, obj_indices, prop_index].sum(dim=-1)
         mask_tensors[:, i] = obj_exist_counter > 0
     mask_tensors = mask_tensors.bool()
     return mask_tensors
@@ -647,7 +647,7 @@ def back_check(data, conflict_behaviors, game_info, action_num):
 
 def get_fact_combs(comb_iteration, total):
     comb = torch.tensor(list(combinations(list(range(total)), comb_iteration)))
-    print(f"fact combinations: {len(comb)}")
+    # print(f"fact combinations: {len(comb)}")
     return comb
 
 
@@ -678,28 +678,20 @@ def save_truth_tables(truth_tables, filename):
     torch.save(truth_tables, filename)
 
 
-def stat_facts_in_states(fact_num, fact_table, fact_anti_table, rewards):
-    ci_combs = get_fact_combs(fact_num + 1, fact_table.size(1))
-    f_passed_state_nums = torch.zeros(ci_combs.size(0))
-    f_failed_state_nums = torch.zeros(ci_combs.size(0))
-    used_states = torch.zeros((len(ci_combs), fact_table.size(0)), dtype=torch.bool)
-    f_expected_rewards = torch.zeros(ci_combs.size(0))
-    for ci_i in tqdm(range(len(ci_combs)), ascii=True, desc=f"{fact_num + 1} fact behavior search"):
-        ci_comb = ci_combs[ci_i]
-        used_states[ci_i] = fact_table[:, ci_comb].prod(dim=-1).bool()
-        fact_comb_neg_state_indices = fact_anti_table[:, ci_comb].prod(dim=-1).bool()
-        passed_state_num = used_states[ci_i].sum()
-        failed_state_num = fact_comb_neg_state_indices.sum()
-        f_passed_state_nums[ci_i] = passed_state_num
-        f_failed_state_nums[ci_i] = failed_state_num
-        f_expected_rewards[ci_i] = rewards[used_states[ci_i]].median()
+def stat_facts_in_states(fact_combs, fact_num, fact_table, fact_anti_table, rewards):
+    fact_pos_num = torch.zeros(fact_combs.size(0))
+    fact_neg_num = torch.zeros(fact_combs.size(0))
+    pos_states = torch.zeros((len(fact_combs), fact_table.size(0)), dtype=torch.bool)
 
-    f_passed_state_nums_ranked, f_rank = f_passed_state_nums.sort(descending=True)
-    f_failed_state_nums_ranked = f_failed_state_nums[f_rank]
-    f_reward_ranked = f_expected_rewards[f_rank]
-    f_comb_ranked = ci_combs[f_rank]
+    fact_rewards = torch.zeros(fact_combs.size(0))
+    for ci_i in tqdm(range(len(fact_combs)), ascii=True, desc=f"{fact_num + 1} fact behavior search"):
+        fact_comb = fact_combs[ci_i]
+        pos_states[ci_i] = fact_table[:, fact_comb].prod(dim=-1).bool()
+        fact_pos_num[ci_i] = pos_states[ci_i].sum()
+        fact_neg_num[ci_i] = fact_anti_table[:, fact_comb].prod(dim=-1).bool().sum()
+        fact_rewards[ci_i] = rewards[pos_states[ci_i]].median()
 
-    return f_passed_state_nums_ranked, f_failed_state_nums_ranked, f_comb_ranked, used_states, f_reward_ranked
+    return fact_pos_num, fact_neg_num, pos_states, fact_rewards
 
 
 def get_state_delta(state, state_last, obj_comb):
@@ -780,7 +772,19 @@ def stat_negative_rewards(game_ids, states, actions, rewards, zero_reward, game_
     return neg_behs
 
 
-def brute_search(facts, fact_truth_table, actions, rewards, pass_th=0.8, failed_th=0.1):
+def top_k_percent(scores, top_kp):
+    score_sum = 0
+    indices = []
+    for s_i, score in enumerate(scores):
+        score_sum += score
+        indices.append(s_i)
+        if score_sum > top_kp:
+            break
+
+    return indices
+
+
+def brute_search(facts, fact_truth_table, actions, rewards,top_kp=1.0, pass_th=0.8, failed_th=0.1, ):
     learned_behaviors = []
     for at_i, action_type in enumerate(actions.unique()):
         fact_table = fact_truth_table[actions == at_i, :]
@@ -788,39 +792,47 @@ def brute_search(facts, fact_truth_table, actions, rewards, pass_th=0.8, failed_
         action_rewards = rewards[actions == at_i]
         learned_action_behivors = []
         for fact_len in range(2):
-            f_passed_state_nums, f_failed_state_nums, f_rank, f_used_states, f_expected_rewards = stat_facts_in_states(
-                fact_len, fact_table, fact_anti_table, action_rewards)
+            fact_combs = get_fact_combs(fact_len + 1, fact_table.size(1))
+            fact_pos_num, fact_neg_num, pos_states, fact_rewards = stat_facts_in_states(fact_combs, fact_len,
+                                                                                        fact_table,
+                                                                                        fact_anti_table, action_rewards)
 
-            pass_state_percent = f_passed_state_nums / len(fact_table)
-            failed_state_percent = f_failed_state_nums / len(fact_anti_table)
+            pass_state_percent = fact_pos_num / len(fact_table)
+            failed_state_percent = fact_neg_num / len(fact_anti_table)
+            fact_comb_score = pass_state_percent * (1 - failed_state_percent)
+            scores, score_rank = fact_comb_score.sort(descending=True)
+            rank_score_indices = top_k_percent(scores, top_kp=top_kp)
+            print(f"action {action_type} with {fact_len} facts top scores: {scores[rank_score_indices]}")
+            pos_fact_indices = score_rank[rank_score_indices]
+            pos_state_num = fact_pos_num[pos_fact_indices]
+            pos_state_total = [len(fact_table)] * len(pos_state_num)
+            neg_state_num = fact_neg_num[pos_fact_indices]
+            neg_state_total = [len(fact_anti_table)] * len(neg_state_num)
+            pos_rewards = fact_rewards[pos_fact_indices]
 
-            fact_mask = (pass_state_percent > pass_th) * (failed_state_percent < failed_th)
-
-            passed_fact_indices = [f_rank[m_i] for m_i in range(len(fact_mask)) if fact_mask[m_i]]
-
-            passed_state_num = f_passed_state_nums[fact_mask]
-            test_passed_state_num = [len(fact_table)] * len(passed_state_num)
-            failed_state_num = f_failed_state_nums[fact_mask]
-            test_failed_state_num = [len(fact_anti_table)] * len(failed_state_num)
-            passed_rewards = f_expected_rewards[fact_mask]
-
-            for passed_i in range(len(passed_fact_indices)):
-                passed_facts = [facts[i] for i in passed_fact_indices[passed_i]]
-
-                learned_action_behivors.append({"facts": passed_facts,
-                                                "expected_reward": passed_rewards[passed_i].tolist(),
-                                                "passed_state_num": passed_state_num[passed_i].tolist(),
-                                                "test_passed_state_num": test_passed_state_num[passed_i],
-                                                "failed_state_num": failed_state_num[passed_i].tolist(),
-                                                "test_failed_state_num": test_failed_state_num[passed_i]})
+            for p_i in range(len(pos_fact_indices)):
+                pos_facts = [facts[i] for i in fact_combs[pos_fact_indices][p_i].reshape(-1)]
+                learned_action_behivors.append({"facts": pos_facts,
+                                                "score": scores[rank_score_indices][p_i].tolist(),
+                                                "expected_reward": pos_rewards[p_i].tolist(),
+                                                "passed_state_num": pos_state_num[p_i].tolist(),
+                                                "test_passed_state_num": pos_state_total[p_i],
+                                                "failed_state_num": neg_state_num[p_i].tolist(),
+                                                "test_failed_state_num": neg_state_total[p_i]})
 
         learned_behaviors.append(learned_action_behivors)
     return learned_behaviors
 
 
-def stat_pos_data(states, actions, rewards, game_info, prop_indices, pass_th, failed_th):
+def stat_pos_data(states, actions, rewards, game_info, prop_indices,top_kp, pass_th, failed_th):
     facts = get_all_facts(game_info, prop_indices)
-    truth_table = check_fact_truth(facts, states, game_info)
-    behavior_data = brute_search(facts, truth_table, actions, rewards, pass_th=pass_th, failed_th=failed_th)
+    truth_table_file = config.path_check_point / "truth_table.pt"
+    if os.path.exists(truth_table_file):
+        truth_table = torch.load(truth_table_file)
+    else:
+        truth_table = check_fact_truth(facts, states, game_info)
+        torch.save(truth_table, truth_table_file)
+
+    behavior_data = brute_search(facts, truth_table, actions, rewards,top_kp=top_kp, pass_th=pass_th, failed_th=failed_th)
 
     return behavior_data
