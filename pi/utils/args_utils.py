@@ -42,7 +42,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--rectify_num", type=int, default=5, help="Repeat times of smp rectification.")
     parser.add_argument("--teacher_agent", type=str, default="neural", help="Type of the teacher agent.")
     parser.add_argument("--episode_num", type=int, default=5, help="Number of episodes to update the agent.")
-    parser.add_argument("--top_kp", type=float, default=0.8, help="Top K percent.")
+    parser.add_argument("--top_kp", type=float, default=1, help="Top K percent.")
     args = parser.parse_args()
 
     if m is not None:

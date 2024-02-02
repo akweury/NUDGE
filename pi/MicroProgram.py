@@ -559,6 +559,7 @@ class SymbolicMicroProgram(nn.Module):
                                                    self.args.pass_th, self.args.failed_th)
             file_utils.save_json(pos_states_stat_file, pos_beh_data)
 
+        pos_behavior_data = smp_utils.best_pos_data_comb(pos_beh_data)
         path_behaviors = beh_utils.create_positive_behaviors(self.args, pos_beh_data)
 
         behaviors = defense_behaviors + path_behaviors
