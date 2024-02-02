@@ -51,45 +51,43 @@ class SmpReasoner(nn.Module):
             raise ValueError
         return action_prob, explains
 
+    def get_beh_mask(self, x):
+
+        mask_pos_beh = torch.zeros(len(self.behaviors), dtype=torch.bool)
+        mask_neg_beh = torch.zeros(len(self.behaviors), dtype=torch.bool)
+        predictions = torch.zeros(len(self.behaviors), 2)
+        for b_i, beh in enumerate(self.behaviors):
+            predictions[b_i] = beh.eval_behavior(x, self.args.obj_info)
+            if beh.neg_beh:
+                mask_neg_beh[b_i] = True
+            else:
+                mask_pos_beh[b_i] = True
+
+        return mask_pos_beh, mask_neg_beh, predictions
+
     def forward(self, x):
         # game Getout: tensor with size 1 * 4 * 6
         action_prob = torch.zeros(1, len(self.args.action_names)).to(self.args.device)
-        explains = "unknown"
         print(x)
-        action_mask = torch.ones(1, len(self.args.action_names), dtype=torch.bool)
-        # taking a random action
-        if self.behaviors is None or len(self.behaviors) == 0:
-            action_prob = torch.zeros(1, len(self.args.action_names))
-            action_prob[0, torch.randint(0, len(self.args.action_names), (1,))] = 1
-            explains = "random"
-        else:
-            explains = []
-            scores = torch.zeros(len(self.behaviors))
-            satisfactions = torch.zeros(len(self.behaviors), dtype=torch.bool)
-            actions = torch.zeros(len(self.behaviors))
+        explains = {"behavior_index": [], "reward": []}
+        mask_pos_beh, mask_neg_beh, beh_predictions = self.get_beh_mask(x)
+        mask_behs = beh_predictions.argmax(dim=1) == 1
+        mask_neg_beh = mask_neg_beh * mask_behs
+        mask_pos_beh = mask_pos_beh * mask_behs
 
-            for b_i, beh in enumerate(self.behaviors):
-                satisfactions[b_i], scores[b_i] = beh.eval_behavior(x, self.args.obj_info)
-                if satisfactions[b_i] and beh.neg_beh:
-                    action_mask[0, beh.action] = False
-                    scores[b_i] = 0
-                actions[b_i] = beh.action
+        if mask_neg_beh.sum() > 0:
+            beh_neg_indices = torch.arange(len(self.behaviors))[mask_neg_beh]
+            for neg_index in beh_neg_indices:
+                beh = self.behaviors[neg_index]
+                pred_action = beh.action
+                action_prob[0, pred_action] = -(beh.passed_state_num / (beh.test_passed_state_num + 1e-20))
+                explains["behavior_index"].append(neg_index)
+                self.get_beh_mask(x)
 
-
-            passed_scores = scores[satisfactions]
-            passed_actions = actions[satisfactions]
-            if len(passed_scores)>0:
-                beh_index = passed_scores.argmax()
-                pred_action = passed_actions[beh_index].int()
-                action_prob[0, pred_action] = 1
-                explains.append((pred_action, beh_index))
-        action_prob = action_prob / (action_prob + 1e-20)
-        action_prob[~action_mask] = -1
-        print(f"action prob: {action_prob}")
-        # if no action was predicted
-        if torch.abs(action_prob).sum() == 0:
-            explains = [-1]
-            action_prob = torch.zeros(1, len(self.args.action_names))
-            action_prob[0, torch.randint(0, len(self.args.action_names), (1,))] = 1
-
+        if (mask_pos_beh * ~mask_neg_beh).sum() > 0:
+            beh_pos_index = beh_predictions[mask_pos_beh * ~mask_neg_beh].argmax()
+            best_beh_index = torch.arange(len(self.behaviors))[mask_pos_beh][beh_pos_index]
+            pred_action = self.behaviors[best_beh_index].action
+            action_prob[0, pred_action] = 1
+            explains["behavior_index"].append(best_beh_index)
         return action_prob, explains

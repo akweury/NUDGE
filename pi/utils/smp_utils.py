@@ -713,11 +713,15 @@ def stat_negative_rewards(game_ids, states, actions, rewards, zero_reward, game_
     neg_rewards = rewards[mask_neg_reward]
     neg_masks = mask_tensors_from_states(neg_states, game_info)
 
+    pos_states = states[~mask_neg_reward]
+    pos_actions = actions[~mask_neg_reward]
+    pos_masks = mask_tensors_from_states(pos_states, game_info)
+
     delta_types = [True, False]
     neg_mask_types = neg_masks.unique(dim=0)
     neg_action_types = neg_actions.unique()
     obj_types = get_all_2_combinations(game_info, reverse=False)
-    prop_types = [4]
+    prop_types = [4,5]
     type_combs = list(itertools.product(delta_types, neg_mask_types, neg_action_types, obj_types, prop_types))
 
     states_stats = []
@@ -730,17 +734,23 @@ def stat_negative_rewards(game_ids, states, actions, rewards, zero_reward, game_
         action_type = type_combs[t_i][2]
         obj_type = type_combs[t_i][3]
         prop_type = type_combs[t_i][4]
-
+        if len(prop_type)==2:
+            raise NotImplementedError
+            print("")
         deltas = fact_utils.delta_from_states(states, game_ids, obj_type[0], obj_type[1], prop_type)
         neg_deltas = deltas[mask_neg_reward]
-
+        pos_deltas = deltas[~mask_neg_reward]
         # calc distance between any two objects
         # mask_type_repeated = torch.repeat_interleave(mask_type.unsqueeze(0), len(neg_masks), 0)
         action_state_indices = (
                 (neg_actions == action_type) * (neg_masks == mask_type).prod(-1).bool() * (neg_deltas == delta_type))
+        action_pos_indices = (
+                (pos_actions == action_type) * (pos_masks == mask_type).prod(-1).bool() * (pos_deltas == delta_type))
 
         action_states = neg_states[action_state_indices]
-        dist = torch.abs(action_states[:, obj_type[0], prop_type] - action_states[:, obj_type[1], prop_type])
+        action_states_pos = pos_states[action_pos_indices]
+        dist = action_states[:, obj_type, prop_type]
+        dist_pos = action_states_pos[:, obj_type, prop_type]
         if len(action_states) < 5:
             var = 1e+20
             mean = 1e+20
@@ -750,7 +760,7 @@ def stat_negative_rewards(game_ids, states, actions, rewards, zero_reward, game_
         means.append(mean)
         percentage[t_i] = len(action_states) / len(neg_states)
         states_stats.append(
-            {"dists": dist, "means": mean, "variances": var, "action_type": action_type,
+            {"dists": dist, "dists_pos": dist_pos, "means": mean, "variances": var, "action_type": action_type,
              "mask_type": mask_type, "delta_type": delta_type, "prop_type": prop_type, "obj_types": obj_type,
              "indices": action_state_indices})
     variances_ranked, v_rank = torch.tensor(variances).sort()
@@ -764,6 +774,7 @@ def stat_negative_rewards(game_ids, states, actions, rewards, zero_reward, game_
         indices = state_stat["indices"]
         neg_behs.append({
             "dists": state_stat["dists"].tolist(),
+            "dists_pos":state_stat["dists_pos"].tolist(),
             "obj_combs": state_stat["obj_types"],
             "prop_combs": state_stat["prop_type"],
             "means": state_stat["means"].tolist(),
@@ -797,7 +808,7 @@ def brute_search(facts, fact_truth_table, actions, rewards, top_kp=1.0, pass_th=
         fact_anti_table = fact_truth_table[actions != at_i, :]
         action_rewards = rewards[actions == at_i]
         learned_action_behivors = []
-        for fact_len in range(2):
+        for fact_len in range(1):
             fact_combs = get_fact_combs(fact_len + 1, fact_table.size(1))
             fact_pos_num, fact_neg_num, pos_states, neg_states, fact_rewards = stat_facts_in_states(
                 fact_combs, fact_len, fact_table, fact_anti_table, action_rewards)
@@ -864,9 +875,14 @@ def best_pos_data_comb(pos_beh_data):
     mask_pos_states = torch.tensor([beh_data["mask_state_pos"] for beh_data in behavior_data])
     mask_neg_states = torch.tensor([beh_data["mask_state_neg"] for beh_data in behavior_data])
     score_max = mask_pos_states.sum(dim=0).bool().sum() / mask_pos_states.size(1) * (
-                1 - mask_neg_states.sum(dim=0).bool().sum() / mask_neg_states.size(1))
+            1 - mask_neg_states.sum(dim=0).bool().sum() / mask_neg_states.size(1))
     score_max = 0
-    best_combs = list(range(len(pos_beh_data)))
+    best_combs = list(range(len(behavior_data)))
+
+    percent_pos = torch.tensor([mask_pos_states[beh_i].sum(dim=0).bool().sum() / mask_pos_states.size(1) for beh_i in
+                                range(len(mask_pos_states))])
+    percent_neg = torch.tensor([mask_neg_states[beh_i].sum(dim=0).bool().sum() / mask_neg_states.size(1) for beh_i in
+                                range(len(mask_neg_states))])
 
     for comb_len in range(1, len(mask_neg_states)):
         combs = list(itertools.combinations(range(len(mask_pos_states)), comb_len))

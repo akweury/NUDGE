@@ -1,6 +1,9 @@
 # Created by jing at 28.11.23
 import torch
-from src import config
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
 
 pass_th = 0.8
 
@@ -267,14 +270,54 @@ class Dist():
     """ generate one micro-program
     """
 
-    def __init__(self, data, var, mean):
+    def __init__(self, data, data_pos, var, mean):
         super().__init__()
         self.name = f"distance_var_{var:.2f}_mean_{mean:.2f}"
         self.data = data
+        self.data_pos = data_pos
+        self.model = None
+        self.fit()
+
+    def fit(self):
+        X = self.data + self.data_pos
+        y = [1] * len(self.data) + [0] * len(self.data_pos)
+
+        # Assume X is your feature matrix, and y is the corresponding labels (Group A or not)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+        # Create a logistic regression model
+        model = LogisticRegression()
+
+        # Train the model
+        model.fit(X_train, y_train)
+
+        # Make predictions on the test set
+        y_pred = model.predict(X_test)
+
+        # Evaluate the model
+        accuracy = accuracy_score(y_test, y_pred)
+        print(f"Model Accuracy: {accuracy}")
+
+        self.model = model
 
     def eval(self, t1, t2):
-        var, mean = torch.var_mean(torch.tensor(self.data))
         dist = torch.abs(torch.sub(t1, t2))
-        pred_satisfy = (dist < mean + var) * (dist > mean - var)
+        # Use the trained model to predict the new value
+        new_value_prediction = self.model.predict(dist.reshape(1, -1))
+        print(f"Prediction for the new value: {new_value_prediction}")
+        return new_value_prediction
 
-        return pred_satisfy
+
+class GT():
+    """ generate one micro-program
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.p_bound = {"min": 0, "max": 0}
+        self.name = "greater_or_equal_than"
+        self.p_spaces = []
+
+    def eval(self, t1, t2):
+        satisfy = torch.gt(t1, t2).float()
+        return satisfy

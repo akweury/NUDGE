@@ -55,6 +55,7 @@ def create_negative_behaviors(args, def_beh_data):
     defense_behaviors = []
     for beh in def_beh_data:
         dists = beh["dists"]
+        dists_pos = beh["dists_pos"]
         expected_reward = beh["rewards"]
         obj_combs = beh["obj_combs"]
         prop_combs = beh["prop_combs"]
@@ -62,7 +63,7 @@ def create_negative_behaviors(args, def_beh_data):
         mask = beh["masks"]
         delta = beh["delta"]
         dists_var, dists_mean = torch.var_mean(torch.tensor(dists))
-        pred = [predicate.Dist(dists, dists_var.tolist(), dists_mean.tolist())]
+        pred = [predicate.Dist(dists,dists_pos, dists_var.tolist(), dists_mean.tolist())]
         beh_fact = VarianceFact(dists, mask, obj_combs, prop_combs, pred, delta)
         neg_beh = True
 

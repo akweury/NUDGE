@@ -137,6 +137,9 @@ def render_getout(agent, args):
             head = ['episode', 'reward']
         writer.writerow(head)
 
+    decision_history = []
+    max_game_frames = 50
+    game_frame_counter = 0
     while num_epi <= max_epi:
         # control framerate
         current_frame_time = time.time()
@@ -149,9 +152,30 @@ def render_getout(agent, args):
         # step game
         step += 1
         action = []
+        explaining = None
         if not getout.level.terminated:
+            if game_frame_counter > max_game_frames:
+                game_count += 1
+                agent.revise_timeout(decision_history)
+                getout = create_getout_instance(args)
+                decision_history = []
+                # print("epi_reward: ", round(epi_reward, 2))
+                # print("--------------------------     next game    --------------------------")
+                print(f"Episode {num_epi} Win: {win_count}/{game_count}")
+                print(f"==========")
+                if args.agent_type == 'human':
+                    data = [(num_epi, round(epi_reward, 2))]
+                    # writer.writerows(data)
+                total_reward += epi_reward
+                epi_reward = 0
+                action = 0
+                # average_reward = round(total_reward / num_epi, 2)
+                num_epi += 1
+                step = 0
+
             if args.agent_type in ['logic', "smp"]:
                 action, explaining = agent.act(getout)
+
             elif args.agent_type == 'ppo':
                 action = agent.act(getout)
             elif args.agent_type == 'human':
@@ -170,7 +194,12 @@ def render_getout(agent, args):
             game_count += 1
             if epi_reward > 1:
                 win_count += 1
+                agent.revise_win(decision_history)
+            else:
+                agent.revise_loss(decision_history)
+                print("lose a game")
             getout = create_getout_instance(args)
+            decision_history = []
             # print("epi_reward: ", round(epi_reward, 2))
             # print("--------------------------     next game    --------------------------")
             print(f"Episode {num_epi} Win: {win_count}/{game_count}")
@@ -187,6 +216,9 @@ def render_getout(agent, args):
 
         reward = getout.step(action)
         score = getout.get_score()
+        explaining["reward"].append(reward)
+        decision_history.append(explaining)
+        game_frame_counter += 1
         current_reward += reward
         average_reward = round(current_reward / num_epi, 2)
         disp_text = ""

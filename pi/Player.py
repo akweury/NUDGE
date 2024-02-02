@@ -63,7 +63,18 @@ class SymbolicMicroProgramPlayer:
         if preds is not None:
             self.preds = preds
         self.model.update(args, behaviors, prop_indices, explains, preds)
+    def revise_win(self, history):
+        print("")
+    def revise_loss(self, history):
+        # punish the last action
+        assert history[-1]["reward"]<-1
+        behavior_lost = [self.model.behaviors[beh_index] for beh_index in history[-1]["behavior_index"]]
 
+
+        print("")
+
+    def revise_timeout(self, history):
+        print("")
     def act(self, state):
         if self.args.m == 'getout' or self.args.m == "getoutplus":
             action, explaining = self.getout_actor(state)
@@ -109,13 +120,9 @@ class SymbolicMicroProgramPlayer:
     def getout_actor(self, getout):
         extracted_state = oc_utils.extract_logic_state_getout(getout, self.args)
         predictions, explains = self.model(extracted_state)
-        if predictions.sum() > 1:
-            print("watch")
         prediction = torch.argmax(predictions).cpu().item()
-        # explaining = explains[prediction]
-        explaining = None
         action = prediction + 1
-        return action, explaining
+        return action, explains
 
     def action_combine_assault(self, action_prob, explains):
 
