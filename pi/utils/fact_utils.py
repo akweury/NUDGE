@@ -3,24 +3,16 @@ import torch
 
 
 def delta_from_states(states, game_ids, obj_a, obj_b, prop):
-    deltas = []
-    ids = game_ids.unique()
+    deltas = torch.zeros(len(states), len(prop), dtype=torch.bool)
 
-    for id in ids:
-        id_states = states[game_ids == id]
-        id_deltas = [False]
-
-        for s_i in range(1, len(id_states)):
-            last_dist = torch.abs(id_states[s_i - 1, obj_a, prop] - id_states[s_i - 1, obj_b, prop])
-            dist = torch.abs(id_states[s_i, obj_a, prop] - id_states[s_i, obj_b, prop])
-            if last_dist <= dist:
-                delta = False
-            else:
-                delta = True
-            id_deltas.append(delta)
-
-        if len(id_deltas) > 1:
-            id_deltas[0] = id_deltas[1]
-        deltas += id_deltas
-
-    return torch.tensor(deltas)
+    for s_i in range(1, len(states)):
+        # if previous state and current state have the same game id, then check their delta
+        if game_ids[s_i] == game_ids[s_i-1]:
+            for p_i in range(len(prop)):
+                last_dist = torch.abs(states[s_i - 1, obj_a, prop[p_i]] - states[s_i - 1, obj_b, prop[p_i]])
+                dist = torch.abs(states[s_i, obj_a, prop[p_i]] - states[s_i, obj_b, prop[p_i]])
+                deltas[s_i, p_i] = last_dist >= dist
+            # the delta of the first state equal to the delta of the second state in a game
+            if game_ids[s_i-1] != game_ids[s_i-2]:
+                deltas[s_i-1] = deltas[s_i]
+    return deltas

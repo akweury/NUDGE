@@ -7,7 +7,7 @@ from torch.optim import SGD, Adam, SparseAdam
 from rtpt import RTPT
 import wandb
 
-from pi.neural import net
+from pi.neural import nn_model
 from pi.utils import log_utils, loss_utils
 from pi.utils.dataset import split_dataset, create_weight_dataset
 from src import config

@@ -41,21 +41,19 @@ def get_obj_prop_combs(game_info, prop_indices):
 
 
 def get_all_facts(game_info, prop_indices):
-    delta_types = [True, False]
     obj_types = get_all_2_combinations(game_info)
     prop_types = [[each] for each in prop_indices]
     obj_names = [name for name, _, _ in game_info]
     facts = []
-    type_combs = list(itertools.product(delta_types, obj_types, prop_types))
+    type_combs = list(itertools.product(obj_types, prop_types))
     for type_comb in type_combs:
-        masks = exist_mask_names(obj_names, type_comb[1])
+        masks = exist_mask_names(obj_names, type_comb[0])
         for mask in masks:
             mask_tensor = mask_name_to_tensor(mask, config.mask_splitter)
             facts.append({"mask": mask_tensor.tolist(),
-                          "objs": type_comb[1],
-                          "props": type_comb[2],
-                          "preds": [0],
-                          "delta": type_comb[0]
+                          "objs": type_comb[0],
+                          "props": type_comb[1],
+                          "preds": [0]
                           })
     print(f"- Number of facts: {len(facts)}")
     return facts
@@ -85,7 +83,6 @@ def get_states_delta(states, obj_a, obj_b, prop):
 
 def fact_is_true(states, fact, game_info):
     prop = fact["props"]
-    fact_delta = fact["delta"]
     obj_combs = get_fact_obj_combs(game_info, fact)
     fact_mask = torch.repeat_interleave(torch.tensor(fact["mask"]).unsqueeze(0), len(states), 0)
     state_mask = mask_tensors_from_states(states, game_info)
@@ -95,16 +92,13 @@ def fact_is_true(states, fact, game_info):
         data_A = states[:, obj_a, prop].reshape(-1)
         data_B = states[:, obj_b, prop].reshape(-1)
         state_pred_satisfaction = torch.gt(data_A, data_B)
-
-        state_delta = get_states_delta(states, obj_a, obj_b, prop)
-        obj_comb_delta_satisfaction = state_delta == fact_delta
-        pred_satisfaction += state_pred_satisfaction * obj_comb_delta_satisfaction
+        pred_satisfaction += state_pred_satisfaction
     fact_satisfaction *= pred_satisfaction
     assert len(fact_satisfaction) == len(states)
     return fact_satisfaction
 
 
-def check_fact_truth(facts, states, game_info):
+def check_fact_truth(facts, states,actions, game_info):
     truth_table = torch.zeros((len(states), len(facts)), dtype=torch.bool)
     for f_i in tqdm(range(len(facts)), ascii=True, desc=f"Calculate fact table"):
         fact_satisfaction = fact_is_true(states, facts[f_i], game_info)
@@ -717,51 +711,46 @@ def stat_negative_rewards(game_ids, states, actions, rewards, zero_reward, game_
     pos_actions = actions[~mask_neg_reward]
     pos_masks = mask_tensors_from_states(pos_states, game_info)
 
-    delta_types = [True, False]
     neg_mask_types = neg_masks.unique(dim=0)
     neg_action_types = neg_actions.unique()
     obj_types = get_all_2_combinations(game_info, reverse=False)
-    prop_types = [4,5]
-    type_combs = list(itertools.product(delta_types, neg_mask_types, neg_action_types, obj_types, prop_types))
+    prop_types = [[4, 5]]
+    type_combs = list(itertools.product(neg_mask_types, neg_action_types, obj_types, prop_types))
 
     states_stats = []
     variances = []
     means = []
     percentage = torch.zeros(len(type_combs))
     for t_i in tqdm(range(len(type_combs)), desc=f"Reasoning on {len(type_combs)} negative explanations."):
-        delta_type = type_combs[t_i][0]
-        mask_type = type_combs[t_i][1]
-        action_type = type_combs[t_i][2]
-        obj_type = type_combs[t_i][3]
-        prop_type = type_combs[t_i][4]
-        if len(prop_type)==2:
-            raise NotImplementedError
-            print("")
-        deltas = fact_utils.delta_from_states(states, game_ids, obj_type[0], obj_type[1], prop_type)
-        neg_deltas = deltas[mask_neg_reward]
-        pos_deltas = deltas[~mask_neg_reward]
+
+        mask_type, action_type, obj_type, prop_type = type_combs[t_i]
+
         # calc distance between any two objects
         # mask_type_repeated = torch.repeat_interleave(mask_type.unsqueeze(0), len(neg_masks), 0)
-        action_state_indices = (
-                (neg_actions == action_type) * (neg_masks == mask_type).prod(-1).bool() * (neg_deltas == delta_type))
-        action_pos_indices = (
-                (pos_actions == action_type) * (pos_masks == mask_type).prod(-1).bool() * (pos_deltas == delta_type))
+        action_state_indices = ((neg_actions == action_type) * (neg_masks == mask_type).prod(-1).bool())
+        action_pos_indices = ((pos_actions == action_type) * (pos_masks == mask_type).prod(-1).bool())
 
         action_states = neg_states[action_state_indices]
         action_states_pos = pos_states[action_pos_indices]
-        dist = action_states[:, obj_type, prop_type]
-        dist_pos = action_states_pos[:, obj_type, prop_type]
+        dist = torch.abs(action_states[:, obj_type[0], prop_type] - action_states[:, obj_type[1], prop_type])
+        dist_pos = torch.abs(
+            action_states_pos[:, obj_type[0], prop_type] - action_states_pos[:, obj_type[1], prop_type])
         if len(action_states) < 5:
             var = 1e+20
             mean = 1e+20
         else:
             var, mean = torch.var_mean(dist)
+            var_pos, mean_pos = torch.var_mean(dist_pos)
+            if var_pos < 0.5:
+                var = 1e+20
+                mean = 1e+20
+
         variances.append(var)
         means.append(mean)
         percentage[t_i] = len(action_states) / len(neg_states)
         states_stats.append(
             {"dists": dist, "dists_pos": dist_pos, "means": mean, "variances": var, "action_type": action_type,
-             "mask_type": mask_type, "delta_type": delta_type, "prop_type": prop_type, "obj_types": obj_type,
+             "mask_type": mask_type, "prop_type": prop_type, "obj_types": obj_type,
              "indices": action_state_indices})
     variances_ranked, v_rank = torch.tensor(variances).sort()
 
@@ -774,16 +763,14 @@ def stat_negative_rewards(game_ids, states, actions, rewards, zero_reward, game_
         indices = state_stat["indices"]
         neg_behs.append({
             "dists": state_stat["dists"].tolist(),
-            "dists_pos":state_stat["dists_pos"].tolist(),
+            "dists_pos": state_stat["dists_pos"].tolist(),
             "obj_combs": state_stat["obj_types"],
             "prop_combs": state_stat["prop_type"],
             "means": state_stat["means"].tolist(),
             "variance": state_stat["variances"].tolist(),
             "rewards": neg_rewards[indices].tolist(),
             "action_type": state_stat["action_type"].tolist(),
-            "masks": state_stat["mask_type"].tolist(),
-            "delta": state_stat["delta_type"]
-
+            "masks": state_stat["mask_type"].tolist()
         })
 
     return neg_behs
@@ -814,7 +801,7 @@ def brute_search(facts, fact_truth_table, actions, rewards, top_kp=1.0, pass_th=
                 fact_combs, fact_len, fact_table, fact_anti_table, action_rewards)
             fact_comb_score = fact_pos_num / (fact_neg_num + fact_pos_num + 1e-20)
             scores, score_rank = fact_comb_score.sort(descending=True)
-            rank_score_indices = scores > 0.9
+            rank_score_indices = scores > 0.5
             print(f"action {action_type} with {fact_len} facts top scores: {scores[rank_score_indices]}")
             pos_fact_indices = score_rank[rank_score_indices]
             for index in pos_fact_indices:
@@ -855,7 +842,7 @@ def stat_pos_data(states, actions, rewards, game_info, prop_indices, top_kp, pas
     if os.path.exists(truth_table_file):
         truth_table = torch.load(truth_table_file)
     else:
-        truth_table = check_fact_truth(facts, states, game_info)
+        truth_table = check_fact_truth(facts, states,actions, game_info)
         torch.save(truth_table, truth_table_file)
 
     behavior_data = brute_search(facts, truth_table, actions, rewards, top_kp=top_kp, pass_th=pass_th,

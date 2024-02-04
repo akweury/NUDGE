@@ -151,26 +151,34 @@ def collect_data_getout(agent, args):
             logic_states = []
             actions = []
             rewards = []
+            frame_counter = 0
 
+            # play a game
             while not (game_env.level.terminated):
                 if not game_env.level.terminated:
                     # random actions
                     action = agent.reasoning_act(game_env)
                     logic_state = extract_logic_state_getout(game_env, args).squeeze()
-                    if action not in [0, 1, 2, 3]:
-                        print("")
                     try:
                         reward = game_env.step(action)
                     except KeyError:
                         game_env.level.terminated = True
                         game_env.level.lost = True
+                        break
+                    if logic_state[0,4]==logic_state[3,4] and logic_state[0,5]==logic_state[3,5]:
                         print("")
+                    if frame_counter == 0:
+                        logic_states.append(logic_state.detach().tolist())
+                        actions.append(action - 1)
+                        rewards.append(reward)
+                    elif action - 1 != actions[-1] or frame_counter % 5 == 0:
+                        logic_states.append(logic_state.detach().tolist())
+                        actions.append(action - 1)
+                        rewards.append(reward)
 
-                    logic_states.append(logic_state.detach().tolist())
-                    actions.append(action - 1)
-                    rewards.append(reward)
+                frame_counter += 1
 
-            # if win the game, save the buffer
+            # save game buffer
             if not game_env.level.lost:
                 buffer.logic_states.append(logic_states)
                 buffer.actions.append(actions)

@@ -35,11 +35,15 @@ def generate_exist_predicate(existence, obj_name):
     return pred
 
 
-def generate_func_predicate(args, fact, p_i):
+def generate_func_predicate(args, fact, pred_i):
     obj_A, _, _ = args.obj_info[fact.obj_comb[0]]
     obj_B, _, _ = args.obj_info[fact.obj_comb[1]]
-    prop_name = args.prop_names[fact.prop_comb]
-    pred = fact.preds[p_i]
+    prop_name = ''
+    for p_i in fact.prop_comb:
+        prop_name += args.prop_names[p_i] + '_'
+    prop_name = prop_name[:-1]
+
+    pred = fact.preds[pred_i]
     pred_func_name = pred.name
 
     pred_name = obj_A + "_" + prop_name + "_" + pred_func_name + "_" + obj_B
@@ -63,8 +67,8 @@ def behavior_predicate_as_func_atom(args, behavior):
     func_atoms = []
     for fact in behavior.fact:
         terms = extract_fact_terms(args, fact)
-        for p_i in range(len(fact.preds)):
-            func_pred = generate_func_predicate(args, fact, p_i)
+        for pred_i in range(len(fact.preds)):
+            func_pred = generate_func_predicate(args, fact, pred_i)
             func_atoms.append(Atom(func_pred, terms))
     return func_atoms
 
@@ -79,7 +83,7 @@ def behavior_existence_as_env_atoms(args, behavior):
             obj_name = args.obj_info[o_i][0]
         else:
             existence = "exist"
-            obj_name =  args.obj_info[o_i][0]
+            obj_name = args.obj_info[o_i][0]
         pred = generate_exist_predicate(existence, obj_name)
         exist_atom = Atom(pred, [Var(obj_name)])
         exist_atoms.append(exist_atom)

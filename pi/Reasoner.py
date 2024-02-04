@@ -55,7 +55,7 @@ class SmpReasoner(nn.Module):
 
         mask_pos_beh = torch.zeros(len(self.behaviors), dtype=torch.bool)
         mask_neg_beh = torch.zeros(len(self.behaviors), dtype=torch.bool)
-        predictions = torch.zeros(len(self.behaviors), 2)
+        predictions = torch.zeros(len(self.behaviors))
         for b_i, beh in enumerate(self.behaviors):
             predictions[b_i] = beh.eval_behavior(x, self.args.obj_info)
             if beh.neg_beh:
@@ -68,12 +68,12 @@ class SmpReasoner(nn.Module):
     def forward(self, x):
         # game Getout: tensor with size 1 * 4 * 6
         action_prob = torch.zeros(1, len(self.args.action_names)).to(self.args.device)
-        print(x)
-        explains = {"behavior_index": [], "reward": []}
+
+        explains = {"behavior_index": [], "reward": [], 'state':x}
         mask_pos_beh, mask_neg_beh, beh_predictions = self.get_beh_mask(x)
-        mask_behs = beh_predictions.argmax(dim=1) == 1
-        mask_neg_beh = mask_neg_beh * mask_behs
-        mask_pos_beh = mask_pos_beh * mask_behs
+
+        mask_neg_beh = mask_neg_beh * (beh_predictions > 0)
+        mask_pos_beh = mask_pos_beh * (beh_predictions > 0)
 
         if mask_neg_beh.sum() > 0:
             beh_neg_indices = torch.arange(len(self.behaviors))[mask_neg_beh]

@@ -369,7 +369,7 @@ class SymbolicMicroProgram(nn.Module):
         self.preds = None
 
     def load_buffer(self, buffer):
-        print(f'- SMP new buffer, total states: {len(buffer.logic_states)}')
+        print(f'- Loaded game history, win games : {len(buffer.logic_states)}, loss games : {len(buffer.lost_logic_states)}')
         self.buffer = buffer
         # self.data_rewards = smp_utils.split_data_by_reward(self.buffer.logic_states, self.buffer.actions,
         #                                                    self.buffer.rewards, self.action_num)
@@ -547,7 +547,13 @@ class SymbolicMicroProgram(nn.Module):
                                                            self.args.zero_reward, game_info, prop_indices)
             file_utils.save_json(neg_states_stat_file, def_beh_data)
 
-        defense_behaviors = beh_utils.create_negative_behaviors(self.args, def_beh_data)
+
+        neg_beh_file = self.args.check_point_path / 'neg_beh.pkl'
+        if os.path.exists(neg_beh_file):
+            defense_behaviors = file_utils.load_pickle(neg_beh_file)
+        else:
+            defense_behaviors = beh_utils.create_negative_behaviors(self.args, def_beh_data)
+            file_utils.save_pkl(neg_beh_file, defense_behaviors)
 
         ############# learn from positive rewards
         pos_states_stat_file = self.args.check_point_path / "pos_states.json"
@@ -560,7 +566,7 @@ class SymbolicMicroProgram(nn.Module):
             file_utils.save_json(pos_states_stat_file, pos_beh_data)
 
         pos_behavior_data = smp_utils.best_pos_data_comb(pos_beh_data)
-        path_behaviors = beh_utils.create_positive_behaviors(self.args, pos_beh_data)
+        path_behaviors = beh_utils.create_positive_behaviors(self.args, pos_behavior_data)
 
         behaviors = defense_behaviors + path_behaviors
         return behaviors

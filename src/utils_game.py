@@ -123,6 +123,7 @@ def render_getout(agent, args):
     epi_reward = 0
     current_reward = 0
     step = 0
+    game_states = []
     last_explaining = None
     scores = []
     if args.log:
@@ -172,6 +173,7 @@ def render_getout(agent, args):
                 # average_reward = round(total_reward / num_epi, 2)
                 num_epi += 1
                 step = 0
+                game_states = []
 
             if args.agent_type in ['logic', "smp"]:
                 action, explaining = agent.act(getout)
@@ -194,9 +196,9 @@ def render_getout(agent, args):
             game_count += 1
             if epi_reward > 1:
                 win_count += 1
-                agent.revise_win(decision_history)
+                agent.revise_win(decision_history, game_states)
             else:
-                agent.revise_loss(decision_history)
+                agent.revise_loss(decision_history, game_states)
                 print("lose a game")
             getout = create_getout_instance(args)
             decision_history = []
@@ -222,6 +224,9 @@ def render_getout(agent, args):
         current_reward += reward
         average_reward = round(current_reward / num_epi, 2)
         disp_text = ""
+        for beh_i in explaining['behavior_index']:
+            print(f"f: {game_frame_counter}, rw: {reward}, behavior: {agent.model.explains[beh_i]}")
+        game_states.append(explaining['state'])
         if args.agent_type == 'logic':
             if last_explaining is None or (explaining != last_explaining and repeated > 4):
                 print(explaining)

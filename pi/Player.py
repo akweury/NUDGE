@@ -63,11 +63,11 @@ class SymbolicMicroProgramPlayer:
         if preds is not None:
             self.preds = preds
         self.model.update(args, behaviors, prop_indices, explains, preds)
-    def revise_win(self, history):
+    def revise_win(self, history, game_states):
         print("")
-    def revise_loss(self, history):
+    def revise_loss(self, history, game_states):
         # punish the last action
-        assert history[-1]["reward"]<-1
+        assert history[-1]["reward"][0]<-1
         behavior_lost = [self.model.behaviors[beh_index] for beh_index in history[-1]["behavior_index"]]
 
 

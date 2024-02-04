@@ -1,9 +1,11 @@
 # Created by jing at 28.11.23
 import torch
-
+import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
+
+from pi.utils import draw_utils
 
 pass_th = 0.8
 
@@ -270,41 +272,16 @@ class Dist():
     """ generate one micro-program
     """
 
-    def __init__(self, data, data_pos, var, mean):
+    def __init__(self, args, var, mean, model):
         super().__init__()
+        self.args = args
         self.name = f"distance_var_{var:.2f}_mean_{mean:.2f}"
-        self.data = data
-        self.data_pos = data_pos
-        self.model = None
-        self.fit()
-
-    def fit(self):
-        X = self.data + self.data_pos
-        y = [1] * len(self.data) + [0] * len(self.data_pos)
-
-        # Assume X is your feature matrix, and y is the corresponding labels (Group A or not)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-        # Create a logistic regression model
-        model = LogisticRegression()
-
-        # Train the model
-        model.fit(X_train, y_train)
-
-        # Make predictions on the test set
-        y_pred = model.predict(X_test)
-
-        # Evaluate the model
-        accuracy = accuracy_score(y_test, y_pred)
-        print(f"Model Accuracy: {accuracy}")
-
         self.model = model
 
     def eval(self, t1, t2):
         dist = torch.abs(torch.sub(t1, t2))
         # Use the trained model to predict the new value
-        new_value_prediction = self.model.predict(dist.reshape(1, -1))
-        print(f"Prediction for the new value: {new_value_prediction}")
+        new_value_prediction = self.model(dist).detach()
         return new_value_prediction
 
 

@@ -2,7 +2,7 @@
 
 import os
 import datetime
-import random
+import torch
 from pathlib import Path
 import matplotlib
 import matplotlib.pyplot as plt
@@ -61,8 +61,7 @@ def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scal
 
 
 def plot_head_maps(data, row_labels=None, path=None, title=None, y_label=None, x_label=None, col_labels=None, ax=None,
-                   cbar_kw=None, cbarlabel="", figure_size=None,  **kwargs):
-
+                   cbar_kw=None, cbarlabel="", figure_size=None, **kwargs):
     if figure_size is not None:
         plt.figure(figsize=figure_size)
 
@@ -78,8 +77,6 @@ def plot_head_maps(data, row_labels=None, path=None, title=None, y_label=None, x
     # Create colorbar
     cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
     cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
-
-
 
     # Rotate the tick labels and set their alignment.
     plt.setp(ax.get_xticklabels(), rotation=-30, ha="right",
@@ -164,3 +161,59 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
             texts.append(text)
 
     return texts
+
+
+def plot_scatter(data, labels, name, path, log_x=False, log_y=False, cla_leg=True):
+    for d_i in range(len(data)):
+        # Create a scatter plot
+        x = data[d_i][:, 0]
+        y = data[d_i][:, 1]
+        plt.scatter(x, y, label=labels[d_i])
+
+    # Add labels and title
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.title(f'{name}')
+
+    if log_y:
+        plt.yscale('log')
+
+    if log_x:
+        plt.xscale('log')
+    # Add a legend
+    plt.legend()
+
+    # save the plot
+    plt.savefig(str(Path(path) / f"{name}_{date_now}_{time_now}_scatter.png"))
+
+    if cla_leg:
+        plt.cla()
+
+
+def plot_decision_boundary(x_tensor, y_tensor, model, path, name, log_x=False, log_y=False, cla_leg=True):
+    model.eval()
+    with torch.no_grad():
+        x_min, x_max = x_tensor[:, 0].min() - 1, x_tensor[:, 0].max() + 1
+        y_min, y_max = x_tensor[:, 1].min() - 1, x_tensor[:, 1].max() + 1
+        xx, yy = torch.meshgrid(torch.arange(x_min, x_max, 0.01), torch.arange(y_min, y_max, 0.01), indexing='ij')
+        grid_tensor = torch.cat([xx.reshape(-1, 1), yy.reshape(-1, 1)], dim=1)
+        Z = model(grid_tensor).detach().argmax(dim=1).numpy().reshape(xx.shape)
+        plt.contourf(xx, yy, Z, alpha=0.8, cmap=plt.cm.Paired)
+
+    # Plot the data points
+    plt.scatter(x_tensor[:, 0], x_tensor[:, 1], c=y_tensor.argmax(dim=1).numpy(), edgecolors='k', marker='o',
+                cmap=plt.cm.Paired)
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    if log_y:
+        plt.yscale('log')
+
+    if log_x:
+        plt.xscale('log')
+
+    plt.title(f'Decision Boundary {name}')
+
+    plt.savefig(str(Path(path) / f"{name}_decision_boundary.png"))
+
+    if cla_leg:
+        plt.cla()
