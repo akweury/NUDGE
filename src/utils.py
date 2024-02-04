@@ -7,7 +7,7 @@ def make_deterministic(seed):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    print(f"Set all environment deterministic to seed {seed}")
+    print(f"- Set all environment deterministic to seed {seed}")
 
 
 def initialize_game(env, args):

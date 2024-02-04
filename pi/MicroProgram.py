@@ -551,6 +551,8 @@ class SymbolicMicroProgram(nn.Module):
         neg_beh_file = self.args.check_point_path / 'neg_beh.pkl'
         if os.path.exists(neg_beh_file):
             defense_behaviors = file_utils.load_pickle(neg_beh_file)
+            for def_beh in defense_behaviors:
+                print(f"# defense behavior: {def_beh.clause}")
         else:
             defense_behaviors = beh_utils.create_negative_behaviors(self.args, def_beh_data)
             file_utils.save_pkl(neg_beh_file, defense_behaviors)

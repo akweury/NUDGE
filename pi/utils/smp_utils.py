@@ -98,7 +98,7 @@ def fact_is_true(states, fact, game_info):
     return fact_satisfaction
 
 
-def check_fact_truth(facts, states,actions, game_info):
+def check_fact_truth(facts, states, actions, game_info):
     truth_table = torch.zeros((len(states), len(facts)), dtype=torch.bool)
     for f_i in tqdm(range(len(facts)), ascii=True, desc=f"Calculate fact table"):
         fact_satisfaction = fact_is_true(states, facts[f_i], game_info)
@@ -802,7 +802,7 @@ def brute_search(facts, fact_truth_table, actions, rewards, top_kp=1.0, pass_th=
             fact_comb_score = fact_pos_num / (fact_neg_num + fact_pos_num + 1e-20)
             scores, score_rank = fact_comb_score.sort(descending=True)
             rank_score_indices = scores > 0.5
-            print(f"action {action_type} with {fact_len} facts top scores: {scores[rank_score_indices]}")
+            print(f"action {action_type} with {fact_len + 1} facts, top scores: {scores[rank_score_indices]}")
             pos_fact_indices = score_rank[rank_score_indices]
             for index in pos_fact_indices:
                 for fact_index in fact_combs[index]:
@@ -842,7 +842,7 @@ def stat_pos_data(states, actions, rewards, game_info, prop_indices, top_kp, pas
     if os.path.exists(truth_table_file):
         truth_table = torch.load(truth_table_file)
     else:
-        truth_table = check_fact_truth(facts, states,actions, game_info)
+        truth_table = check_fact_truth(facts, states, actions, game_info)
         torch.save(truth_table, truth_table_file)
 
     behavior_data = brute_search(facts, truth_table, actions, rewards, top_kp=top_kp, pass_th=pass_th,
@@ -854,39 +854,16 @@ def stat_pos_data(states, actions, rewards, game_info, prop_indices, top_kp, pas
 def best_pos_data_comb(pos_beh_data):
     behavior_data = []
 
+    # prune data based on top score if they have same mask
     for a_i, action_data in enumerate(pos_beh_data):
-        for beh_data in action_data:
-            beh_data["action"] = a_i
-            behavior_data.append(beh_data)
+        masks = torch.tensor([fact['mask'] for data in action_data for fact in data['facts']])
+        mask_types = masks.unique(dim=0)
+        for mask_type in mask_types:
+            mask_type_indices = (masks==mask_type).prod(dim=1).bool()
+            data_mask = [action_data[d_i] for d_i in range(len(action_data)) if mask_type_indices[d_i]]
+            data_best_index = torch.tensor([data['score'] for data in data_mask]).argmax()
+            data_best = data_mask[data_best_index]
+            data_best['action'] = a_i
+            behavior_data.append(data_best)
 
-    mask_pos_states = torch.tensor([beh_data["mask_state_pos"] for beh_data in behavior_data])
-    mask_neg_states = torch.tensor([beh_data["mask_state_neg"] for beh_data in behavior_data])
-    score_max = mask_pos_states.sum(dim=0).bool().sum() / mask_pos_states.size(1) * (
-            1 - mask_neg_states.sum(dim=0).bool().sum() / mask_neg_states.size(1))
-    score_max = 0
-    best_combs = list(range(len(behavior_data)))
-
-    percent_pos = torch.tensor([mask_pos_states[beh_i].sum(dim=0).bool().sum() / mask_pos_states.size(1) for beh_i in
-                                range(len(mask_pos_states))])
-    percent_neg = torch.tensor([mask_neg_states[beh_i].sum(dim=0).bool().sum() / mask_neg_states.size(1) for beh_i in
-                                range(len(mask_neg_states))])
-
-    for comb_len in range(1, len(mask_neg_states)):
-        combs = list(itertools.combinations(range(len(mask_pos_states)), comb_len))
-        percents_pos = []
-        percents_neg = []
-        for comb in combs:
-            comb = torch.tensor(comb)
-            percent_pos = mask_pos_states[comb].sum(dim=0).bool().sum() / mask_pos_states.size(1)
-            percent_neg = mask_neg_states[comb].sum(dim=0).bool().sum() / mask_neg_states.size(1)
-            percents_pos.append(percent_pos)
-            percents_neg.append(percent_neg)
-
-        scores = torch.tensor(percents_pos) * (1 - torch.tensor(percents_neg))
-        if scores.max() > score_max:
-            best_combs = combs[scores.argmax()]
-            score_max = scores.max()
-
-    best_comb_behaviors = [behavior_data[beh_i] for beh_i in best_combs]
-
-    return best_comb_behaviors
+    return behavior_data

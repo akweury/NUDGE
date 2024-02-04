@@ -48,7 +48,7 @@ class RolloutBuffer:
     def load_buffer(self, args):
         with open(config.path_bs_data / args.filename, 'r') as f:
             state_info = json.load(f)
-        print(f"buffer file: {args.filename}")
+        print(f"- Loaded game buffer file: {args.filename}")
 
         self.actions = [torch.tensor(state_info['actions'][i]) for i in range(len(state_info['actions']))]
         self.lost_actions = [torch.tensor(state_info['lost_actions'][i]) for i in

@@ -43,9 +43,9 @@ def create_positive_behaviors(args, pos_beh_data):
             break
     behaviors = [path_behaviors[i] for i in top_indices]
     for beh in behaviors:
-        print(f"{beh.clause}, "
-              f"+: {(beh.passed_state_num / beh.test_passed_state_num):.2f}, "
-              f"-: {(beh.failed_state_num / beh.test_failed_state_num):.2f}. ")
+        print(f"# path finding behavior: {beh.clause}, "
+              f"++: {(beh.passed_state_num / (beh.passed_state_num + beh.failed_state_num + 1e-20)):.2f}, "
+              f"+: {(beh.passed_state_num / (beh.test_passed_state_num + 1e-20)):.2f}. ")
     return path_behaviors
 
 
