@@ -7,8 +7,6 @@ import itertools
 
 from src import config
 
-from pi.utils import fact_utils, file_utils
-
 
 def get_param_range(min, max, unit):
     length = (max - min) // unit
@@ -700,11 +698,14 @@ def get_state_delta(state, state_last, obj_comb):
     return delta
 
 
-def stat_negative_rewards(game_ids, states, actions, rewards, zero_reward, game_info, prop_indices):
+def stat_negative_rewards(states, actions, rewards, zero_reward, game_info):
+
     mask_neg_reward = rewards < zero_reward
     neg_states = states[mask_neg_reward]
     neg_actions = actions[mask_neg_reward]
     neg_rewards = rewards[mask_neg_reward]
+
+
     neg_masks = mask_tensors_from_states(neg_states, game_info)
 
     pos_states = states[~mask_neg_reward]
@@ -735,15 +736,11 @@ def stat_negative_rewards(game_ids, states, actions, rewards, zero_reward, game_
         dist = torch.abs(action_states[:, obj_type[0], prop_type] - action_states[:, obj_type[1], prop_type])
         dist_pos = torch.abs(
             action_states_pos[:, obj_type[0], prop_type] - action_states_pos[:, obj_type[1], prop_type])
-        if len(action_states) < 5:
+        var, mean = torch.var_mean(dist)
+        var_pos, mean_pos = torch.var_mean(dist_pos)
+        if var_pos < 0.5 or len(dist) < 2:
             var = 1e+20
             mean = 1e+20
-        else:
-            var, mean = torch.var_mean(dist)
-            var_pos, mean_pos = torch.var_mean(dist_pos)
-            if var_pos < 0.5:
-                var = 1e+20
-                mean = 1e+20
 
         variances.append(var)
         means.append(mean)
@@ -859,7 +856,7 @@ def best_pos_data_comb(pos_beh_data):
         masks = torch.tensor([fact['mask'] for data in action_data for fact in data['facts']])
         mask_types = masks.unique(dim=0)
         for mask_type in mask_types:
-            mask_type_indices = (masks==mask_type).prod(dim=1).bool()
+            mask_type_indices = (masks == mask_type).prod(dim=1).bool()
             data_mask = [action_data[d_i] for d_i in range(len(action_data)) if mask_type_indices[d_i]]
             data_best_index = torch.tensor([data['score'] for data in data_mask]).argmax()
             data_best = data_mask[data_best_index]
@@ -867,3 +864,16 @@ def best_pos_data_comb(pos_beh_data):
             behavior_data.append(data_best)
 
     return behavior_data
+
+
+def extract_fact_data(fact, frame_state):
+    obj_a, obj_b = fact.obj_comb
+    props = fact.prop_comb
+    assert len(fact.preds) == 1
+    dist = torch.abs(frame_state[0, obj_a, props] - frame_state[0, obj_b, props]).reshape(1,-1)
+    return dist
+
+
+def get_neg_reward_data(lost_states, lost_actions, lost_rewards):
+
+    return None

@@ -121,7 +121,6 @@ def render_getout(agent, args):
     game_count = 0
     total_reward = 0
     epi_reward = 0
-    current_reward = 0
     step = 0
     game_states = []
     last_explaining = None
@@ -139,7 +138,7 @@ def render_getout(agent, args):
         writer.writerow(head)
 
     decision_history = []
-    max_game_frames = 50
+    max_game_frames = 200
     game_frame_counter = 0
     while num_epi <= max_epi:
         # control framerate
@@ -154,6 +153,7 @@ def render_getout(agent, args):
         step += 1
         action = []
         explaining = None
+        # predict action
         if not getout.level.terminated:
             if game_frame_counter > max_game_frames:
                 game_count += 1
@@ -192,20 +192,34 @@ def render_getout(agent, args):
                     action.append(GetoutActions.MOVE_DOWN)
             elif args.agent_type == 'random':
                 action = agent.act(getout)
+
+            reward = getout.step(action)
+            explaining["reward"].append(reward)
+            decision_history.append(explaining)
+            for beh_i in explaining['behavior_index']:
+                print(f"f: {game_frame_counter}, rw: {reward}, behavior: {agent.model.explains[beh_i]}")
+            game_states.append(explaining['state'])
+            # print(reward)
+            epi_reward += reward
+
         else:
             game_count += 1
             if epi_reward > 1:
                 win_count += 1
-                agent.revise_win(decision_history, game_states)
+                agent.revise_win(decision_history, args.obj_info)
             else:
-                agent.revise_loss(decision_history, game_states)
-                print("lose a game")
+                lost_game_data = agent.revise_loss(decision_history, args.obj_info)
+                agent.update_lost_buffer(lost_game_data)
+                def_behaviors = agent.reasoning_def_behaviors()
+                agent.update_behaviors(None, def_behaviors, args)
+                print("- revise loss finished.")
             getout = create_getout_instance(args)
             decision_history = []
+            game_frame_counter = 0
             # print("epi_reward: ", round(epi_reward, 2))
             # print("--------------------------     next game    --------------------------")
             print(f"Episode {num_epi} Win: {win_count}/{game_count}")
-            print(f"==========")
+            print(f"===============================================")
             if args.agent_type == 'human':
                 data = [(num_epi, round(epi_reward, 2))]
                 # writer.writerows(data)
@@ -216,40 +230,11 @@ def render_getout(agent, args):
             num_epi += 1
             step = 0
 
-        reward = getout.step(action)
-        score = getout.get_score()
-        explaining["reward"].append(reward)
-        decision_history.append(explaining)
         game_frame_counter += 1
-        current_reward += reward
-        average_reward = round(current_reward / num_epi, 2)
-        disp_text = ""
-        for beh_i in explaining['behavior_index']:
-            print(f"f: {game_frame_counter}, rw: {reward}, behavior: {agent.model.explains[beh_i]}")
-        game_states.append(explaining['state'])
-        if args.agent_type == 'logic':
-            if last_explaining is None or (explaining != last_explaining and repeated > 4):
-                print(explaining)
-                last_explaining = explaining
-                disp_text = explaining
-                repeated = 0
-            repeated += 1
-
-        if args.log:
-            if args.agent_type == 'logic':
-                probs = agent.get_probs()
-                logic_state = agent.get_state(getout)
-                data = [(num_epi, step, reward, average_reward, logic_state, probs)]
-                writer.writerows(data)
-            elif args.agent_type == 'ppo' or args.agent == 'random':
-                data = [(num_epi, step, reward, average_reward)]
-                writer.writerows(data)
-        # print(reward)
-        epi_reward += reward
 
         if args.render:
             screen = getout.camera.screen
-            ImageDraw.Draw(screen).text((40, 60), disp_text, (120, 20, 20))
+            ImageDraw.Draw(screen).text((40, 60), "", (120, 20, 20))
             np_img = np.asarray(screen)
             viewer.show(np_img[:, :, :3])
             if args.record:
@@ -265,8 +250,6 @@ def render_getout(agent, args):
             if args.record:
                 exit()
             step = 0
-            print(num_epi)
-            print('reward: ' + str(round(score, 2)))
             scores.append(epi_reward)
         if num_epi > 100:
             break

@@ -1,11 +1,9 @@
 # Created by jing at 28.11.23
 import torch
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
 
 from pi.utils import draw_utils
+from pi.neural import nn_model
 
 pass_th = 0.8
 
@@ -272,17 +270,51 @@ class Dist():
     """ generate one micro-program
     """
 
-    def __init__(self, args, var, mean, model):
+    def __init__(self, args, X_0, X_1, name):
         super().__init__()
         self.args = args
-        self.name = f"distance_var_{var:.2f}_mean_{mean:.2f}"
-        self.model = model
+        self.X_0 = X_0
+        self.X_1 = X_1
+        self.model = None
+        self.num_epochs = 5000
+        self.var, self.mean = torch.var_mean(X_0)
+        self.name = f"{name}_distance_var_{self.var:.2f}_mean_{self.mean:.2f}_ep_{self.num_epochs}"
+        self.y_0 = 0
+        self.y_1 = 1
+
+    def add_item(self, x):
+        self.X_0 = torch.cat((self.X_0, x),dim=0)
+
+    def gen_data(self):
+        X_0 = self.X_0
+        # generate enough data
+        if len(self.X_1) > len(X_0):
+            generated_points = nn_model.generate_data(X_0, gen_num=len(self.X_1) - len(X_0))
+            X_0 = torch.cat((X_0, generated_points), dim=0)
+
+        # prepare training data
+        X = torch.cat((X_0, self.X_1), dim=0)
+        y = torch.zeros(len(X), 2)
+
+        X_0_indices = torch.cat(
+            (torch.ones(len(X_0), dtype=torch.bool), torch.zeros(len(self.X_1), dtype=torch.bool)), dim=0)
+        y[X_0_indices, self.y_0] = 1
+        y[~X_0_indices, self.y_1] = 1
+        return X, y
+
+    def fit_pred(self):
+        X, y = self.gen_data()
+        # fit a classifier using neural network
+        self.model = nn_model.fit_classifier(x_tensor=X, y_tensor=y, num_epochs=self.num_epochs)
+        # plot decision boundary
+        draw_utils.plot_decision_boundary(X, y, self.model, name=self.name, log_x=True, path=self.args.output_folder)
 
     def eval(self, t1, t2):
         dist = torch.abs(torch.sub(t1, t2))
         # Use the trained model to predict the new value
         new_value_prediction = self.model(dist).detach()
-        return new_value_prediction
+        satisfaction = new_value_prediction.argmax() == self.y_0
+        return satisfaction
 
 
 class GT():
@@ -296,5 +328,5 @@ class GT():
         self.p_spaces = []
 
     def eval(self, t1, t2):
-        satisfy = torch.gt(t1, t2).float()
+        satisfy = torch.gt(t1, t2)
         return satisfy

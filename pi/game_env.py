@@ -165,7 +165,7 @@ def collect_data_getout(agent, args):
                         game_env.level.terminated = True
                         game_env.level.lost = True
                         break
-                    if logic_state[0,4]==logic_state[3,4] and logic_state[0,5]==logic_state[3,5]:
+                    if logic_state[0, 4] == logic_state[3, 4] and logic_state[0, 5] == logic_state[3, 5]:
                         print("")
                     if frame_counter == 0:
                         logic_states.append(logic_state.detach().tolist())

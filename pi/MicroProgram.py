@@ -541,10 +541,8 @@ class SymbolicMicroProgram(nn.Module):
         if os.path.exists(neg_states_stat_file):
             def_beh_data = file_utils.load_json(neg_states_stat_file)
         else:
-
-            def_beh_data = smp_utils.stat_negative_rewards(self.lost_game_ids,
-                                                           self.lost_states, self.lost_actions, self.lost_rewards,
-                                                           self.args.zero_reward, game_info, prop_indices)
+            def_beh_data = smp_utils.stat_negative_rewards(self.lost_states, self.lost_actions, self.lost_rewards,
+                                                           self.args.zero_reward, game_info)
             file_utils.save_json(neg_states_stat_file, def_beh_data)
 
 
@@ -649,18 +647,3 @@ class SymbolicMicroProgram(nn.Module):
         behavior.clause = pi_lang.behavior2clause(self.args, behavior)
         return behavior
 
-    def get_new_def_behavior(self, data):
-        dists = data["dists"]
-        expected_reward = data["rewards"]
-        obj_combs = data["obj_combs"]
-        prop_combs = data["prop_combs"]
-        action_type = data["action_type"]
-        mask = data["masks"]
-        delta = data["delta"]
-        pred = [predicate.Dist(dists)]
-        beh_fact = Fact.VarianceFact(dists, mask, obj_combs, prop_combs, pred, delta)
-        neg_beh = True
-
-        behavior = Behavior(neg_beh, [beh_fact], action_type, expected_reward, len(dists), len(dists), 0, 0)
-        behavior.clause = pi_lang.behavior2clause(self.args, behavior)
-        return behavior

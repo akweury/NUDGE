@@ -59,24 +59,16 @@ def main(render=True, m=None):
     # learn behaviors from data
     agent = create_agent(args, agent_type='smp')
     args.agent_type = 'smp'
-    smp = SymbolicMicroProgram(args)
-    smp.load_buffer(game_utils.load_buffer(args))
     # building symbolic microprogram
     prop_indices = game_settings.get_idx(args)
-
-    # searching for valid behaviors
-    agent_behaviors = smp.programming(args.obj_info, prop_indices)
-
-    clauses = pi_lang.behaviors2clauses(args, agent_behaviors)
-    # convert ungrounded behaviors to grounded behaviors
-    # update game agent, update smps
-    agent.update(args, agent_behaviors, prop_indices, clauses, smp.preds)
+    agent.load_buffer(game_utils.load_buffer(args))
+    def_behaviors = agent.reasoning_def_behaviors()
+    pf_behaviors = agent.reasoning_pf_behaviors(prop_indices)
+    agent.update_behaviors(pf_behaviors, def_behaviors, args)
 
     if render:
         # Test updated agent
         game_env.render_game(agent, args)
-
-    print(f'- env: {args.env}, teacher agent: {teacher_agent}, learned behaviors: {len(agent_behaviors)}')
 
     return agent
 

@@ -213,7 +213,8 @@ def plot_decision_boundary(x_tensor, y_tensor, model, path, name, log_x=False, l
 
     plt.title(f'Decision Boundary {name}')
 
-    plt.savefig(str(Path(path) / f"{name}_decision_boundary.png"))
-
+    file_name = str(Path(path) / f"{name}_decision_boundary.png")
+    plt.savefig(file_name)
+    print(f'- plot saved as {file_name}')
     if cla_leg:
         plt.cla()

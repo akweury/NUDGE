@@ -31,7 +31,7 @@ class Behavior():
         return mask_tensors
 
     def eval_behavior(self, x, game_info):
-        prediction = torch.zeros(len(self.fact))
+        prediction = torch.zeros(len(self.fact), dtype=torch.bool)
         for f_i, fact in enumerate(self.fact):
             type_0_index = fact.obj_comb[0]
             type_1_index = fact.obj_comb[1]
@@ -55,7 +55,4 @@ class Behavior():
 
             prediction[f_i] = prediction / (len(obj_combs) + 1e-20)
 
-        prediction = prediction.mean()
-        if prediction > 1:
-            print("")
         return prediction

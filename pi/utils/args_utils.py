@@ -84,7 +84,7 @@ def load_args(exp_args_path, m):
 
 
     # output folder
-    args.output_folder = config.path_log / f"{args.exp}_{date_now}_{time_now}"
+    args.output_folder = config.path_log / f"{args.m}"
     args.check_point_path = config.path_check_point
 
     if not os.path.exists(str(args.output_folder)):

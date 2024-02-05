@@ -60,43 +60,23 @@ def create_negative_behaviors(args, def_beh_data):
         prop_combs = beh["prop_combs"]
         action_type = beh["action_type"]
         mask = beh["masks"]
-        dists_var, dists_mean = torch.var_mean(dists)
 
         print(f'- (Behavior data) objs: {obj_combs}, props: {prop_combs}, action: {action_type}, mask: {mask}')
         draw_utils.plot_scatter([dists, dists_pos], ['positive', 'negative'],
                                 f'{beh_i}_behavior_scatter_action_{action_type}',
                                 args.output_folder, log_x=True)
-        # generate enough data
-        if len(dists_pos) > len(dists):
-            generated_points = nn_model.generate_data(dists, gen_num=len(dists_pos) - len(dists))
-            dists = torch.cat((dists, generated_points), dim=0)
 
-        # prepare training data
-        X = torch.cat((dists, dists_pos), dim=0)
-        y = torch.zeros(len(X), 2)
-
-        pos_indices = torch.cat(
-            (torch.ones(len(dists), dtype=torch.bool), torch.zeros(len(dists_pos), dtype=torch.bool)), dim=0)
-        y[pos_indices, 1] = 1
-        y[~pos_indices, 0] = 1
-
-        # fit a classifier using neural network
-        num_epochs = 5000
-        model = nn_model.fit_classifier(x_tensor=X, y_tensor=y, num_epochs=num_epochs)
-        # plot decision boundary
-        draw_utils.plot_decision_boundary(X, y, model,
-                                          name=f"{beh_i}_behavior_db_action_{action_type}_var_{dists_var:.2f}_mean_{dists_mean:.2f}_ep_{num_epochs}",
-                                          log_x=True,
-                                          path=args.output_folder)
         # create predicate
-        pred = [predicate.Dist(args, dists_var.tolist(), dists_mean.tolist(), model)]
-        beh_fact = VarianceFact(dists, mask, obj_combs, prop_combs, pred)
+        pred_name = f"{beh_i}_behavior_db_action_{action_type}"
+        dist_pred = predicate.Dist(args, dists, dists_pos, pred_name)
+        dist_pred.fit_pred()
+        pred = [dist_pred]
+
+        beh_fact = VarianceFact(mask, obj_combs, prop_combs, pred)
         neg_beh = True
 
         behavior = Behavior(neg_beh, [beh_fact], action_type, expected_reward, len(dists), len(dists), 0, 0)
         behavior.clause = pi_lang.behavior2clause(args, behavior)
-        print(f"{behavior.clause} "
-              f"+: {(behavior.passed_state_num / ((behavior.test_passed_state_num) + 1e-20)):.2f}, "
-              f"-: {(behavior.failed_state_num / (behavior.test_failed_state_num + 1e-20)):.2f}. ")
+        print(f"# defense behavior: {behavior.clause}")
         defense_behaviors.append(behavior)
     return defense_behaviors

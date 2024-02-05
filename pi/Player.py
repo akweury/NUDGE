@@ -1,6 +1,6 @@
 # Created by jing at 18.01.24
+import os
 import random
-
 import torch
 from torch import nn as nn
 from torch.distributions import Categorical
@@ -8,7 +8,7 @@ from torch.distributions import Categorical
 from src.agents.neural_agent import ActorCritic
 from src.agents.utils_getout import extract_neural_state_getout
 from pi import Reasoner
-from pi.utils import oc_utils
+from pi.utils import smp_utils, beh_utils, file_utils, oc_utils
 
 
 class SymbolicMicroProgramModel(nn.Module):
@@ -56,25 +56,158 @@ class SymbolicMicroProgramPlayer:
         self.args = args
         self.preds = None
         self.model = SymbolicMicroProgramModel(args).actor.to(args.device)
+        self.def_behaviors = []
+        self.pf_behaviors = []
+        self.win_states = []
+        self.win_actions = []
+        self.win_rewards = []
+        self.lost_states = []
+        self.lost_actions = []
+        self.lost_rewards = []
+        self.lost_game_ids = []
 
-    def update(self, args=None, behaviors=None, prop_indices=None, explains=None, preds=None):
+    def load_buffer(self, buffer):
+        print(
+            f'- Loaded game history, win games : {len(buffer.logic_states)}, loss games : {len(buffer.lost_logic_states)}')
+        for g_i in range(len(buffer.actions)):
+            self.win_actions += buffer.actions[g_i]
+            self.win_rewards += buffer.rewards[g_i]
+            self.win_states += buffer.logic_states[g_i].tolist()
+
+        for g_i in range(len(buffer.lost_actions)):
+            self.lost_actions += buffer.lost_actions[g_i]
+            self.lost_rewards += buffer.lost_rewards[g_i]
+            self.lost_states += buffer.lost_logic_states[g_i].tolist()
+            self.lost_game_ids += [g_i] * len(buffer.lost_logic_states[g_i].tolist())
+
+        self.win_states = torch.tensor(self.win_states)
+        self.win_actions = torch.tensor(self.win_actions)
+        self.win_rewards = torch.tensor(self.win_rewards)
+        self.lost_states = torch.tensor(self.lost_states)
+        self.lost_states = torch.tensor(self.lost_states)
+        self.lost_states = torch.tensor(self.lost_states)
+
+    def update_lost_buffer(self, lost_game_data):
+        self.lost_states += lost_game_data['states']
+        self.lost_actions += lost_game_data['actions']
+        self.lost_rewards += lost_game_data['rewards']
+
+    def update_behaviors(self, pf_behaviors, def_behaviors, args=None):
         if args is not None:
             self.args = args
-        if preds is not None:
-            self.preds = preds
-        self.model.update(args, behaviors, prop_indices, explains, preds)
+        if pf_behaviors is not None:
+            self.pf_behaviors = pf_behaviors
+        if def_behaviors is not None:
+            self.def_behaviors = def_behaviors
+
+        self.behaviors = self.pf_behaviors + self.def_behaviors
+        self.model.update(args, self.behaviors)
+
+    def reasoning_def_behaviors(self):
+
+        neg_states_stat_file = self.args.check_point_path / "neg_stats.json"
+        if os.path.exists(neg_states_stat_file):
+            def_beh_data = file_utils.load_json(neg_states_stat_file)
+        else:
+            def_beh_data = smp_utils.stat_negative_rewards(self.lost_states, self.lost_actions, self.lost_rewards,
+                                                           self.args.zero_reward, self.args.obj_info)
+            file_utils.save_json(neg_states_stat_file, def_beh_data)
+
+        neg_beh_file = self.args.check_point_path / 'neg_beh.pkl'
+        if os.path.exists(neg_beh_file):
+            defense_behaviors = file_utils.load_pickle(neg_beh_file)
+            for def_beh in defense_behaviors:
+                print(f"# defense behavior: {def_beh.clause}")
+        else:
+            defense_behaviors = beh_utils.create_negative_behaviors(self.args, def_beh_data)
+            file_utils.save_pkl(neg_beh_file, defense_behaviors)
+
+        self.defense_behaviors = defense_behaviors
+
+    def reasoning_pf_behaviors(self, prop_indices):
+        ############# learn from positive rewards
+        pos_states_stat_file = self.args.check_point_path / "pos_states.json"
+        if os.path.exists(pos_states_stat_file):
+            pos_beh_data = file_utils.load_json(pos_states_stat_file)
+        else:
+            pos_beh_data = smp_utils.stat_pos_data(self.win_states, self.win_actions, self.win_rewards,
+                                                   self.args.obj_info, prop_indices, self.args.top_kp,
+                                                   self.args.pass_th, self.args.failed_th)
+            file_utils.save_json(pos_states_stat_file, pos_beh_data)
+
+        pos_behavior_data = smp_utils.best_pos_data_comb(pos_beh_data)
+        path_behaviors = beh_utils.create_positive_behaviors(self.args, pos_behavior_data)
+
+        self.pf_behaviors = path_behaviors
+
+
     def revise_win(self, history, game_states):
         print("")
-    def revise_loss(self, history, game_states):
+
+    def revise_loss(self, history, game_info):
+        revised = False
+        lost_game_data = None
         # punish the last action
-        assert history[-1]["reward"][0]<-1
-        behavior_lost = [self.model.behaviors[beh_index] for beh_index in history[-1]["behavior_index"]]
+        assert history[-1]["reward"][0] < -1
+        for frame_i in range(len(history) - 1, 0, -1):
+            frame_action = history[frame_i]['action']
+            behavior_indices = history[frame_i]['behavior_index']
+            frame_reward = history[frame_i]['reward']
+            frame_state = history[frame_i]['state']
+            frame_mask = smp_utils.mask_tensors_from_states(frame_state, game_info)
 
+            # search activated behaviors
+            frame_action_neg = False
+            beh_pos_indices = []
+            pf_data = []
+            for behavior_index in behavior_indices:
+                behavior = self.model.behaviors[behavior_index]
+                # activated path finding behaviors
+                if not behavior.neg_beh and behavior.action == frame_action:
+                    beh_pos_indices.append(behavior_index)
+                    pf_data.append({'obj_comb': behavior.fact[0].obj_comb, 'prop_comb': behavior.fact[0].prop_comb})
 
-        print("")
+                # activated defense behaviors
+                if behavior.neg_beh and behavior.action == frame_action:
+                    frame_action_neg = True
+
+            # revise behavior
+            if len(beh_pos_indices) > 0 and not frame_action_neg:
+                for behavior in self.model.behaviors:
+                    if behavior.action == frame_action and behavior.neg_beh:
+
+                        for fact in behavior.fact:
+                            if torch.equal(torch.tensor(fact.mask).reshape(-1), frame_mask.reshape(-1)):
+                                for pred in fact.preds:
+                                    print(f"- revise frame {frame_i} (last non-defensed frame)")
+                                    print(f'- update behavior: {behavior.clause}')
+                                    data_X = smp_utils.extract_fact_data(fact, frame_state)
+                                    pred.add_item(data_X)
+                                    pred.fit_pred()
+                                    revised = True
+                # create new behavior
+                if not revised:
+                    print(f"- require a new defense behavior.")
+                    # defense behavior
+                    lost_states = []
+                    lost_actions = []
+                    lost_rewards = []
+                    for f_i, frame_data in enumerate(history):
+                        if f_i <= frame_i:
+                            lost_states.append(history[f_i]['state'].tolist())
+                            lost_actions.append(history[f_i]['action'])
+                            lost_rewards.append(history[f_i]['reward'][0])
+                            if f_i == frame_i:
+                                lost_rewards.append(frame_reward)
+
+                    lost_game_data = {'states': lost_states, 'actions': lost_actions, 'rewards': lost_rewards}
+                break
+
+        return lost_game_data
 
     def revise_timeout(self, history):
         print("")
+
     def act(self, state):
         if self.args.m == 'getout' or self.args.m == "getoutplus":
             action, explaining = self.getout_actor(state)
@@ -121,7 +254,9 @@ class SymbolicMicroProgramPlayer:
         extracted_state = oc_utils.extract_logic_state_getout(getout, self.args)
         predictions, explains = self.model(extracted_state)
         prediction = torch.argmax(predictions).cpu().item()
+
         action = prediction + 1
+        explains['action'] = prediction
         return action, explains
 
     def action_combine_assault(self, action_prob, explains):

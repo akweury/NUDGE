@@ -5,9 +5,6 @@ import torch.nn as nn
 import numpy as np
 import torch.optim as optim
 from tqdm import tqdm
-import torch.nn.functional as F
-
-from pi.neural.layers import Conv
 
 
 # Neural Network Model
@@ -27,10 +24,14 @@ class NeuralNetwork(nn.Module):
         return x
 
 
+
+
 def generate_data(pos_data, gen_num):
     """ generate more data following a multivariate normal distribution with the calculated mean and covariance. """
 
     # Calculate mean and covariance matrix from the original set of points
+    assert len(pos_data) > 1
+
     mean = pos_data.mean(dim=0)
     covariance_matrix = torch.tensor(np.cov(pos_data.numpy(), rowvar=False), dtype=torch.double)
     # Generate new points following the same distribution
