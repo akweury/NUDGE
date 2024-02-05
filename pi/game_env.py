@@ -142,6 +142,7 @@ def collect_data_getout(agent, args):
     # collect data
     step = 0
     win_count = 0
+    win_rates = []
     if args.m == 'getout':
         game_env = create_getout_instance(args)
 
@@ -184,15 +185,17 @@ def collect_data_getout(agent, args):
                 buffer.actions.append(actions)
                 buffer.rewards.append(rewards)
                 win_count += 1
+
             else:
                 buffer.lost_logic_states.append(logic_states)
                 buffer.lost_actions.append(actions)
                 buffer.lost_rewards.append(rewards)
 
+            win_rates.append(win_count / (i + 1e-20))
             # start a new game
             game_env = create_getout_instance(args)
 
-        buffer.win_rate = win_count / game_num
+        buffer.win_rates = win_rates
         buffer.save_data()
 
     return

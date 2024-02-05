@@ -13,8 +13,7 @@ time_now = datetime.datetime.now().strftime("%H_%M_%S")
 
 
 def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scale=None, y_label=None, show=False,
-                    x_label=None,
-                    log_y=False, cla_leg=False, figure_size=None):
+                    x_label=None, log_y=False, cla_leg=False, figure_size=None):
     """ data with shape a*b, a is the number of lines, b is the data of each line """
     if data.shape[1] <= 1:
         return
@@ -184,7 +183,7 @@ def plot_scatter(data, labels, name, path, log_x=False, log_y=False, cla_leg=Tru
     plt.legend()
 
     # save the plot
-    plt.savefig(str(Path(path) / f"{name}_{date_now}_{time_now}_scatter.png"))
+    plt.savefig(str(Path(path) / f"{name}_scatter.png"))
 
     if cla_leg:
         plt.cla()

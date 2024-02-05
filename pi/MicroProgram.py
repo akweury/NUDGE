@@ -535,41 +535,41 @@ class SymbolicMicroProgram(nn.Module):
         print(f"behavior grounded reasons from {len(combs)} to {len(grounded_combs)}")
         return grounded_combs
 
-    def programming(self, game_info, prop_indices):
-        ######## learn from negative rewards
-        neg_states_stat_file = self.args.check_point_path / "neg_stats.json"
-        if os.path.exists(neg_states_stat_file):
-            def_beh_data = file_utils.load_json(neg_states_stat_file)
-        else:
-            def_beh_data = smp_utils.stat_negative_rewards(self.lost_states, self.lost_actions, self.lost_rewards,
-                                                           self.args.zero_reward, game_info)
-            file_utils.save_json(neg_states_stat_file, def_beh_data)
-
-
-        neg_beh_file = self.args.check_point_path / 'neg_beh.pkl'
-        if os.path.exists(neg_beh_file):
-            defense_behaviors = file_utils.load_pickle(neg_beh_file)
-            for def_beh in defense_behaviors:
-                print(f"# defense behavior: {def_beh.clause}")
-        else:
-            defense_behaviors = beh_utils.create_negative_behaviors(self.args, def_beh_data)
-            file_utils.save_pkl(neg_beh_file, defense_behaviors)
-
-        ############# learn from positive rewards
-        pos_states_stat_file = self.args.check_point_path / "pos_states.json"
-        if os.path.exists(pos_states_stat_file):
-            pos_beh_data = file_utils.load_json(pos_states_stat_file)
-        else:
-            pos_beh_data = smp_utils.stat_pos_data(self.states, self.actions, self.rewards, game_info, prop_indices,
-                                                   self.args.top_kp,
-                                                   self.args.pass_th, self.args.failed_th)
-            file_utils.save_json(pos_states_stat_file, pos_beh_data)
-
-        pos_behavior_data = smp_utils.best_pos_data_comb(pos_beh_data)
-        path_behaviors = beh_utils.create_positive_behaviors(self.args, pos_behavior_data)
-
-        behaviors = defense_behaviors + path_behaviors
-        return behaviors
+    # def programming(self, game_info, prop_indices):
+    #     ######## learn from negative rewards
+    #     neg_states_stat_file = self.args.check_point_path / "neg_stats.json"
+    #     if os.path.exists(neg_states_stat_file):
+    #         def_beh_data = file_utils.load_json(neg_states_stat_file)
+    #     else:
+    #         def_beh_data = smp_utils.stat_negative_rewards(self.lost_states, self.lost_actions, self.lost_rewards,
+    #                                                        self.args.zero_reward, game_info)
+    #         file_utils.save_json(neg_states_stat_file, def_beh_data)
+    #
+    #
+    #     neg_beh_file = self.args.check_point_path / 'neg_beh.pkl'
+    #     if os.path.exists(neg_beh_file):
+    #         defense_behaviors = file_utils.load_pickle(neg_beh_file)
+    #         for def_beh in defense_behaviors:
+    #             print(f"# defense behavior: {def_beh.clause}")
+    #     else:
+    #         defense_behaviors = beh_utils.create_negative_behaviors(self.args, def_beh_data)
+    #         file_utils.save_pkl(neg_beh_file, defense_behaviors)
+    #
+    #     ############# learn from positive rewards
+    #     pos_states_stat_file = self.args.check_point_path / "pos_states.json"
+    #     if os.path.exists(pos_states_stat_file):
+    #         pos_beh_data = file_utils.load_json(pos_states_stat_file)
+    #     else:
+    #         pos_beh_data = smp_utils.stat_pos_data(self.states, self.actions, self.rewards, game_info, prop_indices,
+    #                                                self.args.top_kp,
+    #                                                self.args.pass_th, self.args.failed_th)
+    #         file_utils.save_json(pos_states_stat_file, pos_beh_data)
+    #
+    #     pos_behavior_data = smp_utils.best_pos_data_comb(pos_beh_data)
+    #     path_behaviors = beh_utils.create_positive_behaviors(self.args, pos_behavior_data)
+    #
+    #     behaviors = defense_behaviors + path_behaviors
+    #     return behaviors
 
     def merge_truth_table_celles(self, facts, fact_truth_table, actions):
 

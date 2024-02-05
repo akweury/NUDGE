@@ -48,6 +48,7 @@ class SmpReasoner(nn.Module):
         mask_neg_beh = mask_neg_beh * (beh_predictions > 0)
         mask_pos_beh = mask_pos_beh * (beh_predictions > 0)
 
+        # defense behavior
         if mask_neg_beh.sum() > 0:
             beh_neg_indices = torch.arange(len(self.behaviors))[mask_neg_beh]
             for neg_index in beh_neg_indices:
@@ -56,6 +57,7 @@ class SmpReasoner(nn.Module):
                 action_mask[0, pred_action] = True
                 explains["behavior_index"].append(neg_index)
 
+        # path finding behavior
 
         if mask_pos_beh.sum() > 0:
             for beh_index in mask_pos_beh.nonzero().reshape(-1):

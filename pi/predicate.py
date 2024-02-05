@@ -278,7 +278,7 @@ class Dist():
         self.model = None
         self.num_epochs = 5000
         self.var, self.mean = torch.var_mean(X_0)
-        self.name = f"{name}_distance_var_{self.var:.2f}_mean_{self.mean:.2f}_ep_{self.num_epochs}"
+        self.name = f"{name}_distance_ep_{self.num_epochs}"
         self.y_0 = 0
         self.y_1 = 1
 
@@ -289,7 +289,11 @@ class Dist():
         X_0 = self.X_0
         # generate enough data
         if len(self.X_1) > len(X_0):
-            generated_points = nn_model.generate_data(X_0, gen_num=len(self.X_1) - len(X_0))
+            try:
+                generated_points = nn_model.generate_data(X_0, gen_num=len(self.X_1) - len(X_0))
+            except:
+                X_0 += torch.rand(X_0.shape)* 0.001
+                generated_points = nn_model.generate_data(X_0, gen_num=len(self.X_1) - len(X_0))
             X_0 = torch.cat((X_0, generated_points), dim=0)
 
         # prepare training data

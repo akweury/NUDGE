@@ -738,7 +738,7 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info):
             action_states_pos[:, obj_type[0], prop_type] - action_states_pos[:, obj_type[1], prop_type])
         var, mean = torch.var_mean(dist)
         var_pos, mean_pos = torch.var_mean(dist_pos)
-        if var_pos < 0.5 or len(dist) < 2:
+        if var_pos < 0.5 or len(dist) < 3:
             var = 1e+20
             mean = 1e+20
 

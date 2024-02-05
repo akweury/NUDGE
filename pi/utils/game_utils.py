@@ -49,7 +49,7 @@ class RolloutBuffer:
         with open(config.path_bs_data / args.filename, 'r') as f:
             state_info = json.load(f)
         print(f"- Loaded game buffer file: {args.filename}")
-
+        self.win_rates = torch.tensor(state_info['win_rates'])
         self.actions = [torch.tensor(state_info['actions'][i]) for i in range(len(state_info['actions']))]
         self.lost_actions = [torch.tensor(state_info['lost_actions'][i]) for i in
                              range(len(state_info['lost_actions']))]
@@ -58,7 +58,10 @@ class RolloutBuffer:
         self.lost_logic_states = [torch.tensor(state_info['lost_logic_states'][i]) for i in
                                   range(len(state_info['lost_logic_states']))]
         self.rewards = [torch.tensor(state_info['reward'][i]) for i in range(len(state_info['reward']))]
-        self.lost_rewards = [torch.tensor(state_info['lost_rewards'][i]) for i in range(len(state_info['lost_rewards']))]
+
+        self.lost_rewards = [torch.tensor(state_info['lost_rewards'][i]) for i in
+                             range(len(state_info['lost_rewards']))]
+
         if 'neural_states' in list(state_info.keys()):
             self.neural_states = torch.tensor(state_info['neural_states']).to(args.device)
         if 'action_probs' in list(state_info.keys()):
@@ -73,8 +76,6 @@ class RolloutBuffer:
             self.ungrounded_rewards = state_info['ungrounded_rewards']
         if 'game_number' in list(state_info.keys()):
             self.game_number = state_info['game_number']
-        if 'win_rate' in list(state_info.keys()):
-            self.win_rate = state_info['win_rate']
         if "reason_source" in list(state_info.keys()):
             self.reason_source = state_info['reason_source']
         else:
@@ -92,7 +93,7 @@ class RolloutBuffer:
                 'predictions': self.predictions,
                 "reason_source": self.reason_source,
                 'game_number': self.game_number,
-                'win_rate': self.win_rate,
+                'win_rates': self.win_rates,
                 "lost_actions": self.lost_actions,
                 "lost_logic_states": self.lost_logic_states,
                 "lost_rewards": self.lost_rewards,

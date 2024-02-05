@@ -24,18 +24,22 @@ class NeuralNetwork(nn.Module):
         return x
 
 
-
-
 def generate_data(pos_data, gen_num):
     """ generate more data following a multivariate normal distribution with the calculated mean and covariance. """
 
     # Calculate mean and covariance matrix from the original set of points
-    assert len(pos_data) > 1
-
+    # In general, for a covariance matrix to be positive definite,
+    # it must be symmetric and have all positive eigenvalues.
+    # For a collection of more than two points, the covariance matrix can be computed,
+    # and it may or may not be positive definite depending on the distribution and relationships between the variables.
+    assert len(pos_data) > 2
     mean = pos_data.mean(dim=0)
     covariance_matrix = torch.tensor(np.cov(pos_data.numpy(), rowvar=False), dtype=torch.double)
     # Generate new points following the same distribution
+
     generated_points = torch.distributions.MultivariateNormal(mean.double(), covariance_matrix).sample((gen_num,))
+
+
     generated_points = generated_points.to(torch.float32)
     return generated_points
 

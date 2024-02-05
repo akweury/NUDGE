@@ -6,7 +6,7 @@ import ast
 import pandas as pd
 import sys
 import io
-
+import torch
 from ocatari.core import OCAtari
 from PIL import Image, ImageDraw
 
@@ -15,6 +15,7 @@ from src.environments.getout.getout.imageviewer import ImageViewer
 from src.environments.getout.getout.getout.paramLevelGenerator import ParameterizedLevelGenerator
 from src.environments.getout.getout.getout.getout import Getout
 from src.environments.getout.getout.getout.actions import GetoutActions
+from pi.utils import draw_utils
 
 # font_path = os.path.join(cv2.__path__[0], 'qt', 'fonts', 'DejaVuSans.ttf')
 # font = ImageFont.truetype(font_path, size=40)
@@ -117,6 +118,8 @@ def render_getout(agent, args):
 
     num_epi = 1
     max_epi = 100
+    win_rate = torch.zeros(2, max_epi)
+    win_rate[1, :] = agent.buffer_win_rates[:max_epi]
     win_count = 0
     game_count = 0
     total_reward = 0
@@ -125,17 +128,6 @@ def render_getout(agent, args):
     game_states = []
     last_explaining = None
     scores = []
-    if args.log:
-        log_f = open(args.logfile, "w+")
-        writer = csv.writer(log_f)
-
-        if args.agent == 'logic':
-            head = ['episode', 'step', 'reward', 'average_reward', 'logic_state', 'probs']
-        elif args.agent == 'ppo' or args.agent == 'random':
-            head = ['episode', 'step', 'reward', 'average_reward']
-        elif args.agent == 'human':
-            head = ['episode', 'reward']
-        writer.writerow(head)
 
     decision_history = []
     max_game_frames = 200
@@ -196,8 +188,10 @@ def render_getout(agent, args):
             reward = getout.step(action)
             explaining["reward"].append(reward)
             decision_history.append(explaining)
-            for beh_i in explaining['behavior_index']:
-                print(f"f: {game_frame_counter}, rw: {reward}, behavior: {agent.model.explains[beh_i]}")
+            if args.render:
+                for beh_i in explaining['behavior_index']:
+                    print(
+                        f"f: {game_frame_counter}, rw: {reward}, act: {action - 1}, behavior: {agent.behaviors[beh_i].clause}")
             game_states.append(explaining['state'])
             # print(reward)
             epi_reward += reward
@@ -208,17 +202,23 @@ def render_getout(agent, args):
                 win_count += 1
                 agent.revise_win(decision_history, args.obj_info)
             else:
-                lost_game_data = agent.revise_loss(decision_history, args.obj_info)
-                agent.update_lost_buffer(lost_game_data)
-                def_behaviors = agent.reasoning_def_behaviors()
-                agent.update_behaviors(None, def_behaviors, args)
-                print("- revise loss finished.")
+                # the game total frame number has to greater than 2
+                if len(decision_history) > 2:
+                    lost_game_data = agent.revise_loss(decision_history)
+                    agent.update_lost_buffer(lost_game_data)
+                    def_behaviors = agent.reasoning_def_behaviors(use_ckp=False)
+                    agent.update_behaviors(None, def_behaviors, args)
+                    print("- revise loss finished.")
             getout = create_getout_instance(args)
             decision_history = []
             game_frame_counter = 0
             # print("epi_reward: ", round(epi_reward, 2))
             # print("--------------------------     next game    --------------------------")
             print(f"Episode {num_epi} Win: {win_count}/{game_count}")
+            win_rate[0, num_epi - 1] = win_count / (game_count + 1e-20)
+
+            draw_utils.plot_line_chart(win_rate[:, :num_epi], args.output_folder, ['smp', 'ppo'], title='win_rate',
+                                       cla_leg=True)
             print(f"===============================================")
             if args.agent_type == 'human':
                 data = [(num_epi, round(epi_reward, 2))]
