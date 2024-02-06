@@ -106,7 +106,7 @@ class SymbolicMicroProgramPlayer:
         self.behaviors = self.pf_behaviors + self.def_behaviors
         self.model.update(args, self.behaviors)
 
-    def reasoning_def_behaviors(self, use_ckp=True):
+    def reasoning_def_behaviors(self,prop_indices, use_ckp=True):
         # if no data for defensive behaviors exist
         if len(self.lost_states) == 0:
             self.def_behaviors = []
@@ -117,7 +117,7 @@ class SymbolicMicroProgramPlayer:
             def_beh_data = file_utils.load_json(neg_states_stat_file)
         else:
             def_beh_data = smp_utils.stat_negative_rewards(self.lost_states, self.lost_actions, self.lost_rewards,
-                                                           self.args.zero_reward, self.args.obj_info)
+                                                           self.args.zero_reward, self.args.obj_info, prop_indices)
             file_utils.save_json(neg_states_stat_file, def_beh_data)
 
         neg_beh_file = self.args.check_point_path / f"{self.args.m}_neg_beh.pkl"

@@ -79,6 +79,9 @@ def load_args(exp_args_path, m):
         args.obj_info = config.obj_info_assault
         args.action_names = config.action_name_assault
         args.prop_names = config.prop_name_assault
+        args.max_lives = 4
+        args.reward_lost_one_live = -20
+        args.reward_score_one_enemy = 20
     elif args.m == "Asterix":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
     else:

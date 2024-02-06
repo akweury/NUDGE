@@ -703,12 +703,12 @@ def get_state_delta(state, state_last, obj_comb):
     return delta
 
 
-def stat_negative_rewards(states, actions, rewards, zero_reward, game_info):
+def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop_indices):
     mask_neg_reward = rewards < zero_reward
-    neg_states = states[mask_neg_reward]
-    neg_actions = actions[mask_neg_reward]
     neg_rewards = rewards[mask_neg_reward]
 
+    neg_states = states[mask_neg_reward]
+    neg_actions = actions[mask_neg_reward]
     neg_masks = mask_tensors_from_states(neg_states, game_info)
 
     pos_states = states[~mask_neg_reward]
@@ -718,7 +718,7 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info):
     neg_mask_types = neg_masks.unique(dim=0)
     neg_action_types = neg_actions.unique()
     obj_types = get_all_2_combinations(game_info, reverse=False)
-    prop_types = [[4, 5]]
+    prop_types = [prop_indices]
     type_combs = list(itertools.product(neg_mask_types, neg_action_types, obj_types, prop_types))
 
     states_stats = []

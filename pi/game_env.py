@@ -10,6 +10,7 @@ from functools import partial
 from ale_env import ALEModern
 from PIL import Image, ImageDraw
 import numpy as np
+import time
 
 from pi.utils import game_utils
 from pi.Player import SymbolicMicroProgramPlayer, PpoPlayer
@@ -209,23 +210,46 @@ def render_assault(agent, args):
     zoom_in = args.zoom_in
     viewer = game_utils.setup_image_viewer(env.game_name, zoom_in * observation.shape[0],
                                            zoom_in * observation.shape[1])
+
+    # frame rate limiting
+    fps = 30
+    target_frame_duration = 1 / fps
+    last_frame_time = 0
+
+    explaining = None
     for game_i in range(game_num):
         frame_i = 0
         terminated = False
         truncated = False
         decision_history = []
+        current_lives = args.max_lives
+        env_objs = []
         while not terminated or truncated:
+            current_frame_time = time.time()
+            # limit frame rate
+            if last_frame_time + target_frame_duration > current_frame_time:
+                sl = (last_frame_time + target_frame_duration) - current_frame_time
+                time.sleep(sl)
+                continue
+            last_frame_time = current_frame_time  # save frame start time for next iteration
+
             if args.agent_type == "smp":
                 action, explaining = agent.act(env.objects)
             elif args.agent_type == "ppo":
-                action, explaining = agent(env.dqn_obs)
+                action, _ = agent(env.dqn_obs)
             else:
                 raise ValueError
 
             obs, reward, terminated, truncated, info = env.step(action)
+
+            if info['lives'] < current_lives:
+                reward = args.reward_lost_one_live
+                current_lives = info['lives']
+
             ram = env._env.unwrapped.ale.getRAM()
-            explaining["reward"].append(reward)
-            decision_history.append(explaining)
+            if explaining is not None:
+                explaining["reward"].append(reward)
+                decision_history.append(explaining)
 
             # visualization
             if frame_i % 5 == 0:
@@ -245,21 +269,22 @@ def render_assault(agent, args):
                 print(f"Game {game_i} Win: {win_counter}/{game_i}")
                 observation, info = env.reset()
 
-                # the game total frame number has to greater than 2
-                if len(decision_history) > 2:
-                    lost_game_data = agent.revise_loss(decision_history)
-                    agent.update_lost_buffer(lost_game_data)
-                    def_behaviors = agent.reasoning_def_behaviors(use_ckp=False)
-                    agent.update_behaviors(None, def_behaviors, args)
-                    print("- revise loss finished.")
+            # the game total frame number has to greater than 2
+            if len(decision_history) > 2 and reward < 0:
+                lost_game_data = agent.revise_loss(decision_history)
+                agent.update_lost_buffer(lost_game_data)
+                def_behaviors = agent.reasoning_def_behaviors(use_ckp=False)
+                agent.update_behaviors(None, def_behaviors, args)
+                decision_history = []
+                print("- revise loss finished.")
             frame_i += 1
         # modify and display render
     env.close()
 
 
 def collect_data_assault(agent, args):
-    frame_num = 10000
-    args.filename = args.m + '_' + args.teacher_agent + '_frame_' + str(frame_num) + '.json'
+    sample_num = 500
+    args.filename = args.m + '_' + args.teacher_agent + '_sample_num_' + str(sample_num) + '.json'
     buffer = RolloutBuffer(args.filename)
     if os.path.exists(buffer.filename):
         return
@@ -270,27 +295,54 @@ def collect_data_assault(agent, args):
     win_rates = []
     env = OCAtari(args.m, mode="vision", hud=True, render_mode="rgb_array")
     observation, info = env.reset()
-
-    for i in tqdm(range(frame_num), desc=f"Collect Data from game: Assault"):
+    current_lives = args.max_lives
+    terminated = False
+    truncated = False
+    for i in tqdm(range(sample_num), desc=f"Collect Data from game: Assault"):
         # step game
-
+        dead = False
+        scored = False
         logic_states = []
         actions = []
         rewards = []
-        frame_counter = 0
-        action, _ = agent(env.dqn_obs)
-        logic_state = extract_logic_state_assault(env.objects, args)
-        obs, reward, terminated, truncated, info = env.step(action)
-        actions.append(action)
-        logic_states.append(logic_state.tolist())
-        rewards.append(reward)
-        if reward > 0 or i % 5 == 0:
-            collected_states += 1
+        env_objs = []
+        # states for one live
+        while not dead and not scored and not terminated and not truncated:
+            action, _ = agent(env.dqn_obs)
+            logic_state = extract_logic_state_assault(env.objects, args)
+            obs, frame_reward, terminated, truncated, info = env.step(action)
+            logic_state_post = extract_logic_state_assault(env.objects, args)
+            reward = args.zero_reward
+            env_objs.append(env.objects)
+            # give negative reward
+            if logic_state_post[:, 0].sum() == 0:
+                reward = args.reward_lost_one_live
+                dead = True
+
+            if (logic_state_post[:, 3].sum() < logic_state[:, 3].sum()) or frame_reward > 0:
+                reward = args.reward_score_one_enemy
+                scored = True
+                win_count += 1
+
+            # agent has to be always exist
+            if logic_state[:, 0].sum() > 0:
+                # record game state
+                actions.append(action)
+                logic_states.append(logic_state.tolist())
+                rewards.append(reward)
+
+        win_rates.append(win_count / (i + 1 + 1e-20))
+        if dead:
+            buffer.lost_logic_states.append(logic_states)
+            buffer.lost_actions.append(actions)
+            buffer.lost_rewards.append(rewards)
+        else:
             buffer.logic_states.append(logic_states)
             buffer.actions.append(actions)
             buffer.rewards.append(rewards)
 
         if terminated or truncated:
+            current_lives = args.max_lives
             env.reset()
 
     buffer.win_rates = win_rates

@@ -57,7 +57,7 @@ def main(render=True, m=None):
     # building symbolic microprogram
     prop_indices = game_settings.get_idx(args)
     agent.load_buffer(game_utils.load_buffer(args))
-    def_behaviors = agent.reasoning_def_behaviors()
+    def_behaviors = agent.reasoning_def_behaviors(prop_indices)
     pf_behaviors = agent.reasoning_pf_behaviors(prop_indices)
     agent.update_behaviors(pf_behaviors, def_behaviors, args)
 
