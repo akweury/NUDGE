@@ -40,14 +40,15 @@ def load_args(exp_args_path, m):
     parser.add_argument("--resume", type=bool, default=False, help="Resume training from previous work")
     parser.add_argument("--eval_loss_best", type=float, default=1e+20, help="Best up-to-date evaluation loss")
     parser.add_argument("--rectify_num", type=int, default=5, help="Repeat times of smp rectification.")
-    parser.add_argument("--teacher_agent", type=str, default="neural", help="Type of the teacher agent.")
+    parser.add_argument("--teacher_agent", type=str, default="pretrained", help="Type of the teacher agent.")
     parser.add_argument("--episode_num", type=int, default=5, help="Number of episodes to update the agent.")
-    parser.add_argument("--top_kp", type=float, default=1, help="Top K percent.")
+    parser.add_argument("--zoom_in", type=int, default=3, help="Zoom in percentage of the game window.")
+    parser.add_argument("--fact_conf", type=float, default=0.5,
+                        help="Minimum confidence required to save a fact as a behavior.")
     args = parser.parse_args()
 
     if m is not None:
         args.m = m
-
 
     # load args from json file
     args_file = exp_args_path / f"{args.exp}.json"
@@ -64,7 +65,7 @@ def load_args(exp_args_path, m):
         args.failed_th = 0.3
         args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
         args.obj_info = config.obj_info_getout
-        args.action_names= config.action_name_getout
+        args.action_names = config.action_name_getout
         args.prop_names = config.prop_name_getout
     elif args.m == "getoutplus":
         args.obj_type_names = config.obj_type_name_getout
@@ -73,6 +74,7 @@ def load_args(exp_args_path, m):
         args.prop_names = config.prop_name_getout
         args.obj_type_indices = config.obj_type_indices_getout_plus
     elif args.m == "Assault":
+        args.zero_reward = 0.0
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.obj_info = config.obj_info_assault
         args.action_names = config.action_name_assault
@@ -82,11 +84,11 @@ def load_args(exp_args_path, m):
     else:
         raise ValueError
 
-
     # output folder
     args.output_folder = config.path_log / f"{args.m}"
-    args.check_point_path = config.path_check_point
-
+    args.check_point_path = config.path_check_point / f"{args.m}"
+    if not os.path.isdir(args.check_point_path):
+        os.mkdir(str(args.check_point_path))
     if not os.path.exists(str(args.output_folder)):
         os.mkdir(str(args.output_folder))
 

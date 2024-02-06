@@ -6,6 +6,7 @@ from itertools import combinations
 import itertools
 
 from src import config
+from pi import predicate
 
 
 def get_param_range(min, max, unit):
@@ -81,16 +82,20 @@ def get_states_delta(states, obj_a, obj_b, prop):
 
 def fact_is_true(states, fact, game_info):
     prop = fact["props"]
-    obj_combs = get_fact_obj_combs(game_info, fact)
+    obj_combs = torch.tensor(get_fact_obj_combs(game_info, fact))
     fact_mask = torch.repeat_interleave(torch.tensor(fact["mask"]).unsqueeze(0), len(states), 0)
     state_mask = mask_tensors_from_states(states, game_info)
     fact_satisfaction = (fact_mask == state_mask).prod(dim=-1).bool()
     pred_satisfaction = torch.zeros(len(states), dtype=torch.bool)
-    for obj_a, obj_b in obj_combs:
-        data_A = states[:, obj_a, prop].reshape(-1)
-        data_B = states[:, obj_b, prop].reshape(-1)
-        state_pred_satisfaction = torch.gt(data_A, data_B)
-        pred_satisfaction += state_pred_satisfaction
+    pred = predicate.GT_Closest()
+
+    obj_a_indices = obj_combs[:, 0].unique()
+    obj_b_indices = obj_combs[:, 1].unique()
+    if len(obj_a_indices) == 1:
+        data_A = states[:, obj_a_indices, prop]
+        data_B = states[:, obj_b_indices, prop]
+        pred_satisfaction = pred.eval(data_A, data_B)
+
     fact_satisfaction *= pred_satisfaction
     assert len(fact_satisfaction) == len(states)
     return fact_satisfaction
@@ -699,12 +704,10 @@ def get_state_delta(state, state_last, obj_comb):
 
 
 def stat_negative_rewards(states, actions, rewards, zero_reward, game_info):
-
     mask_neg_reward = rewards < zero_reward
     neg_states = states[mask_neg_reward]
     neg_actions = actions[mask_neg_reward]
     neg_rewards = rewards[mask_neg_reward]
-
 
     neg_masks = mask_tensors_from_states(neg_states, game_info)
 
@@ -785,7 +788,7 @@ def top_k_percent(scores, top_kp):
     return indices
 
 
-def brute_search(facts, fact_truth_table, actions, rewards, top_kp=1.0, pass_th=0.8, failed_th=0.1, ):
+def brute_search(args, facts, fact_truth_table, actions, rewards):
     learned_behaviors = []
     for at_i, action_type in enumerate(actions.unique()):
         fact_table = fact_truth_table[actions == at_i, :]
@@ -798,8 +801,11 @@ def brute_search(facts, fact_truth_table, actions, rewards, top_kp=1.0, pass_th=
                 fact_combs, fact_len, fact_table, fact_anti_table, action_rewards)
             fact_comb_score = fact_pos_num / (fact_neg_num + fact_pos_num + 1e-20)
             scores, score_rank = fact_comb_score.sort(descending=True)
-            rank_score_indices = scores > 0.5
-            print(f"action {action_type} with {fact_len + 1} facts, top scores: {scores[rank_score_indices]}")
+            rank_score_indices = scores > args.fact_conf
+            print(f"act: {action_type}, "
+                  f"facts: {fact_len + 1}, "
+                  f"used states: {fact_pos_num[score_rank][rank_score_indices]}, "
+                  f"scores: {scores[rank_score_indices]}")
             pos_fact_indices = score_rank[rank_score_indices]
             for index in pos_fact_indices:
                 for fact_index in fact_combs[index]:
@@ -833,17 +839,16 @@ def brute_search(facts, fact_truth_table, actions, rewards, top_kp=1.0, pass_th=
     return learned_behaviors
 
 
-def stat_pos_data(states, actions, rewards, game_info, prop_indices, top_kp, pass_th, failed_th):
+def stat_pos_data(args, states, actions, rewards, game_info, prop_indices):
     facts = get_all_facts(game_info, prop_indices)
-    truth_table_file = config.path_check_point / "truth_table.pt"
+    truth_table_file = args.check_point_path / f"{args.m}_truth_table.pt"
     if os.path.exists(truth_table_file):
         truth_table = torch.load(truth_table_file)
     else:
         truth_table = check_fact_truth(facts, states, actions, game_info)
         torch.save(truth_table, truth_table_file)
 
-    behavior_data = brute_search(facts, truth_table, actions, rewards, top_kp=top_kp, pass_th=pass_th,
-                                 failed_th=failed_th)
+    behavior_data = brute_search(args, facts, truth_table, actions, rewards)
 
     return behavior_data
 
@@ -870,10 +875,9 @@ def extract_fact_data(fact, frame_state):
     obj_a, obj_b = fact.obj_comb
     props = fact.prop_comb
     assert len(fact.preds) == 1
-    dist = torch.abs(frame_state[0, obj_a, props] - frame_state[0, obj_b, props]).reshape(1,-1)
+    dist = torch.abs(frame_state[0, obj_a, props] - frame_state[0, obj_b, props]).reshape(1, -1)
     return dist
 
 
 def get_neg_reward_data(lost_states, lost_actions, lost_rewards):
-
     return None

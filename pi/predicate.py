@@ -8,78 +8,6 @@ from pi.neural import nn_model
 pass_th = 0.8
 
 
-class GT():
-    """ generate one micro-program
-    """
-
-    def __init__(self):
-        super().__init__()
-        self.p_bound = {"min": 0, "max": 0}
-        self.name = "greater_or_equal_than"
-        self.p_spaces = []
-
-    def fit_batch(self, t1, t2):
-        satisfy = torch.gt(t1, t2)
-        return satisfy
-
-    def fit(self, t1, t2, objs):
-        satisfy = torch.zeros(len(t1), dtype=torch.bool)
-        th = 1e-1
-
-        if t1.sum() == 0 or t2.sum() == 0:
-            return satisfy
-
-        # single state
-        if len(t1) == 1:
-            var, mean = torch.tensor(0), torch.gt(t1, t2).float()
-        # multiple states
-        else:
-            th = 1e-1
-            var, mean = torch.var_mean(torch.gt(t1, t2).float())
-
-        satisfy = False
-        try:
-            if var < th and (1 - mean) < th:
-                satisfy = True
-                self.p_bound['min'] = torch.round(mean - var, decimals=2)
-                self.p_bound['max'] = torch.round(mean + var, decimals=2)
-        except RuntimeError:
-            print("Warning:")
-
-        return satisfy
-
-    def refine_space(self, t1, t2):
-        pass
-
-    def update_space(self, t1, t2):
-        return
-
-    def eval(self, t1, t2):
-        satisfy = torch.gt(t1, t2).float().bool()
-        return satisfy
-
-    def eval_batch(self, t1, t2, p_space):
-        th = 1e-1
-        if t1.sum() == 0 or t2.sum() == 0:
-            return False
-
-        # single state
-        if len(t1) == 1:
-            var, mean = torch.tensor(0), torch.gt(t1, t2).float()
-        # multiple states
-        else:
-            th = 1e-1
-            var, mean = torch.var_mean(torch.gt(t1, t2).float())
-
-        satisfy = False
-        if var < th and (1 - mean) < th:
-            satisfy = True
-        return satisfy
-
-    def expand_space(self, t1, t2):
-        pass
-
-
 class LT():
     """ generate one micro-program
     """
@@ -283,7 +211,7 @@ class Dist():
         self.y_1 = 1
 
     def add_item(self, x):
-        self.X_0 = torch.cat((self.X_0, x),dim=0)
+        self.X_0 = torch.cat((self.X_0, x), dim=0)
 
     def gen_data(self):
         X_0 = self.X_0
@@ -292,7 +220,7 @@ class Dist():
             try:
                 generated_points = nn_model.generate_data(X_0, gen_num=len(self.X_1) - len(X_0))
             except:
-                X_0 += torch.rand(X_0.shape)* 0.001
+                X_0 += torch.rand(X_0.shape) * 0.001
                 generated_points = nn_model.generate_data(X_0, gen_num=len(self.X_1) - len(X_0))
             X_0 = torch.cat((X_0, generated_points), dim=0)
 
@@ -333,4 +261,19 @@ class GT():
 
     def eval(self, t1, t2):
         satisfy = torch.gt(t1, t2)
+        return satisfy
+
+
+class GT_Closest():
+    """ generate one micro-program
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.name = "greater_or_equal_than_closest"
+
+    def eval(self, t1, t2):
+        closest_indices = torch.abs(t2 - t1).argmin(dim=1)
+        t2_closest = torch.tensor([t2[i, v_i] for i, v_i in enumerate(closest_indices)])
+        satisfy = torch.gt(t1.squeeze(), t2_closest.squeeze())
         return satisfy

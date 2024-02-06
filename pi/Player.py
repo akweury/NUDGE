@@ -107,8 +107,12 @@ class SymbolicMicroProgramPlayer:
         self.model.update(args, self.behaviors)
 
     def reasoning_def_behaviors(self, use_ckp=True):
+        # if no data for defensive behaviors exist
+        if len(self.lost_states) == 0:
+            self.def_behaviors = []
+            return
 
-        neg_states_stat_file = self.args.check_point_path / "neg_stats.json"
+        neg_states_stat_file = self.args.check_point_path / f"{self.args.m}_neg_stats.json"
         if use_ckp and os.path.exists(neg_states_stat_file):
             def_beh_data = file_utils.load_json(neg_states_stat_file)
         else:
@@ -116,7 +120,7 @@ class SymbolicMicroProgramPlayer:
                                                            self.args.zero_reward, self.args.obj_info)
             file_utils.save_json(neg_states_stat_file, def_beh_data)
 
-        neg_beh_file = self.args.check_point_path / 'neg_beh.pkl'
+        neg_beh_file = self.args.check_point_path / f"{self.args.m}_neg_beh.pkl"
         if os.path.exists(neg_beh_file):
             defense_behaviors = file_utils.load_pickle(neg_beh_file)
             defense_behaviors = beh_utils.update_negative_behaviors(self.args, defense_behaviors, def_beh_data)
@@ -133,13 +137,12 @@ class SymbolicMicroProgramPlayer:
 
     def reasoning_pf_behaviors(self, prop_indices):
         ############# learn from positive rewards
-        pos_states_stat_file = self.args.check_point_path / "pos_states.json"
+        pos_states_stat_file = self.args.check_point_path / f"{self.args.m}_pos_states.json"
         if os.path.exists(pos_states_stat_file):
             pos_beh_data = file_utils.load_json(pos_states_stat_file)
         else:
-            pos_beh_data = smp_utils.stat_pos_data(self.win_states, self.win_actions, self.win_rewards,
-                                                   self.args.obj_info, prop_indices, self.args.top_kp,
-                                                   self.args.pass_th, self.args.failed_th)
+            pos_beh_data = smp_utils.stat_pos_data(self.args, self.win_states, self.win_actions, self.win_rewards,
+                                                   self.args.obj_info, prop_indices)
             file_utils.save_json(pos_states_stat_file, pos_beh_data)
 
         pos_behavior_data = smp_utils.best_pos_data_comb(pos_beh_data)
@@ -316,18 +319,16 @@ class SymbolicMicroProgramPlayer:
     def assault_actor(self, getout):
         extracted_state = oc_utils.extract_logic_state_assault(getout, self.args).unsqueeze(0)
         predictions, explains = self.model(extracted_state)
-        predictions, explains = self.action_combine_assault(predictions, explains)
+        # predictions, explains = self.action_combine_assault(predictions, explains)
         prediction = torch.argmax(predictions).cpu().item()
-        # explaining = explains[prediction]
-        explaining = None
-        action = prediction
-        return action, explaining
+        explains['action'] = prediction
+
+        return prediction, explains
 
     def getout_reasoning_actor(self, getout):
         extracted_state = extract_logic_state_getout(getout, self.args)
         predictions, explain = self.model(extracted_state)
         prediction = torch.argmax(predictions).cpu().item()
-
         action = prediction + 1
         return action, explain
 

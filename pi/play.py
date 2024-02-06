@@ -44,15 +44,10 @@ def main(render=True, m=None):
     # load arguments
     args = args_utils.load_args(config.path_exps, m)
     args.agent_type = "ppo"
-    if args.m == "getout":
-        # collect data
-        teacher_agent = create_agent(args, agent_type='ppo')
-    else:
-        teacher_agent = create_agent(args, agent_type='pretrained')
 
 
+    teacher_agent = create_agent(args, agent_type=args.teacher_agent)
     # if render:
-    #     # Test updated agent
     #     game_env.render_game(teacher_agent, args)
 
     game_env.collect_data_game(teacher_agent, args)

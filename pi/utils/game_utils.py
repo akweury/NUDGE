@@ -3,10 +3,12 @@ import json
 from gzip import GzipFile
 from pathlib import Path
 import torch
-from matplotlib import pyplot as plt
-from ocatari.vision.utils import make_darker, mark_bb
+import cv2 as cv
 
+
+from pi.utils.atari import assault_utils
 from src import config
+
 
 
 class RolloutBuffer:
@@ -125,15 +127,38 @@ def _epsilon_greedy(obs, model, eps=0.001):
     return argmax_a.item(), q_val
 
 
-def print_atari_screen(num, args, obs, env):
-    for obj in env.objects:
-        x, y = obj.xy
-        if x < 160 and y < 210:  # and obj.visible
-            opos = obj.xywh
-            ocol = obj.rgb
-            sur_col = make_darker(ocol)
-            mark_bb(obs, opos, color=sur_col)
-        # mark_point(obs, *opos[:2], color=(255, 255, 0))
+def setup_image_viewer(game_name, height, width):
+    viewer = assault_utils.ImageViewer(game_name, height, width, monitor_keyboard=True, )
+    return viewer
 
-    plt.imshow(obs)
-    plt.savefig(args.output_folder / f"{num}.png")
+
+def zoom_image_viewer(image,  width=None, height=None, inter=cv.INTER_AREA):
+    # initialize the dimensions of the image to be resized and
+    # grab the image size
+    dim = None
+    (h, w) = image.shape[:2]
+
+    # if both the width and height are None, then return the
+    # original image
+    if width is None and height is None:
+        return image
+
+    # check to see if the width is None
+    if width is None:
+        # calculate the ratio of the height and construct the
+        # dimensions
+        r = height / float(h)
+        dim = (int(w * r), height)
+
+    # otherwise, the height is None
+    else:
+        # calculate the ratio of the width and construct the
+        # dimensions
+        r = width / float(w)
+        dim = (width, int(h * r))
+
+    # resize the image
+    resized = cv.resize(image, dim, interpolation=inter)
+
+    # return the resized image
+    return resized

@@ -16,7 +16,7 @@ def create_positive_behaviors(args, pos_beh_data):
     for beh_i, beh in enumerate(pos_beh_data):
         beh_facts = []
         for fact in beh["facts"]:
-            beh_facts.append(ProbFact([predicate.GT()], fact["mask"], fact["objs"], fact["props"]))
+            beh_facts.append(ProbFact([predicate.GT_Closest()], fact["mask"], fact["objs"], fact["props"]))
         reward = beh["expected_reward"]
         passed_state_num = beh["passed_state_num"]
         test_passed_state_num = beh["test_passed_state_num"]

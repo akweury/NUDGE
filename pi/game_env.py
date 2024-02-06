@@ -8,12 +8,14 @@ from tqdm import tqdm
 from ocatari.core import OCAtari
 from functools import partial
 from ale_env import ALEModern
+from PIL import Image, ImageDraw
+import numpy as np
 
+from pi.utils import game_utils
 from pi.Player import SymbolicMicroProgramPlayer, PpoPlayer
-from pi.utils.game_utils import RolloutBuffer, _load_checkpoint, _epsilon_greedy, print_atari_screen
+from pi.utils.game_utils import RolloutBuffer, _load_checkpoint, _epsilon_greedy
 from pi.utils.oc_utils import extract_logic_state_assault, extract_logic_state_asterix
 
-from src import config
 from src.agents.random_agent import RandomPlayer
 from src.environments.getout.getout.getout.getout import Getout
 from src.environments.getout.getout.getout.paramLevelGenerator import ParameterizedLevelGenerator
@@ -156,26 +158,23 @@ def collect_data_getout(agent, args):
 
             # play a game
             while not (game_env.level.terminated):
-                if not game_env.level.terminated:
-                    # random actions
-                    action = agent.reasoning_act(game_env)
-                    logic_state = extract_logic_state_getout(game_env, args).squeeze()
-                    try:
-                        reward = game_env.step(action)
-                    except KeyError:
-                        game_env.level.terminated = True
-                        game_env.level.lost = True
-                        break
-                    if logic_state[0, 4] == logic_state[3, 4] and logic_state[0, 5] == logic_state[3, 5]:
-                        print("")
-                    if frame_counter == 0:
-                        logic_states.append(logic_state.detach().tolist())
-                        actions.append(action - 1)
-                        rewards.append(reward)
-                    elif action - 1 != actions[-1] or frame_counter % 5 == 0:
-                        logic_states.append(logic_state.detach().tolist())
-                        actions.append(action - 1)
-                        rewards.append(reward)
+                # random actions
+                action = agent.reasoning_act(game_env)
+                logic_state = extract_logic_state_getout(game_env, args).squeeze()
+                try:
+                    reward = game_env.step(action)
+                except KeyError:
+                    game_env.level.terminated = True
+                    game_env.level.lost = True
+                    break
+                if frame_counter == 0:
+                    logic_states.append(logic_state.detach().tolist())
+                    actions.append(action - 1)
+                    rewards.append(reward)
+                elif action - 1 != actions[-1] or frame_counter % 5 == 0:
+                    logic_states.append(logic_state.detach().tolist())
+                    actions.append(action - 1)
+                    rewards.append(reward)
 
                 frame_counter += 1
 
@@ -203,69 +202,98 @@ def collect_data_getout(agent, args):
 
 def render_assault(agent, args):
     env = OCAtari(args.m, mode="vision", hud=True, render_mode='rgb_array')
-    game_num = 0
+    game_num = 5
     win_counter = 0
+    win_rate = []
     observation, info = env.reset()
-    for i in range(10000):
-        if args.agent_type == "smp":
-            action, _ = agent.act(env.objects)
+    zoom_in = args.zoom_in
+    viewer = game_utils.setup_image_viewer(env.game_name, zoom_in * observation.shape[0],
+                                           zoom_in * observation.shape[1])
+    for game_i in range(game_num):
+        frame_i = 0
+        terminated = False
+        truncated = False
+        decision_history = []
+        while not terminated or truncated:
+            if args.agent_type == "smp":
+                action, explaining = agent.act(env.objects)
+            elif args.agent_type == "ppo":
+                action, explaining = agent(env.dqn_obs)
+            else:
+                raise ValueError
 
-        elif args.agent_type == "ppo":
-            action, _ = agent(env.dqn_obs)
-        else:
-            raise ValueError
-        obs, reward, terminated, truncated, info = env.step(action)
-        ram = env._env.unwrapped.ale.getRAM()
-        if i % 5 == 0:
-            print_atari_screen(i, args, obs, env)
-        print(f'Game {game_num} : Frame {i} : Action {action} : Reward {reward}')
+            obs, reward, terminated, truncated, info = env.step(action)
+            ram = env._env.unwrapped.ale.getRAM()
+            explaining["reward"].append(reward)
+            decision_history.append(explaining)
 
-        if terminated or truncated:
-            game_num += 1
-            if reward > 1:
-                win_counter += 1
-            print(f"Game {game_num} Win: {win_counter}/{game_num}")
+            # visualization
+            if frame_i % 5 == 0:
+                if args.render:
+                    ImageDraw.Draw(Image.fromarray(obs)).text((40, 60), "", (120, 20, 20))
+                    zoom_obs = game_utils.zoom_image_viewer(obs, zoom_in * observation.shape[0],
+                                                            zoom_in * observation.shape[1])
+                    viewer.show(zoom_obs[:, :, :3])
+            # logging
+            print(f'Game {game_i} : Frame {frame_i} : Action {action} : Reward {reward}')
 
-            observation, info = env.reset()
+            # finish one game
+            if terminated or truncated:
+                if reward > 1:
+                    win_counter += 1
+                win_rate.append(win_counter / (game_i + 1e-20))
+                print(f"Game {game_i} Win: {win_counter}/{game_i}")
+                observation, info = env.reset()
+
+                # the game total frame number has to greater than 2
+                if len(decision_history) > 2:
+                    lost_game_data = agent.revise_loss(decision_history)
+                    agent.update_lost_buffer(lost_game_data)
+                    def_behaviors = agent.reasoning_def_behaviors(use_ckp=False)
+                    agent.update_behaviors(None, def_behaviors, args)
+                    print("- revise loss finished.")
+            frame_i += 1
         # modify and display render
     env.close()
 
 
 def collect_data_assault(agent, args):
-    args.model_file = "neural"
-    args.filename = args.m + '_' + args.teacher_agent + '.json'
-    max_states = 10000
+    frame_num = 10000
+    args.filename = args.m + '_' + args.teacher_agent + '_frame_' + str(frame_num) + '.json'
     buffer = RolloutBuffer(args.filename)
     if os.path.exists(buffer.filename):
         return
 
-    step = 0
+    game_i = 0
     collected_states = 0
-    game_num = 0
+    win_count = 0
+    win_rates = []
     env = OCAtari(args.m, mode="vision", hud=True, render_mode="rgb_array")
     observation, info = env.reset()
 
-    for i in tqdm(range(max_states)):
+    for i in tqdm(range(frame_num), desc=f"Collect Data from game: Assault"):
         # step game
-        step += 1
-        logic_state = extract_logic_state_assault(env.objects, args)
+
+        logic_states = []
+        actions = []
+        rewards = []
+        frame_counter = 0
         action, _ = agent(env.dqn_obs)
-
+        logic_state = extract_logic_state_assault(env.objects, args)
         obs, reward, terminated, truncated, info = env.step(action)
-        # print(f'Game {game_num} : Frame {i} : Action {action} : Reward {reward}')
+        actions.append(action)
+        logic_states.append(logic_state.tolist())
+        rewards.append(reward)
+        if reward > 0 or i % 5 == 0:
+            collected_states += 1
+            buffer.logic_states.append(logic_states)
+            buffer.actions.append(actions)
+            buffer.rewards.append(rewards)
 
-        if terminated:
-            game_num += 1
+        if terminated or truncated:
             env.reset()
 
-        collected_states += 1
-        # buffer.logic_states.append(logic_state.detach().tolist())
-        buffer.actions.append(action)
-        buffer.logic_states.append(logic_state.tolist())
-        buffer.rewards.append(reward)
-        buffer.reason_source.append('neural')
-        buffer.game_number.append(game_num)
-
+    buffer.win_rates = win_rates
     buffer.save_data()
 
 

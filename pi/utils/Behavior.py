@@ -38,7 +38,7 @@ class Behavior():
             prop = fact.prop_comb
             _, obj_0_indices, _ = game_info[type_0_index]
             _, obj_1_indices, _ = game_info[type_1_index]
-            obj_combs = list(itertools.product(obj_0_indices, obj_1_indices))
+            obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
             # check if current state has the same mask as the behavior
             fact_mask_tensor = torch.repeat_interleave(torch.tensor(fact.mask).unsqueeze(0), len(x), 0)
             mask_satisfaction = (fact_mask_tensor == self.mask_tensors_from_states(x, game_info)).prod(
@@ -47,11 +47,13 @@ class Behavior():
                 return prediction
             # pred is true if any comb is true (or)
             fact_satisfaction = False
-            for obj_comb in obj_combs:
-                data_A = x[:, obj_comb[0], prop].reshape(-1)
-                data_B = x[:, obj_comb[1], prop].reshape(-1)
+            obj_a_indices = obj_combs[:,0].unique()
+            obj_b_indices = obj_combs[:,1].unique()
+            if len(obj_a_indices)==1:
+                data_A = x[:, obj_a_indices, prop]
+                data_B = x[:, obj_b_indices, prop]
                 # behavior is true if all pred is true (and)
-                prediction[f_i:f_i + 1] += fact.preds[0].eval(data_A, data_B)
+                prediction[f_i:f_i + 1] = fact.preds[0].eval(data_A, data_B)
 
             prediction[f_i] = prediction / (len(obj_combs) + 1e-20)
 

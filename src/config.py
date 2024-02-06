@@ -30,7 +30,6 @@ epsilon_func = lambda episode: max(math.exp(-episode / 500), 0.02)
 ## paths
 root = Path(__file__).parents[0]
 
-
 path_image = root / "image"
 path_runs = root / "runs"
 path_model = root / 'models'
@@ -51,7 +50,6 @@ if not os.path.exists(path_log):
 path_check_point = path_output / "check_point"
 if not os.path.exists(path_check_point):
     os.mkdir(path_check_point)
-
 
 path_exps = root / "exps"
 if not os.path.exists(path_exps):
@@ -80,8 +78,14 @@ state_idx_threefish_y = 4
 
 obj_type_name_getout = ['agent', 'key', 'door', 'enemy']
 
-obj_info_getout = [('agent', [0], [0]), ('key', [1], [1]), ('door', [2], [2]), ('enemy', [3], [3])]
-obj_data_getoutplus = [('agent', [0], [0]), ('key', [1], [1]), ('door', [2], [2]), ('enemy', [3, 4, 5, 6, 7], [3])]
+obj_info_getout = [('agent', [0], [0]),
+                   ('key', [1], [1]),
+                   ('door', [2], [2]),
+                   ('enemy', [3], [3])]
+obj_data_getoutplus = [('agent', [0], [0]),
+                       ('key', [1], [1]),
+                       ('door', [2], [2]),
+                       ('enemy', [3, 4, 5, 6, 7], [3])]
 
 obj_info_assault = [('agent', [0], [0]),
                     ('player_missile_vertical', [1, 2], [1]),
