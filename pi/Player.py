@@ -56,11 +56,16 @@ class SymbolicMicroProgramPlayer:
         self.args = args
         self.preds = None
         self.model = SymbolicMicroProgramModel(args).actor.to(args.device)
+        self.prop_indices = None
         self.def_behaviors = []
+        self.att_behaviors = []
         self.pf_behaviors = []
         self.win_states = []
         self.win_actions = []
         self.win_rewards = []
+        self.score_states = []
+        self.score_rewards = []
+        self.score_actions = []
         self.lost_states = []
         self.lost_actions = []
         self.lost_rewards = []
@@ -90,26 +95,35 @@ class SymbolicMicroProgramPlayer:
         self.lost_actions = torch.tensor(self.lost_actions)
         self.lost_rewards = torch.tensor(self.lost_rewards)
 
+        states = torch.cat((self.win_states, self.lost_states), 0)
+        actions = torch.cat((self.win_actions, self.lost_actions), 0)
+        rewards = torch.cat((self.win_rewards, self.lost_rewards), 0)
+
+        self.pos_data, self.neg_data, self.zero_data = smp_utils.split_data_by_reward(states, rewards, actions,
+                                                                                      self.args.zero_reward,
+                                                                                      self.args.obj_info)
+
     def update_lost_buffer(self, lost_game_data):
         self.lost_states = torch.cat((self.lost_states, torch.tensor(lost_game_data['states']).squeeze()), 0)
         self.lost_actions = torch.cat((self.lost_actions, torch.tensor(lost_game_data['actions'])), 0)
         self.lost_rewards = torch.cat((self.lost_rewards, torch.tensor(lost_game_data['rewards'])), 0)
 
-    def update_behaviors(self, pf_behaviors, def_behaviors, args=None):
+    def update_behaviors(self, pf_behaviors, def_behaviors, att_behaviors, args=None):
         if args is not None:
             self.args = args
         if pf_behaviors is not None:
             self.pf_behaviors = pf_behaviors
         if def_behaviors is not None:
             self.def_behaviors = def_behaviors
+        if att_behaviors is not None:
+            self.att_behaviors = att_behaviors
 
-        self.behaviors = self.pf_behaviors + self.def_behaviors
+        self.behaviors = self.pf_behaviors + self.def_behaviors + self.att_behaviors
         self.model.update(args, self.behaviors)
 
-    def reasoning_def_behaviors(self,prop_indices, use_ckp=True):
+    def reasoning_def_behaviors(self, use_ckp=True):
         # if no data for defensive behaviors exist
         if len(self.lost_states) == 0:
-            self.def_behaviors = []
             return
 
         neg_states_stat_file = self.args.check_point_path / f"{self.args.m}_neg_stats.json"
@@ -117,7 +131,7 @@ class SymbolicMicroProgramPlayer:
             def_beh_data = file_utils.load_json(neg_states_stat_file)
         else:
             def_beh_data = smp_utils.stat_negative_rewards(self.lost_states, self.lost_actions, self.lost_rewards,
-                                                           self.args.zero_reward, self.args.obj_info, prop_indices)
+                                                           self.args.zero_reward, self.args.obj_info, self.prop_indices)
             file_utils.save_json(neg_states_stat_file, def_beh_data)
 
         neg_beh_file = self.args.check_point_path / f"{self.args.m}_neg_beh.pkl"
@@ -135,14 +149,38 @@ class SymbolicMicroProgramPlayer:
 
         self.def_behaviors = defense_behaviors
 
-    def reasoning_pf_behaviors(self, prop_indices):
+    def reasoning_att_behaviors(self, use_ckp=True):
+        if len(self.pos_data) == 0:
+            return
+        stat_file = self.args.check_point_path / f"{self.args.m}_stats_score.json"
+        if use_ckp and os.path.exists(stat_file):
+            att_behavior_data = file_utils.load_json(stat_file)
+        else:
+            att_behavior_data = smp_utils.stat_scored_data(self.pos_data, [self.neg_data, self.zero_data],
+                                                           self.args.obj_info, self.prop_indices, self.args.att_var_th)
+            file_utils.save_json(stat_file, att_behavior_data)
+        att_behavior_file = self.args.check_point_path / f"{self.args.m}_att_beh.pkl"
+        if os.path.exists(att_behavior_file):
+            attack_behaviors = file_utils.load_pickle(att_behavior_file)
+            attack_behaviors = beh_utils.update_attack_behaviors(self.args, attack_behaviors, att_behavior_data)
+        else:
+            attack_behaviors = []
+            for beh_i, beh in enumerate(att_behavior_data):
+                attack_behaviors.append(beh_utils.create_attack_behavior(self.args, beh_i, beh))
+            file_utils.save_pkl(att_behavior_file, attack_behaviors)
+
+        for attack_behavior in attack_behaviors:
+            print(f"# attack behavior: {attack_behavior.clause}")
+        self.att_behaviors = attack_behaviors
+
+    def reasoning_pf_behaviors(self):
         ############# learn from positive rewards
         pos_states_stat_file = self.args.check_point_path / f"{self.args.m}_pos_states.json"
         if os.path.exists(pos_states_stat_file):
             pos_beh_data = file_utils.load_json(pos_states_stat_file)
         else:
             pos_beh_data = smp_utils.stat_pos_data(self.args, self.win_states, self.win_actions, self.win_rewards,
-                                                   self.args.obj_info, prop_indices)
+                                                   self.args.obj_info, self.prop_indices)
             file_utils.save_json(pos_states_stat_file, pos_beh_data)
 
         pos_behavior_data = smp_utils.best_pos_data_comb(pos_beh_data)

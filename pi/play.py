@@ -55,11 +55,12 @@ def main(render=True, m=None):
     agent = create_agent(args, agent_type='smp')
     args.agent_type = 'smp'
     # building symbolic microprogram
-    prop_indices = game_settings.get_idx(args)
+    agent.prop_indices = game_settings.get_idx(args)
     agent.load_buffer(game_utils.load_buffer(args))
-    def_behaviors = agent.reasoning_def_behaviors(prop_indices)
-    pf_behaviors = agent.reasoning_pf_behaviors(prop_indices)
-    agent.update_behaviors(pf_behaviors, def_behaviors, args)
+    pf_behaviors = agent.reasoning_pf_behaviors()
+    def_behaviors = agent.reasoning_def_behaviors()
+    att_behaviors = agent.reasoning_att_behaviors()
+    agent.update_behaviors(pf_behaviors, def_behaviors,att_behaviors, args)
 
     if render:
         # Test updated agent

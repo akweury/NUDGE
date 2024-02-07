@@ -132,7 +132,7 @@ def setup_image_viewer(game_name, height, width):
     return viewer
 
 
-def zoom_image_viewer(image,  width=None, height=None, inter=cv.INTER_AREA):
+def zoom_image(image, width=None, height=None, inter=cv.INTER_AREA):
     # initialize the dimensions of the image to be resized and
     # grab the image size
     dim = None

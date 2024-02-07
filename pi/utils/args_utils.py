@@ -57,7 +57,7 @@ def load_args(exp_args_path, m):
     if args.device != "cpu":
         args.device = int(args.device)
     args.exp_name = args.m
-    args.log_file = log_utils.create_log_file(config.path_log, args.exp_name)
+    # args.log_file = log_utils.create_log_file(config.path_log, args.exp_name)
     make_deterministic(args.seed)
     if args.m == "getout":
         args.zero_reward = -0.1
@@ -74,6 +74,7 @@ def load_args(exp_args_path, m):
         args.prop_names = config.prop_name_getout
         args.obj_type_indices = config.obj_type_indices_getout_plus
     elif args.m == "Assault":
+        args.att_var_th = 2
         args.zero_reward = 0.0
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.obj_info = config.obj_info_assault

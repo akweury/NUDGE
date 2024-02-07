@@ -102,7 +102,13 @@ obj_data_asterix = [('agent', [0], [0]),
 ########### action info ############################
 
 action_name_getout = ["left", "right", "jump"]
-action_name_assault = ["noop", "fire", "up", "right", "left", "rightfire", "leftfire"]
+action_name_assault = ["noop",
+                       "fire",
+                       "up",
+                       "right",
+                       "left",
+                       "rightfire",
+                       "leftfire"]
 action_name_threefish = ["left", "right", "jump"]
 
 ################### prop info ########################

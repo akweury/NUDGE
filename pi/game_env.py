@@ -16,7 +16,7 @@ from pi.utils import game_utils
 from pi.Player import SymbolicMicroProgramPlayer, PpoPlayer
 from pi.utils.game_utils import RolloutBuffer, _load_checkpoint, _epsilon_greedy
 from pi.utils.oc_utils import extract_logic_state_assault, extract_logic_state_asterix
-
+from pi.utils import draw_utils
 from src.agents.random_agent import RandomPlayer
 from src.environments.getout.getout.getout.getout import Getout
 from src.environments.getout.getout.getout.paramLevelGenerator import ParameterizedLevelGenerator
@@ -203,9 +203,11 @@ def collect_data_getout(agent, args):
 
 def render_assault(agent, args):
     env = OCAtari(args.m, mode="vision", hud=True, render_mode='rgb_array')
-    game_num = 5
+    game_num = 300
+    game_i = 0
     win_counter = 0
-    win_rate = []
+    win_rate = torch.zeros(2, game_num)
+    win_rate[1, :] = agent.buffer_win_rates[:game_num]
     observation, info = env.reset()
     zoom_in = args.zoom_in
     viewer = game_utils.setup_image_viewer(env.game_name, zoom_in * observation.shape[0],
@@ -216,14 +218,14 @@ def render_assault(agent, args):
     target_frame_duration = 1 / fps
     last_frame_time = 0
 
-    explaining = None
-    for game_i in range(game_num):
+    explaining = {}
+    while game_i < game_num:
         frame_i = 0
         terminated = False
         truncated = False
         decision_history = []
         current_lives = args.max_lives
-        env_objs = []
+
         while not terminated or truncated:
             current_frame_time = time.time()
             # limit frame rate
@@ -241,32 +243,40 @@ def render_assault(agent, args):
                 raise ValueError
 
             obs, reward, terminated, truncated, info = env.step(action)
-
             if info['lives'] < current_lives:
                 reward = args.reward_lost_one_live
                 current_lives = info['lives']
+
+            # logging
+            for beh_i in explaining['behavior_index']:
+                print(f"f: {game_i}, rw: {reward}, act: {action}, behavior: {agent.behaviors[beh_i].clause}")
+
+            # visualization
+            if frame_i % 5 == 0:
+                if args.render:
+                    ImageDraw.Draw(Image.fromarray(obs)).text((40, 60), "", (120, 20, 20))
+                    zoom_obs = game_utils.zoom_image(obs, zoom_in * observation.shape[0],
+                                                     zoom_in * observation.shape[1])
+                    viewer.show(zoom_obs[:, :, :3])
+
+            if reward < 0:
+                game_i += 1
+                frame_i = 0
+                win_rate[0, game_i] = win_counter / (game_i + 1e-20)
+
+            elif reward > 0:
+                win_counter += 1
+                game_i += 1
+                frame_i = 0
+                win_rate[0, game_i] = win_counter / (game_i + 1e-20)
 
             ram = env._env.unwrapped.ale.getRAM()
             if explaining is not None:
                 explaining["reward"].append(reward)
                 decision_history.append(explaining)
 
-            # visualization
-            if frame_i % 5 == 0:
-                if args.render:
-                    ImageDraw.Draw(Image.fromarray(obs)).text((40, 60), "", (120, 20, 20))
-                    zoom_obs = game_utils.zoom_image_viewer(obs, zoom_in * observation.shape[0],
-                                                            zoom_in * observation.shape[1])
-                    viewer.show(zoom_obs[:, :, :3])
-            # logging
-            print(f'Game {game_i} : Frame {frame_i} : Action {action} : Reward {reward}')
-
             # finish one game
             if terminated or truncated:
-                if reward > 1:
-                    win_counter += 1
-                win_rate.append(win_counter / (game_i + 1e-20))
-                print(f"Game {game_i} Win: {win_counter}/{game_i}")
                 observation, info = env.reset()
 
             # the game total frame number has to greater than 2
@@ -278,6 +288,8 @@ def render_assault(agent, args):
                 decision_history = []
                 print("- revise loss finished.")
             frame_i += 1
+            draw_utils.plot_line_chart(win_rate[:, :game_i], args.output_folder, ['smp', 'ppo'], title='win_rate',
+                                       cla_leg=True)
         # modify and display render
     env.close()
 
@@ -294,7 +306,7 @@ def collect_data_assault(agent, args):
     win_count = 0
     win_rates = []
     env = OCAtari(args.m, mode="vision", hud=True, render_mode="rgb_array")
-    observation, info = env.reset()
+    obs, info = env.reset()
     current_lives = args.max_lives
     terminated = False
     truncated = False
@@ -306,43 +318,53 @@ def collect_data_assault(agent, args):
         actions = []
         rewards = []
         env_objs = []
+        frame_i = 0
         # states for one live
         while not dead and not scored and not terminated and not truncated:
             action, _ = agent(env.dqn_obs)
             logic_state = extract_logic_state_assault(env.objects, args)
+            obs_prev = obs
             obs, frame_reward, terminated, truncated, info = env.step(action)
-            logic_state_post = extract_logic_state_assault(env.objects, args)
+
             reward = args.zero_reward
             env_objs.append(env.objects)
+
             # give negative reward
-            if logic_state_post[:, 0].sum() == 0:
+            if frame_reward < 0:
+                if logic_state[:, 3].sum() == 0:
+                    print("")
                 reward = args.reward_lost_one_live
                 dead = True
 
-            if (logic_state_post[:, 3].sum() < logic_state[:, 3].sum()) or frame_reward > 0:
+            # scoring state
+            elif frame_reward > 0:
                 reward = args.reward_score_one_enemy
+                if logic_state[:, 0].sum() == 0:
+                    reward = args.reward_lost_one_live
                 scored = True
                 win_count += 1
 
-            # agent has to be always exist
-            if logic_state[:, 0].sum() > 0:
-                # record game state
-                actions.append(action)
-                logic_states.append(logic_state.tolist())
-                rewards.append(reward)
+            actions.append(action)
+            logic_states.append(logic_state.tolist())
+            rewards.append(reward)
+
+            Image.fromarray(game_utils.zoom_image(obs, obs.shape[0] * 3, obs.shape[1] * 3)).save(
+                args.output_folder / f'{i}_{frame_i}.png_{dead}_{scored}.png', "PNG")
+            frame_i += 1
 
         win_rates.append(win_count / (i + 1 + 1e-20))
         if dead:
             buffer.lost_logic_states.append(logic_states)
             buffer.lost_actions.append(actions)
             buffer.lost_rewards.append(rewards)
-        else:
+        elif scored:
             buffer.logic_states.append(logic_states)
             buffer.actions.append(actions)
             buffer.rewards.append(rewards)
 
         if terminated or truncated:
-            current_lives = args.max_lives
+            terminated = False
+            truncated = False
             env.reset()
 
     buffer.win_rates = win_rates

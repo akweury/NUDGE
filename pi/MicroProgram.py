@@ -158,195 +158,195 @@ class UngroundedMicroProgram(nn.Module):
         return satisfactions
 
 
-class SymbolicRewardMicroProgram(nn.Module):
-    """ generate one micro-program
-    """
-
-    def __init__(self, args):
-        super().__init__()
-        self.args = args
-        self.action_num = len(args.action_names)
-        self.ungrounded_behaviors = []
-        self.buffer = None
-        self.data_rewards = None
-        self.data_actions = None
-        self.data_combs = None
-        self.obj_ungrounded_behavior_ids = []
-        self.preds = None
-        self.facts = None
-
-    def load_buffer(self, buffer):
-        print(f'- SMP new buffer, total states: {len(buffer.logic_states)}')
-        self.buffer = buffer
-        self.data_rewards = smp_utils.split_data_by_reward(self.buffer.logic_states, self.buffer.actions,
-                                                           self.buffer.rewards, self.action_num)
-        self.data_actions = smp_utils.split_data_by_action(self.buffer.logic_states, self.buffer.actions,
-                                                           self.action_num)
-        if len(self.buffer.rewards) > 0:
-            self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards,
-                                                     self.buffer.reason_source)
-
-    def student_searching(self, agent):
-        behaviors = agent.model.behaviors
-        game_info = agent.model.game_info
-        for state, action, reward, behavior_ids in self.data_combs:
-            if behavior_ids is not None:
-                # predict actions based on behaviors
-                # reward is negative, thus this behavior should not be activated
-                if reward < -0.1:
-                    for b_id in range(len(behaviors)):
-                        if b_id in behavior_ids:
-                            behaviors[b_id].falsify_pred_params(self.preds, state, game_info)
-                        else:
-                            behaviors[b_id].validify_pred_params(self.preds, state, game_info)
-
-    def update(self, args=None, preds=None, facts=None):
-        if args is not None:
-            self.args = args
-        if preds is not None:
-            self.preds = preds
-        if facts is not None:
-            self.facts = facts
-
-    def forward_searching(self, relate_2_obj_types, relate_2_prop_types, obj_types):
-        # ungrounded behaviors:
-        # Existing at least one predicate is true,
-        # but not know which part of the data is the reason.
-
-        obj_grounded_behaviors = []
-        for reward, reward_states in self.data_rewards.items():
-            if reward == -0.1:
-                continue
-            for action_prob, action_states in reward_states.items():
-                masks = smp_utils.all_exist_mask(action_states, obj_types)
-                for mask_name, action_mask in masks.items():
-                    if action_mask.sum() == 0:
-                        continue
-                    for props in relate_2_prop_types:
-                        passed_obj_combs = []
-                        sample_nums = []
-                        p_satisfactions = []
-                        all_predicates = predicate.get_preds(len(props))
-                        for objs in relate_2_obj_types:
-                            p_satisfaction, sample_num = smp_utils.check_pred_satisfaction(action_states,
-                                                                                           all_predicates,
-                                                                                           action_mask, objs, props)
-                            if (sum(p_satisfaction)) > 0:
-                                passed_obj_combs.append(objs)
-                                sample_nums.append(sample_num)
-                                p_satisfactions.append(p_satisfaction)
-                        if len(passed_obj_combs) > 1:
-                            # obj ungrounded behavior
-                            behavior = UngroundedMicroProgram(self.args, all_predicates, p_satisfactions, sample_nums,
-                                                              passed_obj_combs, props, action_prob, mask_name,
-                                                              action_mask, reward)
-                            if behavior.id not in self.obj_ungrounded_behavior_ids:
-                                self.ungrounded_behaviors.append(behavior)
-                                self.obj_ungrounded_behavior_ids.append(behavior.id)
-                            else:
-                                print("should not be called.")
-                        elif len(passed_obj_combs) == 1:
-                            behavior = MicroProgram(self.args, all_predicates, p_satisfactions, sample_nums,
-                                                    passed_obj_combs, props, action_prob, mask_name, action_mask,
-                                                    reward)
-                            obj_grounded_behaviors.append(behavior)
-                print(f"reward: {reward}, action: {action_prob}, states: {len(action_states)}")
-        print(f'forward searched ungrounded behaviors: {len(self.ungrounded_behaviors)}')
-        print(f'forward searched grounded behaviors: {len(obj_grounded_behaviors)}')
-        return obj_grounded_behaviors
-
-    def backward_searching(self):
-        print(f"- backward searching ...")
-        for reward, reward_states in self.data_rewards.items():
-            if reward == -0.1:
-                continue
-            for action_prob, action_states in reward_states.items():
-                for behavior in self.ungrounded_behaviors:
-
-                    if behavior.expected_reward == reward and torch.equal(behavior.action, action_prob):
-                        # check which explains can satisfy more states
-
-                        satisfactions = behavior(action_states)
-                        # filter out wrong groundings, until only one option left
-                        # update behavior's oppm combs
-                        behavior.oppm_combs = self.grounding(behavior.oppm_combs, satisfactions)
-                        # top scored explains shall be kept
-                        # how to remove them?
-        new_ungrounded_behaviors = []
-        for behavior in self.ungrounded_behaviors:
-            if len(behavior.oppm_combs) > 0:
-                new_ungrounded_behaviors.append(behavior)
-        self.ungrounded_behaviors = new_ungrounded_behaviors
-
-    def backward_searching2(self):
-        print(f"- backward searching 2...")
-        # consider batching evaluation
-        for behavior in self.ungrounded_behaviors:
-            satisfactions_behavior = []
-            satisfactions_mask = []
-            for data in self.data_combs:
-                state, action, reward = data
-                if behavior.expected_reward == reward:
-
-                    satisfactions_data = []
-                    same_action_id = torch.argmax(behavior.action).item() == action
-                    same_mask = smp_utils.mask_name_from_state(state, self.args.obj_type_names,
-                                                               config.mask_splitter) == behavior.mask_name
-                    if same_action_id and same_mask:
-                        satisfactions_mask.append(True)
-                        for oppm_comb in behavior.oppm_combs:
-                            comb_obj_id = [oppm_comb[idx] for idx in behavior.oppm_keys["obj"]]
-                            comb_prop_id = [oppm_comb[idx] for idx in behavior.oppm_keys["prop"]]
-                            comb_preds = [oppm_comb[idx] for idx in behavior.oppm_keys["pred"]]
-                            state_preds, _ = smp_utils.check_pred_satisfaction(state, behavior.preds, None, comb_obj_id,
-                                                                               comb_prop_id, behavior.p_spaces,
-                                                                               mode="eval")
-                            same_pred = state_preds == comb_preds
-                            if same_pred:
-                                satisfactions_data.append(True)
-                            else:
-                                satisfactions_data.append(False)
-                    else:
-                        satisfactions_mask.append(False)
-                else:
-                    satisfactions_data = [False] * len(behavior.oppm_combs)
-                    satisfactions_mask.append(False)
-
-                satisfactions_behavior.append(satisfactions_data)
-            passed_states = [satisfactions_behavior[s_i] for s_i, state in enumerate(satisfactions_mask) if state]
-
-            behavior.oppm_combs = self.grounding(behavior.oppm_combs, passed_states)
-
-        new_ungrounded_behaviors = []
-        for behavior in self.ungrounded_behaviors:
-            if len(behavior.oppm_combs) > 0:
-                new_ungrounded_behaviors.append(behavior)
-        self.ungrounded_behaviors = new_ungrounded_behaviors
-
-    def grounding(self, combs, satisfactions):
-
-        satisfaction_count = torch.tensor(satisfactions).float()
-        if len(satisfaction_count.size()) == 2:
-            satisfaction_count = satisfaction_count.sum(0)
-        if len(combs) != len(satisfaction_count):
-            print("Warning:")
-        satisfactions = satisfaction_count > 0
-        grounded_combs = [combs[s_i] for s_i, satisfaction in enumerate(satisfactions) if satisfaction]
-        print(f"behavior grounded reasons from {len(combs)} to {len(grounded_combs)}")
-        return grounded_combs
-
-    def programming(self, agent, game_info, prop_indices):
-        relate_2_obj_types = smp_utils.get_all_2_combinations(game_info)
-        relate_2_prop_types = smp_utils.get_all_subsets(prop_indices, empty_set=False)
-
-        self.facts = smp_utils.get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types, self.preds)
-        behaviors = self.student_searching(agent)
-
-        # obj_grounded_behaviors = self.forward_searching(relate_2_obj_types, relate_2_prop_types, obj_types)
-        # self.backward_searching()
-        # self.backward_searching2()
-
-        return behaviors
+# class SymbolicRewardMicroProgram(nn.Module):
+#     """ generate one micro-program
+#     """
+#
+#     def __init__(self, args):
+#         super().__init__()
+#         self.args = args
+#         self.action_num = len(args.action_names)
+#         self.ungrounded_behaviors = []
+#         self.buffer = None
+#         self.data_rewards = None
+#         self.data_actions = None
+#         self.data_combs = None
+#         self.obj_ungrounded_behavior_ids = []
+#         self.preds = None
+#         self.facts = None
+#
+#     def load_buffer(self, buffer):
+#         print(f'- SMP new buffer, total states: {len(buffer.logic_states)}')
+#         self.buffer = buffer
+#         self.data_rewards = smp_utils.split_data_by_reward(self.buffer.logic_states, self.buffer.actions,
+#                                                            self.buffer.rewards, self.action_num)
+#         self.data_actions = smp_utils.split_data_by_action(self.buffer.logic_states, self.buffer.actions,
+#                                                            self.action_num)
+#         if len(self.buffer.rewards) > 0:
+#             self.data_combs = smp_utils.comb_buffers(self.buffer.logic_states, self.buffer.actions, self.buffer.rewards,
+#                                                      self.buffer.reason_source)
+#
+#     def student_searching(self, agent):
+#         behaviors = agent.model.behaviors
+#         game_info = agent.model.game_info
+#         for state, action, reward, behavior_ids in self.data_combs:
+#             if behavior_ids is not None:
+#                 # predict actions based on behaviors
+#                 # reward is negative, thus this behavior should not be activated
+#                 if reward < -0.1:
+#                     for b_id in range(len(behaviors)):
+#                         if b_id in behavior_ids:
+#                             behaviors[b_id].falsify_pred_params(self.preds, state, game_info)
+#                         else:
+#                             behaviors[b_id].validify_pred_params(self.preds, state, game_info)
+#
+#     def update(self, args=None, preds=None, facts=None):
+#         if args is not None:
+#             self.args = args
+#         if preds is not None:
+#             self.preds = preds
+#         if facts is not None:
+#             self.facts = facts
+#
+#     def forward_searching(self, relate_2_obj_types, relate_2_prop_types, obj_types):
+#         # ungrounded behaviors:
+#         # Existing at least one predicate is true,
+#         # but not know which part of the data is the reason.
+#
+#         obj_grounded_behaviors = []
+#         for reward, reward_states in self.data_rewards.items():
+#             if reward == -0.1:
+#                 continue
+#             for action_prob, action_states in reward_states.items():
+#                 masks = smp_utils.all_exist_mask(action_states, obj_types)
+#                 for mask_name, action_mask in masks.items():
+#                     if action_mask.sum() == 0:
+#                         continue
+#                     for props in relate_2_prop_types:
+#                         passed_obj_combs = []
+#                         sample_nums = []
+#                         p_satisfactions = []
+#                         all_predicates = predicate.get_preds(len(props))
+#                         for objs in relate_2_obj_types:
+#                             p_satisfaction, sample_num = smp_utils.check_pred_satisfaction(action_states,
+#                                                                                            all_predicates,
+#                                                                                            action_mask, objs, props)
+#                             if (sum(p_satisfaction)) > 0:
+#                                 passed_obj_combs.append(objs)
+#                                 sample_nums.append(sample_num)
+#                                 p_satisfactions.append(p_satisfaction)
+#                         if len(passed_obj_combs) > 1:
+#                             # obj ungrounded behavior
+#                             behavior = UngroundedMicroProgram(self.args, all_predicates, p_satisfactions, sample_nums,
+#                                                               passed_obj_combs, props, action_prob, mask_name,
+#                                                               action_mask, reward)
+#                             if behavior.id not in self.obj_ungrounded_behavior_ids:
+#                                 self.ungrounded_behaviors.append(behavior)
+#                                 self.obj_ungrounded_behavior_ids.append(behavior.id)
+#                             else:
+#                                 print("should not be called.")
+#                         elif len(passed_obj_combs) == 1:
+#                             behavior = MicroProgram(self.args, all_predicates, p_satisfactions, sample_nums,
+#                                                     passed_obj_combs, props, action_prob, mask_name, action_mask,
+#                                                     reward)
+#                             obj_grounded_behaviors.append(behavior)
+#                 print(f"reward: {reward}, action: {action_prob}, states: {len(action_states)}")
+#         print(f'forward searched ungrounded behaviors: {len(self.ungrounded_behaviors)}')
+#         print(f'forward searched grounded behaviors: {len(obj_grounded_behaviors)}')
+#         return obj_grounded_behaviors
+#
+#     def backward_searching(self):
+#         print(f"- backward searching ...")
+#         for reward, reward_states in self.data_rewards.items():
+#             if reward == -0.1:
+#                 continue
+#             for action_prob, action_states in reward_states.items():
+#                 for behavior in self.ungrounded_behaviors:
+#
+#                     if behavior.expected_reward == reward and torch.equal(behavior.action, action_prob):
+#                         # check which explains can satisfy more states
+#
+#                         satisfactions = behavior(action_states)
+#                         # filter out wrong groundings, until only one option left
+#                         # update behavior's oppm combs
+#                         behavior.oppm_combs = self.grounding(behavior.oppm_combs, satisfactions)
+#                         # top scored explains shall be kept
+#                         # how to remove them?
+#         new_ungrounded_behaviors = []
+#         for behavior in self.ungrounded_behaviors:
+#             if len(behavior.oppm_combs) > 0:
+#                 new_ungrounded_behaviors.append(behavior)
+#         self.ungrounded_behaviors = new_ungrounded_behaviors
+#
+#     def backward_searching2(self):
+#         print(f"- backward searching 2...")
+#         # consider batching evaluation
+#         for behavior in self.ungrounded_behaviors:
+#             satisfactions_behavior = []
+#             satisfactions_mask = []
+#             for data in self.data_combs:
+#                 state, action, reward = data
+#                 if behavior.expected_reward == reward:
+#
+#                     satisfactions_data = []
+#                     same_action_id = torch.argmax(behavior.action).item() == action
+#                     same_mask = smp_utils.mask_name_from_state(state, self.args.obj_type_names,
+#                                                                config.mask_splitter) == behavior.mask_name
+#                     if same_action_id and same_mask:
+#                         satisfactions_mask.append(True)
+#                         for oppm_comb in behavior.oppm_combs:
+#                             comb_obj_id = [oppm_comb[idx] for idx in behavior.oppm_keys["obj"]]
+#                             comb_prop_id = [oppm_comb[idx] for idx in behavior.oppm_keys["prop"]]
+#                             comb_preds = [oppm_comb[idx] for idx in behavior.oppm_keys["pred"]]
+#                             state_preds, _ = smp_utils.check_pred_satisfaction(state, behavior.preds, None, comb_obj_id,
+#                                                                                comb_prop_id, behavior.p_spaces,
+#                                                                                mode="eval")
+#                             same_pred = state_preds == comb_preds
+#                             if same_pred:
+#                                 satisfactions_data.append(True)
+#                             else:
+#                                 satisfactions_data.append(False)
+#                     else:
+#                         satisfactions_mask.append(False)
+#                 else:
+#                     satisfactions_data = [False] * len(behavior.oppm_combs)
+#                     satisfactions_mask.append(False)
+#
+#                 satisfactions_behavior.append(satisfactions_data)
+#             passed_states = [satisfactions_behavior[s_i] for s_i, state in enumerate(satisfactions_mask) if state]
+#
+#             behavior.oppm_combs = self.grounding(behavior.oppm_combs, passed_states)
+#
+#         new_ungrounded_behaviors = []
+#         for behavior in self.ungrounded_behaviors:
+#             if len(behavior.oppm_combs) > 0:
+#                 new_ungrounded_behaviors.append(behavior)
+#         self.ungrounded_behaviors = new_ungrounded_behaviors
+#
+#     def grounding(self, combs, satisfactions):
+#
+#         satisfaction_count = torch.tensor(satisfactions).float()
+#         if len(satisfaction_count.size()) == 2:
+#             satisfaction_count = satisfaction_count.sum(0)
+#         if len(combs) != len(satisfaction_count):
+#             print("Warning:")
+#         satisfactions = satisfaction_count > 0
+#         grounded_combs = [combs[s_i] for s_i, satisfaction in enumerate(satisfactions) if satisfaction]
+#         print(f"behavior grounded reasons from {len(combs)} to {len(grounded_combs)}")
+#         return grounded_combs
+#
+#     def programming(self, agent, game_info, prop_indices):
+#         relate_2_obj_types = smp_utils.get_all_2_combinations(game_info)
+#         relate_2_prop_types = smp_utils.get_all_subsets(prop_indices, empty_set=False)
+#
+#         self.facts = smp_utils.get_smp_facts(game_info, relate_2_obj_types, relate_2_prop_types, self.preds)
+#         behaviors = self.student_searching(agent)
+#
+#         # obj_grounded_behaviors = self.forward_searching(relate_2_obj_types, relate_2_prop_types, obj_types)
+#         # self.backward_searching()
+#         # self.backward_searching2()
+#
+#         return behaviors
 
 
 class SymbolicMicroProgram(nn.Module):

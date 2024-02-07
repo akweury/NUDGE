@@ -169,16 +169,30 @@ def comb_buffers(states, actions, rewards):
     return data
 
 
-def split_data_by_reward(states, actions, reward, action_num):
-    reward_types = torch.unique(reward)
-    data = {}
+def split_data_by_reward(states, rewards, actions, zero_reward, game_info):
+    mask_neg_reward = rewards < zero_reward
+    mask_zero_reward = rewards == zero_reward
+    mask_pos_reward = rewards > zero_reward
 
-    for reward_type in reward_types:
-        reward_type_indices = reward == reward_type
-        reward_type_states = states[reward_type_indices]
-        reward_type_actions = actions[reward_type_indices]
-        data[reward_type] = split_data_by_action(reward_type_states, reward_type_actions, action_num)
-    return data
+    neg_states = states[mask_neg_reward]
+    neg_rewards = rewards[mask_neg_reward]
+    neg_actions = actions[mask_neg_reward]
+    neg_masks = mask_tensors_from_states(neg_states, game_info)
+
+    pos_states = states[mask_pos_reward]
+    pos_rewards = rewards[mask_pos_reward]
+    pos_actions = actions[mask_pos_reward]
+    pos_masks = mask_tensors_from_states(pos_states, game_info)
+
+    zero_states = states[mask_zero_reward]
+    zero_rewards = rewards[mask_zero_reward]
+    zero_actions = actions[mask_zero_reward]
+    zero_masks = mask_tensors_from_states(zero_states, game_info)
+
+    pos_data = {"states": pos_states, "actions": pos_actions, "rewards": pos_rewards, "masks": pos_masks}
+    neg_data = {"states": neg_states, "actions": neg_actions, "rewards": neg_rewards, "masks": neg_masks}
+    zero_data = {"states": zero_states, "actions": zero_actions, "rewards": zero_rewards, "masks": zero_masks}
+    return pos_data, neg_data, zero_data
 
 
 def gen_mask_name(switch, names):
@@ -703,6 +717,62 @@ def get_state_delta(state, state_last, obj_comb):
     return delta
 
 
+def stat_scored_data(data_pos, data_neg, obj_info, prop_indices, var_th):
+    states = data_pos["states"]
+    actions = data_pos["actions"]
+    rewards = data_pos["rewards"]
+    masks = data_pos["masks"]
+
+    states_neg = torch.cat((data_neg[0]['states'], data_neg[1]['states']), 0)
+    actions_neg = torch.cat((data_neg[0]["actions"], data_neg[1]["actions"]), 0)
+    rewards_neg = torch.cat((data_neg[0]["rewards"], data_neg[1]["rewards"]), 0)
+    masks_neg = torch.cat((data_neg[0]["masks"], data_neg[1]["masks"]), 0)
+
+    mask_types = masks.unique(dim=0)
+    action_types = actions.unique()
+    obj_types = get_all_2_combinations(obj_info, reverse=False)
+
+    prop_types = get_all_subsets(prop_indices, empty_set=False)
+    type_combs = list(itertools.product(mask_types, action_types, obj_types, prop_types))
+    stats = []
+    variances = []
+    means = []
+    for t_i in tqdm(range(len(type_combs))):
+        mask_type, action_type, obj_type, prop_type = type_combs[t_i]
+        mask_pos = ((actions == action_type) * (masks == mask_type).prod(-1).bool())
+        mask_neg = ((actions_neg == action_type) * (masks_neg == mask_type).prod(-1).bool())
+
+        states_masked = states[mask_pos]
+        states_neg_masked = states_neg[mask_neg]
+        dists = torch.abs(states_masked[:, obj_type[0], prop_type] - states_masked[:, obj_type[1], prop_type])
+        dists_neg = torch.abs(
+            states_neg_masked[:, obj_type[0], prop_type] - states_neg_masked[:, obj_type[1], prop_type])
+        var, mean = torch.var_mean(dists)
+        var_neg, mean_neg = torch.var_mean(dists_neg)
+        if var_neg < 0.5 or len(dists) < 3 or var == 0 or dists.sum() == 0:
+            var = torch.tensor(1e+20)
+            mean = torch.tensor(1e+20)
+        variances.append(var)
+        means.append(mean)
+        stats.append({
+            "dists": dists.tolist(), "dists_neg": dists_neg.tolist(), "mean": mean.tolist(), "var": var.tolist(),
+            "action_type": action_type.tolist(), "mask_type": mask_type.tolist(), "prop_type": prop_type,
+            "obj_type": obj_type, "indices": mask_pos.tolist()
+        })
+    variances_ranked, v_rank = torch.tensor(variances).sort(descending=False)
+    print(f"- top ranked variances: {variances_ranked[:5]}")
+    passed_variances = variances_ranked < var_th
+    passed_stats= []
+    for v_i, s_i in enumerate(v_rank):
+        stat = stats[s_i]
+
+        if variances_ranked[v_i]>var_th:
+            print("")
+        passed_stats.append(stat)
+
+    return passed_stats
+
+
 def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop_indices):
     mask_neg_reward = rewards < zero_reward
     neg_rewards = rewards[mask_neg_reward]
@@ -725,7 +795,8 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop
     variances = []
     means = []
     percentage = torch.zeros(len(type_combs))
-    for t_i in tqdm(range(len(type_combs)), desc=f"Reasoning on {len(type_combs)} negative explanations."):
+    for t_i in tqdm(range(len(type_combs)),
+                    desc=f"Reasoning on {len(type_combs)} negative explanations based on {len(neg_states)} states"):
 
         mask_type, action_type, obj_type, prop_type = type_combs[t_i]
 
@@ -741,10 +812,11 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop
             action_states_pos[:, obj_type[0], prop_type] - action_states_pos[:, obj_type[1], prop_type])
         var, mean = torch.var_mean(dist)
         var_pos, mean_pos = torch.var_mean(dist_pos)
-        if var_pos < 0.5 or len(dist) < 3:
+        if var_pos < 0.5 or len(dist) < 3 or var_pos == 0 or dist.sum() == 0:
             var = 1e+20
             mean = 1e+20
-
+        else:
+            print("")
         variances.append(var)
         means.append(mean)
         percentage[t_i] = len(action_states) / len(neg_states)
