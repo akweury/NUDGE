@@ -304,7 +304,9 @@ def render_getout(agent, args):
                                                     f"Max steaks: {max_steak}\n"
                                                     f"Win 2 steaks at ep: {win_2}\n"
                                                     f"Win 3 steaks at ep: {win_3}\n"
-                                                    f"Win 5 steaks at ep: {win_5}\n",
+                                                    f"Win 5 steaks at ep: {win_5}\n"
+                                                    f"PF Behaviors: {len(agent.pf_behaviors)}\n"
+                                                    f"Def Behaviors: {len(agent.def_behaviors)}\n",
                                                     getout.camera.height, getout.camera.height, 1)
 
             explain_plot = draw_utils.vconcat_resize([win_rate_plot, milestone_plot])
