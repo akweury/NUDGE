@@ -27,6 +27,10 @@ class ActorCritic(nn.Module):
             self.num_action = 3
             self.actor = MLPGetout(has_softmax=True)
             self.critic = MLPGetout(has_softmax=False, out_size=1)
+        elif self.args.m == 'getoutplus':
+            self.num_action = 3
+            self.actor = MLPGetout(has_softmax=True)
+            self.critic = MLPGetout(has_softmax=False, out_size=1)
         elif self.args.m == 'threefish':
             self.num_action = 5
             self.actor = MLPThreefish(has_softmax=True)

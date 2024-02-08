@@ -82,7 +82,7 @@ obj_info_getout = [('agent', [0], [0]),
                    ('key', [1], [1]),
                    ('door', [2], [2]),
                    ('enemy', [3], [3])]
-obj_data_getoutplus = [('agent', [0], [0]),
+obj_info_getoutplus = [('agent', [0], [0]),
                        ('key', [1], [1]),
                        ('door', [2], [2]),
                        ('enemy', [3, 4, 5, 6, 7], [3])]
@@ -102,13 +102,14 @@ obj_data_asterix = [('agent', [0], [0]),
 ########### action info ############################
 
 action_name_getout = ["left", "right", "jump"]
-action_name_assault = ["noop",
-                       "fire",
-                       "up",
-                       "right",
-                       "left",
-                       "rightfire",
-                       "leftfire"]
+action_name_assault = ["noop",  # 0
+                       "fire",  # 1
+                       "up",  # 2
+                       "right",  # 3
+                       "left",  # 4
+                       "rightfire",  # 5
+                       "leftfire"  # 6
+                       ]
 action_name_threefish = ["left", "right", "jump"]
 
 ################### prop info ########################

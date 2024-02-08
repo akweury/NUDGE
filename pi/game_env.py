@@ -70,6 +70,7 @@ class AtariNet(nn.Module):
 
 def create_agent(args, agent_type):
     #### create agent
+
     if agent_type == "smp":
         agent = SymbolicMicroProgramPlayer(args)
     elif agent_type == 'random':
@@ -214,7 +215,7 @@ def render_assault(agent, args):
                                            zoom_in * observation.shape[1])
 
     # frame rate limiting
-    fps = 30
+    fps = 60
     target_frame_duration = 1 / fps
     last_frame_time = 0
 
@@ -248,13 +249,14 @@ def render_assault(agent, args):
                 current_lives = info['lives']
 
             # logging
-            for beh_i in explaining['behavior_index']:
-                print(f"f: {game_i}, rw: {reward}, act: {action}, behavior: {agent.behaviors[beh_i].clause}")
+            # for beh_i in explaining['behavior_index']:
+            #     print(f"f: {game_i}, rw: {reward}, act: {action}, behavior: {agent.behaviors[beh_i].clause}")
 
             # visualization
             if frame_i % 5 == 0:
                 if args.render:
-                    ImageDraw.Draw(Image.fromarray(obs)).text((40, 60), "", (120, 20, 20))
+                    ImageDraw.Draw(Image.fromarray(obs)).text((40, 60), f"ep: {game_i}, win: {win_counter}",
+                                                              (120, 20, 20))
                     zoom_obs = game_utils.zoom_image(obs, zoom_in * observation.shape[0],
                                                      zoom_in * observation.shape[1])
                     viewer.show(zoom_obs[:, :, :3])
@@ -284,7 +286,7 @@ def render_assault(agent, args):
                 lost_game_data = agent.revise_loss(decision_history)
                 agent.update_lost_buffer(lost_game_data)
                 def_behaviors = agent.reasoning_def_behaviors(use_ckp=False)
-                agent.update_behaviors(None, def_behaviors, args)
+                agent.update_behaviors(None, def_behaviors, None, args)
                 decision_history = []
                 print("- revise loss finished.")
             frame_i += 1
@@ -331,8 +333,6 @@ def collect_data_assault(agent, args):
 
             # give negative reward
             if frame_reward < 0:
-                if logic_state[:, 3].sum() == 0:
-                    print("")
                 reward = args.reward_lost_one_live
                 dead = True
 
@@ -349,7 +349,7 @@ def collect_data_assault(agent, args):
             rewards.append(reward)
 
             Image.fromarray(game_utils.zoom_image(obs, obs.shape[0] * 3, obs.shape[1] * 3)).save(
-                args.output_folder / f'{i}_{frame_i}.png_{dead}_{scored}.png', "PNG")
+                args.game_buffer_path / f'{i}_{frame_i}.png_{dead}_{scored}.png', "PNG")
             frame_i += 1
 
         win_rates.append(win_count / (i + 1 + 1e-20))

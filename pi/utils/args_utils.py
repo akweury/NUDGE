@@ -24,6 +24,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("-rec", "--record", help="record the rendering of the game", action="store_true")
     parser.add_argument("--log_file_name", help="the name of log file", required=False, dest='logfile')
     parser.add_argument("--render", help="render the game", action="store_true", dest="render")
+    parser.add_argument("--with_explain", help="explain the game", action="store_true")
     parser.add_argument("--device", help="cpu or cuda", default="cpu", type=str)
     parser.add_argument('-d', '--dataset', required=False, help='the dataset to load if scoring', dest='d')
     parser.add_argument('--wandb', action="store_false")
@@ -42,8 +43,8 @@ def load_args(exp_args_path, m):
     parser.add_argument("--rectify_num", type=int, default=5, help="Repeat times of smp rectification.")
     parser.add_argument("--teacher_agent", type=str, default="pretrained", help="Type of the teacher agent.")
     parser.add_argument("--episode_num", type=int, default=5, help="Number of episodes to update the agent.")
-    parser.add_argument("--zoom_in", type=int, default=3, help="Zoom in percentage of the game window.")
-    parser.add_argument("--fact_conf", type=float, default=0.5,
+    parser.add_argument("--zoom_in", type=int, default=2, help="Zoom in percentage of the game window.")
+    parser.add_argument("--fact_conf", type=float, default=0.3,
                         help="Minimum confidence required to save a fact as a behavior.")
     args = parser.parse_args()
 
@@ -63,16 +64,24 @@ def load_args(exp_args_path, m):
         args.zero_reward = -0.1
         args.pass_th = 0.7
         args.failed_th = 0.3
+        args.att_var_th = 0.5
+
         args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
         args.obj_info = config.obj_info_getout
         args.action_names = config.action_name_getout
         args.prop_names = config.prop_name_getout
     elif args.m == "getoutplus":
+        args.zero_reward = -0.1
+        args.pass_th = 0.7
+        args.failed_th = 0.3
+        args.att_var_th = 0.5
+        args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
+
         args.obj_type_names = config.obj_type_name_getout
-        args.obj_names = config.obj_name_getout
+        args.obj_info = config.obj_info_getoutplus
         args.action_names = config.action_name_getout
         args.prop_names = config.prop_name_getout
-        args.obj_type_indices = config.obj_type_indices_getout_plus
+
     elif args.m == "Assault":
         args.att_var_th = 2
         args.zero_reward = 0.0
@@ -91,10 +100,13 @@ def load_args(exp_args_path, m):
     # output folder
     args.output_folder = config.path_log / f"{args.m}"
     args.check_point_path = config.path_check_point / f"{args.m}"
+    args.game_buffer_path = config.path_check_point / f"{args.m}" / "game_buffer"
     if not os.path.isdir(args.check_point_path):
         os.mkdir(str(args.check_point_path))
     if not os.path.exists(str(args.output_folder)):
         os.mkdir(str(args.output_folder))
+    if not os.path.exists(str(args.game_buffer_path)):
+        os.mkdir(str(args.game_buffer_path))
 
     return args
 

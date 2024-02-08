@@ -2,7 +2,7 @@
 import torch
 import numpy as np
 
-from pi.utils import draw_utils
+from pi.utils import draw_utils, math_utils
 from pi.neural import nn_model
 
 pass_th = 0.8
@@ -194,7 +194,7 @@ class At_Most():
         return pred_satisfy
 
 
-class Dist():
+class Dist_Closest():
     """ generate one micro-program
     """
 
@@ -206,7 +206,7 @@ class Dist():
         self.model = None
         self.num_epochs = 5000
         self.var, self.mean = torch.var_mean(X_0)
-        self.name = f"{name}_distance_ep_{self.num_epochs}"
+        self.name = f"{name}_dist_closest_ep_{self.num_epochs}"
         self.y_0 = 0
         self.y_1 = 1
 
@@ -239,10 +239,11 @@ class Dist():
         # fit a classifier using neural network
         self.model = nn_model.fit_classifier(x_tensor=X, y_tensor=y, num_epochs=self.num_epochs)
         # plot decision boundary
-        draw_utils.plot_decision_boundary(X, y, self.model, name=self.name, log_x=True, path=self.args.output_folder)
+        db_plot = draw_utils.plot_decision_boundary(X, y, self.model, name=self.name, log_x=True, path=self.args.output_folder)
+        return db_plot
 
     def eval(self, t1, t2):
-        dist = torch.abs(torch.sub(t1, t2))
+        dist = math_utils.dist_a_and_b_closest(t1, t2)
         # Use the trained model to predict the new value
         new_value_prediction = self.model(dist).detach()
         satisfaction = new_value_prediction.argmax() == self.y_0

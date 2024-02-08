@@ -67,8 +67,8 @@ def create_negative_behavior(args, beh_i, beh):
 
     # create predicate
     pred_name = f"{beh_i}_behavior_db_action_{action_type}"
-    dist_pred = predicate.Dist(args, dists, dists_pos, pred_name)
-    dist_pred.fit_pred()
+    dist_pred = predicate.Dist_Closest(args, dists, dists_pos, pred_name)
+    db_plot = dist_pred.fit_pred()
     pred = [dist_pred]
 
     beh_fact = VarianceFact(mask, obj_combs, prop_combs, pred)
@@ -78,12 +78,13 @@ def create_negative_behavior(args, beh_i, beh):
     behavior.clause = pi_lang.behavior2clause(args, behavior)
     print(f"# defense behavior: {behavior.clause}")
 
-    return behavior
+    return behavior, db_plot
 
 
 def update_negative_behaviors(args, behaviors, def_beh_data):
     # create defense behaviors
     defense_behaviors = []
+    db_plots = []
     for data_i, beh_data in enumerate(def_beh_data):
         # if behavior is exist
         behavior_exist = False
@@ -97,7 +98,61 @@ def update_negative_behaviors(args, behaviors, def_beh_data):
                 behavior_exist = True
                 break
         if not behavior_exist:
-            behavior = create_negative_behavior(args, data_i, beh_data)
+            behavior, db_plot = create_negative_behavior(args, data_i, beh_data)
+            db_plots.append({"plot_i": data_i, "plot": db_plot})
             print(f"- new behavior {behavior.clause}")
             defense_behaviors.append(behavior)
-    return defense_behaviors
+    return defense_behaviors, db_plots
+
+
+def create_attack_behavior(args, beh_i, beh):
+    # create attack behaviors
+    dists = torch.tensor(beh["dists"], dtype=torch.float32)
+    dists_neg = torch.tensor(beh["dists_neg"], dtype=torch.float32)
+    expected_reward = beh["rewards"]
+    obj_combs = beh["obj_type"]
+    prop_combs = beh["prop_type"]
+    action_type = beh["action_type"]
+    mask = beh["mask_type"]
+
+    print(f'- (Behavior data) objs: {obj_combs}, props: {prop_combs}, action: {action_type}, mask: {mask}')
+    # draw_utils.plot_scatter([dists, dists_neg], ['positive', 'negative'],
+    #                         f'{beh_i}_att_beh_act_{action_type}_v_{beh["var"]}_m_{beh["mean"]}',
+    #                         args.output_folder, log_x=True)
+
+    # create predicate
+    pred_name = f"{beh_i}_behavior_db_action_{action_type}"
+    dist_pred = predicate.Dist_Closest(args, dists, dists_neg, pred_name)
+    dist_pred.fit_pred()
+    pred = [dist_pred]
+
+    beh_fact = VarianceFact(mask, obj_combs, prop_combs, pred)
+    neg_beh = False
+
+    behavior = Behavior(neg_beh, [beh_fact], action_type, expected_reward, len(dists), len(dists), 0, 0)
+    behavior.clause = pi_lang.behavior2clause(args, behavior)
+    print(f"# attack behavior: {behavior.clause}")
+
+    return behavior
+
+
+def update_attack_behaviors(args, behaviors, att_behavior_data):
+    # create attack behaviors
+    attack_behaviors = []
+    for data_i, beh_data in enumerate(att_behavior_data):
+        # if behavior is exist
+        behavior_exist = False
+        data_mean, data_var = beh_data['mean'], beh_data['var']
+        for beh_i, beh in enumerate(behaviors):
+            beh_mean = behaviors[beh_i].fact[0].preds[0].mean
+            beh_var = behaviors[beh_i].fact[0].preds[0].var
+            if torch.abs(beh_mean - data_mean) < 1e-3 and torch.abs(beh_var - data_var) < 1e-3:
+                print(f"- no update for behavior {behaviors[beh_i].clause}")
+                attack_behaviors.append(behaviors[beh_i])
+                behavior_exist = True
+                break
+        if not behavior_exist:
+            behavior, db_plot = create_negative_behavior(args, data_i, beh_data)
+            print(f"- new behavior {behavior.clause}")
+            attack_behaviors.append(behavior)
+    return attack_behaviors

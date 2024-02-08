@@ -71,6 +71,12 @@ class SymbolicMicroProgramPlayer:
         self.lost_rewards = []
         self.lost_game_ids = []
 
+        self.learned_jump = False
+        self.learn_jump_at = None
+        self.win_two_in_a_row = None
+        self.win_three_in_a_row = None
+        self.win_five_in_a_row = None
+
     def load_buffer(self, buffer):
         print(
             f'- Loaded game history, win games : {len(buffer.logic_states)}, loss games : {len(buffer.lost_logic_states)}')
@@ -104,9 +110,17 @@ class SymbolicMicroProgramPlayer:
                                                                                       self.args.obj_info)
 
     def update_lost_buffer(self, lost_game_data):
-        self.lost_states = torch.cat((self.lost_states, torch.tensor(lost_game_data['states']).squeeze()), 0)
-        self.lost_actions = torch.cat((self.lost_actions, torch.tensor(lost_game_data['actions'])), 0)
-        self.lost_rewards = torch.cat((self.lost_rewards, torch.tensor(lost_game_data['rewards'])), 0)
+        new_lost_states = torch.tensor(lost_game_data['states']).squeeze()
+        new_lost_actions = torch.tensor(lost_game_data['actions'])
+        new_lost_rewards = torch.tensor(lost_game_data['rewards'])
+        if new_lost_states.shape[1] != self.lost_states.shape[1]:
+            self.lost_states = new_lost_states
+            self.lost_actions = new_lost_actions
+            self.lost_rewards = new_lost_rewards
+        else:
+            self.lost_states = torch.cat((self.lost_states, new_lost_states), 0)
+            self.lost_actions = torch.cat((self.lost_actions, new_lost_actions), 0)
+            self.lost_rewards = torch.cat((self.lost_rewards, new_lost_rewards), 0)
 
     def update_behaviors(self, pf_behaviors, def_behaviors, att_behaviors, args=None):
         if args is not None:
@@ -117,14 +131,30 @@ class SymbolicMicroProgramPlayer:
             self.def_behaviors = def_behaviors
         if att_behaviors is not None:
             self.att_behaviors = att_behaviors
-
-        self.behaviors = self.pf_behaviors + self.def_behaviors + self.att_behaviors
+        if self.pf_behaviors is None:
+            self.pf_behaviors = []
+        if self.def_behaviors is None:
+            self.def_behaviors = []
+        if self.att_behaviors is None:
+            self.att_behaviors = []
+        try:
+            self.behaviors = self.pf_behaviors + self.def_behaviors + self.att_behaviors
+        except TypeError:
+            print('pf_behaviors')
         self.model.update(args, self.behaviors)
+
+        if not self.learned_jump:
+            for beh in self.behaviors:
+                if "jump" == beh.clause.head.pred.name:
+                    self.learned_jump = True
+                    return True
+
+        return False
 
     def reasoning_def_behaviors(self, use_ckp=True):
         # if no data for defensive behaviors exist
         if len(self.lost_states) == 0:
-            return
+            return []
 
         neg_states_stat_file = self.args.check_point_path / f"{self.args.m}_neg_stats.json"
         if use_ckp and os.path.exists(neg_states_stat_file):
@@ -137,21 +167,26 @@ class SymbolicMicroProgramPlayer:
         neg_beh_file = self.args.check_point_path / f"{self.args.m}_neg_beh.pkl"
         if os.path.exists(neg_beh_file):
             defense_behaviors = file_utils.load_pickle(neg_beh_file)
-            defense_behaviors = beh_utils.update_negative_behaviors(self.args, defense_behaviors, def_beh_data)
+            defense_behaviors, db_plots = beh_utils.update_negative_behaviors(self.args, defense_behaviors, def_beh_data)
             for def_beh in defense_behaviors:
                 print(f"# defense behavior: {def_beh.clause}")
 
         else:
             defense_behaviors = []
+            db_plots = []
             for beh_i, beh in enumerate(def_beh_data):
-                defense_behaviors.append(beh_utils.create_negative_behavior(self.args, beh_i, beh))
+                print(f"- Creating defense behavior {beh_i + 1}/{len(def_beh_data)}...")
+                behavior, db_plot = beh_utils.create_negative_behavior(self.args, beh_i, beh)
+                db_plots.append({"plot_i": beh_i, "plot":db_plot})
+                defense_behaviors.append(behavior)
             file_utils.save_pkl(neg_beh_file, defense_behaviors)
 
         self.def_behaviors = defense_behaviors
+        return defense_behaviors, db_plots
 
     def reasoning_att_behaviors(self, use_ckp=True):
         if len(self.pos_data) == 0:
-            return
+            return []
         stat_file = self.args.check_point_path / f"{self.args.m}_stats_score.json"
         if use_ckp and os.path.exists(stat_file):
             att_behavior_data = file_utils.load_json(stat_file)
@@ -166,6 +201,7 @@ class SymbolicMicroProgramPlayer:
         else:
             attack_behaviors = []
             for beh_i, beh in enumerate(att_behavior_data):
+                print(f"- Creating attack behavior {beh_i + 1}/{len(att_behavior_data)}...")
                 attack_behaviors.append(beh_utils.create_attack_behavior(self.args, beh_i, beh))
             file_utils.save_pkl(att_behavior_file, attack_behaviors)
 
@@ -187,6 +223,7 @@ class SymbolicMicroProgramPlayer:
         path_behaviors = beh_utils.create_positive_behaviors(self.args, pos_behavior_data)
 
         self.pf_behaviors = path_behaviors
+        return path_behaviors
 
     def revise_win(self, history, game_states):
         print("")
@@ -376,6 +413,7 @@ class PpoPlayer:
         self.args = args
         self.preds = None
         self.model = self.load_model(args.model_path, args)
+        self.buffer_win_rates = torch.zeros(10000)
 
     def update(self, args=None, behaviors=None, prop_indices=None, explains=None, preds=None):
         if args is not None:

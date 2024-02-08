@@ -8,7 +8,7 @@ import sys
 import io
 import torch
 from ocatari.core import OCAtari
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 from src.environments.procgen.procgen import ProcgenGym3Env
 from src.environments.getout.getout.imageviewer import ImageViewer
@@ -83,12 +83,13 @@ def render_getout(agent, args):
     KEY_RIGHT = 65363
     KEY_UP = 65362
 
-    def setup_image_viewer(getout):
-        print(getout.camera.height, getout.camera.width)
+    def setup_image_viewer(getout, with_explain=False):
+        viewer_height = getout.camera.height
+        viewer_width = getout.camera.width
         viewer = ImageViewer(
             "getout",
-            getout.camera.height,
-            getout.camera.width,
+            viewer_height,
+            viewer_width,
             monitor_keyboard=True,
         )
         return viewer
@@ -106,11 +107,21 @@ def render_getout(agent, args):
 
         return getout
 
-    # seed = random.randint(0, 100000000)
-    # print(seed)
     getout = create_getout_instance(args)
     viewer = setup_image_viewer(getout)
+    if args.with_explain:
+        out = draw_utils.create_video_out((getout.camera.width + getout.camera.height), getout.camera.height)
 
+    jump_epi = ""
+    learned_jump = False
+    win_2 = ""
+    has_win_2 = False
+    win_3 = ""
+    has_win_3 = False
+    win_5 = ""
+    has_win_5 = False
+    max_steak = 0
+    current_steak = 0
     # frame rate limiting
     fps = 10
     target_frame_duration = 1 / fps
@@ -130,9 +141,13 @@ def render_getout(agent, args):
     scores = []
 
     decision_history = []
+    db_dict_list = []
     max_game_frames = 200
     game_frame_counter = 0
+    win_rate_plot = np.zeros((getout.camera.screen.size[1], getout.camera.screen.size[1], 3), dtype=np.uint8)
+    db_plots = []
     while num_epi <= max_epi:
+
         # control framerate
         current_frame_time = time.time()
         # limit frame rate
@@ -188,7 +203,7 @@ def render_getout(agent, args):
             reward = getout.step(action)
             explaining["reward"].append(reward)
             decision_history.append(explaining)
-            if args.render:
+            if args.render or args.with_explain:
                 for beh_i in explaining['behavior_index']:
                     print(
                         f"f: {game_frame_counter}, rw: {reward}, act: {action - 1}, behavior: {agent.behaviors[beh_i].clause}")
@@ -198,16 +213,31 @@ def render_getout(agent, args):
 
         else:
             game_count += 1
+
             if epi_reward > 1:
+                current_steak += 1
+                max_steak = max(max_steak, current_steak)
+                if max_steak >= 2 and not has_win_2:
+                    has_win_2 = True
+                    win_2 = num_epi
+                if max_steak >= 3 and not has_win_3:
+                    has_win_3 = True
+                    win_3 = num_epi
+                if max_steak >= 5 and not has_win_5:
+                    has_win_5 = True
+                    win_5 = num_epi
+
                 win_count += 1
                 agent.revise_win(decision_history, args.obj_info)
             else:
                 # the game total frame number has to greater than 2
+                current_steak = 0
+
                 if len(decision_history) > 2:
                     lost_game_data = agent.revise_loss(decision_history)
                     agent.update_lost_buffer(lost_game_data)
-                    def_behaviors = agent.reasoning_def_behaviors(use_ckp=False)
-                    agent.update_behaviors(None, def_behaviors, args)
+                    def_behaviors, db_dict_list = agent.reasoning_def_behaviors(use_ckp=False)
+                    learned_jump = agent.update_behaviors(None, def_behaviors, None, args)
                     print("- revise loss finished.")
             getout = create_getout_instance(args)
             decision_history = []
@@ -217,8 +247,8 @@ def render_getout(agent, args):
             print(f"Episode {num_epi} Win: {win_count}/{game_count}")
             win_rate[0, num_epi - 1] = win_count / (game_count + 1e-20)
 
-            draw_utils.plot_line_chart(win_rate[:, :num_epi], args.output_folder, ['smp', 'ppo'], title='win_rate',
-                                       cla_leg=True)
+            win_rate_plot = draw_utils.plot_line_chart(win_rate[:, :num_epi], args.output_folder, ['smp', 'ppo'],
+                                                       title='win_rate', cla_leg=True, figure_size=(10, 10))
             print(f"===============================================")
             if args.agent_type == 'human':
                 data = [(num_epi, round(epi_reward, 2))]
@@ -234,11 +264,55 @@ def render_getout(agent, args):
 
         if args.render:
             screen = getout.camera.screen
-            ImageDraw.Draw(screen).text((40, 60), "", (120, 20, 20))
-            np_img = np.asarray(screen)
-            viewer.show(np_img[:, :, :3])
-            if args.record:
-                screen.save(f"renderings/{step:03}.png")
+            font = ImageFont.truetype("arial.ttf", size=20)
+            ImageDraw.Draw(screen).text((40, 60), f"ep: {game_count}, win: {win_count}",
+                                        (120, 20, 20), font=font)
+            screen_plot = np.asarray(screen)
+            viewer.show(screen_plot)
+
+        elif args.with_explain:
+            if learned_jump:
+                jump_epi = num_epi
+            screen = getout.camera.screen
+            font = ImageFont.truetype("arial.ttf", size=20)
+            ImageDraw.Draw(screen).text((40, 60), f"ep: {game_count}, win: {win_count}",
+                                        (120, 20, 20), font=font)
+            screen_plot = draw_utils.rgb_to_bgr(np.asarray(screen))
+            screen_plot = draw_utils.image_resize(screen_plot, int(screen_plot.shape[0] * args.zoom_in),
+                                                  int(screen_plot.shape[1] * args.zoom_in))
+            if len(db_dict_list) == 0:
+                db_plot = np.zeros((int(screen_plot.shape[0]), int(screen_plot.shape[0]*0.5), 3), dtype=np.uint8)
+            else:
+                db_num = 4
+                plots = []
+                for plot_dict in db_dict_list:
+                    plot_i = plot_dict['plot_i']
+                    plot = plot_dict['plot']
+                    draw_utils.addText(plot, f"beh_{plot_i}", font_size=1.8, thickness=3, color=(0, 0, 255))
+                    plots.append(plot)
+                if len(plots)<db_num:
+                    black_plots = [np.zeros(plots[0].shape, dtype=np.uint8)] * (db_num - len(plots))
+                    plots += black_plots
+                plots = plots[-db_num:]
+                db_plot = draw_utils.vconcat_resize(plots)
+
+            if win_rate_plot is None:
+                win_rate_plot = np.zeros((getout.camera.screen.size[1], getout.camera.screen.size[1], 3),
+                                         dtype=np.uint8)
+            win_rate_plot = draw_utils.image_resize(win_rate_plot, getout.camera.height, getout.camera.height)
+            milestone_plot = draw_utils.visual_info(f"Learn jump at ep: {jump_epi}\n"
+                                                    f"Max steaks: {max_steak}\n"
+                                                    f"Win 2 steaks at ep: {win_2}\n"
+                                                    f"Win 3 steaks at ep: {win_3}\n"
+                                                    f"Win 5 steaks at ep: {win_5}\n",
+                                                    getout.camera.height, getout.camera.height, 1)
+
+            explain_plot = draw_utils.vconcat_resize([win_rate_plot, milestone_plot])
+
+            explain_plot = draw_utils.image_resize(explain_plot, int(screen_plot.shape[0] * 0.5), screen_plot.shape[0])
+            # explain_plot_four_channel = draw_utils.three_to_four_channel(explain_plot)
+            screen_with_explain = draw_utils.hconcat_resize([screen_plot, explain_plot, db_plot])
+            draw_utils.write_video_frame(out, screen_with_explain)
 
         # terminated = getout.level.terminated
         # if terminated:
@@ -253,6 +327,8 @@ def render_getout(agent, args):
             scores.append(epi_reward)
         if num_epi > 100:
             break
+    if args.with_explain:
+        draw_utils.release_video(out)
 
     # df = pd.DataFrame({'reward': scores})
     # df.to_csv(f"logs/{envname}/random_{envname}_log_{args.seed}.csv", index=False)

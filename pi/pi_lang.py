@@ -19,7 +19,7 @@ def extract_fact_terms(args, fact):
 
 
 def generate_action_predicate(args, behavior):
-    action_code = behavior.action
+    action_code = int(behavior.action)
     action_name = args.action_names[action_code]
     if behavior.neg_beh:
         action_name = "not_" + action_name

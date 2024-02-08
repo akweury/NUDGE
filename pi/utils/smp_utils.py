@@ -7,7 +7,7 @@ import itertools
 
 from src import config
 from pi import predicate
-
+from pi.utils import math_utils
 
 def get_param_range(min, max, unit):
     length = (max - min) // unit
@@ -732,7 +732,7 @@ def stat_scored_data(data_pos, data_neg, obj_info, prop_indices, var_th):
     action_types = actions.unique()
     obj_types = get_all_2_combinations(obj_info, reverse=False)
 
-    prop_types = get_all_subsets(prop_indices, empty_set=False)
+    prop_types = [prop_indices]
     type_combs = list(itertools.product(mask_types, action_types, obj_types, prop_types))
     stats = []
     variances = []
@@ -744,6 +744,9 @@ def stat_scored_data(data_pos, data_neg, obj_info, prop_indices, var_th):
 
         states_masked = states[mask_pos]
         states_neg_masked = states_neg[mask_neg]
+        if len(states_masked) == 0 or len(states_neg_masked) == 0:
+            continue
+
         dists = torch.abs(states_masked[:, obj_type[0], prop_type] - states_masked[:, obj_type[1], prop_type])
         dists_neg = torch.abs(
             states_neg_masked[:, obj_type[0], prop_type] - states_neg_masked[:, obj_type[1], prop_type])
@@ -757,20 +760,20 @@ def stat_scored_data(data_pos, data_neg, obj_info, prop_indices, var_th):
         stats.append({
             "dists": dists.tolist(), "dists_neg": dists_neg.tolist(), "mean": mean.tolist(), "var": var.tolist(),
             "action_type": action_type.tolist(), "mask_type": mask_type.tolist(), "prop_type": prop_type,
-            "obj_type": obj_type, "indices": mask_pos.tolist()
+            "obj_type": obj_type, "indices": mask_pos.tolist(), "rewards": rewards.tolist()
         })
     variances_ranked, v_rank = torch.tensor(variances).sort(descending=False)
     print(f"- top ranked variances: {variances_ranked[:5]}")
-    passed_variances = variances_ranked < var_th
-    passed_stats= []
+    passed_stats = []
     for v_i, s_i in enumerate(v_rank):
-        stat = stats[s_i]
-
-        if variances_ranked[v_i]>var_th:
-            print("")
-        passed_stats.append(stat)
+        if variances_ranked[v_i] < var_th:
+            stat = stats[s_i]
+            passed_stats.append(stat)
 
     return passed_stats
+
+
+
 
 
 def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop_indices):
@@ -807,16 +810,29 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop
 
         action_states = neg_states[action_state_indices]
         action_states_pos = pos_states[action_pos_indices]
-        dist = torch.abs(action_states[:, obj_type[0], prop_type] - action_states[:, obj_type[1], prop_type])
-        dist_pos = torch.abs(
-            action_states_pos[:, obj_type[0], prop_type] - action_states_pos[:, obj_type[1], prop_type])
+
+        _, obj_0_indices, _ = game_info[obj_type[0]]
+        _, obj_1_indices, _ = game_info[obj_type[1]]
+        obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
+        obj_a_indices = obj_combs[:, 0].unique()
+        obj_b_indices = obj_combs[:, 1].unique()
+        if len(obj_a_indices) == 1:
+            data_A = action_states[:, obj_a_indices][:, :, prop_type]
+            data_B = action_states[:, obj_b_indices][:, :, prop_type]
+            dist = math_utils.dist_a_and_b_closest(data_A, data_B).squeeze(0)
+
+            data_A_pos = action_states_pos[:, obj_a_indices][:,:, prop_type]
+            data_B_pos = action_states_pos[:, obj_b_indices][:,:, prop_type]
+            dist_pos = math_utils.dist_a_and_b_closest(data_A_pos, data_B_pos).squeeze(0)
+
+        else:
+            dist = torch.zeros(2)
+            dist_pos = torch.zeros(2)
         var, mean = torch.var_mean(dist)
         var_pos, mean_pos = torch.var_mean(dist_pos)
         if var_pos < 0.5 or len(dist) < 3 or var_pos == 0 or dist.sum() == 0:
             var = 1e+20
             mean = 1e+20
-        else:
-            print("")
         variances.append(var)
         means.append(mean)
         percentage[t_i] = len(action_states) / len(neg_states)

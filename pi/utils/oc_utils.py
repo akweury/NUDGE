@@ -214,7 +214,7 @@ def extract_logic_state_getout(coin_jump, args, noise=False):
                 # extracted_states[3][-2:] /= 27
             elif entity[0].name == 'GROUND_ENEMY2':
                 extracted_states[4][3] = 1
-                # extracted_states[3][-2:] /= 27
+                extracted_states[4][-2:] = entity[1:3]
             elif entity[0].name == 'GROUND_ENEMY3':
                 extracted_states[5][3] = 1
                 extracted_states[5][-2:] = entity[1:3]

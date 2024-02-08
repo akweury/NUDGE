@@ -7,9 +7,23 @@ from pathlib import Path
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import cv2 as cv
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 date_now = datetime.datetime.today().date()
 time_now = datetime.datetime.now().strftime("%H_%M_%S")
+
+
+def plot_to_np_array():
+    fig = plt.gcf()
+    canvas = FigureCanvasAgg(fig)
+    # Render the plot to the FigureCanvasAgg
+    canvas.draw()
+
+    # Get the RGB values of the rendered plot
+    width, height = fig.get_size_inches() * fig.get_dpi()
+    image_array = np.frombuffer(canvas.tostring_rgb(), dtype='uint8').reshape(int(height), int(width), 3)
+    return image_array
 
 
 def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scale=None, y_label=None, show=False,
@@ -50,13 +64,15 @@ def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scal
     plt.savefig(
         str(Path(path) / f"{title}_{y_label}_{date_now}_{time_now}.png"))
 
-    if show:
-        plt.show()
-    if cla_leg:
-        plt.cla()
+    plot_array = plot_to_np_array()
 
     if show:
         plt.show()
+
+    if cla_leg:
+        plt.cla()
+    matplotlib.pyplot.close()
+    return plot_array
 
 
 def plot_head_maps(data, row_labels=None, path=None, title=None, y_label=None, x_label=None, col_labels=None, ax=None,
@@ -183,11 +199,17 @@ def plot_scatter(data, labels, name, path, log_x=False, log_y=False, cla_leg=Tru
     plt.legend()
 
     # save the plot
-    plt.savefig(str(Path(path) / f"{name}_scatter.png"))
+    filename = str(Path(path) / f"{name}_scatter.png")
+    plt.savefig(filename)
+    print(f" Scatter plot saved to {filename}")
+    plot_array = plot_to_np_array()
 
     if cla_leg:
         plt.cla()
 
+
+    matplotlib.pyplot.close()
+    return plot_array
 
 def plot_decision_boundary(x_tensor, y_tensor, model, path, name, log_x=False, log_y=False, cla_leg=True):
     model.eval()
@@ -212,8 +234,146 @@ def plot_decision_boundary(x_tensor, y_tensor, model, path, name, log_x=False, l
 
     plt.title(f'Decision Boundary {name}')
 
-    file_name = str(Path(path) / f"{name}_decision_boundary.png")
+    file_name = str(Path(path) / f"{name}.png")
     plt.savefig(file_name)
     print(f'- plot saved as {file_name}')
+    plot_array = plot_to_np_array()
+
     if cla_leg:
         plt.cla()
+
+    matplotlib.pyplot.close()
+    return plot_array
+
+def image_resize(image, width=None, height=None, inter=cv.INTER_AREA):
+    # initialize the dimensions of the image to be resized and
+    # grab the image size
+    dim = None
+    try:
+        (h, w) = image.shape[:2]
+    except AttributeError:
+        print("")
+
+    # if both the width and height are None, then return the
+    # original image
+    if width is None and height is None:
+        return image
+
+    # check to see if the width is None
+    if width is None:
+        # calculate the ratio of the height and construct the
+        # dimensions
+        r = height / float(h)
+        dim = (int(w * r), height)
+
+    # otherwise, the height is None
+    else:
+        # calculate the ratio of the width and construct the
+        # dimensions
+        r = width / float(w)
+        dim = (width, int(h * r))
+
+    # resize the image
+    if r > 1:
+
+        resized = cv.resize(image, dim, interpolation=inter)
+    else:
+        resized = cv.resize(image, dim)
+
+    # return the resized image
+    return resized
+
+
+def addText(img, text, pos='upper_left', font_size=1.6, color=(255, 255, 255), thickness=1):
+    h, w = img.shape[:2]
+    if pos == 'upper_left':
+        position = (350, 140)
+    elif pos == 'upper_right':
+        position = (w - 250, 80)
+    elif pos == 'lower_right':
+        position = (h - 200, w - 20)
+    elif pos == 'lower_left':
+        position = (10, w - 20)
+    else:
+        raise ValueError('unsupported position to put text in the image.')
+
+    cv.putText(img, text=text, org=position,
+               fontFace=cv.FONT_HERSHEY_SIMPLEX, fontScale=font_size, color=color,
+               thickness=thickness, lineType=cv.LINE_AA)
+
+
+def addCustomText(img, text, pos, font_size=1.6, color=(255, 255, 255), thickness=2):
+    h, w = img.shape[:2]
+    if pos[0] > h or pos[0] < 0 or pos[1] > w or pos[1] < 0:
+        raise ValueError('unsupported position to put text in the image.')
+
+    cv.putText(img, text=text, org=pos,
+               fontFace=cv.FONT_HERSHEY_SIMPLEX, fontScale=font_size, color=color,
+               thickness=thickness, lineType=cv.LINE_AA)
+
+
+def visual_info(data, height, width, font_size):
+    info_image = np.zeros((height, width, 3), dtype=np.uint8)
+    # predicates info
+    pi_c_text_position = [20, 80]
+    text_y_shift = 40
+    lines = data.split("\n")
+    for line in lines:
+        addCustomText(info_image, f"{line}", pi_c_text_position, font_size=font_size)
+        pi_c_text_position[1] += text_y_shift
+    return info_image
+
+
+def vconcat_resize(img_list, interpolation=cv.INTER_CUBIC):
+    w_min = min(img.shape[1] for img in img_list)
+    im_list_resize = [cv.resize(img,
+                                (w_min, int(img.shape[0] * w_min / img.shape[1])), interpolation=interpolation)
+                      for img in img_list]
+    return cv.vconcat(im_list_resize)
+
+
+def hconcat_resize(img_list, interpolation=cv.INTER_CUBIC):
+    h_min = min(img.shape[0] for img in img_list)
+    im_list_resize = [cv.resize(img, (int(img.shape[1] * h_min / img.shape[0]), h_min))
+                      for img in img_list]
+
+    return cv.hconcat(im_list_resize)
+
+
+def three_to_four_channel(img):
+    alpha_plot = np.ones((img.shape[0], img.shape[1], 1), dtype=np.uint8) * 255
+    four_channel_image = np.concatenate([img, alpha_plot], axis=2)
+    return four_channel_image
+
+
+def show_images(array, title):
+    cv.imshow(title, array)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+
+
+def create_video_out(width, height):
+    fps = 30
+    fourcc = cv.VideoWriter_fourcc(*'XVID')  # Specify the video codec (XVID is just an example)
+    # Create a VideoWriter object
+    out = cv.VideoWriter('output_video.avi', fourcc, fps, (width, height))
+    return out
+
+
+def write_video_frame(video, frame):
+    # Display or process the image as needed (replace this with your actual processing logic)
+    cv.imshow('Frame', frame)
+    cv.waitKey(1)  # Adjust the waitKey delay as needed
+
+    # Write the 4-channel image to the video file
+    video.write(frame)
+
+
+def release_video(video):
+    video.release()
+    cv.destroyAllWindows()
+
+
+def rgb_to_bgr(rgb_img):
+    bgr_img = cv.cvtColor(rgb_img, cv.COLOR_RGB2BGR)
+    return bgr_img
