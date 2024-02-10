@@ -94,6 +94,7 @@ def load_args(exp_args_path, m):
         args.reward_score_one_enemy = 20
     elif args.m == "Asterix":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
+        args.zero_reward = 0.0
         args.obj_info = config.obj_info_asterix
         args.action_names = config.action_name_asterix
         args.prop_names = config.prop_name_asterix

@@ -1,6 +1,8 @@
 # Created by jing at 18.01.24
 import torch
 import numpy as np
+from src import config
+
 
 def extract_logic_state_assault(objects, args, noise=False):
     extracted_states = {'Player': {'name': 'Player', 'exist': False, 'x': [], 'y': []},
@@ -100,10 +102,14 @@ def extract_logic_state_assault(objects, args, noise=False):
 
 def extract_logic_state_asterix(objects, args, noise=False):
     # print('Extracting logic states...')
-    return
+
     extracted_states = {'Player': {'exist': False, 'x': [], 'y': []},
+                        'Enemy': {'exist': False, 'x': [], 'y': []},
                         'Cauldron': {'exist': False, 'x': [], 'y': []},
-                        'Enemy': {'exist': False, 'x': [], 'y': []}
+                        'Helmet': {'exist': False, 'x': [], 'y': []},
+                        'Shield': {'exist': False, 'x': [], 'y': []},
+                        'Lamp': {'exist': False, 'x': [], 'y': []},
+
                         }
     # import ipdb; ipdb.set_trace()
     for object in objects:
@@ -121,7 +127,19 @@ def extract_logic_state_asterix(objects, args, noise=False):
             extracted_states['Enemy']['exist'] = True
             extracted_states['Enemy']['x'].append(object.x)
             extracted_states['Enemy']['y'].append(object.y)
-        elif object.category == 'Reward50':
+        elif object.category == "Helmet":
+            extracted_states['Helmet']['exist'] = True
+            extracted_states['Helmet']['x'].append(object.x)
+            extracted_states['Helmet']['y'].append(object.y)
+        elif object.category == "Shield":
+            extracted_states['Shield']['exist'] = True
+            extracted_states['Shield']['x'].append(object.x)
+            extracted_states['Shield']['y'].append(object.y)
+        elif object.category == "Lamp":
+            extracted_states['Lamp']['exist'] = True
+            extracted_states['Lamp']['x'].append(object.x)
+            extracted_states['Lamp']['y'].append(object.y)
+        elif "Reward" in object.category:
             pass
         elif object.category == "Score":
             pass
@@ -133,57 +151,57 @@ def extract_logic_state_asterix(objects, args, noise=False):
             pass
         else:
             raise ValueError
-    player_id = 0
-    player_missile_vertical_id = 1
-    player_missile_horizontal_id = 3
-    enemy_id = 5
-    enemy_missile_id = 10
-
-    player_exist_id = 0
-    player_missile_vertical_exist_id = 1
-    player_missile_horizontal_exist_id = 2
-    enemy_exist_id = 3
-    enemy_missile_exist_id = 4
-    x_idx = 5
-    y_idx = 6
-
-    states = torch.zeros((12, 7))
+    player = 0
+    enemy = 1
+    cauldron = 2
+    helmet = 3
+    shield = 4
+    lamp = 5
+    x_idx = 6
+    y_idx = 7
+    obj_info = config.obj_info_asterix
+    states = torch.zeros((41, 8))
     if extracted_states['Player']['exist']:
-        states[player_id, player_exist_id] = 1
+        states[player, player] = 1
         assert len(extracted_states['Player']['x']) == 1
-        states[player_id, x_idx] = extracted_states['Player']['x'][0]
-        states[player_id, y_idx] = extracted_states['Player']['y'][0]
-
-    if extracted_states['PlayerMissileVertical']['exist']:
-        for i in range(len(extracted_states['PlayerMissileVertical']['x'])):
-            states[player_missile_vertical_id + i, player_missile_vertical_exist_id] = 1
-            states[player_missile_vertical_id + i, x_idx] = extracted_states['PlayerMissileVertical']['x'][i]
-            states[player_missile_vertical_id + i, y_idx] = extracted_states['PlayerMissileVertical']['y'][i]
-            if i > 1:
-                raise ValueError
-    if extracted_states['PlayerMissileHorizontal']['exist']:
-        for i in range(len(extracted_states['PlayerMissileHorizontal']['x'])):
-            states[player_missile_horizontal_id + i, player_missile_horizontal_exist_id] = 1
-            states[player_missile_horizontal_id + i, x_idx] = extracted_states['PlayerMissileHorizontal']['x'][i]
-            states[player_missile_horizontal_id + i, y_idx] = extracted_states['PlayerMissileHorizontal']['y'][i]
-            if i > 1:
-                raise ValueError
+        states[player, x_idx] = extracted_states['Player']['x'][0]
+        states[player, y_idx] = extracted_states['Player']['y'][0]
 
     if extracted_states['Enemy']['exist']:
         for i in range(len(extracted_states['Enemy']['x'])):
-            states[enemy_id + i, enemy_exist_id] = 1
-            states[enemy_id + i, x_idx] = extracted_states['Enemy']['x'][i]
-            states[enemy_id + i, y_idx] = extracted_states['Enemy']['y'][i]
-            if i > 5:
+            states[enemy + i, enemy] = 1
+            states[enemy + i, x_idx] = extracted_states['Enemy']['x'][i]
+            states[enemy + i, y_idx] = extracted_states['Enemy']['y'][i]
+            if i > 7:
                 raise ValueError
-    if extracted_states['EnemyMissile']['exist']:
-        for i in range(len(extracted_states['EnemyMissile']['x'])):
-            states[enemy_missile_id + i, enemy_missile_exist_id] = 1
-            states[enemy_missile_id + i, x_idx] = extracted_states['EnemyMissile']['x'][i]
-            states[enemy_missile_id + i, y_idx] = extracted_states['EnemyMissile']['y'][i]
-            if i > 1:
+    if extracted_states['Cauldron']['exist']:
+        for i in range(len(extracted_states['Cauldron']['x'])):
+            states[cauldron + i, cauldron] = 1
+            states[cauldron + i, x_idx] = extracted_states['Cauldron']['x'][i]
+            states[cauldron + i, y_idx] = extracted_states['Cauldron']['y'][i]
+            if i > 7:
                 raise ValueError
-
+    if extracted_states['Helmet']['exist']:
+        for i in range(len(extracted_states['Helmet']['x'])):
+            states[helmet + i, helmet] = 1
+            states[helmet + i, x_idx] = extracted_states['Helmet']['x'][i]
+            states[helmet + i, y_idx] = extracted_states['Helmet']['y'][i]
+            if i > 7:
+                raise ValueError
+    if extracted_states['Shield']['exist']:
+        for i in range(len(extracted_states['Shield']['x'])):
+            states[shield + i, shield] = 1
+            states[shield + i, x_idx] = extracted_states['Shield']['x'][i]
+            states[shield + i, y_idx] = extracted_states['Shield']['y'][i]
+            if i > 7:
+                raise ValueError
+    if extracted_states['Lamp']['exist']:
+        for i in range(len(extracted_states['Lamp']['x'])):
+            states[lamp + i, lamp] = 1
+            states[lamp + i, x_idx] = extracted_states['Lamp']['x'][i]
+            states[lamp + i, y_idx] = extracted_states['Lamp']['y'][i]
+            if i > 7:
+                raise ValueError
     return states
 
 
@@ -288,5 +306,3 @@ def extract_logic_state_getout(coin_jump, args, noise=False):
         extracted_states = simulate_prob(extracted_states, num_of_object, key_picked)
     states = torch.tensor(np.array(extracted_states), dtype=torch.float32, device="cpu").unsqueeze(0)
     return states
-
-

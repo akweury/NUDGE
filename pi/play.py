@@ -44,13 +44,13 @@ def main(render=True, m=None):
     # load arguments
     args = args_utils.load_args(config.path_exps, m)
     teacher_agent = create_agent(args, agent_type=args.teacher_agent)
-    if render:
-        game_env.render_game(teacher_agent, args)
+    # if render:
+    #     game_env.render_game(teacher_agent, args)
 
     game_env.collect_data_game(teacher_agent, args)
     # learn behaviors from data
     agent = create_agent(args, agent_type='smp')
-    args.agent_type = 'smp'
+    # args.agent_type = 'smp'
     # building symbolic microprogram
     agent.prop_indices = game_settings.get_idx(args)
     agent.load_buffer(game_utils.load_buffer(args))
@@ -58,8 +58,8 @@ def main(render=True, m=None):
     def_behaviors,_  = agent.reasoning_def_behaviors()
     # att_behaviors = agent.reasoning_att_behaviors()
     agent.update_behaviors(pf_behaviors, def_behaviors, None, args)
-    args.m = "getoutplus"
-    args.obj_info = config.obj_info_getoutplus
+    # args.m = "getoutplus"
+    # args.obj_info = config.obj_info_getoutplus
     if render:
         # Test updated agent
         game_env.render_game(agent, args)

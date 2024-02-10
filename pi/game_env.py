@@ -425,44 +425,60 @@ def collect_data_assault(agent, args):
 
 
 def collect_data_asterix(agent, args):
-    args.model_file = "neural"
-    args.filename = args.m + '_' + args.teacher_agent + '.json'
-    max_states = 100000
+    max_states = 10000
+
+    args.filename = args.m + '_' + args.teacher_agent + str(max_states) +'.json'
     buffer = RolloutBuffer(args.filename)
     if os.path.exists(buffer.filename):
         return
-
+    win_rates = []
+    win_count = 0
     step = 0
-    collected_states = 0
     game_num = 0
     env = OCAtari(args.m, mode="vision", hud=True, render_mode="rgb_array")
     observation, info = env.reset()
 
+    logic_states = []
+    actions = []
+    rewards = []
     for i in tqdm(range(max_states)):
         # step game
         step += 1
         logic_state = extract_logic_state_asterix(env.objects, args)
         action, _ = agent(env.dqn_obs)
-        action = 0
-
         obs, reward, terminated, truncated, info = env.step(action)
-        if reward < 0:
-            print("Reward")
-        # print(f'Game {game_num} : Frame {i} : Action {action} : Reward {reward}')
+
+        logic_states.append(logic_state.tolist())
+        actions.append(action)
+        rewards.append(reward)
+
+        if reward > args.zero_reward:
+            buffer.logic_states.append(logic_states)
+            buffer.actions.append(actions)
+            buffer.rewards.append(rewards)
+            win_count += 1
+            win_rates.append(win_count / (i + 1e-20))
+            logic_states = []
+            actions = []
+            rewards = []
+
+        elif reward < args.zero_reward:
+            buffer.lost_logic_states.append(logic_states)
+            buffer.lost_actions.append(actions)
+            buffer.lost_rewards.append(rewards)
+            win_rates.append(win_count / (i + 1e-20))
+            logic_states = []
+            actions = []
+            rewards = []
 
         if terminated:
             game_num += 1
             env.reset()
+            logic_states = []
+            actions = []
+            rewards = []
 
-        collected_states += 1
-        continue
-        # buffer.logic_states.append(logic_state.detach().tolist())
-        buffer.actions.append(action)
-        buffer.logic_states.append(logic_state.tolist())
-        buffer.rewards.append(reward)
-        buffer.reason_source.append('neural')
-        buffer.game_number.append(game_num)
-
+    buffer.win_rates = win_rates
     buffer.save_data()
 
 

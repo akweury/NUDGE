@@ -22,6 +22,11 @@ def get_idx(args):
         idx_y = config.state_idx_assault_y
         idx_list.append(idx_x)
         idx_list.append(idx_y)
+    elif args.m == "Asterix":
+        idx_x = config.state_idx_assault_x
+        idx_y = config.state_idx_assault_y
+        idx_list.append(idx_x)
+        idx_list.append(idx_y)
     else:
         raise ValueError
 
@@ -38,6 +43,8 @@ def get_game_info(args):
         obj_data= config.obj_data_getoutplus
     elif args.m == 'Assault':
         obj_data = config.obj_info_assault
+    elif args.m == 'Asterix':
+        obj_data = config.obj_info_asterix
     else:
         raise ValueError
 

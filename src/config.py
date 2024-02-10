@@ -68,6 +68,9 @@ state_idx_getout_y = 5
 state_idx_assault_x = 5
 state_idx_assault_y = 6
 
+state_idx_asterix_x = 6
+state_idx_asterix_y = 7
+
 state_idx_threefish_agent = 0
 state_idx_threefish_fish = 1
 state_idx_threefish_radius = 2
@@ -131,7 +134,8 @@ prop_name_getout = ['agent', 'key', 'door', 'enemy', "axis_x", "axis_y"]
 prop_name_threefish = ['agent', 'fish', "radius", "axis_x", "axis_y"]
 prop_name_assault = ['agent', 'player_missile_vertical', "player_missile_horizontal", "enemy", "enemy_missile",
                      "axis_x", "axis_y"]
-prop_name_asterix = ["agent", "cauldron", "helmet", "shield", "lamp", "enemy", "axis_x", "axis_y"]
+prop_name_asterix = ["agent", "enemy", "cauldron", "helmet", "shield", "lamp",
+                     "axis_x", "axis_y"]
 
 ########## language ########################
 
