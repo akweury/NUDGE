@@ -4,11 +4,11 @@ from gzip import GzipFile
 from pathlib import Path
 import torch
 import cv2 as cv
-
+import numpy as np
 
 from pi.utils.atari import assault_utils
+from pi.utils import draw_utils
 from src import config
-
 
 
 class RolloutBuffer:
@@ -162,3 +162,111 @@ def zoom_image(image, width=None, height=None, inter=cv.INTER_AREA):
 
     # return the resized image
     return resized
+
+
+def get_game_viewer(env_args):
+    width = env_args.width_game_window + env_args.width_left_panel + env_args.width_right_panel
+    height = env_args.zoom_in * env_args.height_game_window
+    out = draw_utils.create_video_out(width, height)
+    return out
+
+
+def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list):
+    game_plot = draw_utils.rgb_to_bgr(obs)
+    screen_plot = draw_utils.image_resize(game_plot,
+                                          int(game_plot.shape[0] * env_args.zoom_in),
+                                          int(game_plot.shape[1] * env_args.zoom_in))
+    draw_utils.addText(screen_plot, f"ep: {env_args.game_i}, win: {env_args.win_count}",
+                       color=(0, 20, 255), thickness=2, font_size=1, pos="upper_right")
+
+    if len(db_list) == 0:
+        db_plots = np.zeros((int(screen_plot.shape[0]), int(screen_plot.shape[0] * 0.5), 3), dtype=np.uint8)
+    else:
+        db_plots = []
+        for plot_dict in db_list:
+            plot_i = plot_dict['plot_i']
+            plot = plot_dict['plot']
+            draw_utils.addText(plot, f"beh_{plot_i}", font_size=1.8, thickness=3, color=(0, 0, 255))
+            db_plots.append(plot)
+        if len(db_plots) < env_args.db_num:
+            empty_plots = [np.zeros(db_plots[0].shape, dtype=np.uint8)] * (env_args.db_num - len(db_plots))
+            db_plots += empty_plots
+        db_plots = db_plots[-env_args.db_num:]
+        db_plots = draw_utils.vconcat_resize(db_plots)
+
+    if wr_plot is None:
+        wr_plot = np.zeros((env_args.width_left_panel,
+                            int(env_args.height_game_window * 0.5), 3),
+                           dtype=np.uint8)
+    wr_plot = draw_utils.image_resize(wr_plot, int(screen_plot.shape[0] * 0.5), int(0.5 * screen_plot.shape[0]))
+    mt_plot = draw_utils.image_resize(mt_plot, int(screen_plot.shape[0] * 0.5), int(0.5 * screen_plot.shape[0]))
+    explain_plot = draw_utils.vconcat_resize([wr_plot, mt_plot])
+
+    # explain_plot_four_channel = draw_utils.three_to_four_channel(explain_plot)
+    screen_with_explain = draw_utils.hconcat_resize([screen_plot, explain_plot, db_plots])
+    out = draw_utils.write_video_frame(out, screen_with_explain)
+    return out
+
+
+def update_args(env_args, reward, lives, frame_i):
+    if lives < env_args.current_lives:
+        reward += env_args.reward_lost_one_live
+        env_args.current_lives = lives
+        env_args.score_update = True
+    if reward < 0:
+        env_args.game_i += 1
+        frame_i = 0
+        env_args.score_update = True
+    elif reward > 0:
+        env_args.win_count += 1
+        env_args.game_i += 1
+        frame_i = 0
+        env_args.current_steak += 1
+        env_args.max_steak = max(env_args.max_steak, env_args.current_steak)
+        if env_args.max_steak >= 2 and not env_args.has_win_2:
+            env_args.has_win_2 = True
+            env_args.win_2 = env_args.game_i
+        if env_args.max_steak >= 3 and not env_args.has_win_3:
+            env_args.has_win_3 = True
+            env_args.win_3 = env_args.game_i
+        if env_args.max_steak >= 5 and not env_args.has_win_5:
+            env_args.has_win_5 = True
+            env_args.win_5 = env_args.game_i
+        env_args.score_update = True
+    else:
+        env_args.score_update = False
+
+    env_args.win_rate[0, env_args.game_i] = env_args.win_count / (env_args.game_i + 1e-20)
+
+    return frame_i
+
+
+def plot_mt_asterix(env_args, agent):
+    if agent.agent_type == "smp":
+        data = (f"Max steaks: {env_args.max_steak}\n"
+                f"Win 2 steaks at ep: {env_args.win_2}\n"
+                f"Win 3 steaks at ep: {env_args.win_3}\n"
+                f"Win 5 steaks at ep: {env_args.win_5}\n"
+                f"# PF Behaviors: {len(agent.pf_behaviors)}\n"
+                f"# Def Behaviors: {len(agent.def_behaviors)}\n")
+
+    else:
+        data = (f"Max steaks: {env_args.max_steak}\n"
+                f"Win 2 steaks at ep: {env_args.win_2}\n"
+                f"Win 3 steaks at ep: {env_args.win_3}\n"
+                f"Win 5 steaks at ep: {env_args.win_5}\n")
+    # plot game frame
+    mt_plot = draw_utils.visual_info(data, 512, 512, 0.6,
+                                     text_pos=[20, 20])
+    return mt_plot
+
+
+def plot_wr(env_args):
+    if env_args.score_update or env_args.wr_plot is None:
+        wr_plot = draw_utils.plot_line_chart(env_args.win_rate[:, :env_args.game_i],
+                                             env_args.output_folder, ['smp', 'ppo'],
+                                             title='win_rate', cla_leg=True, figure_size=(10, 10))
+        env_args.wr_plot = wr_plot
+    else:
+        wr_plot = env_args.wr_plot
+    return wr_plot

@@ -93,11 +93,13 @@ obj_info_assault = [('agent', [0], [0]),
                     ('enemy', [5, 6, 7, 8, 9], [3]),
                     ('enemy_missile', [10, 11], [4])]
 
-obj_data_asterix = [('agent', [0], [0]),
-                    ('player_missile_vertical', [1, 2], [1]),
-                    ('player_missile_horizontal', [3, 4], [2]),
-                    ('enemy', [5, 6, 7, 8, 9], [3]),
-                    ('enemy_missile', [10, 11], [4])]
+obj_info_asterix = [('agent', [0], [0]),
+                    ('enemy', [1, 2, 3, 4, 5, 6, 7, 8], [1]),
+                    ('cauldron', [9, 10, 11, 12, 13, 14, 15, 16], [2]),
+                    ('helmet', [17, 18, 19, 20, 21, 22, 23, 24], [3]),
+                    ('shield', [25, 26, 27, 28, 29, 30, 31, 32], [4]),
+                    ('lamp', [33, 34, 35, 36, 37, 38, 39, 40], [5])
+                    ]
 
 ########### action info ############################
 
@@ -110,6 +112,17 @@ action_name_assault = ["noop",  # 0
                        "rightfire",  # 5
                        "leftfire"  # 6
                        ]
+action_name_asterix = ["noop",  # 0
+                       "up",  # 1
+                       "right",  # 2
+                       "left",  # 3
+                       "down",  # 4
+                       "upright",  # 5
+                       "upleft",  # 6
+                       "downright",  # 7
+                       "downleft"  # 8
+                       ]
+
 action_name_threefish = ["left", "right", "jump"]
 
 ################### prop info ########################
@@ -118,6 +131,7 @@ prop_name_getout = ['agent', 'key', 'door', 'enemy', "axis_x", "axis_y"]
 prop_name_threefish = ['agent', 'fish', "radius", "axis_x", "axis_y"]
 prop_name_assault = ['agent', 'player_missile_vertical', "player_missile_horizontal", "enemy", "enemy_missile",
                      "axis_x", "axis_y"]
+prop_name_asterix = ["agent", "cauldron", "helmet", "shield", "lamp", "enemy", "axis_x", "axis_y"]
 
 ########## language ########################
 

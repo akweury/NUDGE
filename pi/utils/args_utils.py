@@ -43,7 +43,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--rectify_num", type=int, default=5, help="Repeat times of smp rectification.")
     parser.add_argument("--teacher_agent", type=str, default="pretrained", help="Type of the teacher agent.")
     parser.add_argument("--episode_num", type=int, default=5, help="Number of episodes to update the agent.")
-    parser.add_argument("--zoom_in", type=int, default=2, help="Zoom in percentage of the game window.")
+    parser.add_argument("--zoom_in", type=int, default=4, help="Zoom in percentage of the game window.")
     parser.add_argument("--fact_conf", type=float, default=0.3,
                         help="Minimum confidence required to save a fact as a behavior.")
     args = parser.parse_args()
@@ -94,6 +94,13 @@ def load_args(exp_args_path, m):
         args.reward_score_one_enemy = 20
     elif args.m == "Asterix":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
+        args.obj_info = config.obj_info_asterix
+        args.action_names = config.action_name_asterix
+        args.prop_names = config.prop_name_asterix
+        args.max_lives = 3
+        args.reward_lost_one_live = -20
+        args.reward_score_one_enemy = 10
+
     else:
         raise ValueError
 

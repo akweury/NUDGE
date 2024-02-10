@@ -13,6 +13,7 @@ import numpy as np
 import time
 
 from pi.utils import game_utils
+from pi.utils.EnvArgs import EnvArgs
 from pi.Player import SymbolicMicroProgramPlayer, PpoPlayer
 from pi.utils.game_utils import RolloutBuffer, _load_checkpoint, _epsilon_greedy
 from pi.utils.oc_utils import extract_logic_state_assault, extract_logic_state_asterix
@@ -79,6 +80,7 @@ def create_agent(args, agent_type):
         agent = 'human'
     elif agent_type == "ppo":
         agent = PpoPlayer(args)
+
     elif agent_type == 'pretrained':
         # game/seed/model
         ckpt = _load_checkpoint(args.model_path)
@@ -101,6 +103,7 @@ def create_agent(args, agent_type):
     else:
         raise ValueError
 
+    agent.agent_type = agent_type
     return agent
 
 
@@ -123,12 +126,8 @@ def render_game(agent, args):
         render_getout(agent, args)
     elif args.m == 'Assault':
         render_assault(agent, args)
-    elif args.m == 'loot':
-        render_loot(agent, args)
-    elif args.m == 'ecoinrun':
-        render_ecoinrun(agent, args)
-    elif args.m == 'atari':
-        render_atari(agent, args)
+    elif args.m == 'Asterix':
+        render_asterix(agent, args)
     else:
         raise ValueError("Game not exist.")
 
@@ -294,6 +293,60 @@ def render_assault(agent, args):
                                        cla_leg=True)
         # modify and display render
     env.close()
+
+
+def render_asterix(agent, args):
+    env = OCAtari(args.m, mode="vision", hud=True, render_mode='rgb_array')
+    obs, info = env.reset()
+    env_args = EnvArgs(args=args, game_num=300, window_size=obs.shape[:2], fps=60)
+    video_out = game_utils.get_game_viewer(env_args)
+    explaining = None
+    db_plots = []
+    while env_args.game_i < env_args.game_num:
+        frame_i = 0
+        terminated = False
+        truncated = False
+        decision_history = []
+        reward = 0
+        while not terminated or truncated:
+            current_frame_time = time.time()
+            # limit frame rate
+            if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
+                sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
+                time.sleep(sl)
+                continue
+            env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
+            if agent.agent_type == "smp":
+                action, explaining = agent.act(env.objects)
+            elif agent.agent_type == "pretrained":
+                action, _ = agent(env.dqn_obs)
+            else:
+                raise ValueError
+            obs, reward, terminated, truncated, info = env.step(action)
+            ram = env._env.unwrapped.ale.getRAM()
+            frame_i = game_utils.update_args(env_args, reward, info["lives"], frame_i)
+            if explaining is not None:
+                explaining["reward"].append(reward)
+                decision_history.append(explaining)
+            # render the game
+            wr_plot = game_utils.plot_wr(env_args)
+            mt_plot = game_utils.plot_mt_asterix(env_args, agent)
+            video_out = game_utils.plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots)
+            frame_i += 1
+
+        # finish one game
+        if terminated or truncated:
+            env.reset()
+
+        # revise the game rules
+        if len(decision_history) > 2 and reward < 0:
+            lost_game_data = agent.revise_loss(decision_history)
+            agent.update_lost_buffer(lost_game_data)
+            def_behaviors, db_plots = agent.reasoning_def_behaviors(use_ckp=False)
+            agent.update_behaviors(None, def_behaviors, None, args)
+            print("- revise loss finished.")
+    env.close()
+    draw_utils.release_video(video_out)
 
 
 def collect_data_assault(agent, args):

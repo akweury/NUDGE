@@ -207,9 +207,9 @@ def plot_scatter(data, labels, name, path, log_x=False, log_y=False, cla_leg=Tru
     if cla_leg:
         plt.cla()
 
-
     matplotlib.pyplot.close()
     return plot_array
+
 
 def plot_decision_boundary(x_tensor, y_tensor, model, path, name, log_x=False, log_y=False, cla_leg=True):
     model.eval()
@@ -244,6 +244,7 @@ def plot_decision_boundary(x_tensor, y_tensor, model, path, name, log_x=False, l
 
     matplotlib.pyplot.close()
     return plot_array
+
 
 def image_resize(image, width=None, height=None, inter=cv.INTER_AREA):
     # initialize the dimensions of the image to be resized and
@@ -312,15 +313,15 @@ def addCustomText(img, text, pos, font_size=1.6, color=(255, 255, 255), thicknes
                thickness=thickness, lineType=cv.LINE_AA)
 
 
-def visual_info(data, height, width, font_size):
+def visual_info(data, height, width, font_size, text_pos=[20, 80]):
     info_image = np.zeros((height, width, 3), dtype=np.uint8)
     # predicates info
-    pi_c_text_position = [20, 80]
+
     text_y_shift = 40
     lines = data.split("\n")
     for line in lines:
-        addCustomText(info_image, f"{line}", pi_c_text_position, font_size=font_size)
-        pi_c_text_position[1] += text_y_shift
+        addCustomText(info_image, f"{line}", text_pos, font_size=font_size)
+        text_pos[1] += text_y_shift
     return info_image
 
 
@@ -367,6 +368,7 @@ def write_video_frame(video, frame):
 
     # Write the 4-channel image to the video file
     video.write(frame)
+    return video
 
 
 def release_video(video):

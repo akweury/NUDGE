@@ -263,21 +263,18 @@ def render_getout(agent, args):
         game_frame_counter += 1
 
         if args.render:
-            screen = getout.camera.screen
-            font = ImageFont.truetype("arial.ttf", size=20)
-            ImageDraw.Draw(screen).text((40, 60), f"ep: {game_count}, win: {win_count}",
-                                        (120, 20, 20), font=font)
-            screen_plot = np.asarray(screen)
+            screen_plot = draw_utils.rgb_to_bgr(np.asarray(getout.camera.screen))
+            draw_utils.addText(screen_plot, f"ep: {game_count}, win: {win_count}",
+                               color=(0,20,120), thickness=2, font_size=1, pos="upper_right")
             viewer.show(screen_plot)
 
         elif args.with_explain:
             if learned_jump:
                 jump_epi = num_epi
-            screen = getout.camera.screen
-            font = ImageFont.truetype("arial.ttf", size=20)
-            ImageDraw.Draw(screen).text((40, 60), f"ep: {game_count}, win: {win_count}",
-                                        (120, 20, 20), font=font)
-            screen_plot = draw_utils.rgb_to_bgr(np.asarray(screen))
+            screen_plot = draw_utils.rgb_to_bgr(np.asarray(getout.camera.screen))
+            draw_utils.addText(screen_plot, f"ep: {game_count}, win: {win_count}",
+                               color=(0,20,120), thickness=2, font_size=1, pos="upper_right")
+
             screen_plot = draw_utils.image_resize(screen_plot, int(screen_plot.shape[0] * args.zoom_in),
                                                   int(screen_plot.shape[1] * args.zoom_in))
             if len(db_dict_list) == 0:
@@ -305,8 +302,8 @@ def render_getout(agent, args):
                                                     f"Win 2 steaks at ep: {win_2}\n"
                                                     f"Win 3 steaks at ep: {win_3}\n"
                                                     f"Win 5 steaks at ep: {win_5}\n"
-                                                    f"PF Behaviors: {len(agent.pf_behaviors)}\n"
-                                                    f"Def Behaviors: {len(agent.def_behaviors)}\n",
+                                                    f"# PF Behaviors: {len(agent.pf_behaviors)}\n"
+                                                    f"# Def Behaviors: {len(agent.def_behaviors)}\n",
                                                     getout.camera.height, getout.camera.height, 1)
 
             explain_plot = draw_utils.vconcat_resize([win_rate_plot, milestone_plot])
