@@ -44,8 +44,8 @@ def main(render=True, m=None):
     # load arguments
     args = args_utils.load_args(config.path_exps, m)
     teacher_agent = create_agent(args, agent_type=args.teacher_agent)
-    # if render:
-    #     game_env.render_game(teacher_agent, args)
+    if render:
+        game_env.render_game(teacher_agent, args)
 
     game_env.collect_data_game(teacher_agent, args)
     # learn behaviors from data

@@ -308,6 +308,7 @@ def render_asterix(agent, args):
         truncated = False
         decision_history = []
         reward = 0
+        current_lives = args.max_lives
         while not terminated or truncated:
             current_frame_time = time.time()
             # limit frame rate
@@ -323,8 +324,17 @@ def render_asterix(agent, args):
             else:
                 raise ValueError
             obs, reward, terminated, truncated, info = env.step(action)
+
             ram = env._env.unwrapped.ale.getRAM()
-            frame_i = game_utils.update_args(env_args, reward, info["lives"], frame_i)
+            reward = game_utils.asterix_patches(env_args, reward, info["lives"])
+            logic_state = extract_logic_state_asterix(env.objects, args)
+            agent_num = int(logic_state[:, 0].sum())
+            enemy_num = int(logic_state[:, 1].sum())
+            cauldron_num = int(logic_state[:, 2].sum())
+            helmet_num = int(logic_state[:, 3].sum())
+            print(
+                f"g: {env_args.game_i}, f: {frame_i}, rw: {reward}, act: {action}, lives:{info['lives']}, "
+                f"agent: {agent_num}, enemy: {enemy_num}, cauldron: {cauldron_num}, helmet: {helmet_num}")
             if explaining is not None:
                 explaining["reward"].append(reward)
                 decision_history.append(explaining)
@@ -332,7 +342,8 @@ def render_asterix(agent, args):
             wr_plot = game_utils.plot_wr(env_args)
             mt_plot = game_utils.plot_mt_asterix(env_args, agent)
             video_out = game_utils.plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots)
-            frame_i += 1
+
+            frame_i = game_utils.update_game_args(frame_i, env_args, reward)
 
         # finish one game
         if terminated or truncated:
@@ -427,7 +438,7 @@ def collect_data_assault(agent, args):
 def collect_data_asterix(agent, args):
     max_states = 10000
 
-    args.filename = args.m + '_' + args.teacher_agent + str(max_states) +'.json'
+    args.filename = args.m + '_' + args.teacher_agent + str(max_states) + '.json'
     buffer = RolloutBuffer(args.filename)
     if os.path.exists(buffer.filename):
         return

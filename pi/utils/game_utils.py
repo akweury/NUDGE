@@ -207,12 +207,7 @@ def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list):
     out = draw_utils.write_video_frame(out, screen_with_explain)
     return out
 
-
-def update_args(env_args, reward, lives, frame_i):
-    if lives < env_args.current_lives:
-        reward += env_args.reward_lost_one_live
-        env_args.current_lives = lives
-        env_args.score_update = True
+def update_game_args(frame_i, env_args, reward):
     if reward < 0:
         env_args.game_i += 1
         frame_i = 0
@@ -235,10 +230,17 @@ def update_args(env_args, reward, lives, frame_i):
         env_args.score_update = True
     else:
         env_args.score_update = False
-
+        frame_i += 1
     env_args.win_rate[0, env_args.game_i] = env_args.win_count / (env_args.game_i + 1e-20)
 
     return frame_i
+def asterix_patches(env_args, reward, lives):
+    if lives < env_args.current_lives:
+        reward += env_args.reward_lost_one_live
+        env_args.current_lives = lives
+        env_args.score_update = True
+
+    return reward
 
 
 def plot_mt_asterix(env_args, agent):
