@@ -23,8 +23,8 @@ def get_idx(args):
         idx_list.append(idx_x)
         idx_list.append(idx_y)
     elif args.m == "Asterix":
-        idx_x = config.state_idx_assault_x
-        idx_y = config.state_idx_assault_y
+        idx_x = config.state_idx_asterix_x
+        idx_y = config.state_idx_asterix_y
         idx_list.append(idx_x)
         idx_list.append(idx_y)
     else:
@@ -34,13 +34,12 @@ def get_idx(args):
 
 
 def get_game_info(args):
-
     if args.m == "threefish":
         obj_data = config.obj_name_threefish
     elif args.m == "getout":
         obj_data = config.obj_info_getout
     elif args.m == 'getoutplus':
-        obj_data= config.obj_data_getoutplus
+        obj_data = config.obj_data_getoutplus
     elif args.m == 'Assault':
         obj_data = config.obj_info_assault
     elif args.m == 'Asterix':
