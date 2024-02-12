@@ -235,6 +235,7 @@ def update_game_args(frame_i, env_args, reward):
 
     return frame_i
 def asterix_patches(env_args, reward, lives):
+    env_args.score_update = False
     if lives < env_args.current_lives:
         reward += env_args.reward_lost_one_live
         env_args.current_lives = lives
