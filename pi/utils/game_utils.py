@@ -1,14 +1,20 @@
 # Created by jing at 18.01.24
 import json
+from functools import partial
 from gzip import GzipFile
 from pathlib import Path
 import torch
 import cv2 as cv
 import numpy as np
+from torch import nn
+
+from pi.Player import SymbolicMicroProgramPlayer, PpoPlayer
+from pi.ale_env import ALEModern
 
 from pi.utils.atari import assault_utils
 from pi.utils import draw_utils
 from src import config
+from src.agents.random_agent import RandomPlayer
 
 
 class RolloutBuffer:
@@ -51,6 +57,7 @@ class RolloutBuffer:
         with open(config.path_bs_data / args.filename, 'r') as f:
             state_info = json.load(f)
         print(f"- Loaded game buffer file: {args.filename}")
+
         self.win_rates = torch.tensor(state_info['win_rates'])
         self.actions = [torch.tensor(state_info['actions'][i]) for i in range(len(state_info['actions']))]
         self.lost_actions = [torch.tensor(state_info['lost_actions'][i]) for i in
@@ -105,6 +112,8 @@ class RolloutBuffer:
         with open(self.filename, 'w') as f:
             json.dump(data, f)
         print(f'data saved in file {self.filename}')
+
+
 
 
 def load_buffer(args):
@@ -209,13 +218,8 @@ def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list):
 
 def update_game_args(frame_i, env_args, reward):
     if reward < 0:
-        env_args.game_i += 1
-        frame_i = 0
         env_args.score_update = True
     elif reward > 0:
-        env_args.win_count += 1
-        env_args.game_i += 1
-        frame_i = 0
         env_args.current_steak += 1
         env_args.max_steak = max(env_args.max_steak, env_args.current_steak)
         if env_args.max_steak >= 2 and not env_args.has_win_2:
@@ -230,8 +234,8 @@ def update_game_args(frame_i, env_args, reward):
         env_args.score_update = True
     else:
         env_args.score_update = False
-        frame_i += 1
-    env_args.win_rate[0, env_args.game_i] = env_args.win_count / (env_args.game_i + 1e-20)
+    frame_i += 1
+
 
     return frame_i
 def asterix_patches(env_args, reward, lives):
@@ -243,6 +247,16 @@ def asterix_patches(env_args, reward, lives):
 
     return reward
 
+def kangaroo_patches(env_args, reward, lives):
+    env_args.score_update = False
+    if lives < env_args.current_lives:
+        reward += env_args.reward_lost_one_live
+        env_args.current_lives = lives
+        env_args.score_update = True
+
+
+
+    return reward
 
 def plot_mt_asterix(env_args, agent):
     if agent.agent_type == "smp":
@@ -273,3 +287,87 @@ def plot_wr(env_args):
     else:
         wr_plot = env_args.wr_plot
     return wr_plot
+
+
+class AtariNet(nn.Module):
+    """ Estimator used by DQN-style algorithms for ATARI games.
+        Works with DQN, M-DQN and C51.
+    """
+
+    def __init__(self, action_no, distributional=False):
+        super().__init__()
+
+        self.action_no = out_size = action_no
+        self.distributional = distributional
+
+        # configure the support if distributional
+        if distributional:
+            support = torch.linspace(-10, 10, 51)
+            self.__support = nn.Parameter(support, requires_grad=False)
+            out_size = action_no * len(self.__support)
+
+        # get the feature extractor and fully connected layers
+        self.__features = nn.Sequential(
+            nn.Conv2d(4, 32, kernel_size=8, stride=4),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.ReLU(inplace=True),
+        )
+        self.__head = nn.Sequential(
+            nn.Linear(64 * 7 * 7, 512), nn.ReLU(inplace=True), nn.Linear(512, out_size),
+        )
+
+    def forward(self, x):
+        assert x.dtype == torch.uint8, "The model expects states of type ByteTensor"
+        x = x.float().div(255)
+
+        x = self.__features(x)
+        qs = self.__head(x.view(x.size(0), -1))
+
+        if self.distributional:
+            logits = qs.view(qs.shape[0], self.action_no, len(self.__support))
+            qs_probs = torch.softmax(logits, dim=2)
+            return torch.mul(qs_probs, self.__support.expand_as(qs_probs)).sum(2)
+        return qs
+
+
+def create_agent(args, agent_type):
+    #### create agent
+
+    if agent_type == "smp":
+        agent = SymbolicMicroProgramPlayer(args)
+    elif agent_type == 'random':
+        agent = RandomPlayer(args)
+    elif agent_type == 'human':
+        agent = 'human'
+    elif agent_type == "ppo":
+        agent = PpoPlayer(args)
+
+    elif agent_type == 'pretrained':
+        # game/seed/model
+        ckpt = _load_checkpoint(args.model_path)
+        # set env
+        env = ALEModern(
+            args.m,
+            torch.randint(100_000, (1,)).item(),
+            sdl=True,
+            device="cpu",
+            clip_rewards_val=False,
+            record_dir=None,
+        )
+
+        # init model
+        model = AtariNet(env.action_space.n, distributional="C51_" in str(args.model_path))
+        model.load_state_dict(ckpt["estimator_state"])
+        # configure policy
+        policy = partial(_epsilon_greedy, model=model, eps=0.001)
+        agent = policy
+    else:
+        raise ValueError
+
+    agent.agent_type = agent_type
+    return agent
+
+

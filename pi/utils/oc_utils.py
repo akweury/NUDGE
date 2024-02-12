@@ -205,6 +205,27 @@ def extract_logic_state_asterix(objects, args, noise=False):
     return states
 
 
+def extract_logic_state_atari(objects, game_info, noise=False):
+    # print('Extracting logic states...')
+    states = torch.zeros((game_info["state_row_num"], game_info["state_col_num"]))
+
+    row_start = 0
+    for o_i, (obj_name, obj_num) in enumerate(game_info["obj_info"]):
+        obj_count = 0
+        for obj in objects:
+            if obj.category == obj_name:
+                if obj_count >= obj_num:
+                    continue
+                states[row_start + obj_count, game_info["axis_x_col"]] = obj.x
+                states[row_start + obj_count, game_info["axis_y_col"]] = obj.y
+                states[row_start + obj_count, o_i] = 1
+                obj_count += 1
+
+        row_start += obj_num
+
+    return states
+
+
 def extract_logic_state_getout(coin_jump, args, noise=False):
     if args.m == 'getoutplus':
         num_of_feature = 6

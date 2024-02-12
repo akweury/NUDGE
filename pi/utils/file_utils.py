@@ -17,8 +17,6 @@ def load_json(filename):
     return data
 
 
-def save_pt(data, filename):
-    torch.save(data, filename)
 
 
 def load_pickle(pkl_file):

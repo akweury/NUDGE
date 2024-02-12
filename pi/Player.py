@@ -9,6 +9,7 @@ from src.agents.neural_agent import ActorCritic
 from src.agents.utils_getout import extract_neural_state_getout
 from pi import Reasoner
 from pi.utils import smp_utils, beh_utils, file_utils, oc_utils
+from pi.utils import game_utils
 
 
 class SymbolicMicroProgramModel(nn.Module):
@@ -77,7 +78,57 @@ class SymbolicMicroProgramPlayer:
         self.win_three_in_a_row = None
         self.win_five_in_a_row = None
 
+    def load_atari_buffer(self, args):
+
+        train_buffer_file = args.path_bs_data / f"{args.m}_train_tensors.pt"
+        train_data_file = args.path_bs_data / train_buffer_file
+        if os.path.exists(train_data_file):
+            data = torch.load(train_buffer_file)
+            self.win_states = data["states"]
+            self.win_actions = data["actions"]
+            self.win_rewards = data["rewards"]
+            self.lost_states = data["lost_states"]
+            self.lost_rewards = data["lost_rewards"]
+            self.lost_actions = data["lost_actions"]
+            self.pos_data = data["pos_data"]
+            self.neg_data = data["neg_data"]
+            self.zero_data = data["zero_data"]
+        else:
+            buffer = game_utils.load_buffer(args)
+            print(f'- Loaded game history : {len(buffer.logic_states)}')
+            self.buffer_win_rates = buffer.win_rates
+            game_num = len(buffer.actions)
+
+            for g_i in range(game_num):
+                self.win_actions += buffer.actions[g_i]
+                self.win_rewards += buffer.rewards[g_i]
+                self.win_states += buffer.logic_states[g_i].tolist()
+
+                self.lost_actions += buffer.actions[g_i]
+                self.lost_rewards += buffer.rewards[g_i]
+                self.lost_states += buffer.logic_states[g_i].tolist()
+                self.lost_game_ids += [g_i] * len(buffer.logic_states[g_i].tolist())
+
+            self.win_states = torch.tensor(self.win_states)
+            self.win_actions = torch.tensor(self.win_actions)
+            self.win_rewards = torch.tensor(self.win_rewards)
+            self.lost_states = torch.tensor(self.lost_states)
+            self.lost_actions = torch.tensor(self.lost_actions)
+            self.lost_rewards = torch.tensor(self.lost_rewards)
+
+            self.pos_data, self.neg_data, self.zero_data = smp_utils.split_data_by_reward(self.win_states,
+                                                                                          self.win_rewards,
+                                                                                          self.win_actions,
+                                                                                          self.args.zero_reward,
+                                                                                          self.args.obj_info)
+            train_data = {"states": self.win_states, "actions": self.win_actions, "rewards": self.win_rewards,
+                          "lost_states": self.lost_states, "lost_actions": self.lost_actions,
+                          "lost_rewards": self.lost_rewards,
+                          "pos_data": self.pos_data, "neg_data": self.neg_data, "zero_data": self.zero_data}
+            torch.save(train_data, train_buffer_file)
+
     def load_buffer(self, buffer):
+
         print(
             f'- Loaded game history, win games : {len(buffer.logic_states)}, loss games : {len(buffer.lost_logic_states)}')
 
@@ -167,7 +218,8 @@ class SymbolicMicroProgramPlayer:
         neg_beh_file = self.args.check_point_path / f"{self.args.m}_neg_beh.pkl"
         if os.path.exists(neg_beh_file):
             defense_behaviors = file_utils.load_pickle(neg_beh_file)
-            defense_behaviors, db_plots = beh_utils.update_negative_behaviors(self.args, defense_behaviors, def_beh_data)
+            defense_behaviors, db_plots = beh_utils.update_negative_behaviors(self.args, defense_behaviors,
+                                                                              def_beh_data)
             for def_beh in defense_behaviors:
                 print(f"# defense behavior: {def_beh.clause}")
 
@@ -177,7 +229,7 @@ class SymbolicMicroProgramPlayer:
             for beh_i, beh in enumerate(def_beh_data):
                 print(f"- Creating defense behavior {beh_i + 1}/{len(def_beh_data)}...")
                 behavior, db_plot = beh_utils.create_negative_behavior(self.args, beh_i, beh)
-                db_plots.append({"plot_i": beh_i, "plot":db_plot})
+                db_plots.append({"plot_i": beh_i, "plot": db_plot})
                 defense_behaviors.append(behavior)
             file_utils.save_pkl(neg_beh_file, defense_behaviors)
 
@@ -363,6 +415,7 @@ class SymbolicMicroProgramPlayer:
         explains['action'] = prediction
 
         return prediction, explains
+
     def asterix_actor(self, env):
         extracted_state = oc_utils.extract_logic_state_asterix(env, self.args).unsqueeze(0)
         predictions, explains = self.model(extracted_state)
@@ -371,6 +424,7 @@ class SymbolicMicroProgramPlayer:
         explains['action'] = prediction
 
         return prediction, explains
+
     def getout_reasoning_actor(self, getout):
         extracted_state = extract_logic_state_getout(getout, self.args)
         predictions, explain = self.model(extracted_state)

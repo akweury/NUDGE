@@ -44,6 +44,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--teacher_agent", type=str, default="pretrained", help="Type of the teacher agent.")
     parser.add_argument("--episode_num", type=int, default=5, help="Number of episodes to update the agent.")
     parser.add_argument("--zoom_in", type=int, default=3, help="Zoom in percentage of the game window.")
+    parser.add_argument("--train_state_num", type=int, default=100000, help="Zoom in percentage of the game window.")
     parser.add_argument("--fact_conf", type=float, default=0.1,
                         help="Minimum confidence required to save a fact as a behavior.")
     args = parser.parse_args()
@@ -95,9 +96,21 @@ def load_args(exp_args_path, m):
     elif args.m == "Asterix":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.zero_reward = 0.0
-        args.obj_info = config.obj_info_asterix
+        args.fact_conf = 0.5
+        args.game_info = config.game_info_asterix
+
         args.action_names = config.action_name_asterix
         args.prop_names = config.prop_name_asterix
+        args.max_lives = 3
+        args.reward_lost_one_live = -100
+        args.reward_score_one_enemy = 10
+    elif args.m == "Kangaroo":
+        args.model_path = config.path_model / args.m / 'model_50000000.gz'
+        args.zero_reward = 0.0
+        args.fact_conf = 0.5
+        args.game_info = config.game_info_kangaroo
+        args.action_names = config.action_name_kangaroo
+        args.prop_names = config.prop_name_kangaroo
         args.max_lives = 3
         args.reward_lost_one_live = -100
         args.reward_score_one_enemy = 10
@@ -109,6 +122,7 @@ def load_args(exp_args_path, m):
     args.output_folder = config.path_log / f"{args.m}"
     args.check_point_path = config.path_check_point / f"{args.m}"
     args.game_buffer_path = config.path_check_point / f"{args.m}" / "game_buffer"
+    args.path_bs_data = config.path_bs_data
     if not os.path.isdir(args.check_point_path):
         os.mkdir(str(args.check_point_path))
     if not os.path.exists(str(args.output_folder)):

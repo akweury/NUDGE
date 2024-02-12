@@ -96,13 +96,36 @@ obj_info_assault = [('agent', [0], [0]),
                     ('enemy', [5, 6, 7, 8, 9], [3]),
                     ('enemy_missile', [10, 11], [4])]
 
-obj_info_asterix = [('agent', [0], [0]),
-                    ('enemy', [1, 2, 3, 4, 5, 6, 7, 8], [1]),
-                    ('cauldron', [9, 10, 11, 12, 13, 14, 15, 16], [2]),
-                    ('helmet', [17, 18, 19, 20, 21, 22, 23, 24], [3]),
-                    ('shield', [25, 26, 27, 28, 29, 30, 31, 32], [4]),
-                    ('lamp', [33, 34, 35, 36, 37, 38, 39, 40], [5])
+obj_info_asterix = [('Player', 1),
+                    ('Enemy', 8),
+                    ('Consumable', 8)
                     ]
+
+game_info_asterix = {
+    "obj_info": obj_info_asterix,
+    "state_row_num": 17,
+    "state_col_num": 5,
+    "axis_x_col": 3,
+    "axis_y_col": 4
+}
+
+obj_info_kangaroo = [('Player', 1),
+                     ('Child', 1),
+                     ('Fruit', 3),
+                     ('Bell', 1),
+                     ('Platform', 4),
+                     ('Ladder', 3),
+                     ('Enemy', 3),
+                     ('Projectile_top', 3),
+                     ]
+
+game_info_kangaroo = {
+    "obj_info": obj_info_kangaroo,
+    "state_row_num": 19,
+    "state_col_num": 10,
+    "axis_x_col": 8,
+    "axis_y_col": 9
+}
 
 ########### action info ############################
 
@@ -125,6 +148,25 @@ action_name_asterix = ["noop",  # 0
                        "downright",  # 7
                        "downleft"  # 8
                        ]
+action_name_kangaroo = ["noop",  # 0
+                        "fire",  # 1
+                        "up",  # 2
+                        "right",  # 3
+                        "left",  # 4
+                        "down",  # 5
+                        "upright",  # 6
+                        "upleft",  # 7
+                        "downright",  # 8
+                        "downleft",  # 9
+                        "upfire",  # 10
+                        "rightfire",  # 11
+                        "leftfire",  # 12
+                        "downfire",  # 13
+                        "uprightfire",  # 14
+                        "upleftfire",  # 15
+                        "downrightfire",  # 16
+                        "downleftfire",  # 17
+                        ]
 
 action_name_threefish = ["left", "right", "jump"]
 
@@ -136,7 +178,8 @@ prop_name_assault = ['agent', 'player_missile_vertical', "player_missile_horizon
                      "axis_x", "axis_y"]
 prop_name_asterix = ["agent", "enemy", "cauldron", "helmet", "shield", "lamp",
                      "axis_x", "axis_y"]
-
+prop_name_kangaroo = ["agent", "monkey", "apple",
+                      "axis_x", "axis_y"]
 ########## language ########################
 
 func_pred_name = "func_pred"
@@ -149,7 +192,3 @@ counter_action_pred_name = "counter_action_pred"
 obj_type_indices_getout = {'agent': [0], 'key': [1], 'door': [2], 'enemy': [3]}
 obj_type_indices_getout_plus = {'agent': [0], 'key': [1], 'door': [2], 'enemy': [3, 4, 5], 'buzzsaw': [6, 7]}
 obj_type_indices_threefish = {'agent': [0], 'fish': [1, 2]}
-
-##################### Predicate #######################
-# dist_num = 20
-# max_dist = 30
