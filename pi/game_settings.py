@@ -23,8 +23,8 @@ def get_idx(args):
         idx_list.append(idx_x)
         idx_list.append(idx_y)
     elif args.m == "Asterix":
-        idx_x = config.state_idx_asterix_x
-        idx_y = config.state_idx_asterix_y
+        idx_x = args.game_info["axis_x_col"]
+        idx_y = args.game_info["axis_y_col"]
         idx_list.append(idx_x)
         idx_list.append(idx_y)
     else:
@@ -48,3 +48,25 @@ def get_game_info(args):
         raise ValueError
 
     return obj_data
+
+
+def atari_obj_info(obj_info):
+    obj_counter = 0
+    info = []
+    for o_i, (obj_name, obj_num) in enumerate(obj_info):
+        info.append({"name": obj_name,
+                     "indices": list(range(obj_counter, obj_counter + obj_num))})
+        obj_counter += obj_num
+    return info
+
+
+def switch_hardness(args):
+    if args.m == "getout" and args.hardness == 0:
+        args.game_info = config.game_info_getout
+        args.obj_info = args.game_info["obj_info"]
+        args.obj_info = atari_obj_info(args.obj_info)
+    if args.m == "getout" and args.hardness == 1:
+        args.game_info = config.game_info_getoutplus
+        args.obj_info = args.game_info["obj_info"]
+        args.obj_info = atari_obj_info(args.obj_info)
+    return args

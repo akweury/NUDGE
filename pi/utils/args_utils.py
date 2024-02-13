@@ -5,9 +5,10 @@ import os
 import json
 import datetime
 
+import pi.game_settings
 from src.utils import make_deterministic
 from src import config
-from pi.utils import log_utils
+from pi.utils import smp_utils
 
 date_now = datetime.datetime.today().date()
 time_now = datetime.datetime.now().strftime("%H_%M_%S")
@@ -45,6 +46,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--episode_num", type=int, default=5, help="Number of episodes to update the agent.")
     parser.add_argument("--zoom_in", type=int, default=3, help="Zoom in percentage of the game window.")
     parser.add_argument("--train_state_num", type=int, default=100000, help="Zoom in percentage of the game window.")
+    parser.add_argument("--hardness", type=int, default=0, help="Hardness of the game.")
     parser.add_argument("--fact_conf", type=float, default=0.1,
                         help="Minimum confidence required to save a fact as a behavior.")
     args = parser.parse_args()
@@ -66,22 +68,12 @@ def load_args(exp_args_path, m):
         args.pass_th = 0.7
         args.failed_th = 0.3
         args.att_var_th = 0.5
-
         args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
-        args.obj_info = config.obj_info_getout
         args.action_names = config.action_name_getout
         args.prop_names = config.prop_name_getout
-    elif args.m == "getoutplus":
-        args.zero_reward = -0.1
-        args.pass_th = 0.7
-        args.failed_th = 0.3
-        args.att_var_th = 0.5
-        args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
-
-        args.obj_type_names = config.obj_type_name_getout
-        args.obj_info = config.obj_info_getoutplus
-        args.action_names = config.action_name_getout
-        args.prop_names = config.prop_name_getout
+        args.game_info = config.game_info_getout
+        args.obj_info = args.game_info["obj_info"]
+        args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
 
     elif args.m == "Assault":
         args.att_var_th = 2
@@ -98,12 +90,14 @@ def load_args(exp_args_path, m):
         args.zero_reward = 0.0
         args.fact_conf = 0.5
         args.game_info = config.game_info_asterix
-
+        args.obj_info = args.game_info["obj_info"]
         args.action_names = config.action_name_asterix
         args.prop_names = config.prop_name_asterix
         args.max_lives = 3
         args.reward_lost_one_live = -100
         args.reward_score_one_enemy = 10
+        args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
+
     elif args.m == "Kangaroo":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.zero_reward = 0.0

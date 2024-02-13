@@ -48,10 +48,9 @@ def render_asterix(agent, args):
             agent_num = int(logic_state[:, 0].sum())
             enemy_num = int(logic_state[:, 1].sum())
             cauldron_num = int(logic_state[:, 2].sum())
-            helmet_num = int(logic_state[:, 3].sum())
             print(
                 f"g: {env_args.game_i}, f: {frame_i}, rw: {reward}, act: {action}, lives:{info['lives']}, "
-                f"agent: {agent_num}, enemy: {enemy_num}, cauldron: {cauldron_num}, helmet: {helmet_num}")
+                f"agent: {agent_num}, enemy: {enemy_num}, cauldron: {cauldron_num}")
             if explaining is not None:
                 explaining["reward"].append(reward)
                 decision_history.append(explaining)

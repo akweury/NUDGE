@@ -95,7 +95,7 @@ def render_getout(agent, args):
         return viewer
 
     def create_getout_instance(args, seed=None):
-        if args.m == 'getoutplus':
+        if args.hardness == 1:
             enemies = True
         else:
             enemies = False
@@ -171,7 +171,7 @@ def render_getout(agent, args):
                 # print("--------------------------     next game    --------------------------")
                 print(f"Episode {num_epi} Win: {win_count}/{game_count}")
                 print(f"==========")
-                if args.agent_type == 'human':
+                if agent.agent_type == 'human':
                     data = [(num_epi, round(epi_reward, 2))]
                     # writer.writerows(data)
                 total_reward += epi_reward
@@ -182,12 +182,11 @@ def render_getout(agent, args):
                 step = 0
                 game_states = []
 
-            if args.agent_type in ['logic', "smp"]:
+            if agent.agent_type in ['logic', "smp"]:
                 action, explaining = agent.act(getout)
-
-            elif args.agent_type == 'ppo':
+            elif agent.agent_type == 'ppo':
                 action = agent.act(getout)
-            elif args.agent_type == 'human':
+            elif agent.agent_type == 'human':
                 if KEY_a in viewer.pressed_keys or KEY_LEFT in viewer.pressed_keys:
                     action.append(GetoutActions.MOVE_LEFT)
                 if KEY_d in viewer.pressed_keys or KEY_RIGHT in viewer.pressed_keys:
@@ -197,7 +196,7 @@ def render_getout(agent, args):
                     action.append(GetoutActions.MOVE_UP)
                 if KEY_s in viewer.pressed_keys:
                     action.append(GetoutActions.MOVE_DOWN)
-            elif args.agent_type == 'random':
+            elif agent.agent_type == 'random':
                 action = agent.act(getout)
 
             reward = getout.step(action)
@@ -250,7 +249,7 @@ def render_getout(agent, args):
             win_rate_plot = draw_utils.plot_line_chart(win_rate[:, :num_epi], args.output_folder, ['smp', 'ppo'],
                                                        title='win_rate', cla_leg=True, figure_size=(10, 10))
             print(f"===============================================")
-            if args.agent_type == 'human':
+            if agent.agent_type == 'human':
                 data = [(num_epi, round(epi_reward, 2))]
                 # writer.writerows(data)
             total_reward += epi_reward
@@ -265,7 +264,7 @@ def render_getout(agent, args):
         if args.render:
             screen_plot = draw_utils.rgb_to_bgr(np.asarray(getout.camera.screen))
             draw_utils.addText(screen_plot, f"ep: {game_count}, win: {win_count}",
-                               color=(0,20,120), thickness=2, font_size=1, pos="upper_right")
+                               color=(0, 20, 120), thickness=2, font_size=1, pos="upper_right")
             viewer.show(screen_plot)
 
         elif args.with_explain:
@@ -273,12 +272,12 @@ def render_getout(agent, args):
                 jump_epi = num_epi
             screen_plot = draw_utils.rgb_to_bgr(np.asarray(getout.camera.screen))
             draw_utils.addText(screen_plot, f"ep: {game_count}, win: {win_count}",
-                               color=(0,20,120), thickness=2, font_size=1, pos="upper_right")
+                               color=(0, 20, 120), thickness=2, font_size=1, pos="upper_right")
 
             screen_plot = draw_utils.image_resize(screen_plot, int(screen_plot.shape[0] * args.zoom_in),
                                                   int(screen_plot.shape[1] * args.zoom_in))
             if len(db_dict_list) == 0:
-                db_plot = np.zeros((int(screen_plot.shape[0]), int(screen_plot.shape[0]*0.5), 3), dtype=np.uint8)
+                db_plot = np.zeros((int(screen_plot.shape[0]), int(screen_plot.shape[0] * 0.5), 3), dtype=np.uint8)
             else:
                 db_num = 4
                 plots = []
@@ -287,7 +286,7 @@ def render_getout(agent, args):
                     plot = plot_dict['plot']
                     draw_utils.addText(plot, f"beh_{plot_i}", font_size=1.8, thickness=3, color=(0, 0, 255))
                     plots.append(plot)
-                if len(plots)<db_num:
+                if len(plots) < db_num:
                     black_plots = [np.zeros(plots[0].shape, dtype=np.uint8)] * (db_num - len(plots))
                     plots += black_plots
                 plots = plots[-db_num:]
@@ -304,7 +303,8 @@ def render_getout(agent, args):
                                                     f"Win 5 steaks at ep: {win_5}\n"
                                                     f"# PF Behaviors: {len(agent.pf_behaviors)}\n"
                                                     f"# Def Behaviors: {len(agent.def_behaviors)}\n",
-                                                    getout.camera.height, getout.camera.height, 1)
+                                                    getout.camera.height, getout.camera.height, 1,
+                                                    [20, 80])
 
             explain_plot = draw_utils.vconcat_resize([win_rate_plot, milestone_plot])
 

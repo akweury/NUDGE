@@ -81,15 +81,29 @@ state_idx_threefish_y = 4
 
 obj_type_name_getout = ['agent', 'key', 'door', 'enemy']
 
-obj_info_getout = [('agent', [0], [0]),
-                   ('key', [1], [1]),
-                   ('door', [2], [2]),
-                   ('enemy', [3], [3])]
-obj_info_getoutplus = [('agent', [0], [0]),
-                       ('key', [1], [1]),
-                       ('door', [2], [2]),
-                       ('enemy', [3, 4, 5, 6, 7], [3])]
+obj_info_getout = [('agent', 1),
+                   ('key', 1),
+                   ('door', 1),
+                   ('enemy', 1)]
+game_info_getout = {
+    "obj_info": obj_info_getout,
+    "state_row_num": 4,
+    "state_col_num": 6,
+    "axis_x_col": 4,
+    "axis_y_col": 5
+}
 
+obj_info_getoutplus = [('agent', 1),
+                       ('key', 1),
+                       ('door', 1),
+                       ('enemy', 5)]
+game_info_getoutplus = {
+    "obj_info": obj_info_getoutplus,
+    "state_row_num": 8,
+    "state_col_num": 6,
+    "axis_x_col": 4,
+    "axis_y_col": 5
+}
 obj_info_assault = [('agent', [0], [0]),
                     ('player_missile_vertical', [1, 2], [1]),
                     ('player_missile_horizontal', [3, 4], [2]),

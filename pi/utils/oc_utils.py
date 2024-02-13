@@ -227,7 +227,7 @@ def extract_logic_state_atari(objects, game_info, noise=False):
 
 
 def extract_logic_state_getout(coin_jump, args, noise=False):
-    if args.m == 'getoutplus':
+    if args.hardness == 1:
         num_of_feature = 6
         num_of_object = 8
         representation = coin_jump.level.get_representation()

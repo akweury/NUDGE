@@ -19,14 +19,17 @@ def main(render=True, m=None):
     # args.agent_type = 'smp'
     # building symbolic microprogram
     agent.prop_indices = game_settings.get_idx(args)
-    agent.load_atari_buffer(args)
 
-    # pf_behaviors = agent.reasoning_pf_behaviors()
+    if args.m == "getout":
+        agent.load_buffer(game_utils.load_buffer(args))
+    else:
+        agent.load_atari_buffer(args)
+    args = game_settings.switch_hardness(args)
+    pf_behaviors = agent.reasoning_pf_behaviors()
     def_behaviors, _ = agent.reasoning_def_behaviors()
     # att_behaviors = agent.reasoning_att_behaviors()
-    agent.update_behaviors(None, def_behaviors, None, args)
-    # args.m = "getoutplus"
-    # args.obj_info = config.obj_info_getoutplus
+    agent.update_behaviors(pf_behaviors=pf_behaviors, def_behaviors=def_behaviors, att_behaviors=None, args=args)
+
     if render:
         # Test updated agent
         pi.game_render.render_game(agent, args)

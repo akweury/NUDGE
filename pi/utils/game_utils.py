@@ -368,6 +368,7 @@ def create_agent(args, agent_type):
         raise ValueError
 
     agent.agent_type = agent_type
+
     return agent
 
 

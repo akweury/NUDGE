@@ -9,6 +9,7 @@ from src import config
 from pi import predicate
 from pi.utils import math_utils
 
+
 def get_param_range(min, max, unit):
     length = (max - min) // unit
     if length == 0:
@@ -23,10 +24,10 @@ def get_param_range(min, max, unit):
 def get_all_2_combinations(game_info, reverse=True):
     if reverse:
         all_combinations = [[i_1, i_2] for i_1, s_1 in enumerate(game_info) for i_2, s_2 in
-                            enumerate(game_info) if s_1[1] != s_2[1]]
+                            enumerate(game_info) if i_1 != i_2]
     else:
         all_combinations = [[i_1, i_2] for i_1, s_1 in enumerate(game_info) for i_2, s_2 in
-                            enumerate(game_info) if s_2[1] > s_1[1]]
+                            enumerate(game_info) if i_2 > i_1]
     return all_combinations
 
 
@@ -42,7 +43,7 @@ def get_obj_prop_combs(game_info, prop_indices):
 def get_all_facts(game_info, prop_indices):
     obj_types = get_all_2_combinations(game_info)
     prop_types = [[each] for each in prop_indices]
-    obj_names = [name for name, _, _ in game_info]
+    obj_names = [info["name"] for info in game_info]
     facts = []
     type_combs = list(itertools.product(obj_types, prop_types))
     for type_comb in type_combs:
@@ -61,8 +62,8 @@ def get_all_facts(game_info, prop_indices):
 def get_fact_obj_combs(game_info, fact):
     type_0_index = fact["objs"][0]
     type_1_index = fact["objs"][1]
-    _, obj_0_indices, _ = game_info[type_0_index]
-    _, obj_1_indices, _ = game_info[type_1_index]
+    obj_0_indices = game_info[type_0_index]["indices"]
+    obj_1_indices = game_info[type_1_index]["indices"]
     obj_combs = enumerate_two_combs(obj_0_indices, obj_1_indices)
     return obj_combs
 
@@ -220,12 +221,13 @@ def mask_name_from_state(state, game_info, splitter):
     return mask_name
 
 
-def mask_tensors_from_states(states, game_info):
-    mask_tensors = torch.zeros((len(states), len(game_info)), dtype=torch.bool)
-    for i in range(len(game_info)):
-        name, obj_indices, prop_index = game_info[i]
-        obj_exist_counter = states[:, obj_indices, prop_index].sum(dim=-1)
+def mask_tensors_from_states(states, obj_info):
+    mask_tensors = torch.zeros((len(states), len(obj_info)), dtype=torch.bool)
+    for i in range(len(obj_info)):
+        name, obj_indices = obj_info[i]['name'], obj_info[i]["indices"]
+        obj_exist_counter = states[:, obj_indices, i].sum(dim=-1)
         mask_tensors[:, i] = obj_exist_counter > 0
+
     mask_tensors = mask_tensors.bool()
     return mask_tensors
 
@@ -773,9 +775,6 @@ def stat_scored_data(data_pos, data_neg, obj_info, prop_indices, var_th):
     return passed_stats
 
 
-
-
-
 def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop_indices):
     mask_neg_reward = rewards < zero_reward
     neg_rewards = rewards[mask_neg_reward]
@@ -811,8 +810,8 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop
         action_states = neg_states[action_state_indices]
         action_states_pos = pos_states[action_pos_indices]
 
-        _, obj_0_indices, _ = game_info[obj_type[0]]
-        _, obj_1_indices, _ = game_info[obj_type[1]]
+        obj_0_indices = game_info[obj_type[0]]["indices"]
+        obj_1_indices = game_info[obj_type[1]]["indices"]
         obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
         obj_a_indices = obj_combs[:, 0].unique()
         obj_b_indices = obj_combs[:, 1].unique()
@@ -821,8 +820,8 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop
             data_B = action_states[:, obj_b_indices][:, :, prop_type]
             dist = math_utils.dist_a_and_b_closest(data_A, data_B).squeeze(0)
 
-            data_A_pos = action_states_pos[:, obj_a_indices][:,:, prop_type]
-            data_B_pos = action_states_pos[:, obj_b_indices][:,:, prop_type]
+            data_A_pos = action_states_pos[:, obj_a_indices][:, :, prop_type]
+            data_B_pos = action_states_pos[:, obj_b_indices][:, :, prop_type]
             dist_pos = math_utils.dist_a_and_b_closest(data_A_pos, data_B_pos).squeeze(0)
 
         else:
@@ -967,5 +966,5 @@ def extract_fact_data(fact, frame_state):
     return dist
 
 
-def get_neg_reward_data(lost_states, lost_actions, lost_rewards):
-    return None
+
+

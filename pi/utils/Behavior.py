@@ -24,8 +24,8 @@ class Behavior():
     def mask_tensors_from_states(self, states, game_info):
         mask_tensors = torch.zeros((len(states), len(game_info)), dtype=torch.bool)
         for i in range(len(game_info)):
-            name, obj_indices, prop_index = game_info[i]
-            obj_exist_counter = states[:, obj_indices, prop_index].sum()
+            obj_indices = game_info[i]["indices"]
+            obj_exist_counter = states[:, obj_indices, i].sum()
             mask_tensors[:, i] = obj_exist_counter > 0
         mask_tensors = mask_tensors.bool()
         return mask_tensors
@@ -36,8 +36,8 @@ class Behavior():
             type_0_index = fact.obj_comb[0]
             type_1_index = fact.obj_comb[1]
             prop = fact.prop_comb
-            _, obj_0_indices, _ = game_info[type_0_index]
-            _, obj_1_indices, _ = game_info[type_1_index]
+            obj_0_indices = game_info[type_0_index]["indices"]
+            obj_1_indices = game_info[type_1_index]["indices"]
             obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
             # check if current state has the same mask as the behavior
             fact_mask_tensor = torch.repeat_interleave(torch.tensor(fact.mask).unsqueeze(0), len(x), 0)
@@ -50,7 +50,7 @@ class Behavior():
             obj_a_indices = obj_combs[:, 0].unique()
             obj_b_indices = obj_combs[:, 1].unique()
             if len(obj_a_indices) == 1:
-                data_A = x[:, obj_a_indices][:,:, prop]
+                data_A = x[:, obj_a_indices][:, :, prop]
                 # try to find the closest obj B
                 data_B = x[:, obj_b_indices][:, :, prop]
                 # behavior is true if all pred is true (and)

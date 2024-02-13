@@ -313,7 +313,7 @@ def addCustomText(img, text, pos, font_size=1.6, color=(255, 255, 255), thicknes
                thickness=thickness, lineType=cv.LINE_AA)
 
 
-def visual_info(data, height, width, font_size, text_pos=[20, 80]):
+def visual_info(data, height, width, font_size, text_pos):
     info_image = np.zeros((height, width, 3), dtype=np.uint8)
     # predicates info
 

@@ -2,7 +2,7 @@
 import os
 import random
 from tqdm import tqdm
-from OC_Atari.ocatari.core import OCAtari
+from ocatari.core import OCAtari
 from PIL import Image
 
 from pi.utils.EnvArgs import EnvArgs
@@ -180,14 +180,12 @@ def collect_data_asterix(agent, args):
         return
     win_rates = []
     win_count = 0
-    env = OCAtari(args.m, mode="vision", hud=True, render_mode="rgb_array")
+    env = OCAtari(args.m, mode="revised", hud=True, render_mode="rgb_array")
 
     for i in tqdm(range(max_games)):
         observation, info = env.reset()
         env_args = EnvArgs(args=args, game_num=300, window_size=observation.shape[:2], fps=60)
         frame_i = 0
-        terminated = False
-        truncated = False
         logic_states = []
         actions = []
         rewards = []

@@ -12,7 +12,7 @@ from src import config
 def extract_fact_terms(args, fact):
     terms = []
     for obj_code in fact.obj_comb:
-        obj_name, _, _ = args.obj_info[obj_code]
+        obj_name = args.obj_info[obj_code]["name"]
         terms.append(Var(obj_name))
 
     return terms
@@ -36,8 +36,8 @@ def generate_exist_predicate(existence, obj_name):
 
 
 def generate_func_predicate(args, fact, pred_i):
-    obj_A, _, _ = args.obj_info[fact.obj_comb[0]]
-    obj_B, _, _ = args.obj_info[fact.obj_comb[1]]
+    obj_A = args.obj_info[fact.obj_comb[0]]["name"]
+    obj_B = args.obj_info[fact.obj_comb[1]]["name"]
     prop_name = ''
     for p_i in fact.prop_comb:
         prop_name += args.prop_names[p_i] + '_'
@@ -80,10 +80,11 @@ def behavior_existence_as_env_atoms(args, behavior):
 
         if not exist_obj:
             existence = "not_exist"
-            obj_name = args.obj_info[o_i][0]
+            obj_name = args.obj_info[o_i]["name"]
+
         else:
             existence = "exist"
-            obj_name = args.obj_info[o_i][0]
+            obj_name = args.obj_info[o_i]["name"]
         pred = generate_exist_predicate(existence, obj_name)
         exist_atom = Atom(pred, [Var(obj_name)])
         exist_atoms.append(exist_atom)
