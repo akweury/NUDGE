@@ -190,8 +190,7 @@ prop_name_getout = ['agent', 'key', 'door', 'enemy', "axis_x", "axis_y"]
 prop_name_threefish = ['agent', 'fish', "radius", "axis_x", "axis_y"]
 prop_name_assault = ['agent', 'player_missile_vertical', "player_missile_horizontal", "enemy", "enemy_missile",
                      "axis_x", "axis_y"]
-prop_name_asterix = ["agent", "enemy", "cauldron", "helmet", "shield", "lamp",
-                     "axis_x", "axis_y"]
+prop_name_asterix = ["Player", "Enemy", "Consumable", "axis_x", "axis_y"]
 prop_name_kangaroo = ["agent", "monkey", "apple",
                       "axis_x", "axis_y"]
 ########## language ########################

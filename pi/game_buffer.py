@@ -173,9 +173,9 @@ def collect_data_assault(agent, args):
 
 
 def collect_data_asterix(agent, args):
-    max_games = 50
+    max_games = 5
     args.filename = args.m + '_' + args.teacher_agent + str(max_games) + '.json'
-    buffer = RolloutBuffer(args.filename)
+    buffer = RolloutBuffer(args.m, args.filename)
     if os.path.exists(buffer.filename):
         return
     win_rates = []
@@ -190,23 +190,38 @@ def collect_data_asterix(agent, args):
         actions = []
         rewards = []
         while env_args.current_lives > 0:
-            logic_state = extract_logic_state_atari(env.objects, args.game_info)
+            logic_state, state_score = extract_logic_state_atari(env.objects, args.game_info)
             action, _ = agent(env.dqn_obs)
             obs, reward, terminated, truncated, info = env.step(action)
-            reward = game_utils.asterix_patches(env_args, reward, lives=info["lives"])
+            if state_score > env_args.best_score:
+                env_args.best_score = state_score
+            # assign reward for lost one live
+            if info["lives"] < env_args.current_lives:
+                reward += env_args.reward_lost_one_live
+                env_args.current_lives = info["lives"]
+                env_args.score_update = True
+                rewards[-1] += env_args.reward_lost_one_live
 
-            logic_states.append(logic_state.tolist())
-            actions.append(action)
-            rewards.append(reward)
+                logic_states, actions, rewards = game_utils.asterix_patches(logic_states, actions, rewards)
+                env_args.win_rate[0, env_args.game_i] = env_args.best_score
+
+                buffer.logic_states.append(logic_states)
+                buffer.actions.append(actions)
+                buffer.rewards.append(rewards)
+
+                logic_states = []
+                actions = []
+                rewards = []
+                env_args.game_i += 1
+            else:
+                logic_states.append(logic_state)
+                actions.append(action)
+                rewards.append(reward)
+
             frame_i = game_utils.update_game_args(frame_i, env_args, reward)
 
-        buffer.logic_states.append(logic_states)
-        buffer.actions.append(actions)
-        buffer.rewards.append(rewards)
-        win_count += 1
-        win_rates.append(win_count / (i + 1e-20))
-
     buffer.win_rates = win_rates
+    buffer.check_validation_asterix()
     buffer.save_data()
 
 

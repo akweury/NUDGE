@@ -160,10 +160,10 @@ class SymbolicMicroProgramPlayer:
                                                                                       self.args.zero_reward,
                                                                                       self.args.obj_info)
 
-    def update_lost_buffer(self, lost_game_data):
-        new_lost_states = torch.tensor(lost_game_data['states']).squeeze()
-        new_lost_actions = torch.tensor(lost_game_data['actions'])
-        new_lost_rewards = torch.tensor(lost_game_data['rewards'])
+    def update_lost_buffer(self, logic_states, actions, rewards):
+        new_lost_states = torch.tensor(logic_states).squeeze()
+        new_lost_actions = torch.tensor(actions)
+        new_lost_rewards = torch.tensor(rewards)
         if new_lost_states.shape[1] != self.lost_states.shape[1]:
             self.lost_states = new_lost_states
             self.lost_actions = new_lost_actions
@@ -211,8 +211,13 @@ class SymbolicMicroProgramPlayer:
         if use_ckp and os.path.exists(neg_states_stat_file):
             def_beh_data = file_utils.load_json(neg_states_stat_file)
         else:
-            def_beh_data = smp_utils.stat_negative_rewards(self.lost_states, self.lost_actions, self.lost_rewards,
-                                                           self.args.zero_reward, self.args.obj_info, self.prop_indices)
+            def_beh_data = smp_utils.stat_negative_rewards(self.lost_states,
+                                                           self.lost_actions,
+                                                           self.lost_rewards,
+                                                           self.args.zero_reward,
+                                                           self.args.obj_info,
+                                                           self.prop_indices,
+                                                           self.args.var_th)
             file_utils.save_json(neg_states_stat_file, def_beh_data)
 
         neg_beh_file = self.args.check_point_path / f"{self.args.m}_neg_beh.pkl"
@@ -222,6 +227,7 @@ class SymbolicMicroProgramPlayer:
                                                                               def_beh_data)
             for def_beh in defense_behaviors:
                 print(f"# defense behavior: {def_beh.clause}")
+            file_utils.save_pkl(neg_beh_file, defense_behaviors)
 
         else:
             defense_behaviors = []
@@ -279,19 +285,6 @@ class SymbolicMicroProgramPlayer:
 
     def revise_win(self, history, game_states):
         print("")
-
-    def revise_loss(self, history):
-        revised = False
-        lost_states = []
-        lost_actions = []
-        lost_rewards = []
-
-        for f_i, frame_data in enumerate(history):
-            lost_states.append(history[f_i]['state'].tolist())
-            lost_actions.append(history[f_i]['action'])
-            lost_rewards.append(history[f_i]['reward'][0])
-        lost_game_data = {'states': lost_states, 'actions': lost_actions, 'rewards': lost_rewards}
-        return lost_game_data
 
         #
         # # punish the last action
@@ -416,9 +409,9 @@ class SymbolicMicroProgramPlayer:
 
         return prediction, explains
 
-    def asterix_actor(self, env):
-        extracted_state = oc_utils.extract_logic_state_asterix(env, self.args).unsqueeze(0)
-        predictions, explains = self.model(extracted_state)
+    def asterix_actor(self, objs):
+        extracted_state, _ = oc_utils.extract_logic_state_atari(objs, self.args.game_info)
+        predictions, explains = self.model(torch.tensor(extracted_state).unsqueeze(0))
         # predictions, explains = self.action_combine_assault(predictions, explains)
         prediction = torch.argmax(predictions).cpu().item()
         explains['action'] = prediction

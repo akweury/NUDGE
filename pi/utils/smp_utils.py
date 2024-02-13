@@ -775,7 +775,7 @@ def stat_scored_data(data_pos, data_neg, obj_info, prop_indices, var_th):
     return passed_stats
 
 
-def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop_indices):
+def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th):
     mask_neg_reward = rewards < zero_reward
     neg_rewards = rewards[mask_neg_reward]
 
@@ -799,7 +799,8 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop
     percentage = torch.zeros(len(type_combs))
     for t_i in tqdm(range(len(type_combs)),
                     desc=f"Reasoning on {len(type_combs)} negative explanations based on {len(neg_states)} states"):
-
+        if t_i==81:
+            print("")
         mask_type, action_type, obj_type, prop_type = type_combs[t_i]
 
         # calc distance between any two objects
@@ -841,7 +842,7 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop
              "indices": action_state_indices})
     variances_ranked, v_rank = torch.tensor(variances).sort()
 
-    passed_variances = variances_ranked < 0.5
+    passed_variances = variances_ranked < var_th
     passed_comb_indices = v_rank[passed_variances]
     passed_stats = [states_stats[s_i] for s_i in passed_comb_indices]
 
@@ -964,7 +965,3 @@ def extract_fact_data(fact, frame_state):
     assert len(fact.preds) == 1
     dist = torch.abs(frame_state[0, obj_a, props] - frame_state[0, obj_b, props]).reshape(1, -1)
     return dist
-
-
-
-

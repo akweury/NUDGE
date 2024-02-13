@@ -19,13 +19,17 @@ def render_asterix(agent, args):
     video_out = game_utils.get_game_viewer(env_args)
     explaining = None
     db_plots = []
+    dead_counter = 0
+
     while env_args.game_i < env_args.game_num:
         obs, info = env.reset()
-        env_args = EnvArgs(args=args, game_num=300, window_size=obs.shape[:2], fps=60)
-        frame_i = 0
-        decision_history = []
-        reward = 0
 
+        frame_i = 0
+        logic_states = []
+        actions = []
+        rewards = []
+        consume_counter = 0
+        env_args.current_lives = args.max_lives
         while env_args.current_lives > 0:
             current_frame_time = time.time()
             # limit frame rate
@@ -41,33 +45,61 @@ def render_asterix(agent, args):
             else:
                 raise ValueError
             obs, reward, terminated, truncated, info = env.step(action)
-
             ram = env._env.unwrapped.ale.getRAM()
-            reward = game_utils.asterix_patches(env_args, reward, info["lives"])
-            logic_state = extract_logic_state_atari(env.objects, args.game_info)
-            agent_num = int(logic_state[:, 0].sum())
-            enemy_num = int(logic_state[:, 1].sum())
-            cauldron_num = int(logic_state[:, 2].sum())
-            print(
-                f"g: {env_args.game_i}, f: {frame_i}, rw: {reward}, act: {action}, lives:{info['lives']}, "
-                f"agent: {agent_num}, enemy: {enemy_num}, cauldron: {cauldron_num}")
-            if explaining is not None:
-                explaining["reward"].append(reward)
-                decision_history.append(explaining)
+            logic_state, state_score = extract_logic_state_atari(env.objects, args.game_info)
+            if state_score > env_args.best_score:
+                env_args.best_score = state_score
+            # assign reward for lost one live
+            if info["lives"] < env_args.current_lives:
+                reward += env_args.reward_lost_one_live
+                env_args.current_lives = info["lives"]
+                env_args.score_update = True
+                env_args.win_rate[0, env_args.game_i] = env_args.best_score
+                rewards[-1] += env_args.reward_lost_one_live
+
+                # revise the game rules
+                if len(logic_states) > 2:
+                    dead_counter += 1
+                    logic_states, actions, rewards = game_utils.asterix_patches(logic_states, actions, rewards)
+                    agent.update_lost_buffer(logic_states, actions, rewards)
+                    def_behaviors, db_plots = agent.reasoning_def_behaviors(use_ckp=False)
+                    agent.update_behaviors(None, def_behaviors, None, args)
+                    screen_text = f"ep: {env_args.game_i}, Rec: {env_args.best_score}"
+                    game_utils.screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_counter,
+                                           screen_text)
+                logic_states = []
+                actions = []
+                rewards = []
+                consume_counter = 0
+                env_args.game_i += 1
+            else:
+                # record game states
+                logic_states.append(logic_state)
+                actions.append(action)
+                rewards.append(reward)
+                if reward > 0:
+                    consume_counter += 1
+
             # render the game
+            screen_text = f"ep: {env_args.game_i}, Rec: {env_args.best_score}"
             wr_plot = game_utils.plot_wr(env_args)
             mt_plot = game_utils.plot_mt_asterix(env_args, agent)
-            video_out = game_utils.plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots)
+            video_out, _ = game_utils.plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots, screen_text)
+
+            # game log
+            try:
+                for beh_i in explaining['behavior_index']:
+                    print(
+                        f"f: {frame_i}, rw: {reward}, act: {action - 1}, behavior: {agent.behaviors[beh_i].clause}")
+            except IndexError:
+                print("")
+            # print(f"g: {env_args.game_i}, f: {frame_i}, rw: {reward}, act: {action}, lives:{info['lives']}, "
+            #       f"agent: {int(torch.tensor(logic_state)[:, 0].sum())}, "
+            #       f"enemy: {int(torch.tensor(logic_state)[:, 1].sum())}, "
+            #       f"cauldron: {int(torch.tensor(logic_state)[:, 2].sum())}")
 
             frame_i = game_utils.update_game_args(frame_i, env_args, reward)
 
-        # revise the game rules
-        if len(decision_history) > 2 and reward < 0:
-            lost_game_data = agent.revise_loss(decision_history)
-            agent.update_lost_buffer(lost_game_data)
-            def_behaviors, db_plots = agent.reasoning_def_behaviors(use_ckp=False)
-            agent.update_behaviors(None, def_behaviors, None, args)
-            print("- revise loss finished.")
     env.close()
     draw_utils.release_video(video_out)
 
@@ -104,14 +136,14 @@ def render_kangaroo(agent, args):
 
             ram = env._env.unwrapped.ale.getRAM()
             reward = game_utils.kangaroo_patches(env_args, reward, info["lives"])
-            logic_state = extract_logic_state_atari(env.objects, args.game_info)
+            logic_state, state_score = extract_logic_state_atari(env.objects, args.game_info)
             if explaining is not None:
                 explaining["reward"].append(reward)
                 decision_history.append(explaining)
             # render the game
             wr_plot = game_utils.plot_wr(env_args)
             mt_plot = game_utils.plot_mt_asterix(env_args, agent)
-            video_out = game_utils.plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots)
+            video_out, _ = game_utils.plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots)
 
             frame_i = game_utils.update_game_args(frame_i, env_args, reward)
 

@@ -16,8 +16,6 @@ def main(render=True, m=None):
     game_buffer.collect_data_game(teacher_agent, args)
     # learn behaviors from data
     agent = create_agent(args, agent_type='smp')
-    # args.agent_type = 'smp'
-    # building symbolic microprogram
     agent.prop_indices = game_settings.get_idx(args)
 
     if args.m == "getout":

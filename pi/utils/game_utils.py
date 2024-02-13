@@ -12,14 +12,14 @@ from pi.Player import SymbolicMicroProgramPlayer, PpoPlayer
 from pi.ale_env import ALEModern
 
 from pi.utils.atari import assault_utils
-from pi.utils import draw_utils
+from pi.utils import draw_utils, math_utils
 from src import config
 from src.agents.random_agent import RandomPlayer
 
 
 class RolloutBuffer:
-    def __init__(self, filename):
-        self.filename = config.path_output / 'bs_data' / filename
+    def __init__(self, game_name, filename):
+        self.filename = config.path_output / 'bs_data' / game_name / filename
         self.win_rate = 0
         self.actions = []
         self.lost_actions = []
@@ -54,7 +54,7 @@ class RolloutBuffer:
         del self.game_number[:]
 
     def load_buffer(self, args):
-        with open(config.path_bs_data / args.filename, 'r') as f:
+        with open(args.path_bs_data / args.filename, 'r') as f:
             state_info = json.load(f)
         print(f"- Loaded game buffer file: {args.filename}")
 
@@ -113,11 +113,22 @@ class RolloutBuffer:
             json.dump(data, f)
         print(f'data saved in file {self.filename}')
 
-
+    def check_validation_asterix(self):
+        for game_i in range(len(self.rewards)):
+            game_states = torch.tensor(self.logic_states[game_i])
+            game_rewards = torch.tensor(self.rewards[game_i])
+            neg_states = game_states[game_rewards < 0]
+            pos_indices = [3, 4]
+            for state in neg_states:
+                pos_agent = state[0, pos_indices]
+                enemy_indices = state[:, 1] > 0
+                pos_enemy = state[enemy_indices][:, pos_indices]
+                dist = math_utils.dist_a_and_b_closest(pos_agent, pos_enemy).squeeze(0).sum(dim=-1).min()
+                assert dist < 30
 
 
 def load_buffer(args):
-    buffer = RolloutBuffer(args.filename)
+    buffer = RolloutBuffer(args.m, args.filename)
     buffer.load_buffer(args)
     return buffer
 
@@ -180,13 +191,13 @@ def get_game_viewer(env_args):
     return out
 
 
-def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list):
+def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list, screen_text):
     game_plot = draw_utils.rgb_to_bgr(obs)
     screen_plot = draw_utils.image_resize(game_plot,
                                           int(game_plot.shape[0] * env_args.zoom_in),
                                           int(game_plot.shape[1] * env_args.zoom_in))
-    draw_utils.addText(screen_plot, f"ep: {env_args.game_i}, win: {env_args.win_count}",
-                       color=(0, 20, 255), thickness=2, font_size=1, pos="upper_right")
+    draw_utils.addText(screen_plot, screen_text,
+                       color=(255,228,181), thickness=1, font_size=0.5, pos="upper_right")
 
     if len(db_list) == 0:
         db_plots = np.zeros((int(screen_plot.shape[0]), int(screen_plot.shape[0] * 0.5), 3), dtype=np.uint8)
@@ -214,7 +225,9 @@ def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list):
     # explain_plot_four_channel = draw_utils.three_to_four_channel(explain_plot)
     screen_with_explain = draw_utils.hconcat_resize([screen_plot, explain_plot, db_plots])
     out = draw_utils.write_video_frame(out, screen_with_explain)
-    return out
+
+    return out, screen_with_explain
+
 
 def update_game_args(frame_i, env_args, reward):
     if reward < 0:
@@ -236,16 +249,40 @@ def update_game_args(frame_i, env_args, reward):
         env_args.score_update = False
     frame_i += 1
 
-
     return frame_i
-def asterix_patches(env_args, reward, lives):
-    env_args.score_update = False
-    if lives < env_args.current_lives:
-        reward += env_args.reward_lost_one_live
-        env_args.current_lives = lives
-        env_args.score_update = True
 
-    return reward
+
+def asterix_patches(states, actions, rewards):
+    new_states = remove_last_key_frame_asterix(states)
+    new_actions = actions[:len(new_states)]
+    new_rewards = rewards[:len(new_states)]
+    new_rewards[-1] = rewards[-1]
+    return new_states, new_actions, new_rewards
+
+
+def remove_last_key_frame_asterix(states, max_dist=35):
+    last_frame_enemy_num = torch.tensor(states[-1])[:, 1].sum()
+    not_found = True
+    state_i = len(states) - 1
+    while not_found:
+        frame_enemy_num = torch.tensor(states[state_i])[:, 1].sum()
+        if frame_enemy_num != last_frame_enemy_num:
+            break
+        else:
+            state_i -= 1
+    new_states = states[:state_i + 1]
+
+    pos_indices = [3, 4]
+    test_state = torch.tensor(new_states[-1])
+    pos_agent = test_state[0, pos_indices]
+    enemy_indices = test_state[:, 1] > 0
+    pos_enemy = test_state[enemy_indices][:, pos_indices]
+    dist = math_utils.dist_a_and_b_closest(pos_agent, pos_enemy).squeeze(0).sum(dim=-1).min()
+    if dist > max_dist:
+        print(f"dist:{dist}")
+        # raise ValueError
+    return new_states
+
 
 def kangaroo_patches(env_args, reward, lives):
     env_args.score_update = False
@@ -254,9 +291,8 @@ def kangaroo_patches(env_args, reward, lives):
         env_args.current_lives = lives
         env_args.score_update = True
 
-
-
     return reward
+
 
 def plot_mt_asterix(env_args, agent):
     if agent.agent_type == "smp":
@@ -372,3 +408,7 @@ def create_agent(args, agent_type):
     return agent
 
 
+def screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_counter, screen_text):
+    _, screen_with_explain = plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots, screen_text)
+    file_name = str(env_args.output_folder / f"screen_{dead_counter}.png")
+    draw_utils.save_np_as_img(screen_with_explain, file_name)

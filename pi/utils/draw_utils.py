@@ -216,14 +216,17 @@ def plot_decision_boundary(x_tensor, y_tensor, model, path, name, log_x=False, l
     with torch.no_grad():
         x_min, x_max = x_tensor[:, 0].min() - 1, x_tensor[:, 0].max() + 1
         y_min, y_max = x_tensor[:, 1].min() - 1, x_tensor[:, 1].max() + 1
-        xx, yy = torch.meshgrid(torch.arange(x_min, x_max, 0.01), torch.arange(y_min, y_max, 0.01), indexing='ij')
+        unit = max((y_max - y_min) / 100, (x_max - x_min) / 100)
+        xx, yy = torch.meshgrid(torch.arange(x_min, x_max, unit), torch.arange(y_min, y_max, unit), indexing='ij')
         grid_tensor = torch.cat([xx.reshape(-1, 1), yy.reshape(-1, 1)], dim=1)
         Z = model(grid_tensor).detach().argmax(dim=1).numpy().reshape(xx.shape)
         plt.contourf(xx, yy, Z, alpha=0.8, cmap=plt.cm.Paired)
 
     # Plot the data points
+
     plt.scatter(x_tensor[:, 0], x_tensor[:, 1], c=y_tensor.argmax(dim=1).numpy(), edgecolors='k', marker='o',
                 cmap=plt.cm.Paired)
+
     plt.xlabel('X')
     plt.ylabel('Y')
     if log_y:
@@ -379,3 +382,8 @@ def release_video(video):
 def rgb_to_bgr(rgb_img):
     bgr_img = cv.cvtColor(rgb_img, cv.COLOR_RGB2BGR)
     return bgr_img
+
+
+def save_np_as_img(np_array, file_name):
+    # Convert the NumPy array to a Pillow Image
+    cv.imwrite(file_name, np_array)

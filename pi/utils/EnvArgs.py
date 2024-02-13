@@ -35,3 +35,5 @@ class EnvArgs():
         self.has_win_5 = False
         self.max_steak = 0
         self.wr_plot = None
+        self.score_update = False
+        self.best_score = 0
