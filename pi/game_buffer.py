@@ -230,7 +230,7 @@ def collect_data_game(agent, args):
         collect_data_getout(agent, args)
     elif args.m == 'Assault':
         collect_data_assault(agent, args)
-    elif args.m == "Asterix":
+    elif args.m == "asterix":
         collect_data_asterix(agent, args)
     else:
         raise ValueError

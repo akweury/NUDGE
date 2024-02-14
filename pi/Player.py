@@ -363,7 +363,7 @@ class SymbolicMicroProgramPlayer:
             action, explaining = self.getout_actor(state)
         elif self.args.m == 'Assault':
             action, explaining = self.assault_actor(state)
-        elif self.args.m == "Asterix":
+        elif self.args.m == "asterix":
             action, explaining = self.asterix_actor(state)
         elif self.args.m == 'threefish':
             action, explaining = self.threefish_actor(state)
