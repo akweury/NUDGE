@@ -28,5 +28,6 @@ gym3
 gym
 ocatari
 ale-py
+atari_py
 autorom[accept-rom-license]
 
