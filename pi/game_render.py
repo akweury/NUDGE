@@ -3,116 +3,89 @@ import time
 
 import torch
 from PIL import ImageDraw, Image
-
+from tqdm import tqdm
 from ocatari import OCAtari
 
+
+from pi.utils.game_utils import RolloutBuffer
 from pi.utils import game_utils, draw_utils
 from pi.utils.EnvArgs import EnvArgs
-from pi.utils.oc_utils import extract_logic_state_asterix, extract_logic_state_atari
+from pi.utils.oc_utils import extract_logic_state_atari
 from src.utils_game import render_getout
 
 
-def render_asterix(agent, args):
+def _render(agent, env_args, video_out):
+    # render the game
+    screen_text = f"ep: {env_args.game_i}, Rec: {env_args.best_score}"
+    wr_plot = game_utils.plot_wr(env_args)
+    mt_plot = game_utils.plot_mt_asterix(env_args, agent)
+    video_out, _ = game_utils.plot_game_frame(env_args, video_out, env_args.obs, wr_plot, mt_plot, [], screen_text)
+
+def _act(agent, env_args, env):
+    # agent predict an action
+    if agent.agent_type == "smp":
+        env_args.action, env_args.explaining = agent.act(env.objects)
+    elif agent.agent_type == "pretrained":
+        env_args.action, _ = agent(env.dqn_obs)
+    else:
+        raise ValueError
+    # env execute action
+    env_args.obs, env_args.reward, terminated, truncated, info = env.step(env_args.action)
+    ram = env._env.unwrapped.ale.getRAM()
+    return info
+
+def render_asterix(agent, args, save_buffer):
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
-    env_args = EnvArgs(args=args, game_num=300, window_size=obs.shape[:2], fps=60)
+    env_args = EnvArgs(args=args, window_size=obs.shape[:2], fps=60)
     video_out = game_utils.get_game_viewer(env_args)
-    explaining = None
-    db_plots = []
-    dead_counter = 0
-
-    while env_args.game_i < env_args.game_num:
-        obs, info = env.reset()
-
-        frame_i = 0
-        logic_states = []
-        actions = []
-        rewards = []
-        consume_counter = 0
-        env_args.current_lives = args.max_lives
+    for game_i in tqdm(range(env_args.game_num)):
+        env_args.obs, info = env.reset()
+        env_args.reset_args(game_i)
+        env_args.reset_buffer_game()
         while env_args.current_lives > 0:
-            current_frame_time = time.time()
             # limit frame rate
-            if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
-                sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
-                time.sleep(sl)
-                continue
-            env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
-            if agent.agent_type == "smp":
-                action, explaining = agent.act(env.objects)
-            elif agent.agent_type == "pretrained":
-                action, _ = agent(env.dqn_obs)
-            else:
-                raise ValueError
-            obs, reward, terminated, truncated, info = env.step(action)
-            ram = env._env.unwrapped.ale.getRAM()
-            logic_state, state_score = extract_logic_state_atari(env.objects, args.game_info)
-            if state_score > env_args.best_score:
-                env_args.best_score = state_score
+            if args.with_explain:
+                current_frame_time = time.time()
+                if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
+                    sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
+                    time.sleep(sl)
+                    continue
+                env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
+            # agent predict an action
+            info = _act(agent, env_args, env)
+            env_args.logic_state, env_args.state_score = extract_logic_state_atari(env.objects, args.game_info)
             # assign reward for lost one live
             if info["lives"] < env_args.current_lives:
-                reward += env_args.reward_lost_one_live
-                env_args.current_lives = info["lives"]
-                env_args.score_update = True
-                env_args.win_rate[0, env_args.game_i] = env_args.best_score
-                rewards[-1] += env_args.reward_lost_one_live
+                env_args.logic_states, env_args.actions, env_args.rewards = game_utils.asterix_patches(
+                    env_args.logic_states, env_args.actions, env_args.rewards)
 
+                env_args.update_lost_live(info["lives"])
                 # revise the game rules
-                if len(logic_states) > 2:
-                    dead_counter += 1
-                    logic_states, actions, rewards = game_utils.asterix_patches(logic_states, actions, rewards)
-                    agent.update_lost_buffer(logic_states, actions, rewards)
-                    def_behaviors = agent.reasoning_def_behaviors(use_ckp=False, show_log= args.with_explain)
-                    agent.update_behaviors(None, def_behaviors, None, args)
-                    screen_text = f"ep: {env_args.game_i}, Rec: {env_args.best_score}"
-                    mt_plot = game_utils.plot_mt_asterix(env_args, agent)
-                    game_utils.screen_shot(env_args, video_out, obs, None, mt_plot, db_plots, dead_counter,
-                                           screen_text)
-                logic_states = []
-                actions = []
-                rewards = []
-                frame_i = 0
-                consume_counter = 0
-                env_args.game_i += 1
+                if agent.agent_type == "smp" and len(env_args.logic_states) > 2:
+                    agent.revise_loss(args, env_args)
+                    game_utils.revise_loss_log(env_args, agent, video_out)
+                env_args.buffer_game()
+                env_args.reset_buffer_game()
             else:
                 # record game states
-                logic_states.append(logic_state)
-                actions.append(action)
-                rewards.append(reward)
-                if reward > 0:
-                    consume_counter += 1
-
+                env_args.buffer_frame()
             # render the game
             if args.with_explain:
-                screen_text = f"ep: {env_args.game_i}, Rec: {env_args.best_score}"
-                wr_plot = game_utils.plot_wr(env_args)
-                mt_plot = game_utils.plot_mt_asterix(env_args, agent)
-                video_out, _ = game_utils.plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots,
-                                                          screen_text)
+                _render(agent, env_args, video_out)
+                game_utils.frame_log(agent, env_args)
+            env_args.update_args(env_args)
 
-                # game log
-                try:
-                    for beh_i in explaining['behavior_index']:
-                        print(
-                            f"f: {frame_i}, rw: {reward}, act: {action}, behavior: {agent.behaviors[beh_i].clause}")
-                except IndexError:
-                    print("")
-
-            # print(f"g: {env_args.game_i}, f: {frame_i}, rw: {reward}, act: {action}, lives:{info['lives']}, "
-            #       f"agent: {int(torch.tensor(logic_state)[:, 0].sum())}, "
-            #       f"enemy: {int(torch.tensor(logic_state)[:, 1].sum())}, "
-            #       f"cauldron: {int(torch.tensor(logic_state)[:, 2].sum())}")
-
-            frame_i = game_utils.update_game_args(frame_i, env_args, reward)
-        print(f"- ep: {env_args.game_i}, Rec: {env_args.best_score}")
-        for beh in agent.def_behaviors:
-            print(f"- DefBeh: {beh.clause}")
-        for beh in agent.att_behaviors:
-            print(f"+ AttBeh: {beh.clause}")
-        for beh in agent.att_behaviors:
-            print(f"~ PfBeh: {beh.clause}")
+        game_utils.game_over_log(agent, env_args)
+        env_args.win_rate[0, game_i] = env_args.state_score
     env.close()
     draw_utils.release_video(video_out)
+    draw_utils.plot_line_chart(env_args.win_rate, args.check_point_path / f"wr_{agent.agent_type}.png",
+                               ["pretrained", "SMP"])
+    if save_buffer:
+        game_utils.save_game_buffer(args, env_args)
+
+
 
 
 def render_kangaroo(agent, args):
@@ -173,13 +146,13 @@ def render_kangaroo(agent, args):
     draw_utils.release_video(video_out)
 
 
-def render_game(agent, args):
+def render_game(agent, args, save_buffer=False):
     if args.m == 'getout' or args.m == "getoutplus":
         render_getout(agent, args)
     elif args.m == 'Assault':
         render_assault(agent, args)
     elif args.m == 'Asterix':
-        render_asterix(agent, args)
+        render_asterix(agent, args, save_buffer)
     elif args.m == "Kangaroo":
         render_kangaroo(agent, args)
     else:

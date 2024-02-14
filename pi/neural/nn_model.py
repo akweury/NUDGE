@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from sklearn.neighbors import KernelDensity
 
+
 # Neural Network Model
 class NeuralNetwork(nn.Module):
     def __init__(self, input_size):
@@ -37,7 +38,7 @@ def generate_data(pos_data, gen_num):
 
 
 # Plotting
-def fit_classifier(x_tensor, y_tensor, num_epochs, device):
+def fit_classifier(x_tensor, y_tensor, num_epochs, device, classifier_type):
     # Model, loss function, and optimizer
     input_size = 3
     model = NeuralNetwork(input_size).to(device)
@@ -48,7 +49,7 @@ def fit_classifier(x_tensor, y_tensor, num_epochs, device):
 
     loss = torch.tensor(0).to(device)
 
-    for epoch in tqdm(range(num_epochs), desc=f'Fit Classifier'):
+    for epoch in range(num_epochs):
         # Forward pass
         outputs = model(x_tensor.to(device)).to(device)
         loss = criterion(outputs, y_tensor.to(device)).to(device)
@@ -57,5 +58,5 @@ def fit_classifier(x_tensor, y_tensor, num_epochs, device):
         loss.backward()
         optimizer.step()
 
-    print(f'Final loss: {loss.item():.4f}')
+    # print(f'Final loss: {loss.item():.4f}')
     return model

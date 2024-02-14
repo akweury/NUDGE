@@ -1,4 +1,6 @@
 # Created by jing at 01.12.23
+import os.path
+
 import pi.game_render
 from pi.utils.game_utils import create_agent
 
@@ -11,9 +13,10 @@ def main(render=True, m=None):
     # load arguments
     args = args_utils.load_args(config.path_exps, m)
     teacher_agent = create_agent(args, agent_type=args.teacher_agent)
-    # if render:
-    #     pi.game_render.render_game(teacher_agent, args)
-    game_buffer.collect_data_game(teacher_agent, args)
+
+    # collect game buffer from neural agent
+    if not os.path.exists(args.buffer_filename):
+        pi.game_render.render_game(teacher_agent, args, save_buffer=True)
     # learn behaviors from data
     agent = create_agent(args, agent_type='smp')
     agent.prop_indices = game_settings.get_idx(args)

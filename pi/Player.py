@@ -203,6 +203,7 @@ class SymbolicMicroProgramPlayer:
         return False
 
     def reasoning_def_behaviors(self, use_ckp=True, show_log=True):
+        print(f"Reasoning defensive behaviors...")
         # if no data for defensive behaviors exist
         if len(self.lost_states) == 0:
             return [], []
@@ -270,6 +271,7 @@ class SymbolicMicroProgramPlayer:
         self.att_behaviors = attack_behaviors
 
     def reasoning_pf_behaviors(self):
+        print(f"Reasoning defensive behaviors...")
         ############# learn from positive rewards
         pos_states_stat_file = self.args.check_point_path / f"{self.args.m}_pos_states.json"
         if os.path.exists(pos_states_stat_file):
@@ -345,6 +347,13 @@ class SymbolicMicroProgramPlayer:
         #         break
         #
         # return lost_game_data
+
+    def revise_loss(self, args, env_args):
+        self.update_lost_buffer(env_args.logic_states, env_args.actions, env_args.rewards)
+        def_behaviors = self.reasoning_def_behaviors(use_ckp=False, show_log=args.with_explain)
+        self.update_behaviors(None, def_behaviors, None, args)
+
+
 
     def revise_timeout(self, history):
         print("")

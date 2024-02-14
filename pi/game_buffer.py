@@ -175,51 +175,49 @@ def collect_data_assault(agent, args):
 def collect_data_asterix(agent, args):
     max_games = 5
     args.filename = args.m + '_' + args.teacher_agent + str(max_games) + '.json'
-    buffer = RolloutBuffer(args.m, args.filename)
+    buffer = RolloutBuffer(args.filename)
     if os.path.exists(buffer.filename):
         return
     win_rates = []
     win_count = 0
     env = OCAtari(args.m, mode="revised", hud=True, render_mode="rgb_array")
-
+    obs, info = env.reset()
+    env_args = EnvArgs(args=args, game_num=300, window_size=obs.shape[:2], fps=60)
     for i in tqdm(range(max_games)):
         observation, info = env.reset()
-        env_args = EnvArgs(args=args, game_num=300, window_size=observation.shape[:2], fps=60)
-        frame_i = 0
-        logic_states = []
-        actions = []
-        rewards = []
+        env_args.reset_args()
         while env_args.current_lives > 0:
-            logic_state, state_score = extract_logic_state_atari(env.objects, args.game_info)
-            action, _ = agent(env.dqn_obs)
-            obs, reward, terminated, truncated, info = env.step(action)
-            if state_score > env_args.best_score:
-                env_args.best_score = state_score
+            env_args.action, _ = agent(env.dqn_obs)
+            env_args.obs, env_args.reward, terminated, truncated, info = env.step(env_args.action)
+
+            env_args.logic_state, env_args.state_score = extract_logic_state_atari(env.objects, args.game_info)
+            if env_args.state_score > env_args.best_score:
+                env_args.best_score = env_args.state_score
             # assign reward for lost one live
             if info["lives"] < env_args.current_lives:
-                reward += env_args.reward_lost_one_live
                 env_args.current_lives = info["lives"]
                 env_args.score_update = True
-                rewards[-1] += env_args.reward_lost_one_live
-
-                logic_states, actions, rewards = game_utils.asterix_patches(logic_states, actions, rewards)
+                env_args.win_rate[0, env_args.game_i] = env_args.best_score
+                env_args.rewards[-1] += env_args.reward_lost_one_live
+                env_args.dead_counter += 1
+                env_args.logic_states, env_args.actions, env_args.rewards = game_utils.asterix_patches(
+                    env_args.logic_states, env_args.actions, env_args.rewards)
                 env_args.win_rate[0, env_args.game_i] = env_args.best_score
 
-                buffer.logic_states.append(logic_states)
-                buffer.actions.append(actions)
-                buffer.rewards.append(rewards)
+                buffer.logic_states.append(env_args.logic_states)
+                buffer.actions.append(env_args.actions)
+                buffer.rewards.append(env_args.rewards)
 
-                logic_states = []
-                actions = []
-                rewards = []
+                env_args.logic_states = []
+                env_args.actions = []
+                env_args.rewards = []
+
                 env_args.game_i += 1
             else:
-                logic_states.append(logic_state)
-                actions.append(action)
-                rewards.append(reward)
-
-            frame_i = game_utils.update_game_args(frame_i, env_args, reward)
-
+                buffer.logic_states.append(env_args.logic_states)
+                buffer.actions.append(env_args.actions)
+                buffer.rewards.append(env_args.rewards)
+            env_args.update_args(env_args)
     buffer.win_rates = win_rates
     buffer.check_validation_asterix()
     buffer.save_data()

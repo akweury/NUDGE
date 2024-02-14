@@ -68,7 +68,7 @@ def create_negative_behavior(args, beh_i, beh):
                                 args.output_folder, log_x=True)
 
     # create predicate
-    pred_name = f"beh_{beh_i}_act_{action_type}"
+    pred_name = f"def_beh_{beh_i}_not_act_{action_type}"
     dist_dir = torch.cat((dists, dirs), dim=1)
     dist_dir_pos = torch.cat((dists_pos, dirs_pos), dim=1)
     dist_pred = predicate.Dist_Closest(args, X_0=dist_dir, X_1=dist_dir_pos, name=pred_name)

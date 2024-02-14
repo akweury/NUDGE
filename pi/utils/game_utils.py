@@ -18,8 +18,8 @@ from src.agents.random_agent import RandomPlayer
 
 
 class RolloutBuffer:
-    def __init__(self, game_name, filename):
-        self.filename = config.path_output / 'bs_data' / game_name / filename
+    def __init__(self, filename):
+        self.filename = filename
         self.win_rate = 0
         self.actions = []
         self.lost_actions = []
@@ -54,9 +54,9 @@ class RolloutBuffer:
         del self.game_number[:]
 
     def load_buffer(self, args):
-        with open(args.path_bs_data / args.filename, 'r') as f:
+        with open(args.buffer_filename, 'r') as f:
             state_info = json.load(f)
-        print(f"- Loaded game buffer file: {args.filename}")
+        print(f"==> Loaded game buffer file: {args.buffer_filename}")
 
         self.win_rates = torch.tensor(state_info['win_rates'])
         self.actions = [torch.tensor(state_info['actions'][i]) for i in range(len(state_info['actions']))]
@@ -120,15 +120,16 @@ class RolloutBuffer:
             neg_states = game_states[game_rewards < 0]
             pos_indices = [3, 4]
             for state in neg_states:
-                pos_agent = state[0, pos_indices]
+                pos_agent = state[0:1, pos_indices].unsqueeze(0)
                 enemy_indices = state[:, 1] > 0
-                pos_enemy = state[enemy_indices][:, pos_indices]
-                dist = math_utils.dist_a_and_b_closest(pos_agent, pos_enemy).squeeze(0).sum(dim=-1).min()
-                assert dist < 30
+                pos_enemy = (state[enemy_indices][:, pos_indices]).unsqueeze(0)
+                dist, _ = math_utils.dist_a_and_b_closest(pos_agent, pos_enemy)
+                print(f"max dist: {dist.sum(dim=1).tolist()}")
+                assert dist.sum(dim=1) < 50
 
 
 def load_buffer(args):
-    buffer = RolloutBuffer(args.m, args.filename)
+    buffer = RolloutBuffer(args.buffer_filename)
     buffer.load_buffer(args)
     return buffer
 
@@ -197,7 +198,7 @@ def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list, screen_text):
                                           int(game_plot.shape[0] * env_args.zoom_in),
                                           int(game_plot.shape[1] * env_args.zoom_in))
     draw_utils.addText(screen_plot, screen_text,
-                       color=(255,228,181), thickness=1, font_size=0.5, pos="upper_right")
+                       color=(255, 228, 181), thickness=1, font_size=0.5, pos="upper_right")
 
     if len(db_list) == 0:
         db_plots = np.zeros((int(screen_plot.shape[0]), int(screen_plot.shape[0] * 0.5), 3), dtype=np.uint8)
@@ -229,10 +230,10 @@ def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list, screen_text):
     return out, screen_with_explain
 
 
-def update_game_args(frame_i, env_args, reward):
-    if reward < 0:
+def update_game_args(frame_i, env_args):
+    if env_args.reward < 0:
         env_args.score_update = True
-    elif reward > 0:
+    elif env_args.reward > 0:
         env_args.current_steak += 1
         env_args.max_steak = max(env_args.max_steak, env_args.current_steak)
         if env_args.max_steak >= 2 and not env_args.has_win_2:
@@ -413,3 +414,39 @@ def screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_count
     _, screen_with_explain = plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots, screen_text)
     file_name = str(env_args.output_folder / f"screen_{dead_counter}.png")
     draw_utils.save_np_as_img(screen_with_explain, file_name)
+
+
+def game_over_log(agent, env_args):
+    print(f"- Ep: {env_args.game_i}, Best Record: {env_args.best_score}")
+    if agent.agent_type == "smp":
+        for b_i, beh in enumerate(agent.def_behaviors):
+            print(f"- DefBeh {b_i}/{len(agent.def_behaviors)}: {beh.clause}")
+        for b_i, beh in enumerate(agent.att_behaviors):
+            print(f"+ AttBeh {b_i}/{len(agent.att_behaviors)} : {beh.clause}")
+        for b_i, beh in enumerate(agent.pf_behaviors):
+            print(f"~ PfBeh {b_i}/{len(agent.pf_behaviors)}: {beh.clause}")
+
+
+def frame_log(agent, env_args):
+    # game log
+    if agent.agent_type == "smp":
+        for beh_i in env_args.explaining['behavior_index']:
+            print(
+                f"f: {env_args.frame_i}, rw: {env_args.reward}, act: {env_args.action}, "
+                f"behavior: {agent.behaviors[beh_i].clause}")
+
+
+def revise_loss_log(env_args, agent, video_out):
+    screen_text = f"Ep: {env_args.game_i}, Best: {env_args.best_score}"
+    mt_plot = plot_mt_asterix(env_args, agent)
+    screen_shot(env_args, video_out, env_args.obs, None, mt_plot, [], env_args.dead_counter, screen_text)
+
+
+def save_game_buffer(args, env_args):
+    buffer = RolloutBuffer(args.buffer_filename)
+    buffer.logic_states = env_args.game_states
+    buffer.actions = env_args.game_actions
+    buffer.rewards = env_args.game_rewards
+    buffer.win_rates = env_args.win_rate.tolist()
+    buffer.check_validation_asterix()
+    buffer.save_data()

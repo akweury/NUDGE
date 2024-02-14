@@ -104,7 +104,7 @@ def fact_is_true(states, fact, game_info):
 
 def check_fact_truth(facts, states, actions, game_info):
     truth_table = torch.zeros((len(states), len(facts)), dtype=torch.bool)
-    for f_i in tqdm(range(len(facts)), ascii=True, desc=f"Calculate fact table"):
+    for f_i in tqdm(range(len(facts)), ascii=True, desc=f"Fact table"):
         fact_satisfaction = fact_is_true(states, facts[f_i], game_info)
         truth_table[:, f_i] = fact_satisfaction
     assert truth_table.sum() > 0
@@ -797,10 +797,7 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop
     variances = []
     means = []
     percentage = torch.zeros(len(type_combs))
-    for t_i in tqdm(range(len(type_combs)),
-                    desc=f"Reasoning on {len(type_combs)} negative explanations based on {len(neg_states)} states"):
-        if t_i == 81:
-            print("")
+    for t_i in range(len(type_combs)):
         mask_type, action_type, obj_type, prop_type = type_combs[t_i]
 
         # calc distance between any two objects
@@ -897,10 +894,11 @@ def brute_search(args, facts, fact_truth_table, actions, rewards):
             fact_comb_score = fact_pos_num / (fact_neg_num + fact_pos_num + 1e-20)
             scores, score_rank = fact_comb_score.sort(descending=True)
             rank_score_indices = scores > args.fact_conf
-            print(f"act: {action_type}, "
-                  f"facts: {fact_len + 1}, "
-                  f"used states: {fact_pos_num[score_rank][rank_score_indices]}, "
-                  f"scores: {scores[rank_score_indices]}")
+            if args.with_explain:
+                print(f"(Reasoning Path Finding Behavior) act: {action_type}, "
+                      f"facts: {fact_len + 1}, "
+                      f"states: {fact_pos_num[score_rank][rank_score_indices]}, "
+                      f"scores: {scores[rank_score_indices]}")
             pos_fact_indices = score_rank[rank_score_indices]
             for index in pos_fact_indices:
                 for fact_index in fact_combs[index]:
