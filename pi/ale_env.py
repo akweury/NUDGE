@@ -7,7 +7,7 @@
 import os
 import random
 from collections import deque
-
+import atari_py
 import torch
 from ale_py import ALEInterface, LoggerMode, roms
 from gym.spaces import Discrete
@@ -98,7 +98,7 @@ class ALEModern:
                 "record_sound_filename", os.path.join(record_dir, "sound.wav")
             )
 
-        self.ale.loadROM(_get_rom(self.game_name))
+        self.ale.loadROM(atari_py.get_game_path(self.game_name))
 
         # set mode and difficulty
         self._set_mode(mode)

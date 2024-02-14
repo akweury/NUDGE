@@ -27,4 +27,6 @@ lark
 gym3
 gym
 ocatari
+ale-py
+autorom[accept-rom-license]
 
