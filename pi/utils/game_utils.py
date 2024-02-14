@@ -277,9 +277,10 @@ def remove_last_key_frame_asterix(states, max_dist=35):
     pos_agent = test_state[0, pos_indices]
     enemy_indices = test_state[:, 1] > 0
     pos_enemy = test_state[enemy_indices][:, pos_indices]
-    dist = math_utils.dist_a_and_b_closest(pos_agent, pos_enemy).squeeze(0).sum(dim=-1).min()
-    if dist > max_dist:
-        print(f"dist:{dist}")
+    dist, _ = math_utils.dist_a_and_b_closest(pos_agent, pos_enemy)
+
+    if dist.sum(dim=-1).min() > max_dist:
+        print(f"dist:{dist.sum(dim=-1).min()}")
         # raise ValueError
     return new_states
 

@@ -235,7 +235,7 @@ def render_getout(agent, args):
                 if len(decision_history) > 2:
                     lost_game_data = agent.revise_loss(decision_history)
                     agent.update_lost_buffer(lost_game_data)
-                    def_behaviors, db_dict_list = agent.reasoning_def_behaviors(use_ckp=False)
+                    def_behaviors = agent.reasoning_def_behaviors(use_ckp=False)
                     learned_jump = agent.update_behaviors(None, def_behaviors, None, args)
                     print("- revise loss finished.")
             getout = create_getout_instance(args)

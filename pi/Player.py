@@ -202,7 +202,7 @@ class SymbolicMicroProgramPlayer:
 
         return False
 
-    def reasoning_def_behaviors(self, use_ckp=True):
+    def reasoning_def_behaviors(self, use_ckp=True, show_log=True):
         # if no data for defensive behaviors exist
         if len(self.lost_states) == 0:
             return [], []
@@ -223,24 +223,26 @@ class SymbolicMicroProgramPlayer:
         neg_beh_file = self.args.check_point_path / f"{self.args.m}_neg_beh.pkl"
         if os.path.exists(neg_beh_file):
             defense_behaviors = file_utils.load_pickle(neg_beh_file)
-            defense_behaviors, db_plots = beh_utils.update_negative_behaviors(self.args, defense_behaviors,
+            defense_behaviors = beh_utils.update_negative_behaviors(self.args, defense_behaviors,
                                                                               def_beh_data)
-            for def_beh in defense_behaviors:
-                print(f"# defense behavior: {def_beh.clause}")
+            if show_log:
+                for def_beh in defense_behaviors:
+                    print(f"# defense behavior: {def_beh.clause}")
             file_utils.save_pkl(neg_beh_file, defense_behaviors)
 
         else:
             defense_behaviors = []
             db_plots = []
             for beh_i, beh in enumerate(def_beh_data):
-                print(f"- Creating defense behavior {beh_i + 1}/{len(def_beh_data)}...")
-                behavior, db_plot = beh_utils.create_negative_behavior(self.args, beh_i, beh)
-                db_plots.append({"plot_i": beh_i, "plot": db_plot})
+                if show_log:
+                    print(f"- Creating defense behavior {beh_i + 1}/{len(def_beh_data)}...")
+                behavior= beh_utils.create_negative_behavior(self.args, beh_i, beh)
+                db_plots.append({"plot_i": beh_i})
                 defense_behaviors.append(behavior)
             file_utils.save_pkl(neg_beh_file, defense_behaviors)
 
         self.def_behaviors = defense_behaviors
-        return defense_behaviors, db_plots
+        return defense_behaviors
 
     def reasoning_att_behaviors(self, use_ckp=True):
         if len(self.pos_data) == 0:

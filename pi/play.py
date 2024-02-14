@@ -24,7 +24,7 @@ def main(render=True, m=None):
         agent.load_atari_buffer(args)
     args = game_settings.switch_hardness(args)
     pf_behaviors = agent.reasoning_pf_behaviors()
-    def_behaviors, _ = agent.reasoning_def_behaviors()
+    def_behaviors = agent.reasoning_def_behaviors()
     # att_behaviors = agent.reasoning_att_behaviors()
     agent.update_behaviors(pf_behaviors=pf_behaviors, def_behaviors=def_behaviors, att_behaviors=None, args=args)
 

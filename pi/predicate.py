@@ -206,7 +206,7 @@ class Dist_Closest():
         self.model = None
         self.num_epochs = 5000
         self.var, self.mean = torch.var_mean(X_0)
-        self.name = f"{name}_dist_closest_ep_{self.num_epochs}"
+        self.name = f"{name}_dist_closest_ep_{self.num_epochs}_var_{self.var:.1f}_mean_{self.mean:.1f}"
         self.y_0 = 0
         self.y_1 = 1
 
@@ -237,15 +237,18 @@ class Dist_Closest():
     def fit_pred(self):
         X, y = self.gen_data()
         # fit a classifier using neural network
-        self.model = nn_model.fit_classifier(x_tensor=X, y_tensor=y, num_epochs=self.num_epochs)
+        self.model = nn_model.fit_classifier(x_tensor=X, y_tensor=y, num_epochs=self.num_epochs, device=self.args.device)
         # plot decision boundary
-        db_plot = draw_utils.plot_decision_boundary(X, y, self.model, name=self.name, log_x=True, path=self.args.output_folder)
-        return db_plot
+        # db_plot = draw_utils.plot_decision_boundary(X, y, self.model, name=self.name, log_x=True,
+        #                                             path=self.args.output_folder)
+
 
     def eval(self, t1, t2):
-        dist = math_utils.dist_a_and_b_closest(t1, t2)
+        dist, b_index = math_utils.dist_a_and_b_closest(t1, t2)
+        dir = math_utils.dir_a_and_b_closest(t1, t2, b_index)
+        dist_dir = torch.cat((dist, dir), dim=1)
         # Use the trained model to predict the new value
-        new_value_prediction = self.model(dist).detach()
+        new_value_prediction = self.model(dist_dir).detach()
         satisfaction = new_value_prediction.argmax() == self.y_0
         return satisfaction
 

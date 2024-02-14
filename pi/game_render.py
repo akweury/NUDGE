@@ -62,14 +62,16 @@ def render_asterix(agent, args):
                     dead_counter += 1
                     logic_states, actions, rewards = game_utils.asterix_patches(logic_states, actions, rewards)
                     agent.update_lost_buffer(logic_states, actions, rewards)
-                    def_behaviors, db_plots = agent.reasoning_def_behaviors(use_ckp=False)
+                    def_behaviors = agent.reasoning_def_behaviors(use_ckp=False, show_log= args.with_explain)
                     agent.update_behaviors(None, def_behaviors, None, args)
                     screen_text = f"ep: {env_args.game_i}, Rec: {env_args.best_score}"
-                    game_utils.screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_counter,
+                    mt_plot = game_utils.plot_mt_asterix(env_args, agent)
+                    game_utils.screen_shot(env_args, video_out, obs, None, mt_plot, db_plots, dead_counter,
                                            screen_text)
                 logic_states = []
                 actions = []
                 rewards = []
+                frame_i = 0
                 consume_counter = 0
                 env_args.game_i += 1
             else:
@@ -81,25 +83,34 @@ def render_asterix(agent, args):
                     consume_counter += 1
 
             # render the game
-            screen_text = f"ep: {env_args.game_i}, Rec: {env_args.best_score}"
-            wr_plot = game_utils.plot_wr(env_args)
-            mt_plot = game_utils.plot_mt_asterix(env_args, agent)
-            video_out, _ = game_utils.plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots, screen_text)
+            if args.with_explain:
+                screen_text = f"ep: {env_args.game_i}, Rec: {env_args.best_score}"
+                wr_plot = game_utils.plot_wr(env_args)
+                mt_plot = game_utils.plot_mt_asterix(env_args, agent)
+                video_out, _ = game_utils.plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots,
+                                                          screen_text)
 
-            # game log
-            try:
-                for beh_i in explaining['behavior_index']:
-                    print(
-                        f"f: {frame_i}, rw: {reward}, act: {action - 1}, behavior: {agent.behaviors[beh_i].clause}")
-            except IndexError:
-                print("")
+                # game log
+                try:
+                    for beh_i in explaining['behavior_index']:
+                        print(
+                            f"f: {frame_i}, rw: {reward}, act: {action}, behavior: {agent.behaviors[beh_i].clause}")
+                except IndexError:
+                    print("")
+
             # print(f"g: {env_args.game_i}, f: {frame_i}, rw: {reward}, act: {action}, lives:{info['lives']}, "
             #       f"agent: {int(torch.tensor(logic_state)[:, 0].sum())}, "
             #       f"enemy: {int(torch.tensor(logic_state)[:, 1].sum())}, "
             #       f"cauldron: {int(torch.tensor(logic_state)[:, 2].sum())}")
 
             frame_i = game_utils.update_game_args(frame_i, env_args, reward)
-
+        print(f"- ep: {env_args.game_i}, Rec: {env_args.best_score}")
+        for beh in agent.def_behaviors:
+            print(f"- DefBeh: {beh.clause}")
+        for beh in agent.att_behaviors:
+            print(f"+ AttBeh: {beh.clause}")
+        for beh in agent.att_behaviors:
+            print(f"~ PfBeh: {beh.clause}")
     env.close()
     draw_utils.release_video(video_out)
 
@@ -155,7 +166,7 @@ def render_kangaroo(agent, args):
         if len(decision_history) > 2 and reward < 0:
             lost_game_data = agent.revise_loss(decision_history)
             agent.update_lost_buffer(lost_game_data)
-            def_behaviors, db_plots = agent.reasoning_def_behaviors(use_ckp=False)
+            def_behaviors = agent.reasoning_def_behaviors(use_ckp=False)
             agent.update_behaviors(None, def_behaviors, None, args)
             print("- revise loss finished.")
     env.close()

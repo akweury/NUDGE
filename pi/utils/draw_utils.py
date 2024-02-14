@@ -201,7 +201,7 @@ def plot_scatter(data, labels, name, path, log_x=False, log_y=False, cla_leg=Tru
     # save the plot
     filename = str(Path(path) / f"{name}_scatter.png")
     plt.savefig(filename)
-    print(f" Scatter plot saved to {filename}")
+    # print(f" Scatter plot saved to {filename}")
     plot_array = plot_to_np_array()
 
     if cla_leg:
@@ -216,9 +216,15 @@ def plot_decision_boundary(x_tensor, y_tensor, model, path, name, log_x=False, l
     with torch.no_grad():
         x_min, x_max = x_tensor[:, 0].min() - 1, x_tensor[:, 0].max() + 1
         y_min, y_max = x_tensor[:, 1].min() - 1, x_tensor[:, 1].max() + 1
-        unit = max((y_max - y_min) / 100, (x_max - x_min) / 100)
-        xx, yy = torch.meshgrid(torch.arange(x_min, x_max, unit), torch.arange(y_min, y_max, unit), indexing='ij')
-        grid_tensor = torch.cat([xx.reshape(-1, 1), yy.reshape(-1, 1)], dim=1)
+        z_min, z_max = x_tensor[:, 2].min() - 1, x_tensor[:, 2].max() + 1
+
+        unit = max((y_max - y_min) / 100, (x_max - x_min) / 100, (z_max - z_min) / 100)
+        xx, yy, zz = torch.meshgrid(
+            torch.arange(x_min, x_max, unit),
+            torch.arange(y_min, y_max, unit),
+            torch.arange(z_min, z_max, unit),
+            indexing='ij')
+        grid_tensor = torch.cat([xx.reshape(-1, 1), yy.reshape(-1, 1), zz.reshape(-1, 1)], dim=1)
         Z = model(grid_tensor).detach().argmax(dim=1).numpy().reshape(xx.shape)
         plt.contourf(xx, yy, Z, alpha=0.8, cmap=plt.cm.Paired)
 
@@ -239,7 +245,7 @@ def plot_decision_boundary(x_tensor, y_tensor, model, path, name, log_x=False, l
 
     file_name = str(Path(path) / f"{name}.png")
     plt.savefig(file_name)
-    print(f'- plot saved as {file_name}')
+    # print(f'- plot saved as {file_name}')
     plot_array = plot_to_np_array()
 
     if cla_leg:

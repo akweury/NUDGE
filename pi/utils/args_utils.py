@@ -53,7 +53,8 @@ def load_args(exp_args_path, m):
 
     if m is not None:
         args.m = m
-
+    if args.device != "cpu":
+        args.device = int(args.device)
     # load args from json file
     args_file = exp_args_path / f"{args.exp}.json"
     load_args_from_file(str(args_file), args)

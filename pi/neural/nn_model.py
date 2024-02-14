@@ -6,6 +6,7 @@ import numpy as np
 import torch.optim as optim
 from tqdm import tqdm
 
+from sklearn.neighbors import KernelDensity
 
 # Neural Network Model
 class NeuralNetwork(nn.Module):
@@ -27,39 +28,30 @@ class NeuralNetwork(nn.Module):
 def generate_data(pos_data, gen_num):
     """ generate more data following a multivariate normal distribution with the calculated mean and covariance. """
 
-    # Calculate mean and covariance matrix from the original set of points
-    # In general, for a covariance matrix to be positive definite,
-    # it must be symmetric and have all positive eigenvalues.
-    # For a collection of more than two points, the covariance matrix can be computed,
-    # and it may or may not be positive definite depending on the distribution and relationships between the variables.
-    assert len(pos_data) > 2
-    mean = pos_data.mean(dim=0)
-    covariance_matrix = torch.tensor(np.cov(pos_data.numpy(), rowvar=False), dtype=torch.double)
-    # Generate new points following the same distribution
-
-    generated_points = torch.distributions.MultivariateNormal(mean.double(), covariance_matrix).sample((gen_num,))
-
-
-    generated_points = generated_points.to(torch.float32)
-    return generated_points
+    # Perform kernel density estimation
+    kde = KernelDensity(bandwidth=0.5, kernel='gaussian')
+    kde.fit(pos_data)
+    # Generate new points
+    new_points = torch.from_numpy(kde.sample(gen_num)).to(torch.float32)
+    return new_points
 
 
 # Plotting
-def fit_classifier(x_tensor, y_tensor, num_epochs):
+def fit_classifier(x_tensor, y_tensor, num_epochs, device):
     # Model, loss function, and optimizer
-    input_size = 2
-    model = NeuralNetwork(input_size)
-    criterion = nn.BCELoss()
+    input_size = 3
+    model = NeuralNetwork(input_size).to(device)
+    criterion = nn.BCELoss().to(device)
     optimizer = optim.SGD(model.parameters(), lr=0.01)
 
     # Training the model
 
-    loss = torch.tensor(0)
+    loss = torch.tensor(0).to(device)
 
     for epoch in tqdm(range(num_epochs), desc=f'Fit Classifier'):
         # Forward pass
-        outputs = model(x_tensor)
-        loss = criterion(outputs, y_tensor)
+        outputs = model(x_tensor.to(device)).to(device)
+        loss = criterion(outputs, y_tensor.to(device)).to(device)
         # Backward and optimize
         optimizer.zero_grad()
         loss.backward()

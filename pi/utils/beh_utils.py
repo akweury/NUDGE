@@ -53,22 +53,26 @@ def create_negative_behavior(args, beh_i, beh):
     # create defense behaviors
 
     dists = torch.tensor(beh["dists"], dtype=torch.float32)
+    dirs = torch.tensor(beh["dir"], dtype=torch.float32)
     dists_pos = torch.tensor(beh["dists_pos"], dtype=torch.float32)
+    dirs_pos = torch.tensor(beh["dir_ab_pos"], dtype=torch.float32)
     expected_reward = beh["rewards"]
     obj_combs = beh["obj_combs"]
     prop_combs = beh["prop_combs"]
     action_type = beh["action_type"]
     mask = beh["masks"]
-
-    print(f'- (Behavior data) objs: {obj_combs}, props: {prop_combs}, action: {action_type}, mask: {mask}')
-    draw_utils.plot_scatter([dists, dists_pos], ['positive', 'negative'],
-                            f'{beh_i}_behavior_scatter_action_{action_type}',
-                            args.output_folder, log_x=True)
+    if args.with_explain:
+        print(f'- (Behavior data) objs: {obj_combs}, props: {prop_combs}, action: {action_type}, mask: {mask}')
+        draw_utils.plot_scatter([dists, dists_pos], ['positive', 'negative'],
+                                f'{beh_i}_behavior_scatter_action_{action_type}',
+                                args.output_folder, log_x=True)
 
     # create predicate
-    pred_name = f"{beh_i}_behavior_db_action_{action_type}"
-    dist_pred = predicate.Dist_Closest(args, dists, dists_pos, pred_name)
-    db_plot = dist_pred.fit_pred()
+    pred_name = f"beh_{beh_i}_act_{action_type}"
+    dist_dir = torch.cat((dists, dirs), dim=1)
+    dist_dir_pos = torch.cat((dists_pos, dirs_pos), dim=1)
+    dist_pred = predicate.Dist_Closest(args, X_0=dist_dir, X_1=dist_dir_pos, name=pred_name)
+    dist_pred.fit_pred()
     pred = [dist_pred]
 
     beh_fact = VarianceFact(mask, obj_combs, prop_combs, pred)
@@ -76,9 +80,10 @@ def create_negative_behavior(args, beh_i, beh):
 
     behavior = Behavior(neg_beh, [beh_fact], action_type, expected_reward, len(dists), len(dists), 0, 0)
     behavior.clause = pi_lang.behavior2clause(args, behavior)
-    print(f"# defense behavior: {behavior.clause}")
+    if args.with_explain:
+        print(f"# defense behavior: {behavior.clause}")
 
-    return behavior, db_plot
+    return behavior
 
 
 def update_negative_behaviors(args, behaviors, def_beh_data):
@@ -98,11 +103,11 @@ def update_negative_behaviors(args, behaviors, def_beh_data):
                 behavior_exist = True
                 break
         if not behavior_exist:
-            behavior, db_plot = create_negative_behavior(args, data_i, beh_data)
-            db_plots.append({"plot_i": data_i, "plot": db_plot})
-            print(f"- new behavior {behavior.clause}")
+            behavior = create_negative_behavior(args, data_i, beh_data)
+            if args.with_explain:
+                print(f"- new behavior {behavior.clause}")
             defense_behaviors.append(behavior)
-    return defense_behaviors, db_plots
+    return defense_behaviors
 
 
 def create_attack_behavior(args, beh_i, beh):
