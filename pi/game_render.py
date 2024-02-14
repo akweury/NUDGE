@@ -35,6 +35,7 @@ def _act(agent, env_args, env):
     return info
 
 def render_asterix(agent, args, save_buffer):
+    args.m = args.m[0].upper() + args.m[1:]
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
     env_args = EnvArgs(args=args, window_size=obs.shape[:2], fps=60)
@@ -151,7 +152,7 @@ def render_game(agent, args, save_buffer=False):
         render_getout(agent, args)
     elif args.m == 'Assault':
         render_assault(agent, args)
-    elif args.m == 'Asterix':
+    elif args.m == 'asterix':
         render_asterix(agent, args, save_buffer)
     elif args.m == "Kangaroo":
         render_kangaroo(agent, args)
