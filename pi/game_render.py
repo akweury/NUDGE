@@ -6,7 +6,6 @@ from PIL import ImageDraw, Image
 from tqdm import tqdm
 from ocatari.core import OCAtari
 
-
 from pi.utils.game_utils import RolloutBuffer
 from pi.utils import game_utils, draw_utils
 from pi.utils.EnvArgs import EnvArgs
@@ -16,10 +15,11 @@ from src.utils_game import render_getout
 
 def _render(agent, env_args, video_out):
     # render the game
-    screen_text = f"ep: {env_args.game_i}, Rec: {env_args.best_score}"
+    screen_text = f"{agent.agent_type} ep: {env_args.game_i}, Rec: {env_args.best_score}"
     wr_plot = game_utils.plot_wr(env_args)
     mt_plot = game_utils.plot_mt_asterix(env_args, agent)
     video_out, _ = game_utils.plot_game_frame(env_args, video_out, env_args.obs, wr_plot, mt_plot, [], screen_text)
+
 
 def _act(agent, env_args, env):
     # agent predict an action
@@ -33,6 +33,7 @@ def _act(agent, env_args, env):
     env_args.obs, env_args.reward, terminated, truncated, info = env.step(env_args.action)
     ram = env._env.unwrapped.ale.getRAM()
     return info
+
 
 def render_asterix(agent, args, save_buffer):
     args.m = args.m[0].upper() + args.m[1:]
@@ -78,15 +79,14 @@ def render_asterix(agent, args, save_buffer):
             env_args.update_args(env_args)
 
         game_utils.game_over_log(agent, env_args)
-        env_args.win_rate[0, game_i] = env_args.state_score
+        env_args.update_wr(agent.agent_type, game_i)
+
     env.close()
     draw_utils.release_video(video_out)
     draw_utils.plot_line_chart(env_args.win_rate, args.check_point_path,
                                [agent.agent_type, "None"], title=f"wr_{agent.agent_type}")
     if save_buffer:
         game_utils.save_game_buffer(args, env_args)
-
-
 
 
 def render_kangaroo(agent, args):

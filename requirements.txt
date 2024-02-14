@@ -30,4 +30,5 @@ ocatari
 ale-py
 atari_py
 autorom[accept-rom-license]
+gym[atari, accept-rom-license]
 

@@ -99,3 +99,9 @@ class EnvArgs():
         self.logic_states = []
         self.actions = []
         self.rewards = []
+
+    def update_wr(self,agent_type, game_i):
+        if agent_type == "smp":
+            self.win_rate[1, game_i] = self.state_score
+        else:
+            self.win_rate[1, game_i] = self.state_score
