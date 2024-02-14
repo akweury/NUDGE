@@ -26,4 +26,5 @@ pyglet
 lark
 gym3
 gym
+ocatari
 

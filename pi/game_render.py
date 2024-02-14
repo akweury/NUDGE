@@ -80,8 +80,8 @@ def render_asterix(agent, args, save_buffer):
         env_args.win_rate[0, game_i] = env_args.state_score
     env.close()
     draw_utils.release_video(video_out)
-    draw_utils.plot_line_chart(env_args.win_rate, args.check_point_path / f"wr_{agent.agent_type}.png",
-                               ["pretrained", "SMP"])
+    draw_utils.plot_line_chart(env_args.win_rate, args.check_point_path,
+                               [agent.agent_type, "None"], title=f"wr_{agent.agent_type}")
     if save_buffer:
         game_utils.save_game_buffer(args, env_args)
 
