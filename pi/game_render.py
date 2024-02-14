@@ -4,7 +4,7 @@ import time
 import torch
 from PIL import ImageDraw, Image
 from tqdm import tqdm
-from ocatari import OCAtari
+from ocatari.core import OCAtari
 
 
 from pi.utils.game_utils import RolloutBuffer

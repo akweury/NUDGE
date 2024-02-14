@@ -1,4 +1,7 @@
 
+##### Build Docker
+docker build -t ml-sha/nudge_docker .
+
 ##### Run Docker
 docker run --gpus all -it -v /home/ml-jsha/storage:/NUDGE/storage --rm ml-sha/nudge_docker
 
