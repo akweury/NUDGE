@@ -8,7 +8,7 @@ docker run --gpus all -it -v /home/ml-jsha/storage:/NUDGE/storage --rm ml-sha/nu
 #### Train Atari 2600 Games
 
 ``` 
-python -m atari_py.import_roms /storage/ROMS
+python -m atari_py.import_roms /NUDGE/storage/ROMS
 
 ```
 
