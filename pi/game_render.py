@@ -63,7 +63,7 @@ def render_asterix(agent, args, save_buffer):
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
             # agent predict an action
             info = _act(agent, env_args, env)
-            env_args.logic_state, env_args.state_score = extract_logic_state_atari(env.objects, args.game_info)
+            env_args.logic_state, _ = extract_logic_state_atari(env.objects, args.game_info)
             if env_args.reward > 0:
                 env_args.state_score += 1
             # assign reward for lost one live
