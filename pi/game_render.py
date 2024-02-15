@@ -44,6 +44,7 @@ def render_asterix(agent, args, save_buffer):
         render_mode = 'rgb_array'
     print(f"render mode:{render_mode}")
     env = OCAtari(args.m, mode="revised", hud=True, render_mode=render_mode)
+    print(f"init env")
     obs, info = env.reset()
     env_args = EnvArgs(args=args, window_size=obs.shape[:2], fps=60)
     video_out = game_utils.get_game_viewer(env_args)
