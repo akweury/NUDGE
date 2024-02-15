@@ -952,7 +952,7 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop
             dir_pos_ab = torch.zeros(2)
         var, mean = torch.var_mean(dist)
         var_pos, mean_pos = torch.var_mean(dist_pos)
-        if var_pos < 0.5 or len(dist) < 3 or var_pos == 0 or dist.sum() == 0:
+        if len(dist) < 3 or var_pos == 0 or dist.sum() == 0:
             var = 1e+20
             mean = 1e+20
         variances.append(var)
