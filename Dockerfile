@@ -22,5 +22,5 @@ ADD .ssh/ /root/.ssh/
 
 WORKDIR  /NUDGE/
 RUN git clone https://github.com/k4ntz/OC_Atari
-RUN pip install -e /OC_Atari
+RUN pip install -e ./OC_Atari
 RUN git clone git@github.com:akweury/NUDGE.git
