@@ -27,6 +27,8 @@ def _act(agent, env_args, env):
         env_args.action, env_args.explaining = agent.act(env.objects)
     elif agent.agent_type == "pretrained":
         env_args.action, _ = agent(env.dqn_obs.to(env_args.device))
+    elif agent.agent_type == "random":
+        env_args.action = agent.act(None)
     else:
         raise ValueError
     # env execute action
