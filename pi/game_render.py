@@ -37,6 +37,7 @@ def _act(agent, env_args, env):
 
 def render_asterix(agent, args, save_buffer):
     # args.m = args.m[0].upper() + args.m[1:]
+    print(f"game name: {args.m}")
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
     env_args = EnvArgs(args=args, window_size=obs.shape[:2], fps=60)
@@ -59,9 +60,11 @@ def render_asterix(agent, args, save_buffer):
             env_args.logic_state, env_args.state_score = extract_logic_state_atari(env.objects, args.game_info)
             # assign reward for lost one live
             if info["lives"] < env_args.current_lives:
-                if args.m=="Asterix":
+                if args.m == "Asterix":
                     env_args.logic_states, env_args.actions, env_args.rewards = game_utils.atari_patches(args.game_info,
-                                                                                                         env_args.logic_states, env_args.actions, env_args.rewards)
+                                                                                                         env_args.logic_states,
+                                                                                                         env_args.actions,
+                                                                                                         env_args.rewards)
 
                 env_args.update_lost_live(info["lives"])
                 # revise the game rules
@@ -80,14 +83,13 @@ def render_asterix(agent, args, save_buffer):
             env_args.update_args(env_args)
 
         game_utils.game_over_log(agent, env_args)
-        env_args.win_rate[game_i] = env_args.state_score # update ep score
+        env_args.win_rate[game_i] = env_args.state_score  # update ep score
     env.close()
     draw_utils.release_video(video_out)
     game_utils.finish_one_run(env_args, args, agent)
 
     if save_buffer:
         game_utils.save_game_buffer(args, env_args)
-
 
 
 def render_game(agent, args, save_buffer=False):
