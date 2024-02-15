@@ -93,11 +93,13 @@ def render_asterix(agent, args, save_buffer):
         game_utils.game_over_log(args, agent, env_args)
         env_args.win_rate[game_i] = env_args.state_score  # update ep score
     env.close()
-    draw_utils.release_video(video_out)
     game_utils.finish_one_run(env_args, args, agent)
-
     if save_buffer:
         game_utils.save_game_buffer(args, env_args)
+    if args.with_explain:
+        draw_utils.release_video(video_out)
+
+
 
 
 def render_game(agent, args, save_buffer=False):
