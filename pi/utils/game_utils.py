@@ -388,7 +388,7 @@ def create_agent(args, agent_type):
             args.m,
             torch.randint(100_000, (1,)).item(),
             sdl=False,
-            device="cpu",
+            device=args.device,
             clip_rewards_val=False,
             record_dir=None,
         )
@@ -396,6 +396,7 @@ def create_agent(args, agent_type):
         # init model
         model = AtariNet(env.action_space.n, distributional="C51_" in str(args.model_path))
         model.load_state_dict(ckpt["estimator_state"])
+        model = model.to(args.device)
         # configure policy
         policy = partial(_epsilon_greedy, model=model, eps=0.001)
         agent = policy
