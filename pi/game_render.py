@@ -47,7 +47,8 @@ def render_asterix(agent, args, save_buffer):
     print(f"init env")
     obs, info = env.reset()
     env_args = EnvArgs(args=args, window_size=obs.shape[:2], fps=60)
-    video_out = game_utils.get_game_viewer(env_args)
+    if args.with_explain:
+        video_out = game_utils.get_game_viewer(env_args)
     for game_i in tqdm(range(env_args.game_num)):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
@@ -78,7 +79,8 @@ def render_asterix(agent, args, save_buffer):
                 # revise the game rules
                 if agent.agent_type == "smp" and len(env_args.logic_states) > 2:
                     agent.revise_loss(args, env_args)
-                    game_utils.revise_loss_log(env_args, agent, video_out)
+                    if args.with_explain:
+                        game_utils.revise_loss_log(env_args, agent, video_out)
                 env_args.buffer_game()
                 env_args.reset_buffer_game()
             else:
@@ -98,8 +100,6 @@ def render_asterix(agent, args, save_buffer):
         game_utils.save_game_buffer(args, env_args)
     if args.with_explain:
         draw_utils.release_video(video_out)
-
-
 
 
 def render_game(agent, args, save_buffer=False):
