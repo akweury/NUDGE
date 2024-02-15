@@ -47,7 +47,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--zoom_in", type=int, default=2, help="Zoom in percentage of the game window.")
     parser.add_argument("--train_state_num", type=int, default=100000, help="Zoom in percentage of the game window.")
     parser.add_argument("--hardness", type=int, default=0, help="Hardness of the game.")
-    parser.add_argument("--game_num", type=int, default=30, help="Number of the game.")
+    parser.add_argument("--game_nums", type=int, default=30, help="Number of the game.")
     parser.add_argument("--fact_conf", type=float, default=0.1,
                         help="Minimum confidence required to save a fact as a behavior.")
     args = parser.parse_args()
