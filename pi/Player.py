@@ -422,7 +422,7 @@ class SymbolicMicroProgramPlayer:
 
     def asterix_actor(self, objs):
         extracted_state, _ = oc_utils.extract_logic_state_atari(objs, self.args.game_info)
-        predictions, explains = self.model(torch.tensor(extracted_state).unsqueeze(0))
+        predictions, explains = self.model(torch.tensor(extracted_state).unsqueeze(0).to(self.args.device))
         # predictions, explains = self.action_combine_assault(predictions, explains)
         prediction = torch.argmax(predictions).cpu().item()
         explains['action'] = prediction
