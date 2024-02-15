@@ -387,7 +387,7 @@ def create_agent(args, agent_type):
         env = ALEModern(
             args.m,
             torch.randint(100_000, (1,)).item(),
-            sdl=True,
+            sdl=False,
             device="cpu",
             clip_rewards_val=False,
             record_dir=None,

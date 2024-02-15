@@ -24,8 +24,6 @@ wandb
 pyglet
 ###qt
 lark
-gym3
-gym
 ocatari
 ale-py
 atari_py
