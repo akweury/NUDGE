@@ -382,10 +382,11 @@ def create_agent(args, agent_type):
         agent = PpoPlayer(args)
     elif agent_type == 'pretrained':
         # game/seed/model
+        game_name = args.m.lower()
         ckpt = _load_checkpoint(args.model_path)
         # set env
         env = ALEModern(
-            args.m,
+            game_name,
             torch.randint(100_000, (1,)).item(),
             sdl=False,
             device=args.device,
