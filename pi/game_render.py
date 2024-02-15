@@ -36,7 +36,7 @@ def _act(agent, env_args, env):
 
 
 def render_asterix(agent, args, save_buffer):
-    args.m = args.m[0].upper() + args.m[1:]
+    # args.m = args.m[0].upper() + args.m[1:]
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
     env_args = EnvArgs(args=args, window_size=obs.shape[:2], fps=60)
