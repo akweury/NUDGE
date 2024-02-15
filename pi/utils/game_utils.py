@@ -413,8 +413,10 @@ def screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_count
     draw_utils.save_np_as_img(screen_with_explain, file_name)
 
 
-def game_over_log(agent, env_args):
+def game_over_log(args, agent, env_args):
     print(f"- Ep: {env_args.game_i}, Best Record: {env_args.best_score}, Ep Score: {env_args.state_score}")
+    draw_utils.plot_line_chart(env_args.win_rate.unsqueeze(0)[:, :env_args.game_i], args.check_point_path,
+                               [agent.agent_type], title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")
     if agent.agent_type == "smp":
         for b_i, beh in enumerate(agent.def_behaviors):
             print(f"- DefBeh {b_i}/{len(agent.def_behaviors)}: {beh.clause}")

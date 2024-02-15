@@ -43,7 +43,7 @@ def render_asterix(agent, args, save_buffer):
     else:
         render_mode = 'rgb_array'
     print(f"render mode:{render_mode}")
-    env = OCAtari(args.m, mode="revised", hud=True, render_mode=render_mode)
+    env = OCAtari(args.m, mode="vision", hud=True, render_mode=render_mode)
     print(f"init env")
     obs, info = env.reset()
     env_args = EnvArgs(args=args, window_size=obs.shape[:2], fps=60)
@@ -88,7 +88,7 @@ def render_asterix(agent, args, save_buffer):
                 game_utils.frame_log(agent, env_args)
             env_args.update_args(env_args)
 
-        game_utils.game_over_log(agent, env_args)
+        game_utils.game_over_log(args, agent, env_args)
         env_args.win_rate[game_i] = env_args.state_score  # update ep score
     env.close()
     draw_utils.release_video(video_out)
