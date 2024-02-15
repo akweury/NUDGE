@@ -76,7 +76,7 @@ def load_args(exp_args_path, m):
         args.game_info = config.game_info_getout
         args.obj_info = args.game_info["obj_info"]
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
-    elif args.m == "asterix":
+    elif args.m == "Asterix" or args.m == "asterix":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"{args.m}_{str(args.teacher_agent)}_game_num_{args.game_nums}.json"
         args.zero_reward = 0.0
