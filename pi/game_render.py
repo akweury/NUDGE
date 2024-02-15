@@ -38,7 +38,11 @@ def _act(agent, env_args, env):
 def render_asterix(agent, args, save_buffer):
     # args.m = args.m[0].upper() + args.m[1:]
     args.m = "Asterix"
-    env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
+    if args.device != "cpu":
+        render_mode = None
+    else:
+        render_mode = 'rgb_array'
+    env = OCAtari(args.m, mode="revised", hud=True, render_mode=render_mode)
     obs, info = env.reset()
     env_args = EnvArgs(args=args, window_size=obs.shape[:2], fps=60)
     video_out = game_utils.get_game_viewer(env_args)
