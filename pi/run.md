@@ -13,5 +13,5 @@ python -m atari_py.import_roms /NUDGE/storage/ROMS
 ```
 
 ``` 
-python -m pi.play --teacher_agent pretrained -m asterix --hardness 0 --with_explain --device 9
+python -m pi.play --teacher_agent pretrained -m Asterix --hardness 0 --with_explain --game_num 30 --device 9
 ```
