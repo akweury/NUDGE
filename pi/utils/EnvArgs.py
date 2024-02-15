@@ -9,6 +9,7 @@ class EnvArgs():
     def __init__(self, args, window_size, fps):
         super().__init__()
         # game setting
+        self.device=args.device
         self.output_folder = args.output_folder
         self.max_lives = args.max_lives
         self.reward_lost_one_live = args.reward_lost_one_live

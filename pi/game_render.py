@@ -26,7 +26,7 @@ def _act(agent, env_args, env):
     if agent.agent_type == "smp":
         env_args.action, env_args.explaining = agent.act(env.objects)
     elif agent.agent_type == "pretrained":
-        env_args.action, _ = agent(env.dqn_obs)
+        env_args.action, _ = agent(env.dqn_obs.to(env_args.device))
     else:
         raise ValueError
     # env execute action
