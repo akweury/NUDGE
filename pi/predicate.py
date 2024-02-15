@@ -248,7 +248,7 @@ class Dist_Closest():
     def eval(self, t1, t2):
         dist, b_index = math_utils.dist_a_and_b_closest(t1, t2)
         dir = math_utils.dir_a_and_b_closest(t1, t2, b_index)
-        dist_dir = torch.cat((dist, dir), dim=1)
+        dist_dir = torch.cat((dist, dir), dim=1).to(self.args.device)
         # Use the trained model to predict the new value
         new_value_prediction = self.model(dist_dir).detach()
         satisfaction = new_value_prediction.argmax() == self.y_0
