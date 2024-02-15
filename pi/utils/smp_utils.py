@@ -746,6 +746,31 @@ def stat_scored_data(data_pos, data_neg, obj_info, prop_indices, var_th):
 
         states_masked = states[mask_pos]
         states_neg_masked = states_neg[mask_neg]
+
+        obj_0_indices = obj_info[obj_type[0]]["indices"]
+        obj_1_indices = obj_info[obj_type[1]]["indices"]
+        obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
+        obj_a_indices = obj_combs[:, 0].unique()
+        obj_b_indices = obj_combs[:, 1].unique()
+        if len(obj_a_indices) == 1:
+            data_A = action_states[:, obj_a_indices][:, :, prop_type]
+            data_B = action_states[:, obj_b_indices][:, :, prop_type]
+            dist, b_index = math_utils.dist_a_and_b_closest(data_A, data_B)
+            dir_ab = math_utils.dir_a_and_b_closest(data_A, data_B, b_index)
+
+            data_A_pos = action_states_pos[:, obj_a_indices][:, :, prop_type]
+            data_B_pos = action_states_pos[:, obj_b_indices][:, :, prop_type]
+            dist_pos, b_pos_index = math_utils.dist_a_and_b_closest(data_A_pos, data_B_pos)
+            dir_pos_ab = math_utils.dir_a_and_b_closest(data_A_pos, data_B_pos, b_pos_index)
+
+        else:
+            dist = torch.zeros(2)
+            dist_pos = torch.zeros(2)
+            dir_ab = torch.zeros(2)
+            dir_pos_ab = torch.zeros(2)
+        var, mean = torch.var_mean(dist)
+        var_pos, mean_pos = torch.var_mean(dist_pos)
+
         if len(states_masked) == 0 or len(states_neg_masked) == 0:
             continue
 
@@ -775,6 +800,102 @@ def stat_scored_data(data_pos, data_neg, obj_info, prop_indices, var_th):
     return passed_stats
 
 
+def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th, stat_type):
+    if stat_type == "attack":
+        mask_reward = rewards > zero_reward
+    elif stat_type == "defense":
+        mask_reward = rewards < zero_reward
+    else:
+        raise ValueError
+
+    rewards_pos = rewards[mask_reward]
+    states_pos = states[mask_reward]
+    actions_pos = actions[mask_reward]
+    masks_pos = mask_tensors_from_states(states_pos, game_info)
+
+    states_neg = states[~mask_reward]
+    actions_neg = actions[~mask_reward]
+    masks_neg = mask_tensors_from_states(states_neg, game_info)
+
+    mask_pos_types = masks_pos.unique(dim=0)
+    action_pos_types = actions_pos.unique()
+    obj_types = get_all_2_combinations(game_info, reverse=False)
+    prop_types = [prop_indices]
+    type_combs = list(itertools.product(mask_pos_types, action_pos_types, obj_types, prop_types))
+    states_stats = []
+    variances = []
+    means = []
+    percentage = torch.zeros(len(type_combs))
+    for t_i in range(len(type_combs)):
+        mask_type, action_type, obj_type, prop_type = type_combs[t_i]
+        mask_action_state_pos = ((actions_pos == action_type) * (masks_pos == mask_type).prod(-1).bool())
+        mask_action_state_neg = ((actions_neg == action_type) * (masks_neg == mask_type).prod(-1).bool())
+        states_action_pos = states_pos[mask_action_state_pos]
+        states_action_neg = states_neg[mask_action_state_neg]
+
+        obj_0_indices = game_info[obj_type[0]]["indices"]
+        obj_1_indices = game_info[obj_type[1]]["indices"]
+        obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
+        obj_a_indices = obj_combs[:, 0].unique()
+        obj_b_indices = obj_combs[:, 1].unique()
+        if len(obj_a_indices) == 1:
+            data_A = states_action_pos[:, obj_a_indices][:, :, prop_type]
+            data_B = states_action_pos[:, obj_b_indices][:, :, prop_type]
+            dist, b_index = math_utils.dist_a_and_b_closest(data_A, data_B)
+            dir_ab = math_utils.dir_a_and_b_closest(data_A, data_B, b_index)
+            dist_dir_pos = torch.cat((dist, dir_ab), dim=1)
+
+            data_A_neg = states_action_neg[:, obj_a_indices][:, :, prop_type]
+            data_B_neg = states_action_neg[:, obj_b_indices][:, :, prop_type]
+            dist_neg, b_neg_index = math_utils.dist_a_and_b_closest(data_A_neg, data_B_neg)
+            dir_ab_neg = math_utils.dir_a_and_b_closest(data_A_neg, data_B_neg, b_neg_index)
+            dist_dir_neg = torch.cat((dist_neg, dir_ab_neg), dim=1)
+
+        else:
+            dist = torch.zeros(2)
+            dist_neg = torch.zeros(2)
+            dist_dir_pos = torch.zeros(2)
+            dist_dir_neg = torch.zeros(2)
+            dir_ab = torch.zeros(2)
+            dir_ab_neg = torch.zeros(2)
+        var_pos, mean_pos = torch.var_mean(dist_dir_pos)
+        var_neg, mean_neg = torch.var_mean(dist_dir_neg)
+        if len(dist_dir_pos) < 3 or var_neg == 0 or dist.sum() == 0:
+            var_pos = 1e+20
+            mean_pos = 1e+20
+        variances.append(var_pos)
+        means.append(mean_pos)
+        percentage[t_i] = len(states_action_pos) / len(states_pos)
+        states_stats.append(
+            {"dists_pos": dist, "dir_pos": dir_ab,
+             "dists_neg": dist_neg, "dir_ab_neg": dir_ab_neg,
+             "means": mean_pos, "variances": var_pos,
+             "action_type": action_type, "mask_type": mask_type, "prop_type": prop_type, "obj_types": obj_type,
+             "indices": mask_action_state_pos})
+    variances_ranked, v_rank = torch.tensor(variances).sort()
+
+    passed_variances = variances_ranked < var_th
+    passed_comb_indices = v_rank[passed_variances]
+    passed_stats = [states_stats[s_i] for s_i in passed_comb_indices]
+
+    neg_behs = []
+    for state_stat in passed_stats:
+        indices = state_stat["indices"]
+        neg_behs.append({
+            "dists_pos": state_stat["dists_pos"].tolist(),
+            "dir_pos": state_stat["dir_pos"].tolist(),
+            "dists_neg": state_stat["dists_neg"].tolist(),
+            "dir_ab_neg": state_stat["dir_ab_neg"].tolist(),
+            "means": state_stat["means"].tolist(),
+            "variance": state_stat["variances"].tolist(),
+            "action_type": state_stat["action_type"].tolist(),
+            "masks": state_stat["mask_type"].tolist(),
+            "obj_combs": state_stat["obj_types"],
+            "prop_combs": state_stat["prop_type"],
+            "rewards": rewards_pos[indices].tolist(),
+        })
+
+    return neg_behs
 def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th):
     mask_neg_reward = rewards < zero_reward
     neg_rewards = rewards[mask_neg_reward]

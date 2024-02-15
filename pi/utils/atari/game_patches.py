@@ -1,15 +1,20 @@
 # Created by jing at 06.02.24
 
 """A simple class for viewing images using pyglet."""
+import torch
+
+from pi.utils import math_utils
+
+
 # Original code from the nes_py project
 
 class ImageViewer(object):
     """A simple class for viewing images using pyglet."""
 
     def __init__(self, caption, height, width,
-        monitor_keyboard=False,
-        relevant_keys=None
-    ):
+                 monitor_keyboard=False,
+                 relevant_keys=None
+                 ):
         """
         Initialize a new image viewer.
 
@@ -147,7 +152,7 @@ class ImageViewer(object):
             frame.shape[0],
             'RGB',
             frame.tobytes(),
-            pitch=frame.shape[1]*-3
+            pitch=frame.shape[1] * -3
         )
         # send the image to the window
         image.blit(0, 0, width=self._window.width, height=self._window.height)
@@ -156,3 +161,65 @@ class ImageViewer(object):
 
 # explicitly define the outward facing API of this module
 __all__ = [ImageViewer.__name__]
+
+
+def patch_asterix(game_info, states, actions, rewards, lives):
+    new_states = remove_last_key_frame(game_info, states)
+    new_actions = actions[:len(new_states)]
+    new_rewards = rewards[:len(new_states)]
+    new_rewards[-1] = rewards[-1]
+    game_over = False
+    if lives == 0:
+        game_over = True
+    return new_states, new_actions, new_rewards, game_over
+
+
+def atari_patches(args, env_args, info):
+    if args.m == "Asterix":
+        env_args.logic_states, env_args.actions, env_args.rewards, env_args.game_over = patch_asterix(
+            args.game_info, env_args.logic_states, env_args.actions, env_args.rewards, info['lives'])
+    if args.m == 'Boxing':
+        env_args.rewards = patch_boxing(env_args.actions, env_args.rewards, args.action_names)
+        if env_args.terminated or env_args.truncated:
+            env_args.game_over = True
+
+
+def patch_boxing(actions, rewards, action_names):
+    new_rewards = shift_reward_to_attack_actions(actions, rewards, action_names)
+    return new_rewards
+
+
+def remove_last_key_frame(game_info, states, max_dist=35):
+    last_frame_enemy_num = torch.tensor(states[-1])[:, 1].sum()
+    not_found = True
+    state_i = len(states) - 1
+    while not_found:
+        frame_enemy_num = torch.tensor(states[state_i])[:, 1].sum()
+        if frame_enemy_num != last_frame_enemy_num:
+            break
+        else:
+            state_i -= 1
+    new_states = states[:state_i + 1]
+
+    pos_indices = [game_info["axis_x_col"], game_info["axis_y_col"]]
+    test_state = torch.tensor(new_states[-1])
+    pos_agent = test_state[0, pos_indices]
+    enemy_indices = test_state[:, 1] > 0
+    pos_enemy = test_state[enemy_indices][:, pos_indices]
+    dist, _ = math_utils.dist_a_and_b_closest(pos_agent, pos_enemy)
+
+    if dist.sum(dim=-1).min() > max_dist:
+        print(f"dist:{dist.sum(dim=-1).min()}")
+        # raise ValueError
+    return new_states
+
+
+def shift_reward_to_attack_actions(actions, rewards, action_names):
+    for r_i, reward in enumerate(rewards):
+        if reward > 0:
+            for reverse_r_i in reversed(range(r_i)):
+                if "fire" in action_names[actions[reverse_r_i]]:
+                    rewards[reverse_r_i] = rewards[r_i]
+                    rewards[r_i] = 0
+                    break
+    return rewards

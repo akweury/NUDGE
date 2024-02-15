@@ -7,6 +7,7 @@ import torch.optim as optim
 from tqdm import tqdm
 
 from sklearn.neighbors import KernelDensity
+from pi.utils import draw_utils
 
 
 # Neural Network Model
@@ -38,7 +39,7 @@ def generate_data(pos_data, gen_num):
 
 
 # Plotting
-def fit_classifier(x_tensor, y_tensor, num_epochs, device, classifier_type):
+def fit_classifier(x_tensor, y_tensor, num_epochs, device, classifier_type, plot_path):
     # Model, loss function, and optimizer
     input_size = 3
     model = NeuralNetwork(input_size).to(device)
@@ -48,8 +49,8 @@ def fit_classifier(x_tensor, y_tensor, num_epochs, device, classifier_type):
     # Training the model
 
     loss = torch.tensor(0).to(device)
-
-    for epoch in range(num_epochs):
+    loss_history = []
+    for epoch in tqdm(range(num_epochs),desc=f'{classifier_type}'):
         # Forward pass
         outputs = model(x_tensor.to(device)).to(device)
         loss = criterion(outputs, y_tensor.to(device)).to(device)
@@ -57,6 +58,10 @@ def fit_classifier(x_tensor, y_tensor, num_epochs, device, classifier_type):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        loss_history.append(loss.item())
 
-    # print(f'Final loss: {loss.item():.4f}')
+    print(f'Final loss: {loss.item():.4f}')
+    # Plot the loss history
+    draw_utils.plot_line_chart(torch.tensor(loss_history).unsqueeze(0),
+                               plot_path, ['loss'], title=f'loss_{classifier_type}')
     return model

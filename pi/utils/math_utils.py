@@ -31,8 +31,11 @@ def dir_a_and_b_closest(data_A, data_B, b_indices):
     dir = torch.zeros(data_A.shape[0], data_A.shape[1])
     for i in range(data_B.shape[0]):
         data_B_closest = data_B[i, b_indices[i]]
-        dir_vec = torch.sub(data_B_closest, data_A[i,0])
+        dir_vec = torch.sub(data_B_closest, data_A[i, 0])
         dir_vec[1] = -dir_vec[1]
         rho, phi = cart2pol(dir_vec[0], dir_vec[1])
         dir[i] = phi
+    assert (torch.abs(dir) <= 180).prod()==True
+    dir = dir / 180
+
     return dir

@@ -198,15 +198,16 @@ class Dist_Closest():
     """ generate one micro-program
     """
 
-    def __init__(self, args, X_0, X_1, name):
+    def __init__(self, args, X_0, X_1, name, plot_path):
         super().__init__()
         self.args = args
         self.X_0 = X_0
         self.X_1 = X_1
         self.model = None
-        self.num_epochs = 5000
+        self.num_epochs = args.train_nn_epochs
         self.var, self.mean = torch.var_mean(X_0)
         self.name = f"{name}_ep_{self.num_epochs}_var_{self.var:.1f}_mean_{self.mean:.1f}"
+        self.plot_path = plot_path
         self.y_0 = 0
         self.y_1 = 1
 
@@ -239,11 +240,10 @@ class Dist_Closest():
         # fit a classifier using neural network
         self.model = nn_model.fit_classifier(x_tensor=X, y_tensor=y,
                                              num_epochs=self.num_epochs, device=self.args.device,
-                                             classifier_type=self.name)
+                                             classifier_type=self.name, plot_path=self.plot_path)
         # plot decision boundary
         # db_plot = draw_utils.plot_decision_boundary(X, y, self.model, name=self.name, log_x=True,
         #                                             path=self.args.output_folder)
-
 
     def eval(self, t1, t2):
         dist, b_index = math_utils.dist_a_and_b_closest(t1, t2)

@@ -25,10 +25,10 @@ def main(render=True, m=None):
     else:
         agent.load_atari_buffer(args)
     args = game_settings.switch_hardness(args)
+    att_behaviors = agent.reasoning_att_behaviors()
     pf_behaviors = agent.reasoning_pf_behaviors()
     def_behaviors = agent.reasoning_def_behaviors()
-    # att_behaviors = agent.reasoning_att_behaviors()
-    agent.update_behaviors(pf_behaviors=pf_behaviors, def_behaviors=def_behaviors, att_behaviors=None, args=args)
+    agent.update_behaviors(pf_behaviors=pf_behaviors, def_behaviors=def_behaviors, att_behaviors=att_behaviors, args=args)
 
     if render:
         # Test updated agent

@@ -115,6 +115,10 @@ obj_info_asterix = [('Player', 1),
                     ('Consumable', 8)
                     ]
 
+obj_info_boxing = [('Player', 1),
+                   ('Enemy', 1)]
+
+
 game_info_asterix = {
     "obj_info": obj_info_asterix,
     "state_row_num": 17,
@@ -139,6 +143,14 @@ game_info_kangaroo = {
     "state_col_num": 10,
     "axis_x_col": 8,
     "axis_y_col": 9
+}
+
+game_info_boxing = {
+    "obj_info": obj_info_boxing,
+    "state_row_num": 2,
+    "state_col_num": 4,
+    "axis_x_col": 2,
+    "axis_y_col": 3
 }
 
 ########### action info ############################
@@ -181,6 +193,25 @@ action_name_kangaroo = ["noop",  # 0
                         "downrightfire",  # 16
                         "downleftfire",  # 17
                         ]
+action_name_boxing = ["noop",  # 0
+                      "fire",  # 1
+                      "up",  # 2
+                      "right",  # 3
+                      "left",  # 4
+                      "down",  # 5
+                      "upright",  # 6
+                      "upleft",  # 7
+                      "downright",  # 8
+                      "downleft",  # 9
+                      "upfire",  # 10
+                      "rightfire",  # 11
+                      "leftfire",  # 12
+                      "downfire",  # 13
+                      "uprightfire",  # 14
+                      "upleftfire",  # 15
+                      "downrightfire",  # 16
+                      "downleftfire",  # 17
+                      ]
 
 action_name_threefish = ["left", "right", "jump"]
 
@@ -191,6 +222,7 @@ prop_name_threefish = ['agent', 'fish', "radius", "axis_x", "axis_y"]
 prop_name_assault = ['agent', 'player_missile_vertical', "player_missile_horizontal", "enemy", "enemy_missile",
                      "axis_x", "axis_y"]
 prop_name_asterix = ["Player", "Enemy", "Consumable", "axis_x", "axis_y"]
+prop_name_boxing = ["Player", "Enemy", "axis_x", "axis_y"]
 prop_name_kangaroo = ["agent", "monkey", "apple",
                       "axis_x", "axis_y"]
 ########## language ########################

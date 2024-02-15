@@ -57,6 +57,7 @@ class SymbolicMicroProgramPlayer:
         self.args = args
         self.preds = None
         self.model = SymbolicMicroProgramModel(args).actor.to(args.device)
+        self.position_norm_factor = None
         self.prop_indices = None
         self.def_behaviors = []
         self.att_behaviors = []
@@ -79,11 +80,8 @@ class SymbolicMicroProgramPlayer:
         self.win_five_in_a_row = None
 
     def load_atari_buffer(self, args):
-
-        train_buffer_file = args.path_bs_data / f"{args.m}_train_tensors.pt"
-        train_data_file = args.path_bs_data / train_buffer_file
-        if os.path.exists(train_data_file):
-            data = torch.load(train_buffer_file)
+        if os.path.exists(args.buffer_tensor_filename):
+            data = torch.load(args.buffer_tensor_filename)
             self.win_states = data["states"]
             self.win_actions = data["actions"]
             self.win_rewards = data["rewards"]
@@ -125,7 +123,7 @@ class SymbolicMicroProgramPlayer:
                           "lost_states": self.lost_states, "lost_actions": self.lost_actions,
                           "lost_rewards": self.lost_rewards,
                           "pos_data": self.pos_data, "neg_data": self.neg_data, "zero_data": self.zero_data}
-            torch.save(train_data, train_buffer_file)
+            torch.save(train_data, args.buffer_tensor_filename)
 
     def load_buffer(self, buffer):
 
@@ -225,7 +223,7 @@ class SymbolicMicroProgramPlayer:
         if os.path.exists(neg_beh_file):
             defense_behaviors = file_utils.load_pickle(neg_beh_file)
             defense_behaviors = beh_utils.update_negative_behaviors(self.args, defense_behaviors,
-                                                                              def_beh_data)
+                                                                    def_beh_data)
             if show_log:
                 for def_beh in defense_behaviors:
                     print(f"# defense behavior: {def_beh.clause}")
@@ -237,7 +235,7 @@ class SymbolicMicroProgramPlayer:
             for beh_i, beh in enumerate(def_beh_data):
                 if show_log:
                     print(f"- Creating defense behavior {beh_i + 1}/{len(def_beh_data)}...")
-                behavior= beh_utils.create_negative_behavior(self.args, beh_i, beh)
+                behavior = beh_utils.create_negative_behavior(self.args, beh_i, beh)
                 db_plots.append({"plot_i": beh_i})
                 defense_behaviors.append(behavior)
             file_utils.save_pkl(neg_beh_file, defense_behaviors)
@@ -252,8 +250,13 @@ class SymbolicMicroProgramPlayer:
         if use_ckp and os.path.exists(stat_file):
             att_behavior_data = file_utils.load_json(stat_file)
         else:
-            att_behavior_data = smp_utils.stat_scored_data(self.pos_data, [self.neg_data, self.zero_data],
-                                                           self.args.obj_info, self.prop_indices, self.args.att_var_th)
+            att_behavior_data = smp_utils.stat_rewards(self.win_states,
+                                                       self.win_actions,
+                                                       self.win_rewards,
+                                                       self.args.zero_reward,
+                                                       self.args.obj_info,
+                                                       self.prop_indices,
+                                                       self.args.var_th, "attack")
             file_utils.save_json(stat_file, att_behavior_data)
         att_behavior_file = self.args.check_point_path / f"{self.args.m}_att_beh.pkl"
         if os.path.exists(att_behavior_file):
@@ -261,8 +264,8 @@ class SymbolicMicroProgramPlayer:
             attack_behaviors = beh_utils.update_attack_behaviors(self.args, attack_behaviors, att_behavior_data)
         else:
             attack_behaviors = []
+            print(f'- Create {len(att_behavior_data)} attack behaviors')
             for beh_i, beh in enumerate(att_behavior_data):
-                print(f"- Creating attack behavior {beh_i + 1}/{len(att_behavior_data)}...")
                 attack_behaviors.append(beh_utils.create_attack_behavior(self.args, beh_i, beh))
             file_utils.save_pkl(att_behavior_file, attack_behaviors)
 
@@ -353,8 +356,6 @@ class SymbolicMicroProgramPlayer:
         def_behaviors = self.reasoning_def_behaviors(use_ckp=False, show_log=args.with_explain)
         self.update_behaviors(None, def_behaviors, None, args)
 
-
-
     def revise_timeout(self, history):
         print("")
 
@@ -363,7 +364,7 @@ class SymbolicMicroProgramPlayer:
             action, explaining = self.getout_actor(state)
         elif self.args.m == 'Assault':
             action, explaining = self.assault_actor(state)
-        elif self.args.m == "Asterix":
+        elif self.args.m in ["Asterix", "Boxing"]:
             action, explaining = self.asterix_actor(state)
         elif self.args.m == 'threefish':
             action, explaining = self.threefish_actor(state)
@@ -421,7 +422,7 @@ class SymbolicMicroProgramPlayer:
         return prediction, explains
 
     def asterix_actor(self, objs):
-        extracted_state, _ = oc_utils.extract_logic_state_atari(objs, self.args.game_info)
+        extracted_state, _ = oc_utils.extract_logic_state_atari(objs, self.args.game_info, self.position_norm_factor)
         predictions, explains = self.model(torch.tensor(extracted_state).unsqueeze(0).to(self.args.device))
         # predictions, explains = self.action_combine_assault(predictions, explains)
         prediction = torch.argmax(predictions).cpu().item()

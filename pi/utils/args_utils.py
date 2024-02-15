@@ -47,7 +47,8 @@ def load_args(exp_args_path, m):
     parser.add_argument("--zoom_in", type=int, default=2, help="Zoom in percentage of the game window.")
     parser.add_argument("--train_state_num", type=int, default=100000, help="Zoom in percentage of the game window.")
     parser.add_argument("--hardness", type=int, default=0, help="Hardness of the game.")
-    parser.add_argument("--game_nums", type=int, default=30, help="Number of the game.")
+    parser.add_argument("--teacher_game_nums", type=int, default=30, help="Number of the teacher game.")
+    parser.add_argument("--student_game_nums", type=int, default=100, help="Number of the student game.")
     parser.add_argument("--fact_conf", type=float, default=0.1,
                         help="Minimum confidence required to save a fact as a behavior.")
     args = parser.parse_args()
@@ -76,9 +77,9 @@ def load_args(exp_args_path, m):
         args.game_info = config.game_info_getout
         args.obj_info = args.game_info["obj_info"]
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
-    elif args.m == "Asterix" or args.m == "Asterix":
+    elif args.m == "Asterix" or args.m == "asterix":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
-        args.buffer_filename = config.path_check_point / args.m / f"{args.m}_{str(args.teacher_agent)}_game_num_{args.game_nums}.json"
+        args.buffer_filename = config.path_check_point / args.m / f"{args.m}_{str(args.teacher_agent)}_game_num_{args.teacher_game_nums}.json"
         args.zero_reward = 0.0
         args.fact_conf = 0.5
         args.action_names = config.action_name_asterix
@@ -91,21 +92,23 @@ def load_args(exp_args_path, m):
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
         args.var_th = 200
         args.mile_stone_scores = [5, 10, 20, 40]
-    elif args.m == "Kangaroo":
+    elif args.m == "Boxing":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
-        args.game_nums = 100
-        args.buffer_filename = config.path_check_point / args.m / f"{args.m}_{str(args.teacher_agent)}_game_num_{args.game_nums}.json"
+        args.buffer_filename = config.path_check_point / args.m / f"{args.m}_{str(args.teacher_agent)}_game_num_{args.teacher_game_nums}.json"
+        args.buffer_tensor_filename = config.path_check_point / args.m / f"{args.m}_{str(args.teacher_agent)}_game_num_{args.teacher_game_nums}.pt"
+        args.train_nn_epochs = 50000
         args.zero_reward = 0.0
         args.fact_conf = 0.5
-        args.action_names = config.action_name_kangaroo
-        args.prop_names = config.prop_name_kangaroo
-        args.max_lives = 3
-        args.reward_lost_one_live = -100
-        args.reward_score_one_enemy = 10
-        args.game_info = config.game_info_kangaroo
+        args.action_names = config.action_name_boxing
+        args.prop_names = config.prop_name_boxing
+        args.max_lives = 0
+        args.reward_lost_one_live = 0
+        args.reward_score_one_enemy = 0
+        args.game_info = config.game_info_boxing
         args.obj_info = args.game_info["obj_info"]
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
-        args.var_th = 200
+        args.var_th = 0.5
+        args.att_var_th = 0.5
         args.mile_stone_scores = [5, 10, 20, 50]
     else:
         raise ValueError

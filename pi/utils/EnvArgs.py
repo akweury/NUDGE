@@ -6,10 +6,10 @@ class EnvArgs():
     """ generate one micro-program
     """
 
-    def __init__(self, args, window_size, fps):
+    def __init__(self, agent, args, window_size, fps):
         super().__init__()
         # game setting
-        self.device=args.device
+        self.device = args.device
         self.output_folder = args.output_folder
         self.max_lives = args.max_lives
         self.reward_lost_one_live = args.reward_lost_one_live
@@ -20,6 +20,7 @@ class EnvArgs():
         self.height_game_window = int(window_size[0] * args.zoom_in)
         self.width_left_panel = int(window_size[0] * 0.5 * args.zoom_in)
         self.width_right_panel = int(window_size[1] * 0.25 * args.zoom_in)
+        self.position_norm_factor = window_size[0]
         # frame rate limiting
         self.fps = fps
         self.target_frame_duration = 1 / fps
@@ -32,12 +33,18 @@ class EnvArgs():
         self.game_states = []
         self.game_actions = []
         self.game_rewards = []
-        self.game_num = args.game_nums
+
         self.game_i = 0
         self.win_count = 0
         self.dead_counter = 0
         self.current_steak = 0
-        self.win_rate = torch.zeros(args.game_nums)
+        if agent.agent_type == "smp":
+            self.game_num = args.student_game_nums
+        elif agent.agent_type == "pretrained":
+            self.game_num = args.teacher_game_nums
+        else:
+            raise ValueError
+        self.win_rate = torch.zeros(self.game_num)
         self.win_2 = ""
         self.has_win_2 = False
         self.win_3 = ""
@@ -55,8 +62,12 @@ class EnvArgs():
         self.frame_i = 0
         self.current_lives = self.max_lives
         self.state_score = 0
+        self.game_over = False
+        self.terminated = False
+        self.truncated = False
 
     def update_args(self, env_args):
+
         if env_args.state_score > env_args.best_score:
             env_args.best_score = env_args.state_score
 

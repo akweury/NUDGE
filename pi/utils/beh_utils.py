@@ -71,7 +71,8 @@ def create_negative_behavior(args, beh_i, beh):
     pred_name = f"def_beh_{beh_i}_not_act_{action_type}"
     dist_dir = torch.cat((dists, dirs), dim=1)
     dist_dir_pos = torch.cat((dists_pos, dirs_pos), dim=1)
-    dist_pred = predicate.Dist_Closest(args, X_0=dist_dir, X_1=dist_dir_pos, name=pred_name)
+    dist_pred = predicate.Dist_Closest(args, X_0=dist_dir, X_1=dist_dir_pos, name=pred_name,
+                                       plot_path=args.check_point_path)
     dist_pred.fit_pred()
     pred = [dist_pred]
 
@@ -112,31 +113,36 @@ def update_negative_behaviors(args, behaviors, def_beh_data):
 
 def create_attack_behavior(args, beh_i, beh):
     # create attack behaviors
-    dists = torch.tensor(beh["dists"], dtype=torch.float32)
+    dists_pos = torch.tensor(beh["dists_pos"], dtype=torch.float32)
     dists_neg = torch.tensor(beh["dists_neg"], dtype=torch.float32)
+    dir_pos = torch.tensor(beh["dir_pos"], dtype=torch.float32)
+    dir_neg = torch.tensor(beh["dir_ab_neg"], dtype=torch.float32)
     expected_reward = beh["rewards"]
-    obj_combs = beh["obj_type"]
-    prop_combs = beh["prop_type"]
+    obj_combs = beh["obj_combs"]
+    prop_combs = beh["prop_combs"]
     action_type = beh["action_type"]
-    mask = beh["mask_type"]
+    mask = beh["masks"]
 
-    print(f'- (Behavior data) objs: {obj_combs}, props: {prop_combs}, action: {action_type}, mask: {mask}')
     # draw_utils.plot_scatter([dists, dists_neg], ['positive', 'negative'],
     #                         f'{beh_i}_att_beh_act_{action_type}_v_{beh["var"]}_m_{beh["mean"]}',
     #                         args.output_folder, log_x=True)
 
     # create predicate
-    pred_name = f"{beh_i}_behavior_db_action_{action_type}"
-    dist_pred = predicate.Dist_Closest(args, dists, dists_neg, pred_name)
+    pred_name = f"att_beh_{beh_i}_act_{action_type}"
+    dist_dir_pos = torch.cat((dists_pos, dir_pos), dim=1)
+    dist_dir_neg = torch.cat((dists_neg, dir_neg), dim=1)
+    dist_pred = predicate.Dist_Closest(args, X_0=dist_dir_pos, X_1=dist_dir_neg, name=pred_name,
+                                       plot_path=args.check_point_path)
     dist_pred.fit_pred()
     pred = [dist_pred]
 
     beh_fact = VarianceFact(mask, obj_combs, prop_combs, pred)
     neg_beh = False
 
-    behavior = Behavior(neg_beh, [beh_fact], action_type, expected_reward, len(dists), len(dists), 0, 0)
+    behavior = Behavior(neg_beh, [beh_fact], action_type, expected_reward, len(dists_pos), len(dists_pos), 0, 0)
     behavior.clause = pi_lang.behavior2clause(args, behavior)
-    print(f"# attack behavior: {behavior.clause}")
+
+    print(f"# Attack behavior  {beh_i + 1}: {behavior.clause}")
 
     return behavior
 
@@ -147,7 +153,7 @@ def update_attack_behaviors(args, behaviors, att_behavior_data):
     for data_i, beh_data in enumerate(att_behavior_data):
         # if behavior is exist
         behavior_exist = False
-        data_mean, data_var = beh_data['mean'], beh_data['var']
+        data_mean, data_var = beh_data['means'], beh_data['variance']
         for beh_i, beh in enumerate(behaviors):
             beh_mean = behaviors[beh_i].fact[0].preds[0].mean
             beh_var = behaviors[beh_i].fact[0].preds[0].var
@@ -157,7 +163,8 @@ def update_attack_behaviors(args, behaviors, att_behavior_data):
                 behavior_exist = True
                 break
         if not behavior_exist:
-            behavior, db_plot = create_negative_behavior(args, data_i, beh_data)
-            print(f"- new behavior {behavior.clause}")
+            behavior, db_plot = create_attack_behavior(args, data_i, beh_data)
+            if args.with_explain:
+                print(f"- new behavior {behavior.clause}")
             attack_behaviors.append(behavior)
     return attack_behaviors

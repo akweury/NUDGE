@@ -100,112 +100,7 @@ def extract_logic_state_assault(objects, args, noise=False):
     return states
 
 
-def extract_logic_state_asterix(objects, args, noise=False):
-    # print('Extracting logic states...')
-
-    extracted_states = {'Player': {'exist': False, 'x': [], 'y': []},
-                        'Enemy': {'exist': False, 'x': [], 'y': []},
-                        'Cauldron': {'exist': False, 'x': [], 'y': []},
-                        'Helmet': {'exist': False, 'x': [], 'y': []},
-                        'Shield': {'exist': False, 'x': [], 'y': []},
-                        'Lamp': {'exist': False, 'x': [], 'y': []},
-
-                        }
-    # import ipdb; ipdb.set_trace()
-    for object in objects:
-        if object.category == 'Player':
-            extracted_states['Player']['exist'] = True
-            extracted_states['Player']['x'].append(object.x)
-            extracted_states['Player']['y'].append(object.y)
-            # 27 is the width of map, this is normalization
-            # extracted_states[0][-2:] /= 27
-        elif object.category == 'Cauldron':
-            extracted_states['Cauldron']['exist'] = True
-            extracted_states['Cauldron']['x'].append(object.x)
-            extracted_states['Cauldron']['y'].append(object.y)
-        elif object.category == 'Enemy':
-            extracted_states['Enemy']['exist'] = True
-            extracted_states['Enemy']['x'].append(object.x)
-            extracted_states['Enemy']['y'].append(object.y)
-        elif object.category == "Helmet":
-            extracted_states['Helmet']['exist'] = True
-            extracted_states['Helmet']['x'].append(object.x)
-            extracted_states['Helmet']['y'].append(object.y)
-        elif object.category == "Shield":
-            extracted_states['Shield']['exist'] = True
-            extracted_states['Shield']['x'].append(object.x)
-            extracted_states['Shield']['y'].append(object.y)
-        elif object.category == "Lamp":
-            extracted_states['Lamp']['exist'] = True
-            extracted_states['Lamp']['x'].append(object.x)
-            extracted_states['Lamp']['y'].append(object.y)
-        elif "Reward" in object.category:
-            pass
-        elif object.category == "Score":
-            pass
-        elif object.category == "PlayerScore":
-            pass
-        elif object.category == "Health":
-            pass
-        elif object.category == "Lives":
-            pass
-        else:
-            raise ValueError
-    player = 0
-    enemy = 1
-    cauldron = 2
-    helmet = 3
-    shield = 4
-    lamp = 5
-    x_idx = 6
-    y_idx = 7
-    obj_info = config.obj_info_asterix
-    states = torch.zeros((41, 8))
-    if extracted_states['Player']['exist']:
-        states[player, player] = 1
-        assert len(extracted_states['Player']['x']) == 1
-        states[player, x_idx] = extracted_states['Player']['x'][0]
-        states[player, y_idx] = extracted_states['Player']['y'][0]
-
-    if extracted_states['Enemy']['exist']:
-        for i in range(len(extracted_states['Enemy']['x'])):
-            states[enemy + i, enemy] = 1
-            states[enemy + i, x_idx] = extracted_states['Enemy']['x'][i]
-            states[enemy + i, y_idx] = extracted_states['Enemy']['y'][i]
-            if i > 7:
-                raise ValueError
-    if extracted_states['Cauldron']['exist']:
-        for i in range(len(extracted_states['Cauldron']['x'])):
-            states[cauldron + i, cauldron] = 1
-            states[cauldron + i, x_idx] = extracted_states['Cauldron']['x'][i]
-            states[cauldron + i, y_idx] = extracted_states['Cauldron']['y'][i]
-            if i > 7:
-                raise ValueError
-    if extracted_states['Helmet']['exist']:
-        for i in range(len(extracted_states['Helmet']['x'])):
-            states[helmet + i, helmet] = 1
-            states[helmet + i, x_idx] = extracted_states['Helmet']['x'][i]
-            states[helmet + i, y_idx] = extracted_states['Helmet']['y'][i]
-            if i > 7:
-                raise ValueError
-    if extracted_states['Shield']['exist']:
-        for i in range(len(extracted_states['Shield']['x'])):
-            states[shield + i, shield] = 1
-            states[shield + i, x_idx] = extracted_states['Shield']['x'][i]
-            states[shield + i, y_idx] = extracted_states['Shield']['y'][i]
-            if i > 7:
-                raise ValueError
-    if extracted_states['Lamp']['exist']:
-        for i in range(len(extracted_states['Lamp']['x'])):
-            states[lamp + i, lamp] = 1
-            states[lamp + i, x_idx] = extracted_states['Lamp']['x'][i]
-            states[lamp + i, y_idx] = extracted_states['Lamp']['y'][i]
-            if i > 7:
-                raise ValueError
-    return states
-
-
-def extract_logic_state_atari(objects, game_info, noise=False):
+def extract_logic_state_atari(objects, game_info, norm_factor, noise=False):
     # print('Extracting logic states...')
     states = torch.zeros((game_info["state_row_num"], game_info["state_col_num"]))
     state_score = 0
@@ -216,8 +111,8 @@ def extract_logic_state_atari(objects, game_info, noise=False):
             if obj.category == obj_name:
                 if obj_count >= obj_num:
                     continue
-                states[row_start + obj_count, game_info["axis_x_col"]] = obj.x
-                states[row_start + obj_count, game_info["axis_y_col"]] = obj.y
+                states[row_start + obj_count, game_info["axis_x_col"]] = obj.center[0] / norm_factor
+                states[row_start + obj_count, game_info["axis_y_col"]] = obj.center[1] / norm_factor
                 states[row_start + obj_count, o_i] = 1
                 obj_count += 1
             # elif obj.category == "Score":

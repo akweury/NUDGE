@@ -11,9 +11,7 @@ from torch import nn
 from pi.Player import SymbolicMicroProgramPlayer, PpoPlayer
 from pi.ale_env import ALEModern
 
-from pi.utils.atari import assault_utils
 from pi.utils import draw_utils, math_utils
-from src import config
 from src.agents.random_agent import RandomPlayer
 
 
@@ -146,9 +144,7 @@ def _epsilon_greedy(obs, model, eps=0.001):
     return argmax_a.item(), q_val
 
 
-def setup_image_viewer(game_name, height, width):
-    viewer = assault_utils.ImageViewer(game_name, height, width, monitor_keyboard=True, )
-    return viewer
+
 
 
 def zoom_image(image, width=None, height=None, inter=cv.INTER_AREA):
@@ -251,39 +247,6 @@ def update_game_args(frame_i, env_args):
     return frame_i
 
 
-def atari_patches(game_info, states, actions, rewards):
-    new_states = remove_last_key_frame(game_info, states)
-    new_actions = actions[:len(new_states)]
-    new_rewards = rewards[:len(new_states)]
-    new_rewards[-1] = rewards[-1]
-    return new_states, new_actions, new_rewards
-
-
-def remove_last_key_frame(game_info, states, max_dist=35):
-    last_frame_enemy_num = torch.tensor(states[-1])[:, 1].sum()
-    not_found = True
-    state_i = len(states) - 1
-    while not_found:
-        frame_enemy_num = torch.tensor(states[state_i])[:, 1].sum()
-        if frame_enemy_num != last_frame_enemy_num:
-            break
-        else:
-            state_i -= 1
-    new_states = states[:state_i + 1]
-
-    pos_indices = [game_info["axis_x_col"], game_info["axis_y_col"]]
-    test_state = torch.tensor(new_states[-1])
-    pos_agent = test_state[0, pos_indices]
-    enemy_indices = test_state[:, 1] > 0
-    pos_enemy = test_state[enemy_indices][:, pos_indices]
-    dist, _ = math_utils.dist_a_and_b_closest(pos_agent, pos_enemy)
-
-    if dist.sum(dim=-1).min() > max_dist:
-        print(f"dist:{dist.sum(dim=-1).min()}")
-        # raise ValueError
-    return new_states
-
-
 def kangaroo_patches(env_args, reward, lives):
     env_args.score_update = False
     if lives < env_args.current_lives:
@@ -316,7 +279,7 @@ def plot_mt_asterix(env_args, agent):
 
 def plot_wr(env_args):
     if env_args.score_update or env_args.wr_plot is None:
-        wr_plot = draw_utils.plot_line_chart(env_args.win_rate[:, :env_args.game_i],
+        wr_plot = draw_utils.plot_line_chart(env_args.win_rate[:env_args.game_i].unsqueeze(0),
                                              env_args.output_folder, ['smp', 'ppo'],
                                              title='win_rate', cla_leg=True, figure_size=(10, 10))
         env_args.wr_plot = wr_plot
@@ -433,7 +396,7 @@ def frame_log(agent, env_args):
     if agent.agent_type == "smp":
         for beh_i in env_args.explaining['behavior_index']:
             print(
-                f"f: {env_args.frame_i}, rw: {env_args.reward}, act: {env_args.action}, "
+                f"({agent.agent_type}) f: {env_args.frame_i}, rw: {env_args.reward}, act: {env_args.action}, "
                 f"behavior: {agent.behaviors[beh_i].clause}")
 
 
@@ -449,7 +412,8 @@ def save_game_buffer(args, env_args):
     buffer.actions = env_args.game_actions
     buffer.rewards = env_args.game_rewards
     buffer.win_rates = env_args.win_rate.tolist()
-    buffer.check_validation_asterix()
+    if args.m == "Asterix":
+        buffer.check_validation_asterix()
     buffer.save_data()
 
 
