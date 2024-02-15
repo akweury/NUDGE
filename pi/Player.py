@@ -505,8 +505,8 @@ class PpoPlayer:
     def load_model(self, model_path, args, set_eval=True):
 
         with open(model_path, "rb") as f:
-            model = ActorCritic(args)
-            model.load_state_dict(state_dict=torch.load(f, map_location=torch.device('cpu')))
+            model = ActorCritic(args).to(args.device)
+            model.load_state_dict(state_dict=torch.load(f, map_location=args.device))
 
         print(f"- loaded player model from {model_path}")
         model = model.actor
