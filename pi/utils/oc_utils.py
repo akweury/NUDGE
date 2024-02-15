@@ -220,8 +220,8 @@ def extract_logic_state_atari(objects, game_info, noise=False):
                 states[row_start + obj_count, game_info["axis_y_col"]] = obj.y
                 states[row_start + obj_count, o_i] = 1
                 obj_count += 1
-            elif obj.category == "Score":
-                state_score = obj.value
+            # elif obj.category == "Score":
+            #     state_score = obj.value
 
         row_start += obj_num
 

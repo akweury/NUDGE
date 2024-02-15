@@ -64,6 +64,8 @@ def render_asterix(agent, args, save_buffer):
             # agent predict an action
             info = _act(agent, env_args, env)
             env_args.logic_state, env_args.state_score = extract_logic_state_atari(env.objects, args.game_info)
+            if env_args.reward > 0:
+                env_args.state_score += 1
             # assign reward for lost one live
             if info["lives"] < env_args.current_lives:
                 if args.m == "Asterix":
