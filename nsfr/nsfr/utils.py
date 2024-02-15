@@ -36,7 +36,7 @@ def get_nsfr_model(args, train=False):
             VM = HValuationModule(lang=lang, device=device)
     elif args.m == 'atari' and "freeway" in args.env.lower():
         VM = AValuationModule(lang=lang, device=device)
-    elif args.m == 'atari' and "asterix" in args.env.lower():
+    elif args.m == 'atari' and "Asterix" in args.env.lower():
         VM = AAValuationModule(lang=lang, device=device)
     FC = FactsConverter(lang=lang, valuation_module=VM, device=device)
     prednames = []

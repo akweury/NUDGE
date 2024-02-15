@@ -42,7 +42,7 @@ def main():
                         choices=['getout', 'threefish', 'loot', 'atari'])
     parser.add_argument("-env", "--environment", help="environment of game to use",
                         required=True, action="store", dest="env",
-                        choices=['getout', 'threefish', 'loot', 'freeway', 'kangaroo', 'asterix', 'loothard'])
+                        choices=['getout', 'threefish', 'loot', 'freeway', 'kangaroo', 'Asterix', 'loothard'])
     parser.add_argument("-r", "--rules", dest="rules", default=None, required=False,
                         choices=['getout_human_assisted', 'getout_redundant_actions', 'getout_bs_top10',
                                  'getout_no_search', 'getout_no_search_5', 'getout_no_search_15', 'getout_no_search_50',

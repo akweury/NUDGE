@@ -42,7 +42,7 @@ def get_game_info(args):
         obj_data = config.obj_data_getoutplus
     elif args.m == 'Assault':
         obj_data = config.obj_info_assault
-    elif args.m == 'asterix':
+    elif args.m == 'Asterix':
         obj_data = config.obj_info_asterix
     else:
         raise ValueError

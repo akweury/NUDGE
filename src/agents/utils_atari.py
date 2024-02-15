@@ -21,7 +21,7 @@ def extract_logic_state_atari(state, args, noise=False):
             elif entity.category == 'Car':
                 extracted_states[i-1][1] = 1
                 extracted_states[i-1][-2:] = entity.xy
-    elif 'asterix' in args.env.lower():
+    elif 'Asterix' in args.env.lower():
         num_of_feature = 6
         num_of_object = 11
         representation = state
@@ -76,7 +76,7 @@ def extract_neural_state_atari(state, args):
                 raw_state.append([1, 0, 0, 0] + list(inst.xy))
             elif inst.category == "Car":
                 raw_state.append([0, 1, 0, 0] + list(inst.xy))
-    elif 'asterix' in args.env.lower():
+    elif 'Asterix' in args.env.lower():
         raw_state = []
         for i, inst in enumerate(state):
             if inst.category == "Player" and i == 0:
@@ -364,7 +364,7 @@ def preds_to_action_atari(action, prednames):
     CJA_MOVE_RIGHT: Final[int] = 2
     CJA_MOVE_UP: Final[int] = 3
     """
-    if len(prednames) == 13: # asterix:
+    if len(prednames) == 13: # Asterix:
         if 'noop' in prednames[action]:
             return 0
         elif 'up' in prednames[action]:

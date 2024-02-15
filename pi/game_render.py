@@ -109,7 +109,7 @@ def render_game(agent, args, save_buffer=False):
         render_getout(agent, args)
     elif args.m == 'Assault':
         render_assault(agent, args)
-    elif args.m == 'asterix':
+    elif args.m == 'Asterix':
         render_asterix(agent, args, save_buffer)
     elif args.m == "Kangaroo":
         render_asterix(agent, args, save_buffer)

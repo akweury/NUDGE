@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 ###################################
-# Valuation functions for asterix #
+# Valuation functions for Asterix #
 ###################################
 
 device = torch.device('cuda:0')
