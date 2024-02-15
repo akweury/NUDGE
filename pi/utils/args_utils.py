@@ -91,31 +91,22 @@ def load_args(exp_args_path, m):
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
         args.var_th = 200
         args.mile_stone_scores = [5, 10, 20, 40]
-
-    elif args.m == "Assault":
-        args.att_var_th = 2
-        args.zero_reward = 0.0
-        args.model_path = config.path_model / args.m / 'model_50000000.gz'
-        args.obj_info = config.obj_info_assault
-        args.action_names = config.action_name_assault
-        args.prop_names = config.prop_name_assault
-        args.max_lives = 4
-        args.reward_lost_one_live = -20
-        args.reward_score_one_enemy = 20
-        args.var_th = 500
-
-
     elif args.m == "Kangaroo":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
+        args.game_nums = 100
+        args.buffer_filename = config.path_check_point / args.m / f"{args.m}_{str(args.teacher_agent)}_game_num_{args.game_nums}.json"
         args.zero_reward = 0.0
         args.fact_conf = 0.5
-        args.game_info = config.game_info_kangaroo
         args.action_names = config.action_name_kangaroo
         args.prop_names = config.prop_name_kangaroo
         args.max_lives = 3
         args.reward_lost_one_live = -100
         args.reward_score_one_enemy = 10
-
+        args.game_info = config.game_info_kangaroo
+        args.obj_info = args.game_info["obj_info"]
+        args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
+        args.var_th = 200
+        args.mile_stone_scores = [5, 10, 20, 50]
     else:
         raise ValueError
 

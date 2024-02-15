@@ -29,6 +29,8 @@ def plot_to_np_array():
 def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scale=None, y_label=None, show=False,
                     x_label=None, log_y=False, cla_leg=False, figure_size=None):
     """ data with shape a*b, a is the number of lines, b is the data of each line """
+
+
     if data.shape[1] <= 1:
         return
     if figure_size is not None:
@@ -62,7 +64,7 @@ def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scal
     if not os.path.exists(str(path)):
         os.mkdir(path)
     plt.savefig(
-        str(Path(path) / f"{title}_{y_label}_{date_now}_{time_now}.png"))
+        str(Path(path) / f"{title}_{y_label}.png"))
 
     plot_array = plot_to_np_array()
 

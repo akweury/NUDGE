@@ -59,8 +59,9 @@ def render_asterix(agent, args, save_buffer):
             env_args.logic_state, env_args.state_score = extract_logic_state_atari(env.objects, args.game_info)
             # assign reward for lost one live
             if info["lives"] < env_args.current_lives:
-                env_args.logic_states, env_args.actions, env_args.rewards = game_utils.asterix_patches(
-                    env_args.logic_states, env_args.actions, env_args.rewards)
+                if args.m=="Asterix":
+                    env_args.logic_states, env_args.actions, env_args.rewards = game_utils.atari_patches(args.game_info,
+                                                                                                         env_args.logic_states, env_args.actions, env_args.rewards)
 
                 env_args.update_lost_live(info["lives"])
                 # revise the game rules
@@ -79,72 +80,14 @@ def render_asterix(agent, args, save_buffer):
             env_args.update_args(env_args)
 
         game_utils.game_over_log(agent, env_args)
-        env_args.update_wr(agent.agent_type, game_i)
-
+        env_args.win_rate[game_i] = env_args.state_score # update ep score
     env.close()
     draw_utils.release_video(video_out)
-    draw_utils.plot_line_chart(env_args.win_rate, args.check_point_path,
-                               [agent.agent_type, "None"], title=f"wr_{agent.agent_type}")
+    game_utils.finish_one_run(env_args, args, agent)
+
     if save_buffer:
         game_utils.save_game_buffer(args, env_args)
 
-
-def render_kangaroo(agent, args):
-    env = OCAtari(args.m, mode="vision", hud=True, render_mode='rgb_array')
-    obs, info = env.reset()
-    env_args = EnvArgs(args=args, game_num=300, window_size=obs.shape[:2], fps=60)
-    video_out = game_utils.get_game_viewer(env_args)
-    explaining = None
-    db_plots = []
-    while env_args.game_i < env_args.game_num:
-        frame_i = 0
-        terminated = False
-        truncated = False
-        decision_history = []
-        reward = 0
-        current_lives = args.max_lives
-        while not terminated or truncated:
-            current_frame_time = time.time()
-            # limit frame rate
-            if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
-                sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
-                time.sleep(sl)
-                continue
-            env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
-            if agent.agent_type == "smp":
-                action, explaining = agent.act(env.objects)
-            elif agent.agent_type == "pretrained":
-                action, _ = agent(env.dqn_obs)
-            else:
-                raise ValueError
-            obs, reward, terminated, truncated, info = env.step(action)
-
-            ram = env._env.unwrapped.ale.getRAM()
-            reward = game_utils.kangaroo_patches(env_args, reward, info["lives"])
-            logic_state, state_score = extract_logic_state_atari(env.objects, args.game_info)
-            if explaining is not None:
-                explaining["reward"].append(reward)
-                decision_history.append(explaining)
-            # render the game
-            wr_plot = game_utils.plot_wr(env_args)
-            mt_plot = game_utils.plot_mt_asterix(env_args, agent)
-            video_out, _ = game_utils.plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots)
-
-            frame_i = game_utils.update_game_args(frame_i, env_args, reward)
-
-        # finish one game
-        if terminated or truncated:
-            env.reset()
-
-        # revise the game rules
-        if len(decision_history) > 2 and reward < 0:
-            lost_game_data = agent.revise_loss(decision_history)
-            agent.update_lost_buffer(lost_game_data)
-            def_behaviors = agent.reasoning_def_behaviors(use_ckp=False)
-            agent.update_behaviors(None, def_behaviors, None, args)
-            print("- revise loss finished.")
-    env.close()
-    draw_utils.release_video(video_out)
 
 
 def render_game(agent, args, save_buffer=False):
@@ -155,7 +98,7 @@ def render_game(agent, args, save_buffer=False):
     elif args.m == 'asterix':
         render_asterix(agent, args, save_buffer)
     elif args.m == "Kangaroo":
-        render_kangaroo(agent, args)
+        render_asterix(agent, args, save_buffer)
     else:
         raise ValueError("Game not exist.")
 

@@ -36,7 +36,7 @@ class EnvArgs():
         self.win_count = 0
         self.dead_counter = 0
         self.current_steak = 0
-        self.win_rate = torch.zeros(2, args.game_nums)
+        self.win_rate = torch.zeros(args.game_nums)
         self.win_2 = ""
         self.has_win_2 = False
         self.win_3 = ""
@@ -81,7 +81,6 @@ class EnvArgs():
     def update_lost_live(self, current_live):
         self.current_lives = current_live
         self.score_update = True
-        self.win_rate[0, self.game_i] = self.best_score
         self.rewards[-1] += self.reward_lost_one_live
         self.dead_counter += 1
 
@@ -99,9 +98,3 @@ class EnvArgs():
         self.logic_states = []
         self.actions = []
         self.rewards = []
-
-    def update_wr(self,agent_type, game_i):
-        if agent_type == "smp":
-            self.win_rate[1, game_i] = self.state_score
-        else:
-            self.win_rate[1, game_i] = self.state_score

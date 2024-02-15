@@ -5,10 +5,7 @@ import torch
 def dist_a_and_b_closest(data_A, data_B):
     closest_index = torch.zeros(data_A.shape[0])
     if len(data_B.size()) == 3:
-        try:
-            diff_abs = torch.abs(torch.sub(torch.repeat_interleave(data_A, data_B.size(1), 1), data_B))
-        except RuntimeError:
-            print("")
+        diff_abs = torch.abs(torch.sub(torch.repeat_interleave(data_A, data_B.size(1), 1), data_B))
         dist_all = torch.zeros(data_B.size(0), data_B.size(1))
         for d_i in range(data_B.size(1)):
             dist_all[:, d_i] = torch.norm(diff_abs[:, d_i, :], dim=1)

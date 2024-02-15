@@ -124,8 +124,6 @@ class RolloutBuffer:
                 enemy_indices = state[:, 1] > 0
                 pos_enemy = (state[enemy_indices][:, pos_indices]).unsqueeze(0)
                 dist, _ = math_utils.dist_a_and_b_closest(pos_agent, pos_enemy)
-                print(f"max dist: {dist.sum(dim=1).tolist()}")
-                assert dist.sum(dim=1) < 50
 
 
 def load_buffer(args):
@@ -253,15 +251,15 @@ def update_game_args(frame_i, env_args):
     return frame_i
 
 
-def asterix_patches(states, actions, rewards):
-    new_states = remove_last_key_frame_asterix(states)
+def atari_patches(game_info, states, actions, rewards):
+    new_states = remove_last_key_frame(game_info, states)
     new_actions = actions[:len(new_states)]
     new_rewards = rewards[:len(new_states)]
     new_rewards[-1] = rewards[-1]
     return new_states, new_actions, new_rewards
 
 
-def remove_last_key_frame_asterix(states, max_dist=35):
+def remove_last_key_frame(game_info, states, max_dist=35):
     last_frame_enemy_num = torch.tensor(states[-1])[:, 1].sum()
     not_found = True
     state_i = len(states) - 1
@@ -273,7 +271,7 @@ def remove_last_key_frame_asterix(states, max_dist=35):
             state_i -= 1
     new_states = states[:state_i + 1]
 
-    pos_indices = [3, 4]
+    pos_indices = [game_info["axis_x_col"], game_info["axis_y_col"]]
     test_state = torch.tensor(new_states[-1])
     pos_agent = test_state[0, pos_indices]
     enemy_indices = test_state[:, 1] > 0
@@ -382,7 +380,6 @@ def create_agent(args, agent_type):
         agent = 'human'
     elif agent_type == "ppo":
         agent = PpoPlayer(args)
-
     elif agent_type == 'pretrained':
         # game/seed/model
         ckpt = _load_checkpoint(args.model_path)
@@ -417,7 +414,7 @@ def screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_count
 
 
 def game_over_log(agent, env_args):
-    print(f"- Ep: {env_args.game_i}, Best Record: {env_args.best_score}")
+    print(f"- Ep: {env_args.game_i}, Best Record: {env_args.best_score}, Ep Score: {env_args.state_score}")
     if agent.agent_type == "smp":
         for b_i, beh in enumerate(agent.def_behaviors):
             print(f"- DefBeh {b_i}/{len(agent.def_behaviors)}: {beh.clause}")
@@ -450,3 +447,9 @@ def save_game_buffer(args, env_args):
     buffer.win_rates = env_args.win_rate.tolist()
     buffer.check_validation_asterix()
     buffer.save_data()
+
+
+def finish_one_run(env_args, args, agent):
+    draw_utils.plot_line_chart(env_args.win_rate.unsqueeze(0), args.check_point_path,
+                               [agent.agent_type], title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")
+    torch.save(env_args.win_rate, args.check_point_path / f"wr_{agent.agent_type}_{len(env_args.win_rate)}.pt")
