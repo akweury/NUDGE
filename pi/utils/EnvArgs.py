@@ -62,6 +62,7 @@ class EnvArgs():
         self.frame_i = 0
         self.current_lives = self.max_lives
         self.state_score = 0
+        self.state_loss = 0
         self.game_over = False
         self.terminated = False
         self.truncated = False

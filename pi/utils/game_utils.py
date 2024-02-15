@@ -144,9 +144,6 @@ def _epsilon_greedy(obs, model, eps=0.001):
     return argmax_a.item(), q_val
 
 
-
-
-
 def zoom_image(image, width=None, height=None, inter=cv.INTER_AREA):
     # initialize the dimensions of the image to be resized and
     # grab the image size
@@ -379,7 +376,8 @@ def screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_count
 
 
 def game_over_log(args, agent, env_args):
-    print(f"- Ep: {env_args.game_i}, Best Record: {env_args.best_score}, Ep Score: {env_args.state_score}")
+    print(
+        f"- Ep: {env_args.game_i}, Best Record: {env_args.best_score}, Ep Score: {env_args.state_score} Ep Loss: {env_args.state_loss}")
     draw_utils.plot_line_chart(env_args.win_rate.unsqueeze(0)[:, :env_args.game_i], args.check_point_path,
                                [agent.agent_type], title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")
     if agent.agent_type == "smp":
