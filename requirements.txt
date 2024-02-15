@@ -27,6 +27,6 @@ lark
 ocatari
 ale-py
 atari_py
-gym3
+gym
 autorom[accept-rom-license]
 gymnasium[atari, accept-rom-license]
