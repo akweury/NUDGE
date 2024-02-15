@@ -18,5 +18,11 @@ RUN apt-get install qt5-default -y
 
 ADD .ssh/ /root/.ssh/
 
+
+
 WORKDIR  /NUDGE/
+RUN git clone https://github.com/k4ntz/OC_Atari
+RUN cd OC_atari
+RUN pip install -e .
+RUN ..
 RUN git clone git@github.com:akweury/NUDGE.git
