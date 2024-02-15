@@ -51,7 +51,7 @@ def render_asterix(agent, args, save_buffer):
     env_args = EnvArgs(args=args, window_size=obs.shape[:2], fps=60)
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
-    for game_i in tqdm(range(env_args.game_num)):
+    for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
