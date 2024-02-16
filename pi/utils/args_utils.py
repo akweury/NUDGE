@@ -96,7 +96,7 @@ def load_args(exp_args_path, m):
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
-        args.train_nn_epochs = 200000
+        args.train_nn_epochs = 50000
         args.zero_reward = 0.0
         args.fact_conf = 0.5
         args.action_names = config.action_name_boxing
