@@ -44,7 +44,7 @@ def fit_classifier(x_tensor, y_tensor, num_epochs, device, classifier_type, plot
     input_size = 3
     model = NeuralNetwork(input_size).to(device)
     criterion = nn.BCELoss().to(device)
-    optimizer = optim.SGD(model.parameters(), lr=0.01)
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
 
     # Training the model
 
