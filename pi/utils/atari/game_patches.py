@@ -208,8 +208,8 @@ def remove_last_key_frame(game_info, states, max_dist=35):
     pos_enemy = test_state[enemy_indices][:, pos_indices]
     dist, _ = math_utils.dist_a_and_b_closest(pos_agent, pos_enemy)
 
-    if dist.sum(dim=-1).min() > max_dist:
-        print(f"dist:{dist.sum(dim=-1).min()}")
+    # if dist.sum(dim=-1).min() > max_dist:
+    #     print(f"dist:{dist.sum(dim=-1).min()}")
         # raise ValueError
     return new_states
 
