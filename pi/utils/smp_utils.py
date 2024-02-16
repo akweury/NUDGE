@@ -823,12 +823,19 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
     prop_types = [prop_indices]
     type_combs = list(itertools.product(mask_pos_types, action_pos_types, obj_types, prop_types))
     states_stats = []
-    variances = []
-    means = []
+    variances = torch.zeros(len(type_combs))
+    variances_neg = torch.zeros(len(type_combs))
+    means = torch.zeros(len(type_combs))
+    means_neg = torch.zeros(len(type_combs))
     percentage = torch.zeros(len(type_combs))
     for t_i in range(len(type_combs)):
         mask_type, action_type, obj_type, prop_type = type_combs[t_i]
         if mask_type[obj_type].prod() == False:
+            variances[t_i] = 1e+20
+            means[t_i] = 1e+20
+            variances_neg[t_i] = 1e+20
+            means_neg[t_i] = 1e+20
+            states_stats.append([])
             continue
         print(type_combs[t_i])
         mask_action_state_pos = ((actions_pos == action_type) * (masks_pos == mask_type).prod(-1).bool())
@@ -866,8 +873,10 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
         if len(dist_dir_pos) < 3 or var_neg == 0 or dist.sum() == 0:
             var_pos = 1e+20
             mean_pos = 1e+20
-        variances.append(var_pos)
-        means.append(mean_pos)
+        variances[t_i] = var_pos
+        means[t_i] = mean_pos
+        variances_neg[t_i] = var_neg
+        means_neg[t_i] = mean_neg
         percentage[t_i] = len(states_action_pos) / len(states_pos)
         states_stats.append(
             {"dists_pos": dist, "dir_pos": dir_ab,
@@ -875,7 +884,7 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
              "means": mean_pos, "variances": var_pos,
              "action_type": action_type, "mask_type": mask_type, "prop_type": prop_type, "obj_types": obj_type,
              "indices": mask_action_state_pos})
-    variances_ranked, v_rank = torch.tensor(variances).sort()
+    variances_ranked, v_rank = variances.sort()
 
     passed_variances = variances_ranked < var_th
     passed_comb_indices = v_rank[passed_variances]
