@@ -143,6 +143,12 @@ def load_args(exp_args_path, m):
     args.path_bs_data = config.path_bs_data / args.m
     if not os.path.isdir(args.check_point_path):
         os.mkdir(str(args.check_point_path))
+    if not os.path.exists(args.check_point_path / "defensive"):
+        os.mkdir(str(args.check_point_path / "defensive"))
+    if not os.path.exists(args.check_point_path / "attack"):
+        os.mkdir(str(args.check_point_path / "attack"))
+    if not os.path.exists(args.check_point_path / "path_finding"):
+        os.mkdir(str(args.check_point_path / "path_finding"))
     if not os.path.exists(str(args.output_folder)):
         os.mkdir(str(args.output_folder))
     if not os.path.exists(str(args.game_buffer_path)):

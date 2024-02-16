@@ -206,7 +206,7 @@ class SymbolicMicroProgramPlayer:
         if len(self.lost_states) == 0:
             return [], []
 
-        neg_states_stat_file = self.args.check_point_path / f"defensive_stats.json"
+        neg_states_stat_file = self.args.check_point_path / "defensive" / f"defensive_stats.json"
         if use_ckp and os.path.exists(neg_states_stat_file):
             def_beh_data = file_utils.load_json(neg_states_stat_file)
         else:
@@ -220,7 +220,7 @@ class SymbolicMicroProgramPlayer:
                                                   "defense")
             file_utils.save_json(neg_states_stat_file, def_beh_data)
 
-        neg_beh_file = self.args.check_point_path / f"defensive_behaviors.pkl"
+        neg_beh_file = self.args.check_point_path / "defensive" / f"defensive_behaviors.pkl"
         if os.path.exists(neg_beh_file):
             defense_behaviors = file_utils.load_pickle(neg_beh_file)
             defense_behaviors = beh_utils.update_negative_behaviors(self.args, defense_behaviors,

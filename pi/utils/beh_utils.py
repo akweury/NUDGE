@@ -72,7 +72,7 @@ def create_negative_behavior(args, beh_i, beh):
     dist_dir = torch.cat((dists, dirs), dim=1)
     dist_dir_pos = torch.cat((dists_pos, dirs_pos), dim=1)
     dist_pred = predicate.Dist_Closest(args, X_0=dist_dir, X_1=dist_dir_pos, name=pred_name,
-                                       plot_path=args.check_point_path/"history")
+                                       plot_path=args.check_point_path / "defensive")
     dist_pred.fit_pred()
     pred = [dist_pred]
 
@@ -131,7 +131,7 @@ def create_attack_behavior(args, beh_i, beh):
     dist_dir_pos = torch.cat((dists_pos, dir_pos), dim=1)
     dist_dir_neg = torch.cat((dists_neg, dir_neg), dim=1)
     dist_pred = predicate.Dist_Closest(args, X_0=dist_dir_pos, X_1=dist_dir_neg, name=pred_name,
-                                       plot_path=args.check_point_path/"history")
+                                       plot_path=args.check_point_path / "history")
     dist_pred.fit_pred()
     pred = [dist_pred]
 
