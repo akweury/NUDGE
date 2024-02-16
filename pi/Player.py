@@ -206,7 +206,7 @@ class SymbolicMicroProgramPlayer:
         if len(self.lost_states) == 0:
             return [], []
 
-        neg_states_stat_file = self.args.check_point_path / f"{self.args.m}_neg_stats.json"
+        neg_states_stat_file = self.args.check_point_path / f"defensive_stats.json"
         if use_ckp and os.path.exists(neg_states_stat_file):
             def_beh_data = file_utils.load_json(neg_states_stat_file)
         else:
@@ -219,7 +219,7 @@ class SymbolicMicroProgramPlayer:
                                                            self.args.var_th)
             file_utils.save_json(neg_states_stat_file, def_beh_data)
 
-        neg_beh_file = self.args.check_point_path / f"{self.args.m}_neg_beh.pkl"
+        neg_beh_file = self.args.check_point_path / f"defensive_behaviors.pkl"
         if os.path.exists(neg_beh_file):
             defense_behaviors = file_utils.load_pickle(neg_beh_file)
             defense_behaviors = beh_utils.update_negative_behaviors(self.args, defense_behaviors,
@@ -246,7 +246,7 @@ class SymbolicMicroProgramPlayer:
     def reasoning_att_behaviors(self, use_ckp=True):
         if len(self.pos_data) == 0:
             return []
-        stat_file = self.args.check_point_path / f"{self.args.m}_stats_score.json"
+        stat_file = self.args.check_point_path / f"attack_stats.json"
         if use_ckp and os.path.exists(stat_file):
             att_behavior_data = file_utils.load_json(stat_file)
         else:
@@ -258,7 +258,7 @@ class SymbolicMicroProgramPlayer:
                                                        self.prop_indices,
                                                        self.args.var_th, "attack")
             file_utils.save_json(stat_file, att_behavior_data)
-        att_behavior_file = self.args.check_point_path / f"{self.args.m}_att_beh.pkl"
+        att_behavior_file = self.args.check_point_path / f"attack_behaviors.pkl"
         if os.path.exists(att_behavior_file):
             attack_behaviors = file_utils.load_pickle(att_behavior_file)
             attack_behaviors = beh_utils.update_attack_behaviors(self.args, attack_behaviors, att_behavior_data)
@@ -276,7 +276,7 @@ class SymbolicMicroProgramPlayer:
     def reasoning_pf_behaviors(self):
         print(f"Reasoning defensive behaviors...")
         ############# learn from positive rewards
-        pos_states_stat_file = self.args.check_point_path / f"{self.args.m}_pos_states.json"
+        pos_states_stat_file = self.args.check_point_path / f"pf_stats.json"
         if os.path.exists(pos_states_stat_file):
             pos_beh_data = file_utils.load_json(pos_states_stat_file)
         else:
