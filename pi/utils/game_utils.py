@@ -413,8 +413,8 @@ def save_game_buffer(args, env_args):
     buffer.actions = env_args.game_actions
     buffer.rewards = env_args.game_rewards
     buffer.win_rates = env_args.win_rate.tolist()
-    if args.m == "Asterix":
-        buffer.check_validation_asterix()
+    # if args.m == "Asterix":
+    #     buffer.check_validation_asterix()
     buffer.save_data()
 
 
