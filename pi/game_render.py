@@ -76,7 +76,7 @@ def render_atari_game(agent, args, save_buffer):
                 game_patches.atari_patches(args, env_args, info)
                 env_args.update_lost_live(info["lives"])
                 # revise the game rules
-                if agent.agent_type == "smp" and len(env_args.logic_states) > 2 and game_i % args.reasoning_gap == 1:
+                if agent.agent_type == "smp" and len(env_args.logic_states) > 2 and game_i % args.reasoning_gap == 0:
                     agent.revise_loss(args, env_args)
                     if args.with_explain:
                         game_utils.revise_loss_log(env_args, agent, video_out)
