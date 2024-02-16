@@ -44,7 +44,7 @@ def render_atari_game(agent, args, save_buffer):
         render_mode = None
     else:
         render_mode = 'rgb_array'
-    env = OCAtari(args.m, mode="vision", hud=True, render_mode=render_mode)
+    env = OCAtari(args.m, mode="revised", hud=True, render_mode=render_mode)
     obs, info = env.reset()
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     agent.position_norm_factor = obs.shape[0]

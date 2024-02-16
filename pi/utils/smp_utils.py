@@ -828,6 +828,9 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
     percentage = torch.zeros(len(type_combs))
     for t_i in range(len(type_combs)):
         mask_type, action_type, obj_type, prop_type = type_combs[t_i]
+        if mask_type[obj_type].prod() == False:
+            continue
+        print(type_combs[t_i])
         mask_action_state_pos = ((actions_pos == action_type) * (masks_pos == mask_type).prod(-1).bool())
         mask_action_state_neg = ((actions_neg == action_type) * (masks_neg == mask_type).prod(-1).bool())
         states_action_pos = states_pos[mask_action_state_pos]
@@ -896,6 +899,8 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
         })
 
     return neg_behs
+
+
 def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th):
     mask_neg_reward = rewards < zero_reward
     neg_rewards = rewards[mask_neg_reward]
