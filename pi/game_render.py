@@ -66,11 +66,11 @@ def render_atari_game(agent, args, save_buffer):
 
             # agent predict an action
             info = _act(agent, env_args, env)
-            env_args.logic_state, _ = extract_logic_state_atari(env.objects, args.game_info, obs.shape[0])
-            if env_args.reward > 0:
-                env_args.state_score += env_args.reward
-            if env_args.reward < 0:
-                env_args.state_loss += env_args.reward
+            env_args.logic_state, env_args.state_score = extract_logic_state_atari(env.objects, args.game_info, obs.shape[0])
+            # if env_args.reward > 0:
+            #     env_args.state_score += env_args.reward
+            # if env_args.reward < 0:
+            #     env_args.state_loss += env_args.reward
                 # assign reward for lost one live
             if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
                 game_patches.atari_patches(args, env_args, info)
