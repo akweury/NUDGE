@@ -10,7 +10,8 @@ class EnvArgs():
         super().__init__()
         # game setting
         self.device = args.device
-        self.output_folder = args.output_folder
+        self.save_frame = args.save_frame
+        self.output_folder = args.game_buffer_path
         self.max_lives = args.max_lives
         self.reward_lost_one_live = args.reward_lost_one_live
         # layout setting
@@ -33,7 +34,6 @@ class EnvArgs():
         self.game_states = []
         self.game_actions = []
         self.game_rewards = []
-
         self.game_i = 0
         self.win_count = 0
         self.dead_counter = 0
@@ -67,15 +67,15 @@ class EnvArgs():
         self.terminated = False
         self.truncated = False
 
-    def update_args(self, env_args):
+    def update_args(self):
+        self.frame_i +=1
+        if self.state_score > self.best_score:
+            self.best_score = self.state_score
 
-        if env_args.state_score > env_args.best_score:
-            env_args.best_score = env_args.state_score
-
-        if env_args.reward < 0:
+        if self.reward < 0:
             self.score_update = True
             self.current_steak = 0
-        elif env_args.reward > 0:
+        elif self.reward > 0:
             self.current_steak += 1
             self.max_steak = max(self.max_steak, self.current_steak)
             if self.max_steak >= self.mile_stone_scores[0] and not self.has_win_2:

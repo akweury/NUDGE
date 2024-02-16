@@ -26,6 +26,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--log_file_name", help="the name of log file", required=False, dest='logfile')
     parser.add_argument("--render", help="render the game", action="store_true", dest="render")
     parser.add_argument("--with_explain", help="explain the game", action="store_false")
+    parser.add_argument("--save_frame", help="save each frame as img", action="store_true")
     parser.add_argument("--device", help="cpu or cuda", default="cpu", type=str)
     parser.add_argument('-d', '--dataset', required=False, help='the dataset to load if scoring', dest='d')
     parser.add_argument('--wandb', action="store_false")
@@ -94,6 +95,25 @@ def load_args(exp_args_path, m):
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
         args.var_th = 200
         args.mile_stone_scores = [5, 10, 20, 40]
+    elif args.m == "Kangaroo":
+        args.model_path = config.path_model / args.m / 'model_50000000.gz'
+        args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
+        args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
+        args.train_nn_epochs = 5000
+        args.zero_reward = 0.0
+        args.fact_conf = 0.1
+        args.max_lives = 3
+        args.reward_lost_one_live = -100
+        args.reward_score_one_enemy = 10
+        args.var_th = 200
+        args.mile_stone_scores = [5, 10, 20, 40]
+        args.action_names = config.action_name_kangaroo
+        args.prop_names = config.prop_name_kangaroo
+        args.game_info = config.game_info_kangaroo
+        args.obj_info = args.game_info["obj_info"]
+        args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
+
+
     elif args.m == "Boxing":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
@@ -116,7 +136,7 @@ def load_args(exp_args_path, m):
         raise ValueError
 
     # output folder
-    args.output_folder = config.path_log / f"{args.m}"
+    args.output_folder = config.path_check_point / f"{args.m}"
     args.check_point_path = config.path_check_point / f"{args.m}"
     args.game_buffer_path = config.path_check_point / f"{args.m}" / "game_buffer"
     args.path_bs_data = config.path_bs_data / args.m

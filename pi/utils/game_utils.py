@@ -217,6 +217,9 @@ def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list, screen_text):
     # explain_plot_four_channel = draw_utils.three_to_four_channel(explain_plot)
     screen_with_explain = draw_utils.hconcat_resize([screen_plot, explain_plot, db_plots])
     out = draw_utils.write_video_frame(out, screen_with_explain)
+    if env_args.save_frame:
+        draw_utils.save_np_as_img(screen_with_explain,
+                                  env_args.output_folder / f"g_{env_args.game_i}_f_{env_args.frame_i}.png")
 
     return out, screen_with_explain
 

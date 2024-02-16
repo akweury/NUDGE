@@ -118,7 +118,6 @@ obj_info_asterix = [('Player', 1),
 obj_info_boxing = [('Player', 1),
                    ('Enemy', 1)]
 
-
 game_info_asterix = {
     "obj_info": obj_info_asterix,
     "state_row_num": 17,
@@ -135,14 +134,15 @@ obj_info_kangaroo = [('Player', 1),
                      ('Ladder', 3),
                      ('Enemy', 3),
                      ('Projectile_top', 3),
+                     ('Projectile_enemy', 3),
                      ]
 
 game_info_kangaroo = {
     "obj_info": obj_info_kangaroo,
-    "state_row_num": 19,
-    "state_col_num": 10,
-    "axis_x_col": 8,
-    "axis_y_col": 9
+    "state_row_num": 22,
+    "state_col_num": 11,
+    "axis_x_col": 9,
+    "axis_y_col": 10
 }
 
 game_info_boxing = {

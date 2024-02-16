@@ -174,12 +174,38 @@ def patch_asterix(game_info, states, actions, rewards, lives):
     return new_states, new_actions, new_rewards, game_over
 
 
+def frame_back_stop_drop(states):
+    states = torch.tensor(states)
+    key_frame_indices = []
+    for s_i in reversed(range(len(states))):
+        print(s_i)
+        delta = (states[s_i] - states[s_i - 1])[-6:]
+        exist_missing_projectile = delta[:, [-3, -4]].sum(dim=-1) == -1
+        if exist_missing_projectile.sum() > 0:
+            not_left_border = states[s_i - 1, -6:][exist_missing_projectile][:, -2] > 0.1
+            not_right_border = states[s_i - 1, -6:][exist_missing_projectile][:, -2] < 0.7
+            not_bottom_border = states[s_i - 1, -6:][exist_missing_projectile][:, -1] < 0.8
+            if not_left_border and not_right_border and not_bottom_border:
+                key_frame_indices.append(s_i)
+    return key_frame_indices
+
+
+def patch_kangaroo(states):
+    key_frame_index = frame_back_stop_drop(states)
+    return states[:key_frame_index]
+
+
 def atari_patches(args, env_args, info):
     if args.m == "Asterix":
         env_args.logic_states, env_args.actions, env_args.rewards, env_args.game_over = patch_asterix(
             args.game_info, env_args.logic_states, env_args.actions, env_args.rewards, info['lives'])
     if args.m == 'Boxing':
         env_args.rewards = patch_boxing(env_args.actions, env_args.rewards, args.action_names)
+        if env_args.terminated or env_args.truncated:
+            env_args.game_over = True
+    if args.m == 'Kangaroo':
+        new_states = patch_kangaroo(env_args.logic_states)
+        env_args.states = new_states
         if env_args.terminated or env_args.truncated:
             env_args.game_over = True
 
@@ -210,7 +236,7 @@ def remove_last_key_frame(game_info, states, max_dist=35):
 
     # if dist.sum(dim=-1).min() > max_dist:
     #     print(f"dist:{dist.sum(dim=-1).min()}")
-        # raise ValueError
+    # raise ValueError
     return new_states
 
 

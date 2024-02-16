@@ -394,4 +394,4 @@ def rgb_to_bgr(rgb_img):
 
 def save_np_as_img(np_array, file_name):
     # Convert the NumPy array to a Pillow Image
-    cv.imwrite(file_name, np_array)
+    cv.imwrite(str(file_name), np_array)

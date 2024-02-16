@@ -92,7 +92,7 @@ def render_atari_game(agent, args, save_buffer):
                 _render(agent, env_args, video_out)
                 game_utils.frame_log(agent, env_args)
             # update game args
-            env_args.update_args(env_args)
+            env_args.update_args()
 
         game_utils.game_over_log(args, agent, env_args)
         env_args.win_rate[game_i] = env_args.state_score  # update ep score
@@ -107,7 +107,7 @@ def render_atari_game(agent, args, save_buffer):
 def render_game(agent, args, save_buffer=False):
     if args.m == 'getout' or args.m == "getoutplus":
         render_getout(agent, args)
-    elif args.m in ['Asterix', 'Boxing']:
+    elif args.m in ['Asterix', 'Boxing', 'Kangaroo']:
         render_atari_game(agent, args, save_buffer)
     else:
         raise ValueError("Game not exist.")
