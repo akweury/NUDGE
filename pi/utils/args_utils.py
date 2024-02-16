@@ -94,7 +94,7 @@ def load_args(exp_args_path, m):
         args.obj_info = args.game_info["obj_info"]
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
         args.var_th = 0.2
-        args.reasoning_gap = 10
+        args.reasoning_gap = 1
         args.mile_stone_scores = [5, 10, 20, 40]
     elif args.m == "Kangaroo":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
