@@ -233,8 +233,8 @@ class SymbolicMicroProgramPlayer:
             defense_behaviors = []
             db_plots = []
             for beh_i, beh in enumerate(def_beh_data):
-                if show_log:
-                    print(f"- Creating defense behavior {beh_i + 1}/{len(def_beh_data)}...")
+
+                print(f"- Creating defense behavior {beh_i + 1}/{len(def_beh_data)}...")
                 behavior = beh_utils.create_negative_behavior(self.args, beh_i, beh)
                 db_plots.append({"plot_i": beh_i})
                 defense_behaviors.append(behavior)
