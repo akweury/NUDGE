@@ -52,10 +52,10 @@ def create_positive_behaviors(args, pos_beh_data):
 def create_negative_behavior(args, beh_i, beh):
     # create defense behaviors
 
-    dists = torch.tensor(beh["dists"], dtype=torch.float32)
-    dirs = torch.tensor(beh["dir"], dtype=torch.float32)
-    dists_pos = torch.tensor(beh["dists_pos"], dtype=torch.float32)
-    dirs_pos = torch.tensor(beh["dir_ab_pos"], dtype=torch.float32)
+    dists = torch.tensor(beh["dists_pos"], dtype=torch.float32)
+    dirs = torch.tensor(beh["dir_pos"], dtype=torch.float32)
+    dists_pos = torch.tensor(beh["dists_neg"], dtype=torch.float32)
+    dirs_pos = torch.tensor(beh["dir_ab_neg"], dtype=torch.float32)
     expected_reward = beh["rewards"]
     obj_combs = beh["obj_combs"]
     prop_combs = beh["prop_combs"]

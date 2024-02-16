@@ -210,13 +210,14 @@ class SymbolicMicroProgramPlayer:
         if use_ckp and os.path.exists(neg_states_stat_file):
             def_beh_data = file_utils.load_json(neg_states_stat_file)
         else:
-            def_beh_data = smp_utils.stat_negative_rewards(self.lost_states,
-                                                           self.lost_actions,
-                                                           self.lost_rewards,
-                                                           self.args.zero_reward,
-                                                           self.args.obj_info,
-                                                           self.prop_indices,
-                                                           self.args.var_th)
+            def_beh_data = smp_utils.stat_rewards(self.lost_states,
+                                                  self.lost_actions,
+                                                  self.lost_rewards,
+                                                  self.args.zero_reward,
+                                                  self.args.obj_info,
+                                                  self.prop_indices,
+                                                  self.args.var_th,
+                                                  "defense")
             file_utils.save_json(neg_states_stat_file, def_beh_data)
 
         neg_beh_file = self.args.check_point_path / f"defensive_behaviors.pkl"
@@ -233,7 +234,6 @@ class SymbolicMicroProgramPlayer:
             defense_behaviors = []
             db_plots = []
             for beh_i, beh in enumerate(def_beh_data):
-
                 print(f"- Creating defense behavior {beh_i + 1}/{len(def_beh_data)}...")
                 behavior = beh_utils.create_negative_behavior(self.args, beh_i, beh)
                 db_plots.append({"plot_i": beh_i})

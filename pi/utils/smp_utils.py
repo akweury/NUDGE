@@ -719,86 +719,6 @@ def get_state_delta(state, state_last, obj_comb):
     return delta
 
 
-def stat_scored_data(data_pos, data_neg, obj_info, prop_indices, var_th):
-    states = data_pos["states"]
-    actions = data_pos["actions"]
-    rewards = data_pos["rewards"]
-    masks = data_pos["masks"]
-
-    states_neg = torch.cat((data_neg[0]['states'], data_neg[1]['states']), 0)
-    actions_neg = torch.cat((data_neg[0]["actions"], data_neg[1]["actions"]), 0)
-    rewards_neg = torch.cat((data_neg[0]["rewards"], data_neg[1]["rewards"]), 0)
-    masks_neg = torch.cat((data_neg[0]["masks"], data_neg[1]["masks"]), 0)
-
-    mask_types = masks.unique(dim=0)
-    action_types = actions.unique()
-    obj_types = get_all_2_combinations(obj_info, reverse=False)
-
-    prop_types = [prop_indices]
-    type_combs = list(itertools.product(mask_types, action_types, obj_types, prop_types))
-    stats = []
-    variances = []
-    means = []
-    for t_i in tqdm(range(len(type_combs))):
-        mask_type, action_type, obj_type, prop_type = type_combs[t_i]
-        mask_pos = ((actions == action_type) * (masks == mask_type).prod(-1).bool())
-        mask_neg = ((actions_neg == action_type) * (masks_neg == mask_type).prod(-1).bool())
-
-        states_masked = states[mask_pos]
-        states_neg_masked = states_neg[mask_neg]
-
-        obj_0_indices = obj_info[obj_type[0]]["indices"]
-        obj_1_indices = obj_info[obj_type[1]]["indices"]
-        obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
-        obj_a_indices = obj_combs[:, 0].unique()
-        obj_b_indices = obj_combs[:, 1].unique()
-        if len(obj_a_indices) == 1:
-            data_A = action_states[:, obj_a_indices][:, :, prop_type]
-            data_B = action_states[:, obj_b_indices][:, :, prop_type]
-            dist, b_index = math_utils.dist_a_and_b_closest(data_A, data_B)
-            dir_ab = math_utils.dir_a_and_b_closest(data_A, data_B, b_index)
-
-            data_A_pos = action_states_pos[:, obj_a_indices][:, :, prop_type]
-            data_B_pos = action_states_pos[:, obj_b_indices][:, :, prop_type]
-            dist_pos, b_pos_index = math_utils.dist_a_and_b_closest(data_A_pos, data_B_pos)
-            dir_pos_ab = math_utils.dir_a_and_b_closest(data_A_pos, data_B_pos, b_pos_index)
-
-        else:
-            dist = torch.zeros(2)
-            dist_pos = torch.zeros(2)
-            dir_ab = torch.zeros(2)
-            dir_pos_ab = torch.zeros(2)
-        var, mean = torch.var_mean(dist)
-        var_pos, mean_pos = torch.var_mean(dist_pos)
-
-        if len(states_masked) == 0 or len(states_neg_masked) == 0:
-            continue
-
-        dists = torch.abs(states_masked[:, obj_type[0], prop_type] - states_masked[:, obj_type[1], prop_type])
-        dists_neg = torch.abs(
-            states_neg_masked[:, obj_type[0], prop_type] - states_neg_masked[:, obj_type[1], prop_type])
-        var, mean = torch.var_mean(dists)
-        var_neg, mean_neg = torch.var_mean(dists_neg)
-        if var_neg < 0.5 or len(dists) < 3 or var == 0 or dists.sum() == 0:
-            var = torch.tensor(1e+20)
-            mean = torch.tensor(1e+20)
-        variances.append(var)
-        means.append(mean)
-        stats.append({
-            "dists": dists.tolist(), "dists_neg": dists_neg.tolist(), "mean": mean.tolist(), "var": var.tolist(),
-            "action_type": action_type.tolist(), "mask_type": mask_type.tolist(), "prop_type": prop_type,
-            "obj_type": obj_type, "indices": mask_pos.tolist(), "rewards": rewards.tolist()
-        })
-    variances_ranked, v_rank = torch.tensor(variances).sort(descending=False)
-    print(f"- top ranked variances: {variances_ranked[:5]}")
-    passed_stats = []
-    for v_i, s_i in enumerate(v_rank):
-        if variances_ranked[v_i] < var_th:
-            stat = stats[s_i]
-            passed_stats.append(stat)
-
-    return passed_stats
-
 
 def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th, stat_type):
     if stat_type == "attack":
@@ -953,19 +873,19 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop
             data_B = action_states[:, obj_b_indices][:, :, prop_type]
             dist, b_index = math_utils.dist_a_and_b_closest(data_A, data_B)
             dir_ab = math_utils.dir_a_and_b_closest(data_A, data_B, b_index)
-
+            dist_dir_pos = torch.cat((dist, dir_ab), dim=1)
             data_A_pos = action_states_pos[:, obj_a_indices][:, :, prop_type]
             data_B_pos = action_states_pos[:, obj_b_indices][:, :, prop_type]
             dist_pos, b_pos_index = math_utils.dist_a_and_b_closest(data_A_pos, data_B_pos)
             dir_pos_ab = math_utils.dir_a_and_b_closest(data_A_pos, data_B_pos, b_pos_index)
-
+            dist_dir_neg = torch.cat((dist_pos, dir_pos_ab), dim=1)
         else:
             dist = torch.zeros(2)
             dist_pos = torch.zeros(2)
             dir_ab = torch.zeros(2)
             dir_pos_ab = torch.zeros(2)
-        var, mean = torch.var_mean(dist)
-        var_pos, mean_pos = torch.var_mean(dist_pos)
+        var, mean = torch.var_mean(dist_dir_pos)
+        var_pos, mean_pos = torch.var_mean(dist_dir_neg)
         if len(dist) < 3 or var_pos == 0 or dist.sum() == 0:
             var = 1e+20
             mean = 1e+20
