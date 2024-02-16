@@ -105,8 +105,7 @@ def update_negative_behaviors(args, behaviors, def_beh_data):
                 break
         if not behavior_exist:
             behavior = create_negative_behavior(args, data_i, beh_data)
-            if args.with_explain:
-                print(f"- new behavior {behavior.clause}")
+            print(f"- new behavior {behavior.clause}")
             defense_behaviors.append(behavior)
     return defense_behaviors
 
