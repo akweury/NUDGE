@@ -788,8 +788,14 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
             dist_dir_neg = torch.zeros(2)
             dir_ab = torch.zeros(2)
             dir_ab_neg = torch.zeros(2)
-        var_pos, mean_pos = torch.var_mean(dist_dir_pos)
-        var_neg, mean_neg = torch.var_mean(dist_dir_neg)
+        var_pos, mean_pos = torch.var_mean(dist_dir_pos,dim=0)
+        var_neg, mean_neg = torch.var_mean(dist_dir_neg,dim=0)
+
+        var_pos = var_pos.sum()
+        mean_pos = mean_pos.sum()
+        var_neg = var_neg.sum()
+        mean_neg = means_neg.sum()
+
         if len(dist_dir_pos) < 3 or var_neg == 0 or dist.sum() == 0:
             var_pos = 1e+20
             mean_pos = 1e+20
