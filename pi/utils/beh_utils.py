@@ -72,7 +72,7 @@ def create_negative_behavior(args, beh_i, beh):
     dist_dir = torch.cat((dists, dirs), dim=1)
     dist_dir_pos = torch.cat((dists_pos, dirs_pos), dim=1)
     dist_pred = predicate.Dist_Closest(args, X_0=dist_dir, X_1=dist_dir_pos, name=pred_name,
-                                       plot_path=args.check_point_path)
+                                       plot_path=args.check_point_path/"history")
     dist_pred.fit_pred()
     pred = [dist_pred]
 
@@ -98,7 +98,7 @@ def update_negative_behaviors(args, behaviors, def_beh_data):
         for beh_i, beh in enumerate(behaviors):
             beh_mean = behaviors[beh_i].fact[0].preds[0].mean
             beh_var = behaviors[beh_i].fact[0].preds[0].var
-            if torch.abs(beh_mean - data_mean) < 1e-3 and torch.abs(beh_var - data_var) < 1e-3:
+            if torch.abs(beh_mean - data_mean) < 1e-2 and torch.abs(beh_var - data_var) < 1e-2:
                 print(f"- no update for behavior {behaviors[beh_i].clause}")
                 defense_behaviors.append(behaviors[beh_i])
                 behavior_exist = True
@@ -132,7 +132,7 @@ def create_attack_behavior(args, beh_i, beh):
     dist_dir_pos = torch.cat((dists_pos, dir_pos), dim=1)
     dist_dir_neg = torch.cat((dists_neg, dir_neg), dim=1)
     dist_pred = predicate.Dist_Closest(args, X_0=dist_dir_pos, X_1=dist_dir_neg, name=pred_name,
-                                       plot_path=args.check_point_path)
+                                       plot_path=args.check_point_path/"history")
     dist_pred.fit_pred()
     pred = [dist_pred]
 

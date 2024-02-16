@@ -82,7 +82,7 @@ def load_args(exp_args_path, m):
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
-        args.train_nn_epochs = 5000
+        args.train_nn_epochs = 500
         args.zero_reward = 0.0
         args.fact_conf = 0.5
         args.action_names = config.action_name_asterix
@@ -93,7 +93,7 @@ def load_args(exp_args_path, m):
         args.game_info = config.game_info_asterix
         args.obj_info = args.game_info["obj_info"]
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
-        args.var_th = 0.05
+        args.var_th = 0.2
         args.reasoning_gap = 10
         args.mile_stone_scores = [5, 10, 20, 40]
     elif args.m == "Kangaroo":

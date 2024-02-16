@@ -1000,7 +1000,7 @@ def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop
             "masks": state_stat["mask_type"].tolist()
         })
 
-    return neg_behs[:10]
+    return neg_behs
 
 
 def top_k_percent(scores, top_kp):
