@@ -837,7 +837,7 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
             means_neg[t_i] = 1e+20
             states_stats.append([])
             continue
-        print(type_combs[t_i])
+        # print(type_combs[t_i])
         mask_action_state_pos = ((actions_pos == action_type) * (masks_pos == mask_type).prod(-1).bool())
         mask_action_state_neg = ((actions_neg == action_type) * (masks_neg == mask_type).prod(-1).bool())
         states_action_pos = states_pos[mask_action_state_pos]
@@ -890,10 +890,10 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
     passed_comb_indices = v_rank[passed_variances]
     passed_stats = [states_stats[s_i] for s_i in passed_comb_indices]
 
-    neg_behs = []
+    behs = []
     for state_stat in passed_stats:
         indices = state_stat["indices"]
-        neg_behs.append({
+        behs.append({
             "dists_pos": state_stat["dists_pos"].tolist(),
             "dir_pos": state_stat["dir_pos"].tolist(),
             "dists_neg": state_stat["dists_neg"].tolist(),
@@ -907,7 +907,7 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
             "rewards": rewards_pos[indices].tolist(),
         })
 
-    return neg_behs
+    return behs
 
 
 def stat_negative_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th):
