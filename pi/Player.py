@@ -217,7 +217,7 @@ class SymbolicMicroProgramPlayer:
                                                   self.args.obj_info,
                                                   self.prop_indices,
                                                   self.args.var_th,
-                                                  "defense")
+                                                  "defense", self.args.action_names)
             file_utils.save_json(neg_states_stat_file, def_beh_data)
 
         neg_beh_file = self.args.check_point_path / "defensive" / f"defensive_behaviors.pkl"
@@ -256,7 +256,7 @@ class SymbolicMicroProgramPlayer:
                                                        self.args.zero_reward,
                                                        self.args.obj_info,
                                                        self.prop_indices,
-                                                       self.args.var_th, "attack")
+                                                       self.args.var_th, "attack", self.args.action_names)
             file_utils.save_json(stat_file, att_behavior_data)
         att_behavior_file = self.args.check_point_path / f"attack_behaviors.pkl"
         if os.path.exists(att_behavior_file):

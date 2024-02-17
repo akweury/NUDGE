@@ -31,10 +31,14 @@ def generate_data(pos_data, gen_num):
     """ generate more data following a multivariate normal distribution with the calculated mean and covariance. """
 
     # Perform kernel density estimation
-    kde = KernelDensity(bandwidth=0.5, kernel='gaussian')
+    kde = KernelDensity(bandwidth=0.001, kernel='gaussian')
     kde.fit(pos_data)
     # Generate new points
     new_points = torch.from_numpy(kde.sample(gen_num)).to(torch.float32)
+    print(f"max, new: {new_points[:, 2].max()}, old:{pos_data[:,2].max()}")
+    print(f"min new : {new_points[:, 2].min()}, old: {pos_data[:,2].min()}")
+
+
     return new_points
 
 

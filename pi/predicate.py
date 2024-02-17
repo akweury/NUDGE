@@ -241,9 +241,22 @@ class Dist_Closest():
         self.model = nn_model.fit_classifier(x_tensor=X, y_tensor=y,
                                              num_epochs=self.num_epochs, device=self.args.device,
                                              classifier_type=self.name, plot_path=self.plot_path)
+        if self.args.with_explain:
+            pos_indices = torch.argmax(y, dim=1) == 0
+            pos_data = X[pos_indices]
+            neg_data = X[~pos_indices]
+            position_points = torch.cat([pos_data[:, :2].unsqueeze(0), neg_data[:, :2].unsqueeze(0)], dim=0)
+            draw_utils.plot_scatter(position_points, ["pos", "neg"], "positions", self.plot_path)
+
+            x_range = torch.arange(0, len(pos_data)).unsqueeze(1)
+            dir_pos_data = torch.cat((x_range, pos_data[:, 2:]), dim=1).unsqueeze(0)
+            dir_neg_data = torch.cat((x_range, neg_data[:, 2:]), dim=1).unsqueeze(0)
+            direction_points = torch.cat([dir_pos_data, dir_neg_data], dim=0)
+            draw_utils.plot_scatter(direction_points, ["pos", "neg"], "direction", self.plot_path, figure_size=(30, 10))
+
         # plot decision boundary
         # db_plot = draw_utils.plot_decision_boundary(X, y, self.model, name=self.name, log_x=True,
-        #                                             path=self.args.output_folder)
+        #                                             path=self.plot_path)
 
     def eval(self, t1, t2):
         dist, b_index = math_utils.dist_a_and_b_closest(t1, t2)

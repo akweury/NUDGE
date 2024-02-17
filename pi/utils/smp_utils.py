@@ -719,8 +719,7 @@ def get_state_delta(state, state_last, obj_comb):
     return delta
 
 
-
-def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th, stat_type):
+def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th, stat_type, action_names):
     if stat_type == "attack":
         mask_reward = rewards > zero_reward
     elif stat_type == "defense":
@@ -771,13 +770,15 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
         if len(obj_a_indices) == 1:
             data_A = states_action_pos[:, obj_a_indices][:, :, prop_type]
             data_B = states_action_pos[:, obj_b_indices][:, :, prop_type]
-            dist, b_index = math_utils.dist_a_and_b_closest(data_A, data_B)
+            action_name = action_names[action_type]
+            action_dir = math_utils.action_to_deg(action_name)
+            dist, b_index = math_utils.dist_a_and_b_closest(data_A, data_B, action_dir)
             dir_ab = math_utils.dir_a_and_b_closest(data_A, data_B, b_index)
             dist_dir_pos = torch.cat((dist, dir_ab), dim=1)
 
             data_A_neg = states_action_neg[:, obj_a_indices][:, :, prop_type]
             data_B_neg = states_action_neg[:, obj_b_indices][:, :, prop_type]
-            dist_neg, b_neg_index = math_utils.dist_a_and_b_closest(data_A_neg, data_B_neg)
+            dist_neg, b_neg_index = math_utils.dist_a_and_b_closest(data_A_neg, data_B_neg, action_dir)
             dir_ab_neg = math_utils.dir_a_and_b_closest(data_A_neg, data_B_neg, b_neg_index)
             dist_dir_neg = torch.cat((dist_neg, dir_ab_neg), dim=1)
 
@@ -788,8 +789,8 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
             dist_dir_neg = torch.zeros(2)
             dir_ab = torch.zeros(2)
             dir_ab_neg = torch.zeros(2)
-        var_pos, mean_pos = torch.var_mean(dist_dir_pos,dim=0)
-        var_neg, mean_neg = torch.var_mean(dist_dir_neg,dim=0)
+        var_pos, mean_pos = torch.var_mean(dist_dir_pos, dim=0)
+        var_neg, mean_neg = torch.var_mean(dist_dir_neg, dim=0)
 
         var_pos = var_pos.sum()
         mean_pos = mean_pos.sum()
@@ -799,6 +800,7 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
         if len(dist_dir_pos) < 3 or var_neg == 0 or dist.sum() == 0:
             var_pos = 1e+20
             mean_pos = 1e+20
+
         variances[t_i] = var_pos
         means[t_i] = mean_pos
         variances_neg[t_i] = var_neg

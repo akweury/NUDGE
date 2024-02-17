@@ -141,6 +141,7 @@ def load_args(exp_args_path, m):
     args.check_point_path = config.path_check_point / f"{args.m}"
     args.game_buffer_path = config.path_check_point / f"{args.m}" / "game_buffer"
     args.path_bs_data = config.path_bs_data / args.m
+
     if not os.path.isdir(args.check_point_path):
         os.mkdir(str(args.check_point_path))
     if not os.path.exists(args.check_point_path / "defensive"):
@@ -155,7 +156,8 @@ def load_args(exp_args_path, m):
         os.mkdir(str(args.game_buffer_path))
     if not os.path.exists(str(args.path_bs_data)):
         os.mkdir(str(args.path_bs_data))
-
+    if not os.path.exists(args.game_buffer_path / "key_frame"):
+        os.mkdir(str(args.game_buffer_path/ "key_frame"))
     return args
 
 

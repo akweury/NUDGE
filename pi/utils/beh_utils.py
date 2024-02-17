@@ -62,13 +62,13 @@ def create_negative_behavior(args, beh_i, beh):
     action_type = beh["action_type"]
     mask = beh["masks"]
     if args.with_explain:
-        print(f'- (Behavior data) objs: {obj_combs}, props: {prop_combs}, action: {action_type}, mask: {mask}')
+        print(f'- (Defensive data) objs: {obj_combs}, props: {prop_combs}, action: {action_type}, mask: {mask}')
         draw_utils.plot_scatter([dists, dists_pos], ['positive', 'negative'],
                                 f'{beh_i}_behavior_scatter_action_{action_type}',
                                 args.output_folder, log_x=True)
 
     # create predicate
-    pred_name = f"def_beh_{beh_i}_not_act_{action_type}"
+    pred_name = f"obj_{obj_combs}_props_{prop_combs}_not_act_{action_type}_mask_{mask}"
     dist_dir = torch.cat((dists, dirs), dim=1)
     dist_dir_pos = torch.cat((dists_pos, dirs_pos), dim=1)
     dist_pred = predicate.Dist_Closest(args, X_0=dist_dir, X_1=dist_dir_pos, name=pred_name,

@@ -2,7 +2,7 @@
 import torch
 
 
-def dist_a_and_b_closest(data_A, data_B):
+def dist_a_and_b_closest(data_A, data_B, dir):
     closest_index = torch.zeros(data_A.shape[0])
     if len(data_B.size()) == 3:
         diff_abs = torch.abs(torch.sub(torch.repeat_interleave(data_A, data_B.size(1), 1), data_B))
@@ -35,7 +35,29 @@ def dir_a_and_b_closest(data_A, data_B, b_indices):
         dir_vec[1] = -dir_vec[1]
         rho, phi = cart2pol(dir_vec[0], dir_vec[1])
         dir[i] = phi
-    assert (torch.abs(dir) <= 180).prod()==True
+    assert (torch.abs(dir) <= 180).prod() == True
     dir = dir / 180
 
+    return dir
+
+
+def action_to_deg(action_name):
+    dir = None
+    if action_name == "up":
+        pass
+    elif action_name == "right":
+        pass
+    elif action_name == "left":
+        pass
+    elif action_name == "down":
+        pass
+    elif action_name == "upright":
+        pass
+    elif action_name == "upleft":
+        pass
+    elif action_name == "downright":
+        pass
+    elif action_name == "downleft":
+        pass
+    raise NotImplementedError
     return dir

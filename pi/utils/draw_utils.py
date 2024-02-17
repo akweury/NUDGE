@@ -30,7 +30,6 @@ def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scal
                     x_label=None, log_y=False, cla_leg=False, figure_size=None):
     """ data with shape a*b, a is the number of lines, b is the data of each line """
 
-
     if data.shape[1] <= 1:
         return
     if figure_size is not None:
@@ -180,7 +179,7 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
     return texts
 
 
-def plot_scatter(data, labels, name, path, log_x=False, log_y=False, cla_leg=True):
+def plot_scatter(data, labels, name, path, log_x=False, log_y=False, cla_leg=True, figure_size=None):
     for d_i in range(len(data)):
         # Create a scatter plot
         x = data[d_i][:, 0]
@@ -191,7 +190,8 @@ def plot_scatter(data, labels, name, path, log_x=False, log_y=False, cla_leg=Tru
     plt.xlabel('X')
     plt.ylabel('Y')
     plt.title(f'{name}')
-
+    if figure_size is not None:
+        plt.figure(figsize=figure_size)
     if log_y:
         plt.yscale('log')
 
@@ -301,7 +301,7 @@ def addText(img, text, pos='upper_left', font_size=1.6, color=(255, 255, 255), t
     if pos == 'upper_left':
         position = (350, 140)
     elif pos == 'upper_right':
-        position = (w - 250, 80)
+        position = (w - 350, 80)
     elif pos == 'lower_right':
         position = (h - 200, w - 20)
     elif pos == 'lower_left':

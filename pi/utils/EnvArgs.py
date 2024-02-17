@@ -27,6 +27,7 @@ class EnvArgs():
         self.target_frame_duration = 1 / fps
         self.last_frame_time = 0
         # record and statistical properties
+        self.last_obs = torch.zeros((window_size[0], window_size[1], 3), dtype=torch.uint8).numpy()
         self.action = None
         self.logic_state = None
         self.reward = None
@@ -68,7 +69,7 @@ class EnvArgs():
         self.truncated = False
 
     def update_args(self):
-        self.frame_i +=1
+        self.frame_i += 1
         if self.state_score > self.best_score:
             self.best_score = self.state_score
 
