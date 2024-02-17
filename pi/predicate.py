@@ -259,12 +259,15 @@ class Dist_Closest():
         #                                             path=self.plot_path)
 
     def eval(self, t1, t2):
-        dist, b_index = math_utils.dist_a_and_b_closest(t1, t2)
-        dir = math_utils.dir_a_and_b_closest(t1, t2, b_index)
-        dist_dir = torch.cat((dist, dir), dim=1).to(self.args.device)
-        # Use the trained model to predict the new value
-        new_value_prediction = self.model(dist_dir).detach()
-        satisfaction = new_value_prediction.argmax() == self.y_0
+        satisfactions = torch.zeros(t2.shape[1])
+        for t2_i in range(t2.shape[1]):
+            dist = math_utils.dist_a_and_b(t1, t2[:,t2_i:t2_i+1]).squeeze(0)
+            dir = math_utils.dir_a_and_b(t1.squeeze(),  t2[:,t2_i:t2_i+1].squeeze()).unsqueeze(0).unsqueeze(0)
+            dist_dir = torch.cat((dist, dir), dim=1).to(self.args.device)
+            # Use the trained model to predict the new value
+            new_value_prediction = self.model(dist_dir).detach()
+            satisfactions[t2_i] = new_value_prediction.argmax() == self.y_0
+        satisfaction = satisfactions.sum()>0
         return satisfaction
 
 

@@ -30,6 +30,7 @@ class SmpReasoner(nn.Module):
         mask_neg_beh = torch.zeros(len(self.behaviors), dtype=torch.bool)
         predictions = torch.zeros(len(self.behaviors))
         for b_i, beh in enumerate(self.behaviors):
+
             predictions[b_i] = beh.eval_behavior(x, self.args.obj_info)
             if beh.neg_beh:
                 mask_neg_beh[b_i] = True

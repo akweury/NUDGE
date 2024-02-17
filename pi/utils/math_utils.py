@@ -48,6 +48,10 @@ def dist_a_and_b_closest(data_A, data_B, reference_dir, deg_th=20 / 180):
 
     return dist, closest_index
 
+def dist_a_and_b(data_A, data_B):
+    diff_abs = torch.abs(torch.sub(data_A, data_B))
+
+    return diff_abs
 
 def cart2pol(x, y):
     rho = torch.sqrt(x ** 2 + y ** 2)
@@ -55,7 +59,16 @@ def cart2pol(x, y):
     phi = torch.rad2deg(phi)
     return (rho, phi)
 
+def dir_a_and_b(data_A, data_B):
 
+
+    dir_vec = torch.sub(data_B, data_A)
+    dir_vec[1] = -dir_vec[1]
+    rho, phi = cart2pol(dir_vec[0], dir_vec[1])
+    assert (torch.abs(phi) <= 180).prod() == True
+    dir = phi / 180
+
+    return dir
 def dir_a_and_b_closest(data_A, data_B, b_indices):
     dir = torch.zeros(data_A.shape[0], data_A.shape[1])
     for i in range(data_B.shape[0]):
