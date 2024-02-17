@@ -78,15 +78,17 @@ def render_atari_game(agent, args, save_buffer):
             if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
                 game_patches.atari_patches(args, env_args, info)
                 env_args.frame_i = len(env_args.logic_states) - 1
-                # move dead frame to some folder
-                shutil.copy2(env_args.output_folder / f"g_{env_args.game_i}_f_{env_args.frame_i}.png",
-                            env_args.output_folder / "key_frame" / f"g_{env_args.game_i}_f_{env_args.frame_i}.png")
+
                 env_args.update_lost_live(info["lives"])
                 # revise the game rules
                 if agent.agent_type == "smp" and len(env_args.logic_states) > 2 and game_i % args.reasoning_gap == 0:
                     agent.revise_loss(args, env_args)
                     if args.with_explain:
                         game_utils.revise_loss_log(env_args, agent, video_out)
+                if args.with_explain:
+                    # move dead frame to some folder
+                    shutil.copy2(env_args.output_folder / f"g_{env_args.game_i}_f_{env_args.frame_i}.png",
+                                env_args.output_folder / "key_frame" / f"g_{env_args.game_i}_f_{env_args.frame_i}.png")
             else:
                 # record game states
                 env_args.buffer_frame()

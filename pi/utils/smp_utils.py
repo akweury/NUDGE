@@ -767,7 +767,7 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
         obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
         obj_a_indices = obj_combs[:, 0].unique()
         obj_b_indices = obj_combs[:, 1].unique()
-        if len(obj_a_indices) == 1:
+        if len(obj_a_indices) == 1 and states_action_pos.shape[0]>2:
             data_A = states_action_pos[:, obj_a_indices][:, :, prop_type]
             data_B = states_action_pos[:, obj_b_indices][:, :, prop_type]
             action_name = action_names[action_type]
