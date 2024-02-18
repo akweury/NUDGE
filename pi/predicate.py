@@ -245,29 +245,24 @@ class Dist_Closest():
             pos_indices = torch.argmax(y, dim=1) == 0
             pos_data = X[pos_indices]
             neg_data = X[~pos_indices]
-            position_points = torch.cat([pos_data[:, :2].unsqueeze(0), neg_data[:, :2].unsqueeze(0)], dim=0)
-            draw_utils.plot_scatter(position_points, ["pos", "neg"], "positions", self.plot_path)
 
-            x_range = torch.arange(0, len(pos_data)).unsqueeze(1)
-            dir_pos_data = torch.cat((x_range, pos_data[:, 2:]), dim=1).unsqueeze(0)
-            dir_neg_data = torch.cat((x_range, neg_data[:, 2:]), dim=1).unsqueeze(0)
-            direction_points = torch.cat([dir_pos_data, dir_neg_data], dim=0)
-            draw_utils.plot_scatter(direction_points, ["pos", "neg"], "direction", self.plot_path, figure_size=(30, 10))
-
-        # plot decision boundary
-        # db_plot = draw_utils.plot_decision_boundary(X, y, self.model, name=self.name, log_x=True,
-        #                                             path=self.plot_path)
+            data = [[pos_data[:, 0], neg_data[:, 0]],
+                    [pos_data[:, 1], neg_data[:, 1]],
+                    [pos_data[:, 2], neg_data[:, 2]]
+                    ]
+            draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
+                                      self.name, self.plot_path, figure_size=(30, 10))
 
     def eval(self, t1, t2):
         satisfactions = torch.zeros(t2.shape[1])
         for t2_i in range(t2.shape[1]):
-            dist = math_utils.dist_a_and_b(t1, t2[:,t2_i:t2_i+1]).squeeze(0)
-            dir = math_utils.dir_a_and_b(t1.squeeze(),  t2[:,t2_i:t2_i+1].squeeze()).unsqueeze(0).unsqueeze(0)
+            dist = math_utils.dist_a_and_b(t1, t2[:, t2_i:t2_i + 1]).squeeze(0)
+            dir = math_utils.dir_a_and_b(t1.squeeze(), t2[:, t2_i:t2_i + 1].squeeze()).unsqueeze(0).unsqueeze(0)
             dist_dir = torch.cat((dist, dir), dim=1).to(self.args.device)
             # Use the trained model to predict the new value
             new_value_prediction = self.model(dist_dir).detach()
             satisfactions[t2_i] = new_value_prediction.argmax() == self.y_0
-        satisfaction = satisfactions.sum()>0
+        satisfaction = satisfactions.sum() > 0
         return satisfaction
 
 

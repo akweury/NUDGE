@@ -65,7 +65,7 @@ def create_negative_behavior(args, beh_i, beh):
         print(f'- (Defensive data) objs: {obj_combs}, props: {prop_combs}, action: {action_type}, mask: {mask}')
         draw_utils.plot_scatter([dists, dists_pos], ['positive', 'negative'],
                                 f'{beh_i}_behavior_scatter_action_{action_type}',
-                                args.output_folder, log_x=True)
+                                args.output_folder / "defensive", log_x=True, figure_size=(30,10))
 
     # create predicate
     pred_name = f"obj_{obj_combs}_props_{prop_combs}_not_act_{action_type}_mask_{mask}"

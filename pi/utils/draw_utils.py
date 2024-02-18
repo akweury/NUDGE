@@ -180,6 +180,9 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 
 
 def plot_scatter(data, labels, name, path, log_x=False, log_y=False, cla_leg=True, figure_size=None):
+    if figure_size is not None:
+        plt.figure(figsize=figure_size)
+
     for d_i in range(len(data)):
         # Create a scatter plot
         x = data[d_i][:, 0]
@@ -190,8 +193,7 @@ def plot_scatter(data, labels, name, path, log_x=False, log_y=False, cla_leg=Tru
     plt.xlabel('X')
     plt.ylabel('Y')
     plt.title(f'{name}')
-    if figure_size is not None:
-        plt.figure(figsize=figure_size)
+
     if log_y:
         plt.yscale('log')
 
@@ -204,6 +206,69 @@ def plot_scatter(data, labels, name, path, log_x=False, log_y=False, cla_leg=Tru
     filename = str(Path(path) / f"{name}_scatter.png")
     plt.savefig(filename)
     # print(f" Scatter plot saved to {filename}")
+    plot_array = plot_to_np_array()
+
+    if cla_leg:
+        plt.cla()
+
+    matplotlib.pyplot.close()
+    return plot_array
+
+
+def plot_histogram(data, labels, name, path, log_x=False, log_y=False, figure_size=None, cla_leg=True):
+    if figure_size is not None:
+        plt.figure(figsize=figure_size)
+
+    # Create a figure with two subplots side by side
+    fig, axs = plt.subplots(3, 2)
+    data_range = (0, 1)
+    # Plot histogram for Group A in the first subplot
+    axs[0, 0].hist(data[0][0], bins=20, alpha=0.5, range=data_range, color="blue")
+    axs[0, 0].set_title('X_Positive')
+    axs[0, 0].set_xlabel('Value')
+    axs[0, 0].set_ylabel('Frequency')
+
+    # Plot histogram for Group B in the second subplot
+    axs[0, 1].hist(data[0][1], bins=20, alpha=0.5, range=data_range, color="orange")
+    axs[0, 1].set_title('X_Negative')
+    axs[0, 1].set_xlabel('Value')
+    axs[0, 1].set_ylabel('Frequency')
+
+    # Plot histogram for Group A in the first subplot
+    axs[1, 0].hist(data[1][0], bins=20, alpha=0.5, range=data_range, color="blue")
+    axs[1, 0].set_title('Y_Positive')
+    axs[1, 0].set_xlabel('Value')
+    axs[1, 0].set_ylabel('Frequency')
+
+    # Plot histogram for Group B in the second subplot
+    axs[1, 1].hist(data[1][1], bins=20, alpha=0.5, range=data_range, color="orange")
+    axs[1, 1].set_title('Y_Negative')
+    axs[1, 1].set_xlabel('Value')
+    axs[1, 1].set_ylabel('Frequency')
+
+    # Plot histogram for Group A in the first subplot
+    axs[2, 0].hist(data[2][0], bins=20, alpha=0.5, range=data_range, color="blue")
+    axs[2, 0].set_title('Dir_Positive')
+    axs[2, 0].set_xlabel('Value')
+    axs[2, 0].set_ylabel('Frequency')
+
+    # Plot histogram for Group B in the second subplot
+    axs[2, 1].hist(data[2][1], bins=20, alpha=0.5, range=data_range, color="orange")
+    axs[2, 1].set_title('Dir_Negative')
+    axs[2, 1].set_xlabel('Value')
+    axs[2, 1].set_ylabel('Frequency')
+
+    # Adjust layout for better spacing
+    plt.tight_layout()
+
+    # Add labels and a legend
+    plt.xlabel('Value')
+    plt.ylabel('Frequency')
+    plt.legend()
+
+    filename = str(Path(path) / f"{name}_histogram.png")
+    plt.savefig(filename)
+
     plot_array = plot_to_np_array()
 
     if cla_leg:

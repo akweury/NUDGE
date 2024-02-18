@@ -817,7 +817,7 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
     passed_variances = variances_ranked < var_th
     passed_comb_indices = v_rank[passed_variances]
     passed_stats = [states_stats[s_i] for s_i in passed_comb_indices]
-
+    passed_combs = [type_combs[s_i] for s_i in passed_comb_indices]
     behs = []
     for state_stat in passed_stats:
         indices = state_stat["indices"]

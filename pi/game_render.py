@@ -37,6 +37,8 @@ def _act(agent, env_args, env):
     return info
 
 
+
+
 def render_atari_game(agent, args, save_buffer):
     # args.m = args.m[0].upper() + args.m[1:]
     if args.device != "cpu":
@@ -68,7 +70,6 @@ def render_atari_game(agent, args, save_buffer):
                                                                                    obs.shape[0])
             env_args.obs = env_args.last_obs
             info = _act(agent, env_args, env)
-
 
             # if env_args.reward > 0:
             #     env_args.state_score += env_args.reward
