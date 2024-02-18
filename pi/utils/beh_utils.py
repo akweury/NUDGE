@@ -5,6 +5,7 @@ from pi.utils.Behavior import Behavior
 from pi.utils.Fact import ProbFact, VarianceFact
 from pi import predicate
 from pi import pi_lang
+from pi.utils import math_utils
 from pi.neural import nn_model
 from pi.utils import draw_utils
 
@@ -63,7 +64,12 @@ def create_negative_behavior(args, beh_i, beh):
     mask = beh["masks"]
 
     # create predicate
-    pred_name = f"obj_{obj_combs}_props_{prop_combs}_not_act_{action_type}_mask_{mask}"
+    dir_var, dir_mean = torch.var_mean(dists)
+    dist_var, dist_mean = torch.var_mean(dists_pos, dim=0)
+    dir_name = math_utils.pol2dir_name(dir_mean)
+
+    pred_name = f"{dir_name}_dir{dir_mean:.1f}_x_{dist_mean[0]:.1f}_y_{dist_mean[1]:.1f}"
+
     dist_dir = torch.cat((dists, dirs), dim=1)
     dist_dir_pos = torch.cat((dists_pos, dirs_pos), dim=1)
     dist_pred = predicate.Dist_Closest(args, X_0=dist_dir, X_1=dist_dir_pos, name=pred_name,
@@ -122,11 +128,17 @@ def create_attack_behavior(args, beh_i, beh):
     #                         args.output_folder, log_x=True)
 
     # create predicate
-    pred_name = f"att_beh_{beh_i}_act_{action_type}"
+    dir_var, dir_mean = torch.var_mean(dir_pos)
+    dist_var, dist_mean = torch.var_mean(dists_pos, dim=0)
+    dir_name = math_utils.pol2dir_name(dir_mean)
+
+    pred_name = f"{dir_name}_dir{dir_mean:.1f}_x_{dist_mean[0]:.1f}_y_{dist_mean[1]:.1f}"
     dist_dir_pos = torch.cat((dists_pos, dir_pos), dim=1)
     dist_dir_neg = torch.cat((dists_neg, dir_neg), dim=1)
+    if torch.abs(dist_dir_pos[:,:2]).max()>0.2:
+        print("too big")
     dist_pred = predicate.Dist_Closest(args, X_0=dist_dir_pos, X_1=dist_dir_neg, name=pred_name,
-                                       plot_path=args.check_point_path / "history")
+                                       plot_path=args.check_point_path / "attack")
     dist_pred.fit_pred()
     pred = [dist_pred]
 

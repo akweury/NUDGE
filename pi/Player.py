@@ -254,7 +254,7 @@ class SymbolicMicroProgramPlayer:
     def reasoning_att_behaviors(self, use_ckp=True):
         if len(self.pos_data) == 0:
             return []
-        stat_file = self.args.check_point_path / f"attack_stats.json"
+        stat_file = self.args.check_point_path / "attack" / f"attack_stats.json"
         if use_ckp and os.path.exists(stat_file):
             att_behavior_data = file_utils.load_json(stat_file)
         else:
@@ -266,8 +266,16 @@ class SymbolicMicroProgramPlayer:
                                                        self.prop_indices,
                                                        self.args.var_th, "attack", self.args.action_names,
                                                        self.args.step_dist)
+            for beh_i, beh_data in enumerate(att_behavior_data):
+                data = [[torch.tensor(beh_data["dists_pos"])[:, 0], torch.tensor(beh_data["dists_neg"])[:, 0]],
+                        [torch.tensor(beh_data["dists_pos"])[:, 1], torch.tensor(beh_data["dists_neg"])[:, 1]],
+                        [torch.tensor(beh_data["dir_pos"]).squeeze(), torch.tensor(beh_data["dir_ab_neg"]).squeeze()]
+                        ]
+                beh_name = f"{beh_i}_{self.args.action_names[beh_data['action_type']]}_var_{beh_data['variance']:.2f}"
+                draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
+                                          beh_name, self.args.check_point_path / "attack", figure_size=(30, 10))
             file_utils.save_json(stat_file, att_behavior_data)
-        att_behavior_file = self.args.check_point_path / f"attack_behaviors.pkl"
+        att_behavior_file = self.args.check_point_path / "attack" / f"attack_behaviors.pkl"
         if os.path.exists(att_behavior_file):
             attack_behaviors = file_utils.load_pickle(att_behavior_file)
             attack_behaviors = beh_utils.update_attack_behaviors(self.args, attack_behaviors, att_behavior_data)
@@ -285,7 +293,7 @@ class SymbolicMicroProgramPlayer:
     def reasoning_pf_behaviors(self):
         print(f"Reasoning defensive behaviors...")
         ############# learn from positive rewards
-        pos_states_stat_file = self.args.check_point_path / f"pf_stats.json"
+        pos_states_stat_file = self.args.check_point_path / "path_finding" / f"pf_stats.json"
         if os.path.exists(pos_states_stat_file):
             pos_beh_data = file_utils.load_json(pos_states_stat_file)
         else:

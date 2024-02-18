@@ -28,26 +28,27 @@ class SmpReasoner(nn.Module):
 
         mask_pos_beh = torch.zeros(len(self.behaviors), dtype=torch.bool)
         mask_neg_beh = torch.zeros(len(self.behaviors), dtype=torch.bool)
-        predictions = torch.zeros(len(self.behaviors))
+        # predictions = torch.zeros(len(self.behaviors))
+        confidences = torch.zeros(len(self.behaviors))
         for b_i, beh in enumerate(self.behaviors):
 
-            predictions[b_i] = beh.eval_behavior(x, self.args.obj_info)
+            confidences[b_i] = beh.eval_behavior(x, self.args.obj_info)
             if beh.neg_beh:
                 mask_neg_beh[b_i] = True
             else:
                 mask_pos_beh[b_i] = True
 
-        return mask_pos_beh, mask_neg_beh, predictions
+        return mask_pos_beh, mask_neg_beh, confidences
 
     def forward(self, x):
         # game Getout: tensor with size 1 * 4 * 6
         action_prob = torch.zeros(1, len(self.args.action_names))
         action_mask = torch.zeros(1, len(self.args.action_names), dtype=torch.bool)
         explains = {"behavior_index": [], "reward": [], 'state':x}
-        mask_pos_beh, mask_neg_beh, beh_predictions = self.get_beh_mask(x)
+        mask_pos_beh, mask_neg_beh, beh_confidence = self.get_beh_mask(x)
 
-        mask_neg_beh = mask_neg_beh * (beh_predictions > 0)
-        mask_pos_beh = mask_pos_beh * (beh_predictions > 0)
+        mask_neg_beh = mask_neg_beh * (beh_confidence > 0)
+        mask_pos_beh = mask_pos_beh * (beh_confidence > 0)
 
         # defense behavior
         if mask_neg_beh.sum() > 0:
@@ -64,7 +65,7 @@ class SmpReasoner(nn.Module):
             for beh_index in mask_pos_beh.nonzero().reshape(-1):
                 behavior = self.behaviors[beh_index]
                 if not action_mask[0, behavior.action]:
-                    action_prob[0, behavior.action] = 1
+                    action_prob[0, behavior.action] = beh_confidence[beh_index]
                     explains["behavior_index"].append(beh_index)
 
         action_prob[action_mask] = -1e+20

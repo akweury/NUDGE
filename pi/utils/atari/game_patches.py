@@ -230,7 +230,7 @@ def remove_last_key_frame(game_info, states, max_dist=35):
             break
         else:
             state_i -= 1
-    new_states = states[:state_i + 1]
+    new_states = states[:state_i+1]
 
     pos_indices = [game_info["axis_x_col"], game_info["axis_y_col"]]
     test_state = torch.tensor(new_states[-1])

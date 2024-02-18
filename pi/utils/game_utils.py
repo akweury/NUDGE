@@ -177,8 +177,8 @@ def zoom_image(image, width=None, height=None, inter=cv.INTER_AREA):
 
 
 def get_game_viewer(env_args):
-    width = env_args.width_game_window + env_args.width_left_panel + env_args.width_right_panel
-    height = env_args.zoom_in * env_args.height_game_window
+    width = int(env_args.width_game_window + env_args.width_left_panel + env_args.width_right_panel)
+    height = int(env_args.zoom_in * env_args.height_game_window)
     out = draw_utils.create_video_out(width, height)
     return out
 
@@ -206,20 +206,14 @@ def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list, screen_text):
         db_plots = db_plots[-env_args.db_num:]
         db_plots = draw_utils.vconcat_resize(db_plots)
 
-    if wr_plot is None:
-        wr_plot = np.zeros((env_args.width_left_panel,
-                            int(env_args.height_game_window * 0.5), 3),
-                           dtype=np.uint8)
-    wr_plot = draw_utils.image_resize(wr_plot, int(screen_plot.shape[0] * 0.5), int(0.5 * screen_plot.shape[0]))
-    mt_plot = draw_utils.image_resize(mt_plot, int(screen_plot.shape[0] * 0.5), int(0.5 * screen_plot.shape[0]))
-    explain_plot = draw_utils.vconcat_resize([wr_plot, mt_plot])
+    mt_plot = draw_utils.image_resize(mt_plot, width=int(env_args.width_left_panel), height=int(screen_plot.shape[0]))
 
     # explain_plot_four_channel = draw_utils.three_to_four_channel(explain_plot)
-    screen_with_explain = draw_utils.hconcat_resize([screen_plot, explain_plot, db_plots])
+    screen_with_explain = draw_utils.hconcat_resize([screen_plot, mt_plot, db_plots])
     out = draw_utils.write_video_frame(out, screen_with_explain)
     if env_args.save_frame:
         draw_utils.save_np_as_img(screen_with_explain,
-                                  env_args.output_folder / f"g_{env_args.game_i}_f_{env_args.frame_i}.png")
+                                  env_args.output_folder / "frames" / f"g_{env_args.game_i}_f_{env_args.frame_i}.png")
 
     return out, screen_with_explain
 
@@ -259,12 +253,15 @@ def kangaroo_patches(env_args, reward, lives):
 
 def plot_mt_asterix(env_args, agent):
     if agent.agent_type == "smp":
+        explain_str = ""
+        for beh_i in env_args.explaining['behavior_index']:
+            explain_str += f"{agent.behaviors[beh_i].clause}\n"
         data = (f"Max steaks: {env_args.max_steak}\n"
-                f"Win 2 steaks at ep: {env_args.win_2}\n"
-                f"Win 3 steaks at ep: {env_args.win_3}\n"
-                f"Win 5 steaks at ep: {env_args.win_5}\n"
+                f"Frame Beh: act: {agent.args.action_names[env_args.action]}\n"
+                f"{explain_str}"
                 f"# PF Behaviors: {len(agent.pf_behaviors)}\n"
-                f"# Def Behaviors: {len(agent.def_behaviors)}\n")
+                f"# Def Behaviors: {len(agent.def_behaviors)}\n"
+                f"# Att Behaviors: {len(agent.att_behaviors)}\n")
 
     else:
         data = (f"Max steaks: {env_args.max_steak}\n"
@@ -272,7 +269,8 @@ def plot_mt_asterix(env_args, agent):
                 f"Win 3 steaks at ep: {env_args.win_3}\n"
                 f"Win 5 steaks at ep: {env_args.win_5}\n")
     # plot game frame
-    mt_plot = draw_utils.visual_info(data, 512, 512, 0.6,
+    mt_plot = draw_utils.visual_info(data, height=env_args.height_game_window, width=env_args.width_left_panel,
+                                     font_size=0.5,
                                      text_pos=[20, 20])
     return mt_plot
 
@@ -281,7 +279,7 @@ def plot_wr(env_args):
     if env_args.score_update or env_args.wr_plot is None:
         wr_plot = draw_utils.plot_line_chart(env_args.win_rate[:env_args.game_i].unsqueeze(0),
                                              env_args.output_folder, ['smp', 'ppo'],
-                                             title='win_rate', cla_leg=True, figure_size=(10, 10))
+                                             title='win_rate', cla_leg=True, figure_size=(30, 10))
         env_args.wr_plot = wr_plot
     else:
         wr_plot = env_args.wr_plot

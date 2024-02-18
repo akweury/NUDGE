@@ -126,3 +126,26 @@ def action_to_deg(action_name):
     else:
         raise ValueError
     return dir
+
+
+def pol2dir_name(dir_mean):
+    if -0.05<=dir_mean<0.05:
+        dir_name = "right"
+    elif 0.05<=dir_mean<0.45:
+        dir_name = "upright"
+    elif 0.45 <= dir_mean < 0.55:
+        dir_name = "up"
+    elif 0.55 <= dir_mean < 0.95:
+        dir_name = "upleft"
+    elif 0.95 <= dir_mean <= 1 or -1<=dir_mean<=-0.95:
+        dir_name = "left"
+    elif -0.95 <= dir_mean < -0.55:
+        dir_name = "downleft"
+    elif -0.55 <= dir_mean < -0.45:
+        dir_name = "down"
+    elif -0.45 <= dir_mean < -0.05:
+        dir_name = "downright"
+    else:
+        raise ValueError
+
+    return dir_name

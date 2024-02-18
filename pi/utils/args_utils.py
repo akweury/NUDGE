@@ -25,7 +25,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("-rec", "--record", help="record the rendering of the game", action="store_true")
     parser.add_argument("--log_file_name", help="the name of log file", required=False, dest='logfile')
     parser.add_argument("--render", help="render the game", action="store_true", dest="render")
-    parser.add_argument("--with_explain", help="explain the game", action="store_false")
+    parser.add_argument("--with_explain", help="explain the game", action="store_true", default=False)
     parser.add_argument("--save_frame", help="save each frame as img", action="store_true")
     parser.add_argument("--device", help="cpu or cuda", default="cpu", type=str)
     parser.add_argument('-d', '--dataset', required=False, help='the dataset to load if scoring', dest='d')
@@ -45,10 +45,10 @@ def load_args(exp_args_path, m):
     parser.add_argument("--rectify_num", type=int, default=5, help="Repeat times of smp rectification.")
     parser.add_argument("--teacher_agent", type=str, default="pretrained", help="Type of the teacher agent.")
     parser.add_argument("--episode_num", type=int, default=5, help="Number of episodes to update the agent.")
-    parser.add_argument("--zoom_in", type=int, default=2, help="Zoom in percentage of the game window.")
+    parser.add_argument("--zoom_in", type=int, default=2.5, help="Zoom in percentage of the game window.")
     parser.add_argument("--train_state_num", type=int, default=100000, help="Zoom in percentage of the game window.")
     parser.add_argument("--hardness", type=int, default=0, help="Hardness of the game.")
-    parser.add_argument("--teacher_game_nums", type=int, default=300, help="Number of the teacher game.")
+    parser.add_argument("--teacher_game_nums", type=int, default=10, help="Number of the teacher game.")
     parser.add_argument("--student_game_nums", type=int, default=100, help="Number of the student game.")
     parser.add_argument("--fact_conf", type=float, default=0.1,
                         help="Minimum confidence required to save a fact as a behavior.")
@@ -82,7 +82,7 @@ def load_args(exp_args_path, m):
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
-        args.train_nn_epochs = 500
+        args.train_nn_epochs = 2000
         args.zero_reward = 0.0
         args.fact_conf = 0.5
         args.action_names = config.action_name_asterix
@@ -95,7 +95,7 @@ def load_args(exp_args_path, m):
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
         args.var_th = 0.4
         args.reasoning_gap = 1
-        args.step_dist = [0.03, 0.07]
+        args.step_dist = [0.01, 0.01]
         args.mile_stone_scores = [5, 10, 20, 40]
     elif args.m == "Kangaroo":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
@@ -157,8 +157,12 @@ def load_args(exp_args_path, m):
         os.mkdir(str(args.game_buffer_path))
     if not os.path.exists(str(args.path_bs_data)):
         os.mkdir(str(args.path_bs_data))
-    if not os.path.exists(args.game_buffer_path / "key_frame"):
-        os.mkdir(str(args.game_buffer_path / "key_frame"))
+    if not os.path.exists(args.game_buffer_path / "key_frames"):
+        os.mkdir(str(args.game_buffer_path / "key_frames"))
+    if not os.path.exists(args.game_buffer_path / "frames"):
+        os.mkdir(str(args.game_buffer_path / "frames"))
+    if not os.path.exists(args.game_buffer_path / "lost_frames"):
+            os.mkdir(str(args.game_buffer_path / "lost_frames"))
     return args
 
 

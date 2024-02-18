@@ -769,10 +769,12 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
         obj_a_indices = obj_combs[:, 0].unique()
         obj_b_indices = obj_combs[:, 1].unique()
         if len(obj_a_indices) == 1 and states_action_pos.shape[0] > 2:
-            data_A = states_action_pos[:, obj_a_indices][:, :, prop_type]
-            data_B = states_action_pos[:, obj_b_indices][:, :, prop_type]
             action_name = action_names[action_type]
             action_dir = math_utils.action_to_deg(action_name)
+
+            data_A = states_action_pos[:, obj_a_indices][:, :, prop_type]
+            data_B = states_action_pos[:, obj_b_indices][:, :, prop_type]
+
             data_A_one_step_move = math_utils.one_step_move(data_A, action_dir, step_dist)
             dist, b_index = math_utils.dist_a_and_b_closest(data_A_one_step_move, data_B)
             dir_ab = math_utils.dir_a_and_b_next_step_by_index(data_A_one_step_move, data_B, b_index)
@@ -780,8 +782,10 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
 
             data_A_neg = states_action_neg[:, obj_a_indices][:, :, prop_type]
             data_B_neg = states_action_neg[:, obj_b_indices][:, :, prop_type]
-            dist_neg, b_neg_index = math_utils.dist_a_and_b_closest(data_A_neg, data_B_neg)
-            dir_ab_neg = math_utils.dir_a_and_b_next_step_by_index(data_A_neg, data_B_neg, b_neg_index)
+
+            data_A_neg_one_step_move = math_utils.one_step_move(data_A_neg, action_dir, step_dist)
+            dist_neg, b_neg_index = math_utils.dist_a_and_b_closest(data_A_neg_one_step_move, data_B_neg)
+            dir_ab_neg = math_utils.dir_a_and_b_next_step_by_index(data_A_neg_one_step_move, data_B_neg, b_neg_index)
             dist_dir_neg = torch.cat((dist_neg, dir_ab_neg), dim=1)
 
         else:

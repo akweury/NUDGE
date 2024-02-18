@@ -208,7 +208,7 @@ class Dist_Closest():
         self.var, self.mean = torch.var_mean(X_0, dim=0)
         self.var = self.var.sum()
         self.mean = self.mean.sum()
-        self.name = f"{name}_ep_{self.num_epochs}_var_{self.var:.1f}_mean_{self.mean:.1f}"
+        self.name = f"{name}"
         self.plot_path = plot_path
 
         self.y_0 = 0
@@ -253,8 +253,8 @@ class Dist_Closest():
                     [pos_data[:, 1], neg_data[:, 1]],
                     [pos_data[:, 2], neg_data[:, 2]]
                     ]
-            # draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
-            #                           self.name, self.plot_path, figure_size=(20, 10))
+            draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
+                                      self.name, self.plot_path, figure_size=(20, 10))
 
     def eval(self, t1, t2, action):
         direction = torch.tensor([math_utils.action_to_deg(self.args.action_names[action])] * t2.shape[1]).to(t2.device)
@@ -268,8 +268,11 @@ class Dist_Closest():
         # Use the trained model to predict the new value
         new_value_prediction = self.model(dist_dir).detach()
         satisfactions = new_value_prediction.argmax(dim=1) == self.y_0
-        satisfaction = satisfactions.sum() > 0
-        return satisfaction
+        if satisfactions.sum()==0:
+            conf = 0
+        else:
+            conf = new_value_prediction[satisfactions, self.y_0].max()
+        return conf
 
 
 class GT():

@@ -1,5 +1,6 @@
 # Created by jing at 09.02.24
 import torch
+import shutil
 
 
 class EnvArgs():
@@ -19,7 +20,7 @@ class EnvArgs():
         self.db_num = 4
         self.width_game_window = int(window_size[1] * args.zoom_in)
         self.height_game_window = int(window_size[0] * args.zoom_in)
-        self.width_left_panel = int(window_size[0] * 0.5 * args.zoom_in)
+        self.width_left_panel = int(window_size[0] * 2 * args.zoom_in)
         self.width_right_panel = int(window_size[1] * 0.25 * args.zoom_in)
         self.position_norm_factor = window_size[0]
         # frame rate limiting
@@ -103,10 +104,22 @@ class EnvArgs():
         self.actions.append(self.action)
         self.rewards.append(self.reward)
 
-    def buffer_game(self):
-        self.game_states.append(self.logic_states)
-        self.game_actions.append(self.actions)
-        self.game_rewards.append(self.rewards)
+    def buffer_game(self, zero_reward, save_frame):
+        states = []
+        actions = []
+        rewards = []
+        for f_i, reward in enumerate(self.rewards):
+            if f_i % 10 == 0 or reward != zero_reward:
+                states.append(self.logic_states[f_i])
+                actions.append(self.actions[f_i])
+                rewards.append(self.rewards[f_i])
+            if save_frame:
+                # move dead frame to some folder
+                shutil.copy2(self.output_folder /"frames" /f"g_{self.game_i}_f_{f_i}.png",
+                             self.output_folder / "key_frames" / f"g_{self.game_i}_f_{f_i}.png")
+        self.game_states.append(states)
+        self.game_rewards.append(rewards)
+        self.game_actions.append(actions)
 
     def reset_buffer_game(self):
         self.logic_states = []
