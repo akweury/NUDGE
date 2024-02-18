@@ -86,7 +86,7 @@ def render_atari_game(agent, args, save_buffer):
                     agent.revise_loss(args, env_args)
                     if args.with_explain:
                         game_utils.revise_loss_log(env_args, agent, video_out)
-                if args.with_explain:
+                if args.save_frame:
                     # move dead frame to some folder
                     shutil.copy2(env_args.output_folder / f"g_{env_args.game_i}_f_{env_args.frame_i}.png",
                                 env_args.output_folder / "key_frame" / f"g_{env_args.game_i}_f_{env_args.frame_i}.png")

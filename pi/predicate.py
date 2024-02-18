@@ -257,16 +257,17 @@ class Dist_Closest():
             #                           self.name, self.plot_path, figure_size=(20, 10))
 
     def eval(self, t1, t2, action):
-        satisfactions = torch.zeros(t2.shape[1])
-        for t2_i in range(t2.shape[1]):
-            direction = math_utils.action_to_deg(self.args.action_names[action])
-            t1_move_one_step = math_utils.one_step_move(t1[0], direction, self.args.step_dist).unsqueeze(0)
-            dist = math_utils.dist_a_and_b(t1_move_one_step, t2[:, t2_i:t2_i + 1]).squeeze(0)
-            dir = math_utils.dir_a_and_b(t1_move_one_step.squeeze(), t2[:, t2_i:t2_i + 1].squeeze()).unsqueeze(0).unsqueeze(0)
-            dist_dir = torch.cat((dist, dir), dim=1).to(self.args.device)
-            # Use the trained model to predict the new value
-            new_value_prediction = self.model(dist_dir).detach()
-            satisfactions[t2_i] = new_value_prediction.argmax() == self.y_0
+        direction = torch.tensor([math_utils.action_to_deg(self.args.action_names[action])] * t2.shape[1]).to(t2.device)
+        t1_move_one_step = torch.repeat_interleave(math_utils.one_step_move(t1[0], direction[0], self.args.step_dist),
+                                                   t2.shape[1], dim=0)
+        assert t2.shape[0] == 1
+        dist = math_utils.dist_a_and_b(t1_move_one_step, t2[0])
+        dir = [math_utils.dir_a_and_b(t1_move_one_step[i], t2[0, i]).item() for i in range(t2.shape[1])]
+        dir = torch.tensor(dir).unsqueeze(1).to(t2.device)
+        dist_dir = torch.cat((dist, dir), dim=1)
+        # Use the trained model to predict the new value
+        new_value_prediction = self.model(dist_dir).detach()
+        satisfactions = new_value_prediction.argmax(dim=1) == self.y_0
         satisfaction = satisfactions.sum() > 0
         return satisfaction
 

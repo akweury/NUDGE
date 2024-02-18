@@ -35,7 +35,7 @@ def one_step_move(data, direction, distance):
     Returns:
     - List of moved points
     """
-    if direction is None:
+    if direction is None or abs(direction) > 1:
         direction = 0
         distance = [0, 0]
     direction_rad = math.radians(direction * 180)
@@ -106,7 +106,7 @@ def dir_a_and_b_next_step_by_index(data_A, data_B, b_indices):
 
 def action_to_deg(action_name):
     if action_name == "noop":
-        dir = None
+        dir = 100
     elif action_name == "up":
         dir = 90 / 180
     elif action_name == "right":
