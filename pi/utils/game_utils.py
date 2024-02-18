@@ -111,17 +111,17 @@ class RolloutBuffer:
             json.dump(data, f)
         print(f'data saved in file {self.filename}')
 
-    def check_validation_asterix(self):
-        for game_i in range(len(self.rewards)):
-            game_states = torch.tensor(self.logic_states[game_i])
-            game_rewards = torch.tensor(self.rewards[game_i])
-            neg_states = game_states[game_rewards < 0]
-            pos_indices = [3, 4]
-            for state in neg_states:
-                pos_agent = state[0:1, pos_indices].unsqueeze(0)
-                enemy_indices = state[:, 1] > 0
-                pos_enemy = (state[enemy_indices][:, pos_indices]).unsqueeze(0)
-                dist, _ = math_utils.dist_a_and_b_closest(pos_agent, pos_enemy)
+    # def check_validation_asterix(self):
+    #     for game_i in range(len(self.rewards)):
+    #         game_states = torch.tensor(self.logic_states[game_i])
+    #         game_rewards = torch.tensor(self.rewards[game_i])
+    #         neg_states = game_states[game_rewards < 0]
+    #         pos_indices = [3, 4]
+    #         for state in neg_states:
+    #             pos_agent = state[0:1, pos_indices].unsqueeze(0)
+    #             enemy_indices = state[:, 1] > 0
+    #             pos_enemy = (state[enemy_indices][:, pos_indices]).unsqueeze(0)
+    #             dist, _ = math_utils.dist_a_and_b_next_step_closest(pos_agent, pos_enemy)
 
 
 def load_buffer(args):

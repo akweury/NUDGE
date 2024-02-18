@@ -23,35 +23,55 @@ def calculate_direction(points, reference_points):
     return directions
 
 
-def dist_a_and_b_closest(data_A, data_B, reference_dir, deg_th=20 / 180):
+def one_step_move(data, direction, distance):
+    """
+    Move a list of 2D points along a given direction by a specified distance.
+
+    Parameters:
+    - points: List of 2D points [(x1, y1), (x2, y2), ...]
+    - direction: Tuple representing the direction vector (dx, dy)
+    - distance: Distance to move points along the direction
+
+    Returns:
+    - List of moved points
+    """
+    if direction is None:
+        direction = 0
+        distance = [0, 0]
+    direction_rad = math.radians(direction * 180)
+    dx = math.cos(direction_rad)
+    dy = math.sin(direction_rad)
+    direction_vec = torch.tensor([dx, dy]).to(data.device)
+    direction_unit_vector = direction_vec / torch.norm(direction_vec)
+    new_points = data + direction_unit_vector * torch.tensor(distance).to(data.device)
+
+    return new_points
+
+
+def dist_a_and_b_closest(data_A, data_B):
     closest_index = torch.zeros(data_A.shape[0])
     if len(data_B.size()) == 3:
-
-        diff_abs = torch.abs(torch.sub(torch.repeat_interleave(data_A, data_B.size(1), 1), data_B))
+        diff_abs = torch.sub(torch.repeat_interleave(data_A, data_B.size(1), 1), data_B)
         dist_all = torch.zeros(data_B.size(0), data_B.size(1))
 
         for d_i in range(data_B.size(1)):
             dist_all[:, d_i] = torch.norm(diff_abs[:, d_i, :], dim=1)
-        dir_all = calculate_direction(data_B, data_A)
-        if reference_dir is not None:
-            angel_err = dir_all - reference_dir
-            mask = torch.abs(angel_err) > deg_th
-            dist_all[mask] += angel_err[mask]
-            closest_dist, closest_index = dist_all.min(dim=1)
-        else:
-            closest_dist, closest_index = dist_all.min(dim=1)
+
+        _, closest_index = torch.abs(dist_all).min(dim=1)
         dist = torch.zeros(data_B.size(0), data_B.size(2))
         for i in range(closest_index.size(0)):
             dist[i] = diff_abs[i, closest_index[i], :]
     else:
-        dist = torch.abs(data_A - data_B)
+        dist = data_A - data_B
 
     return dist, closest_index
+
 
 def dist_a_and_b(data_A, data_B):
     diff_abs = torch.abs(torch.sub(data_A, data_B))
 
     return diff_abs
+
 
 def cart2pol(x, y):
     rho = torch.sqrt(x ** 2 + y ** 2)
@@ -59,9 +79,8 @@ def cart2pol(x, y):
     phi = torch.rad2deg(phi)
     return (rho, phi)
 
+
 def dir_a_and_b(data_A, data_B):
-
-
     dir_vec = torch.sub(data_B, data_A)
     dir_vec[1] = -dir_vec[1]
     rho, phi = cart2pol(dir_vec[0], dir_vec[1])
@@ -69,7 +88,9 @@ def dir_a_and_b(data_A, data_B):
     dir = phi / 180
 
     return dir
-def dir_a_and_b_closest(data_A, data_B, b_indices):
+
+
+def dir_a_and_b_next_step_by_index(data_A, data_B, b_indices):
     dir = torch.zeros(data_A.shape[0], data_A.shape[1])
     for i in range(data_B.shape[0]):
         data_B_closest = data_B[i, b_indices[i]]

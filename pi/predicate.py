@@ -205,9 +205,12 @@ class Dist_Closest():
         self.X_1 = X_1
         self.model = None
         self.num_epochs = args.train_nn_epochs
-        self.var, self.mean = torch.var_mean(X_0)
+        self.var, self.mean = torch.var_mean(X_0, dim=0)
+        self.var = self.var.sum()
+        self.mean = self.mean.sum()
         self.name = f"{name}_ep_{self.num_epochs}_var_{self.var:.1f}_mean_{self.mean:.1f}"
         self.plot_path = plot_path
+
         self.y_0 = 0
         self.y_1 = 1
 
@@ -250,14 +253,16 @@ class Dist_Closest():
                     [pos_data[:, 1], neg_data[:, 1]],
                     [pos_data[:, 2], neg_data[:, 2]]
                     ]
-            draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
-                                      self.name, self.plot_path, figure_size=(30, 10))
+            # draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
+            #                           self.name, self.plot_path, figure_size=(20, 10))
 
-    def eval(self, t1, t2):
+    def eval(self, t1, t2, action):
         satisfactions = torch.zeros(t2.shape[1])
         for t2_i in range(t2.shape[1]):
-            dist = math_utils.dist_a_and_b(t1, t2[:, t2_i:t2_i + 1]).squeeze(0)
-            dir = math_utils.dir_a_and_b(t1.squeeze(), t2[:, t2_i:t2_i + 1].squeeze()).unsqueeze(0).unsqueeze(0)
+            direction = math_utils.action_to_deg(self.args.action_names[action])
+            t1_move_one_step = math_utils.one_step_move(t1[0], direction, self.args.step_dist).unsqueeze(0)
+            dist = math_utils.dist_a_and_b(t1_move_one_step, t2[:, t2_i:t2_i + 1]).squeeze(0)
+            dir = math_utils.dir_a_and_b(t1_move_one_step.squeeze(), t2[:, t2_i:t2_i + 1].squeeze()).unsqueeze(0).unsqueeze(0)
             dist_dir = torch.cat((dist, dir), dim=1).to(self.args.device)
             # Use the trained model to predict the new value
             new_value_prediction = self.model(dist_dir).detach()

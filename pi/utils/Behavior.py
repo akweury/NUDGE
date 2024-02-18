@@ -54,7 +54,7 @@ class Behavior():
                 # try to find the closest obj B
                 data_B = x[:, obj_b_indices][:, :, prop]
                 # behavior is true if all pred is true (and)
-                prediction[f_i:f_i + 1] = fact.preds[0].eval(data_A, data_B)
+                prediction[f_i:f_i + 1] = fact.preds[0].eval(data_A, data_B, self.action)
             prediction[f_i] = prediction / (len(obj_combs) + 1e-20)
 
         return prediction

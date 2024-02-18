@@ -114,6 +114,16 @@ obj_info_asterix = [('Player', 1),
                     ('Enemy', 8),
                     ('Consumable', 8)
                     ]
+action_name_asterix = ["noop",  # 0
+                       "up",  # 1
+                       "right",  # 2
+                       "left",  # 3
+                       "down",  # 4
+                       "upright",  # 5
+                       "upleft",  # 6
+                       "downright",  # 7
+                       "downleft"  # 8
+                       ]
 
 obj_info_boxing = [('Player', 1),
                    ('Enemy', 1)]
@@ -164,16 +174,7 @@ action_name_assault = ["noop",  # 0
                        "rightfire",  # 5
                        "leftfire"  # 6
                        ]
-action_name_asterix = ["noop",  # 0
-                       "up",  # 1
-                       "right",  # 2
-                       "left",  # 3
-                       "down",  # 4
-                       "upright",  # 5
-                       "upleft",  # 6
-                       "downright",  # 7
-                       "downleft"  # 8
-                       ]
+
 action_name_kangaroo = ["noop",  # 0
                         "fire",  # 1
                         "up",  # 2

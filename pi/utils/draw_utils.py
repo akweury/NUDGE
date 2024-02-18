@@ -221,7 +221,7 @@ def plot_histogram(data, labels, name, path, log_x=False, log_y=False, figure_si
 
     # Create a figure with two subplots side by side
     fig, axs = plt.subplots(3, 2)
-    data_range = (0, 1)
+    data_range = (-1, 1)
     # Plot histogram for Group A in the first subplot
     axs[0, 0].hist(data[0][0], bins=20, alpha=0.5, range=data_range, color="blue")
     axs[0, 0].set_title('X_Positive')
@@ -266,7 +266,7 @@ def plot_histogram(data, labels, name, path, log_x=False, log_y=False, figure_si
     plt.ylabel('Frequency')
     plt.legend()
 
-    filename = str(Path(path) / f"{name}_histogram.png")
+    filename = str(Path(path) / f"histogram_{name}.png")
     plt.savefig(filename)
 
     plot_array = plot_to_np_array()

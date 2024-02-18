@@ -48,7 +48,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--zoom_in", type=int, default=2, help="Zoom in percentage of the game window.")
     parser.add_argument("--train_state_num", type=int, default=100000, help="Zoom in percentage of the game window.")
     parser.add_argument("--hardness", type=int, default=0, help="Hardness of the game.")
-    parser.add_argument("--teacher_game_nums", type=int, default=30, help="Number of the teacher game.")
+    parser.add_argument("--teacher_game_nums", type=int, default=300, help="Number of the teacher game.")
     parser.add_argument("--student_game_nums", type=int, default=100, help="Number of the student game.")
     parser.add_argument("--fact_conf", type=float, default=0.1,
                         help="Minimum confidence required to save a fact as a behavior.")
@@ -95,6 +95,7 @@ def load_args(exp_args_path, m):
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
         args.var_th = 0.4
         args.reasoning_gap = 1
+        args.step_dist = [0.03, 0.07]
         args.mile_stone_scores = [5, 10, 20, 40]
     elif args.m == "Kangaroo":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
@@ -157,7 +158,7 @@ def load_args(exp_args_path, m):
     if not os.path.exists(str(args.path_bs_data)):
         os.mkdir(str(args.path_bs_data))
     if not os.path.exists(args.game_buffer_path / "key_frame"):
-        os.mkdir(str(args.game_buffer_path/ "key_frame"))
+        os.mkdir(str(args.game_buffer_path / "key_frame"))
     return args
 
 

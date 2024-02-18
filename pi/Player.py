@@ -9,7 +9,7 @@ from src.agents.neural_agent import ActorCritic
 from src.agents.utils_getout import extract_neural_state_getout
 from pi import Reasoner
 from pi.utils import smp_utils, beh_utils, file_utils, oc_utils
-from pi.utils import game_utils
+from pi.utils import game_utils, draw_utils
 
 
 class SymbolicMicroProgramModel(nn.Module):
@@ -217,7 +217,15 @@ class SymbolicMicroProgramPlayer:
                                                   self.args.obj_info,
                                                   self.prop_indices,
                                                   self.args.var_th,
-                                                  "defense", self.args.action_names)
+                                                  "defense", self.args.action_names, self.args.step_dist)
+            for beh_i, beh_data in enumerate(def_beh_data):
+                data = [[torch.tensor(beh_data["dists_pos"])[:, 0], torch.tensor(beh_data["dists_neg"])[:, 0]],
+                        [torch.tensor(beh_data["dists_pos"])[:, 1], torch.tensor(beh_data["dists_neg"])[:, 1]],
+                        [torch.tensor(beh_data["dir_pos"]).squeeze(), torch.tensor(beh_data["dir_ab_neg"]).squeeze()]
+                        ]
+                beh_name = f"{beh_i}_{self.args.action_names[beh_data['action_type']]}_var_{beh_data['variance']:.2f}"
+                draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
+                                          beh_name, self.args.check_point_path / "defensive", figure_size=(30, 10))
             file_utils.save_json(neg_states_stat_file, def_beh_data)
 
         neg_beh_file = self.args.check_point_path / "defensive" / f"defensive_behaviors.pkl"
@@ -256,7 +264,8 @@ class SymbolicMicroProgramPlayer:
                                                        self.args.zero_reward,
                                                        self.args.obj_info,
                                                        self.prop_indices,
-                                                       self.args.var_th, "attack", self.args.action_names)
+                                                       self.args.var_th, "attack", self.args.action_names,
+                                                       self.args.step_dist)
             file_utils.save_json(stat_file, att_behavior_data)
         att_behavior_file = self.args.check_point_path / f"attack_behaviors.pkl"
         if os.path.exists(att_behavior_file):
