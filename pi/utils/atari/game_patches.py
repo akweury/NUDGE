@@ -175,6 +175,10 @@ def patch_asterix(game_info, states, actions, rewards, lives):
     enemy_pos = torch.tensor(new_states[-1][1:9])[:,-2:]
     failed_dist = torch.abs(enemy_pos - agent_pos).sum(dim=1).min()
     print(f"agent-enemy failed dist: {failed_dist}")
+    if failed_dist>0.2:
+        new_states = new_states[:-10]
+        new_actions = actions[:len(new_states)]
+        new_rewards = rewards[:len(new_states)]
 
     return new_states, new_actions, new_rewards, game_over
 

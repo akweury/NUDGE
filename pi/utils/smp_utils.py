@@ -958,7 +958,10 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
     behs = []
     for state_stat in passed_stats:
         indices = state_stat["indices"]
+        dist_range = math_utils.get_90_percent_range_2d(state_stat["dists_pos"].numpy())
+        dir_range = math_utils.get_90_percent_range_2d(state_stat["dir_pos"].numpy())
 
+        # symbolize the data further with specific direction and distance
         behs.append({
             "dists_pos": state_stat["dists_pos"].tolist(),
             "dir_pos": state_stat["dir_pos"].tolist(),

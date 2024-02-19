@@ -1,12 +1,12 @@
 # Created by shaji at 08/02/2024
 import torch
 import math
+import numpy as np
 
 
 def calculate_direction(points, reference_point):
     directions = []
     for r_i in range(points.shape[0]):
-
         x_ref, y_ref = reference_point[0].squeeze()
 
         x, y = points[r_i].squeeze()
@@ -16,10 +16,23 @@ def calculate_direction(points, reference_point):
         angle_radians = torch.atan2(delta_y, delta_x)
         angle_degrees = math.degrees(angle_radians)
 
-
         directions.append(angle_degrees)
 
     return directions
+
+
+def get_90_percent_range_2d(data):
+    """
+    Get the range that covers 90% of the data for each dimension using PyTorch's percentile.
+    Assumes the data is a 2D PyTorch tensor of shape (n_samples, 2).
+    Returns two tuples (x_range, y_range) representing the ranges for each dimension.
+    """
+    # Calculate the 5th and 95th percentiles for each dimension
+
+    ranges = np.zeros((data.shape[1], 2))
+    for i in range(data.shape[1]):
+        ranges[i] = np.percentile(data[:, i], [5, 95])
+    return ranges
 
 
 def one_step_move(data, direction, distance):
@@ -106,18 +119,20 @@ def closest_multiple_of_45(degrees):
 
     return closest_multiple / 360
 
-def dir_ab_with_alignment_batch(data_A, data_B, indices ):
+
+def dir_ab_with_alignment_batch(data_A, data_B, indices):
     directions = []
     for d_i in range(data_A.shape[0]):
         index = indices[d_i]
         a = data_A[d_i]
-        b = data_B[d_i][index:index+1]
+        b = data_B[d_i][index:index + 1]
         dir = dir_a_and_b_with_alignment(a, b).tolist()
         directions.append(dir)
     directions = torch.tensor(directions).squeeze(1)
     return directions
-def dir_a_and_b_with_alignment(data_A, data_B):
 
+
+def dir_a_and_b_with_alignment(data_A, data_B):
     directions = calculate_direction(data_B, data_A)
     directions_aligned = closest_multiple_of_45(directions).unsqueeze(1)
 
