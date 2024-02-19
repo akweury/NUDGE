@@ -1,6 +1,9 @@
 # Created by jing at 28.11.23
 import torch
 import numpy as np
+from sklearn import svm
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
 from pi.utils import draw_utils, math_utils
 from pi.neural import nn_model
@@ -244,6 +247,24 @@ class Dist_Closest():
         self.model = nn_model.fit_classifier(x_tensor=X, y_tensor=y,
                                              num_epochs=self.num_epochs, device=self.args.device,
                                              classifier_type=self.name, plot_path=self.plot_path)
+
+
+        # Assuming X contains your features and y contains labels (0 for Group A, 1 for Group B)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+        # Create a kernelized SVM (you can tune hyperparameters as needed)
+        classifier = svm.SVC(kernel='rbf', C=1.0)
+        classifier.fit(X_train, y_train)
+        self.model = classifier
+
+        # Predict labels
+        y_pred = classifier.predict(X_test)
+
+        # Evaluate performance
+        accuracy = accuracy_score(y_test, y_pred)
+
+        print("Accuracy:", accuracy)
+
         if self.args.with_explain:
             pos_indices = torch.argmax(y, dim=1) == 0
             pos_data = X[pos_indices]
