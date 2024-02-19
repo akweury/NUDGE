@@ -790,6 +790,8 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
 
         else:
             dist = torch.zeros(2)
+            data_A = torch.zeros(2)
+            data_A_neg = torch.zeros(2)
             dist_neg = torch.zeros(2)
             dist_dir_pos = torch.zeros(2)
             dist_dir_neg = torch.zeros(2)
@@ -803,10 +805,10 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
         var_neg = var_neg.sum()
         mean_neg = means_neg.sum()
 
+
         if len(dist_dir_pos) < 3 or var_neg == 0 or dist.sum() == 0:
             var_pos = 1e+20
             mean_pos = 1e+20
-
         variances[t_i] = var_pos
         means[t_i] = mean_pos
         variances_neg[t_i] = var_neg
@@ -816,6 +818,7 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
             {"dists_pos": dist, "dir_pos": dir_ab,
              "dists_neg": dist_neg, "dir_ab_neg": dir_ab_neg,
              "means": mean_pos, "variances": var_pos,
+             "position_pos": data_A.squeeze(), "position_neg": data_A_neg.squeeze(),
              "action_type": action_type, "mask_type": mask_type, "prop_type": prop_type, "obj_types": obj_type,
              "indices": mask_action_state_pos})
     variances_ranked, v_rank = variances.sort()
@@ -831,6 +834,8 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
         behs.append({
             "dists_pos": state_stat["dists_pos"].tolist(),
             "dir_pos": state_stat["dir_pos"].tolist(),
+            "position_pos": state_stat["position_pos"].tolist(),
+            "position_neg": state_stat["position_neg"].tolist(),
             "dists_neg": state_stat["dists_neg"].tolist(),
             "dir_ab_neg": state_stat["dir_ab_neg"].tolist(),
             "means": state_stat["means"].tolist(),

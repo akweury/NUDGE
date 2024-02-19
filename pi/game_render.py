@@ -96,8 +96,9 @@ def render_atari_game(agent, args, save_buffer):
                 if args.with_explain:
                     _render(args, agent, env_args, video_out)
 
-                game_utils.frame_log(agent, env_args)
+                    game_utils.frame_log(agent, env_args)
             # update game args
+
             env_args.update_args()
         env_args.buffer_game(args.zero_reward, args.save_frame)
 

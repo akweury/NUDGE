@@ -254,8 +254,8 @@ def kangaroo_patches(env_args, reward, lives):
 def plot_mt_asterix(env_args, agent):
     if agent.agent_type == "smp":
         explain_str = ""
-        for beh_i in env_args.explaining['behavior_index']:
-            explain_str += f"{agent.behaviors[beh_i].clause}\n"
+        for i, beh_i in enumerate(env_args.explaining['behavior_index']):
+            explain_str += f"{env_args.explaining['behavior_conf'][i]:.1f} {agent.behaviors[beh_i].clause}\n"
         data = (f"Max steaks: {env_args.max_steak}\n"
                 f"Frame Beh: act: {agent.args.action_names[env_args.action]}\n"
                 f"{explain_str}"
@@ -395,7 +395,7 @@ def frame_log(agent, env_args):
     if agent.agent_type == "smp":
         for beh_i in env_args.explaining['behavior_index']:
             print(
-                f"({agent.agent_type}) f: {env_args.frame_i}, rw: {env_args.reward}, act: {env_args.action}, "
+                f"({agent.agent_type})g: {env_args.game_i} f: {env_args.frame_i}, rw: {env_args.reward}, act: {env_args.action}, "
                 f"behavior: {agent.behaviors[beh_i].clause}")
 
 

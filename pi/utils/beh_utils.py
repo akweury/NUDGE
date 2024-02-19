@@ -53,10 +53,13 @@ def create_positive_behaviors(args, pos_beh_data):
 def create_negative_behavior(args, beh_i, beh):
     # create defense behaviors
 
-    dists = torch.tensor(beh["dists_pos"], dtype=torch.float32)
-    dirs = torch.tensor(beh["dir_pos"], dtype=torch.float32)
-    dists_pos = torch.tensor(beh["dists_neg"], dtype=torch.float32)
-    dirs_pos = torch.tensor(beh["dir_ab_neg"], dtype=torch.float32)
+    dist_pos = torch.tensor(beh["dists_pos"], dtype=torch.float32)
+    dir_pos = torch.tensor(beh["dir_pos"], dtype=torch.float32)
+    dist_neg = torch.tensor(beh["dists_neg"], dtype=torch.float32)
+    dir_neg = torch.tensor(beh["dir_ab_neg"], dtype=torch.float32)
+    pos_pos = torch.tensor(beh["position_pos"], dtype=torch.float32)
+    pos_neg = torch.tensor(beh["position_neg"], dtype=torch.float32)
+
     expected_reward = beh["rewards"]
     obj_combs = beh["obj_combs"]
     prop_combs = beh["prop_combs"]
@@ -64,15 +67,15 @@ def create_negative_behavior(args, beh_i, beh):
     mask = beh["masks"]
 
     # create predicate
-    dir_var, dir_mean = torch.var_mean(dists)
-    dist_var, dist_mean = torch.var_mean(dists_pos, dim=0)
+    dir_var, dir_mean = torch.var_mean(dist_pos)
+    dist_var, dist_mean = torch.var_mean(dist_neg, dim=0)
     dir_name = math_utils.pol2dir_name(dir_mean)
 
     pred_name = f"{dir_name}_dir{dir_mean:.1f}_x_{dist_mean[0]:.1f}_y_{dist_mean[1]:.1f}"
 
-    dist_dir = torch.cat((dists, dirs), dim=1)
-    dist_dir_pos = torch.cat((dists_pos, dirs_pos), dim=1)
-    dist_pred = predicate.Dist_Closest(args, X_0=dist_dir, X_1=dist_dir_pos, name=pred_name,
+    dist_dir_pos = torch.cat((dist_pos, dir_pos, pos_pos), dim=1)
+    dist_dir_neg = torch.cat((dist_neg, dir_neg, pos_neg), dim=1)
+    dist_pred = predicate.Dist_Closest(args, X_0=dist_dir_pos, X_1=dist_dir_neg, name=pred_name,
                                        plot_path=args.check_point_path / "defensive")
     dist_pred.fit_pred()
     pred = [dist_pred]
@@ -80,7 +83,7 @@ def create_negative_behavior(args, beh_i, beh):
     beh_fact = VarianceFact(mask, obj_combs, prop_combs, pred)
     neg_beh = True
 
-    behavior = Behavior(neg_beh, [beh_fact], action_type, expected_reward, len(dists), len(dists), 0, 0)
+    behavior = Behavior(neg_beh, [beh_fact], action_type, expected_reward, len(dist_pos), len(dist_pos), 0, 0)
     behavior.clause = pi_lang.behavior2clause(args, behavior)
     if args.with_explain:
         print(f"# defense behavior: {behavior.clause}")
@@ -117,6 +120,8 @@ def create_attack_behavior(args, beh_i, beh):
     dists_neg = torch.tensor(beh["dists_neg"], dtype=torch.float32)
     dir_pos = torch.tensor(beh["dir_pos"], dtype=torch.float32)
     dir_neg = torch.tensor(beh["dir_ab_neg"], dtype=torch.float32)
+    pos_pos = torch.tensor(beh["position_pos"], dtype=torch.float32)
+    pos_neg = torch.tensor(beh["position_neg"], dtype=torch.float32)
     expected_reward = beh["rewards"]
     obj_combs = beh["obj_combs"]
     prop_combs = beh["prop_combs"]
@@ -132,9 +137,9 @@ def create_attack_behavior(args, beh_i, beh):
     dist_var, dist_mean = torch.var_mean(dists_pos, dim=0)
     dir_name = math_utils.pol2dir_name(dir_mean)
 
-    pred_name = f"{dir_name}_dir{dir_mean:.1f}_x_{dist_mean[0]:.1f}_y_{dist_mean[1]:.1f}"
-    dist_dir_pos = torch.cat((dists_pos, dir_pos), dim=1)
-    dist_dir_neg = torch.cat((dists_neg, dir_neg), dim=1)
+    pred_name = f"{dir_name}_dir_{dir_mean:.1f}_x_{dist_mean[0]:.2f}_y_{dist_mean[1]:.2f}"
+    dist_dir_pos = torch.cat((dists_pos, dir_pos, pos_pos), dim=1)
+    dist_dir_neg = torch.cat((dists_neg, dir_neg, pos_neg), dim=1)
     if torch.abs(dist_dir_pos[:,:2]).max()>0.2:
         print("too big")
     dist_pred = predicate.Dist_Closest(args, X_0=dist_dir_pos, X_1=dist_dir_neg, name=pred_name,
@@ -169,7 +174,7 @@ def update_attack_behaviors(args, behaviors, att_behavior_data):
                 behavior_exist = True
                 break
         if not behavior_exist:
-            behavior, db_plot = create_attack_behavior(args, data_i, beh_data)
+            behavior = create_attack_behavior(args, data_i, beh_data)
             if args.with_explain:
                 print(f"- new behavior {behavior.clause}")
             attack_behaviors.append(behavior)

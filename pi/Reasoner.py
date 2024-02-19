@@ -44,7 +44,7 @@ class SmpReasoner(nn.Module):
         # game Getout: tensor with size 1 * 4 * 6
         action_prob = torch.zeros(1, len(self.args.action_names))
         action_mask = torch.zeros(1, len(self.args.action_names), dtype=torch.bool)
-        explains = {"behavior_index": [], "reward": [], 'state':x}
+        explains = {"behavior_index": [], "reward": [], 'state': x, "behavior_conf": []}
         mask_pos_beh, mask_neg_beh, beh_confidence = self.get_beh_mask(x)
 
         mask_neg_beh = mask_neg_beh * (beh_confidence > 0)
@@ -58,6 +58,7 @@ class SmpReasoner(nn.Module):
                 pred_action = beh.action
                 action_mask[0, pred_action] = True
                 explains["behavior_index"].append(neg_index)
+                explains["behavior_conf"].append(beh_confidence[neg_index])
 
         # path finding behavior
 
@@ -65,8 +66,12 @@ class SmpReasoner(nn.Module):
             for beh_index in mask_pos_beh.nonzero().reshape(-1):
                 behavior = self.behaviors[beh_index]
                 if not action_mask[0, behavior.action]:
-                    action_prob[0, behavior.action] = beh_confidence[beh_index]
-                    explains["behavior_index"].append(beh_index)
+                    if beh_confidence[beh_index] > 1e-2:
+                        action_prob[0, behavior.action] = beh_confidence[beh_index]
+                        explains["behavior_index"].append(beh_index)
+                        explains["behavior_conf"].append(beh_confidence[beh_index])
 
         action_prob[action_mask] = -1e+20
+        # print(f"max conf: {action_prob.max()}")
+
         return action_prob, explains
