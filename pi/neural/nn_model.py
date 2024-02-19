@@ -35,9 +35,9 @@ def generate_data(pos_data, gen_num):
     kde.fit(pos_data)
     # Generate new points
     new_points = torch.from_numpy(kde.sample(gen_num)).to(torch.float32)
-    print(f"max, new: {new_points[:, 2].max()}, old:{pos_data[:,2].max()}")
-    print(f"min new : {new_points[:, 2].min()}, old: {pos_data[:,2].min()}")
-
+    # print(f"max, new: {new_points[:, 2].max()}, old:{pos_data[:,2].max()}")
+    # print(f"min new : {new_points[:, 2].min()}, old: {pos_data[:,2].min()}")
+    #
 
     return new_points
 

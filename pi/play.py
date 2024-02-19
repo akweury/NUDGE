@@ -8,7 +8,8 @@ from pi import game_buffer, game_settings
 from pi.utils import game_utils, args_utils
 from src import config
 
-
+num_cores = os.cpu_count()
+os.environ['OMP_NUM_THREADS'] = str(1)
 def main(render=True, m=None):
     # load arguments
     args = args_utils.load_args(config.path_exps, m)
@@ -26,7 +27,7 @@ def main(render=True, m=None):
         agent.load_atari_buffer(args)
     args = game_settings.switch_hardness(args)
     att_behaviors = agent.reasoning_att_behaviors()
-    pf_behaviors = agent.reasoning_pf_behaviors()
+    pf_behaviors = agent.reasoning_path_behaviors()
     def_behaviors = agent.reasoning_def_behaviors()
     agent.update_behaviors(pf_behaviors=pf_behaviors, def_behaviors=def_behaviors, att_behaviors=att_behaviors, args=args)
 

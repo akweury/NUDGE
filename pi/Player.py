@@ -290,6 +290,47 @@ class SymbolicMicroProgramPlayer:
             print(f"# attack behavior: {attack_behavior.clause}")
         self.att_behaviors = attack_behaviors
 
+    def reasoning_path_behaviors(self, use_ckp=True):
+        if len(self.pos_data) == 0:
+            return []
+        stat_file = self.args.check_point_path / "path_finding" / f"pf_stats.json"
+        if use_ckp and os.path.exists(stat_file):
+            pf_behavior_data = file_utils.load_json(stat_file)
+        else:
+            pf_behavior_data = smp_utils.stat_zero_rewards(self.win_states,
+                                                      self.win_actions,
+                                                      self.win_rewards,
+                                                      self.args.zero_reward,
+                                                      self.args.obj_info,
+                                                      self.prop_indices,
+                                                      self.args.var_th,
+                                                      "path_finding",
+                                                      self.args.action_names,
+                                                      self.args.step_dist)
+            for beh_i, beh_data in enumerate(pf_behavior_data):
+                data = [[torch.tensor(beh_data["dists_pos"])[:, 0], torch.tensor(beh_data["dists_neg"])[:, 0]],
+                        [torch.tensor(beh_data["dists_pos"])[:, 1], torch.tensor(beh_data["dists_neg"])[:, 1]],
+                        [torch.tensor(beh_data["dir_pos"]).squeeze(), torch.tensor(beh_data["dir_ab_neg"]).squeeze()]
+                        ]
+                beh_name = f"{beh_i}_{self.args.action_names[beh_data['action_type']]}_{beh_data['obj_combs']}_var_{beh_data['variance']:.2f}"
+                draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
+                                          beh_name, self.args.check_point_path / "path_finding", figure_size=(30, 10))
+            file_utils.save_json(stat_file, pf_behavior_data)
+        pf_behavior_file = self.args.check_point_path / "path_finding" / f"pf_behaviors.pkl"
+        if os.path.exists(pf_behavior_file):
+            pf_behaviors = file_utils.load_pickle(pf_behavior_file)
+            pf_behaviors = beh_utils.update_pf_behaviors(self.args, pf_behaviors, pf_behavior_data)
+        else:
+            pf_behaviors = []
+            print(f'- Create {len(pf_behavior_data)} path_finding behaviors')
+            for beh_i, beh in enumerate(pf_behavior_data):
+                pf_behaviors.append(beh_utils.create_pf_behavior(self.args, beh_i, beh))
+            file_utils.save_pkl(pf_behavior_file, pf_behaviors)
+
+        for pf_behavior in pf_behaviors:
+            print(f"# Path Finding behavior: {pf_behavior.clause}")
+        self.pf_behaviors = pf_behaviors
+
     def reasoning_pf_behaviors(self):
         print(f"Reasoning defensive behaviors...")
         ############# learn from positive rewards

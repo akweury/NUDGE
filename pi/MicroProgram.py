@@ -405,15 +405,15 @@ class SymbolicMicroProgram(nn.Module):
         self.lost_states = torch.tensor(self.lost_states)
         self.lost_game_ids = torch.tensor(self.lost_game_ids)
 
-    def extract_behaviors(self, facts, fact_actions):
-        beh_indices = fact_actions.sum(dim=-1) == 1
-        beh_facts = facts[beh_indices]
-        beh_actions = fact_actions[beh_indices].argmax(dim=-1)
-        behaviors = []
-        for beh_i in range(len(beh_facts)):
-            behavior = Behavior(beh_facts[beh_i], beh_actions[beh_i], 0)
-            behaviors.append(behavior)
-        return behaviors
+    # def extract_behaviors(self, facts, fact_actions):
+    #     beh_indices = fact_actions.sum(dim=-1) == 1
+    #     beh_facts = facts[beh_indices]
+    #     beh_actions = fact_actions[beh_indices].argmax(dim=-1)
+    #     behaviors = []
+    #     for beh_i in range(len(beh_facts)):
+    #         behavior = Behavior(beh_facts[beh_i], beh_actions[beh_i], 0)
+    #         behaviors.append(behavior)
+    #     return behaviors
 
     def teacher_searching(self, game_info, prop_indices):
         # strategy: action, objects, mask, properties, if predicates are valid

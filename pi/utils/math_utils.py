@@ -3,22 +3,21 @@ import torch
 import math
 
 
-def calculate_direction(points, reference_points):
+def calculate_direction(points, reference_point):
     directions = []
-    for r_i, reference_point in enumerate(reference_points.squeeze()):
-        directions_ri = []
-        x_ref, y_ref = reference_point
-        for point in points[r_i].squeeze():
-            x, y = point
-            delta_x = x - x_ref
-            delta_y = y - y_ref
+    for r_i in range(points.shape[0]):
 
-            angle_radians = torch.atan2(delta_y, delta_x)
-            angle_degrees = math.degrees(angle_radians)
+        x_ref, y_ref = reference_point[0].squeeze()
 
-            directions_ri.append(angle_degrees)
-        directions.append(directions_ri)
-    directions = torch.tensor(directions) / 180
+        x, y = points[r_i].squeeze()
+        delta_x = x - x_ref
+        delta_y = y - y_ref
+
+        angle_radians = torch.atan2(delta_y, delta_x)
+        angle_degrees = math.degrees(angle_radians)
+
+
+        directions.append(angle_degrees)
 
     return directions
 
@@ -90,18 +89,39 @@ def dir_a_and_b(data_A, data_B):
     return dir
 
 
-def dir_a_and_b_next_step_by_index(data_A, data_B, b_indices):
-    dir = torch.zeros(data_A.shape[0], data_A.shape[1])
-    for i in range(data_B.shape[0]):
-        data_B_closest = data_B[i, b_indices[i]]
-        dir_vec = torch.sub(data_B_closest, data_A[i, 0])
-        dir_vec[1] = -dir_vec[1]
-        rho, phi = cart2pol(dir_vec[0], dir_vec[1])
-        dir[i] = phi
-    assert (torch.abs(dir) <= 180).prod() == True
-    dir = dir / 180
+def closest_multiple_of_45(degrees):
+    # Ensure the input degree is within the range [0, 360]
+    degrees = torch.tensor(degrees)
+    degrees = degrees % 360
 
-    return dir
+    # Calculate the remainder when dividing by 45
+    remainder = degrees % 45
+
+    # Determine the closest multiple of 45
+    closest_multiple = degrees - remainder
+
+    # Check if rounding up is closer than rounding down
+
+    closest_multiple[remainder > 22.5] += 45
+
+    return closest_multiple / 360
+
+def dir_ab_with_alignment_batch(data_A, data_B, indices ):
+    directions = []
+    for d_i in range(data_A.shape[0]):
+        index = indices[d_i]
+        a = data_A[d_i]
+        b = data_B[d_i][index:index+1]
+        dir = dir_a_and_b_with_alignment(a, b).tolist()
+        directions.append(dir)
+    directions = torch.tensor(directions).squeeze(1)
+    return directions
+def dir_a_and_b_with_alignment(data_A, data_B):
+
+    directions = calculate_direction(data_B, data_A)
+    directions_aligned = closest_multiple_of_45(directions).unsqueeze(1)
+
+    return directions_aligned
 
 
 def action_to_deg(action_name):
@@ -129,15 +149,15 @@ def action_to_deg(action_name):
 
 
 def pol2dir_name(dir_mean):
-    if -0.05<=dir_mean<0.05:
+    if -0.05 <= dir_mean < 0.05:
         dir_name = "right"
-    elif 0.05<=dir_mean<0.45:
+    elif 0.05 <= dir_mean < 0.45:
         dir_name = "upright"
     elif 0.45 <= dir_mean < 0.55:
         dir_name = "up"
     elif 0.55 <= dir_mean < 0.95:
         dir_name = "upleft"
-    elif 0.95 <= dir_mean <= 1 or -1<=dir_mean<=-0.95:
+    elif 0.95 <= dir_mean <= 1 or -1 <= dir_mean <= -0.95:
         dir_name = "left"
     elif -0.95 <= dir_mean < -0.55:
         dir_name = "downleft"

@@ -255,9 +255,9 @@ def plot_mt_asterix(env_args, agent):
     if agent.agent_type == "smp":
         explain_str = ""
         for i, beh_i in enumerate(env_args.explaining['behavior_index']):
-            explain_str += f"{env_args.explaining['behavior_conf'][i]:.1f} {agent.behaviors[beh_i].clause}\n"
+            explain_str += f"{env_args.explaining['behavior_conf'][i]:.1f} {agent.behaviors[beh_i].beh_type} {agent.behaviors[beh_i].clause}\n"
         data = (f"Max steaks: {env_args.max_steak}\n"
-                f"Frame Beh: act: {agent.args.action_names[env_args.action]}\n"
+                f"(Frame) Behavior act: {agent.args.action_names[env_args.action]}\n"
                 f"{explain_str}"
                 f"# PF Behaviors: {len(agent.pf_behaviors)}\n"
                 f"# Def Behaviors: {len(agent.def_behaviors)}\n"
