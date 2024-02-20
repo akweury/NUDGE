@@ -201,7 +201,7 @@ class SymbolicMicroProgramPlayer:
         return False
 
     def reasoning_def_behaviors(self, use_ckp=True, show_log=True):
-        print(f"Reasoning defensive behaviors...")
+        # print(f"Reasoning defensive behaviors...")
         # if no data for defensive behaviors exist
         if len(self.lost_states) == 0:
             return [], []
@@ -233,7 +233,7 @@ class SymbolicMicroProgramPlayer:
             defense_behaviors = file_utils.load_pickle(neg_beh_file)
             defense_behaviors = beh_utils.update_negative_behaviors(self.args, defense_behaviors,
                                                                     def_beh_data)
-            if show_log:
+            if self.args.with_explain:
                 for def_beh in defense_behaviors:
                     print(f"# defense behavior: {def_beh.clause}")
             file_utils.save_pkl(neg_beh_file, defense_behaviors)
@@ -242,7 +242,7 @@ class SymbolicMicroProgramPlayer:
             defense_behaviors = []
             db_plots = []
             for beh_i, beh in enumerate(def_beh_data):
-                print(f"- Creating defense behavior {beh_i + 1}/{len(def_beh_data)}...")
+                # print(f"- Creating defense behavior {beh_i + 1}/{len(def_beh_data)}...")
                 behavior = beh_utils.create_negative_behavior(self.args, beh_i, beh)
                 db_plots.append({"plot_i": beh_i})
                 defense_behaviors.append(behavior)
@@ -281,13 +281,13 @@ class SymbolicMicroProgramPlayer:
             attack_behaviors = beh_utils.update_attack_behaviors(self.args, attack_behaviors, att_behavior_data)
         else:
             attack_behaviors = []
-            print(f'- Create {len(att_behavior_data)} attack behaviors')
+            # print(f'- Create {len(att_behavior_data)} attack behaviors')
             for beh_i, beh in enumerate(att_behavior_data):
                 attack_behaviors.append(beh_utils.create_attack_behavior(self.args, beh_i, beh))
             file_utils.save_pkl(att_behavior_file, attack_behaviors)
 
-        for attack_behavior in attack_behaviors:
-            print(f"# attack behavior: {attack_behavior.clause}")
+        # for attack_behavior in attack_behaviors:
+        #     print(f"# attack behavior: {attack_behavior.clause}")
         self.att_behaviors = attack_behaviors
 
     def reasoning_path_behaviors(self, use_ckp=True):
@@ -322,17 +322,17 @@ class SymbolicMicroProgramPlayer:
             pf_behaviors = beh_utils.update_pf_behaviors(self.args, pf_behaviors, pf_behavior_data)
         else:
             pf_behaviors = []
-            print(f'- Create {len(pf_behavior_data)} path_finding behaviors')
+            # print(f'- Create {len(pf_behavior_data)} path_finding behaviors')
             for beh_i, beh in enumerate(pf_behavior_data):
                 pf_behaviors.append(beh_utils.create_pf_behavior(self.args, beh_i, beh))
             file_utils.save_pkl(pf_behavior_file, pf_behaviors)
 
-        for pf_behavior in pf_behaviors:
-            print(f"# Path Finding behavior: {pf_behavior.clause}")
+        # for pf_behavior in pf_behaviors:
+        #     print(f"# Path Finding behavior: {pf_behavior.clause}")
         self.pf_behaviors = pf_behaviors
 
     def reasoning_pf_behaviors(self):
-        print(f"Reasoning defensive behaviors...")
+        # print(f"Reasoning defensive behaviors...")
         ############# learn from positive rewards
         pos_states_stat_file = self.args.check_point_path / "path_finding" / f"pf_stats.json"
         if os.path.exists(pos_states_stat_file):

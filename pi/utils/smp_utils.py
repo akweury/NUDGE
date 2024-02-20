@@ -907,7 +907,7 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
         obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
         obj_a_indices = obj_combs[:, 0].unique()
         obj_b_indices = obj_combs[:, 1].unique()
-        if len(obj_a_indices) == 1 and states_action_pos.shape[0] > 2:
+        if len(obj_a_indices) == 1 and states_action_pos.shape[0] > 8:
             action_name = action_names[action_type]
             action_dir = math_utils.action_to_deg(action_name)
 
@@ -971,25 +971,26 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
         dist_range = math_utils.get_90_percent_range_2d(state_stat["dists_pos"].numpy())
         if np.abs(dist_range).max() > 0.1:
             continue
-        if state_stat["dir_pos"].max()>1:
+        if state_stat["dir_pos"].max() > 1:
             print("")
         dir_value = state_stat["dir_pos"]
         dir_quarter_value = math_utils.closest_quarter(dir_value)
-
-
-        dir_degree = math_utils.get_frequnst_value(dir_quarter_value)
+        dir_quarter_values, dir_counts = dir_quarter_value.unique(return_counts=True)
+        dir_conf = dir_counts / dir_counts.sum()
 
         action_id = state_stat["action_type"].tolist()
         action_value = math_utils.action_to_deg(action_names[action_id])
-        if not action_value == dir_degree and action_value != 100:
-            print(f"aciton value {action_value}, data direction: {dir_degree} variance: {state_stat['variances'].tolist()}")
+        if action_value not in dir_quarter_values.tolist() and action_value != 100:
+            print(f"aciton value {action_value}, data direction: {dir_quarter_values} "
+                  f"variance: {state_stat['variances'].tolist()}")
             print("")
 
         # dir_degree = math_utils.range_to_direction(dir_range.squeeze())
         # symbolize the data further with specific direction and distance
         behs.append({
             "dist_range": dist_range.tolist(),
-            "dir_degree": dir_degree.tolist(),
+            "dir_range": dir_quarter_values.tolist(),
+            "dir_conf": dir_conf.tolist(),
             "dists_pos": state_stat["dists_pos"].tolist(),
             "dir_pos": state_stat["dir_pos"].tolist(),
             "position_pos": state_stat["position_pos"].tolist(),

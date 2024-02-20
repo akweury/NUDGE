@@ -12,7 +12,7 @@ def calculate_direction(points, reference_point):
 
         x, y = points[r_i].squeeze()
         delta_x = x - x_ref
-        delta_y = y - y_ref
+        delta_y = y_ref- y
 
         angle_radians = torch.atan2(delta_y, delta_x)
         angle_degrees = math.degrees(angle_radians)
@@ -58,7 +58,7 @@ def get_90_percent_range_2d(data):
 
     ranges = np.zeros((data.shape[-1], 2))
     for i in range(data.shape[-1]):
-        ranges[i] = np.percentile(data[:, i], [5, 95])
+        ranges[i] = np.percentile(data[:, i], [2, 98])
     return ranges
 
 
@@ -99,7 +99,7 @@ def dist_a_and_b_closest(data_A, data_B):
         _, closest_index = torch.abs(dist_all).min(dim=1)
         dist = torch.zeros(data_B.size(0), data_B.size(2))
         for i in range(closest_index.size(0)):
-            dist[i] = diff_abs[i, closest_index[i], :]
+            dist[i] = torch.abs(diff_abs[i, closest_index[i], :])
     else:
         dist = data_A - data_B
 

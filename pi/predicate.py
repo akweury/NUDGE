@@ -207,11 +207,12 @@ class Dist_Closest():
     """ generate one micro-program
     """
 
-    def __init__(self, args, dist_range, dir_avg, name, plot_path):
+    def __init__(self, args, dist_range, dir_range, dir_conf, name, plot_path):
         super().__init__()
         self.args = args
         self.dist_range = dist_range
-        self.dir_avg = dir_avg
+        self.dir_range = dir_range
+        self.dir_conf = dir_conf
         self.model = None
         self.num_epochs = args.train_nn_epochs
         self.name = f"{name}"
@@ -301,10 +302,17 @@ class Dist_Closest():
 
         mask_x = (dist[:, 0] <= x_max) * (dist[:, 0] >= x_min)
         mask_y = (dist[:, 1] <= y_max) * (dist[:, 1] >= y_min)
-        mask_dir = dir.squeeze() == self.dir_avg
+        mask_dir = torch.zeros(len(mask_x), dtype=torch.bool).to(t2.device)
+        conf_dir = torch.zeros(len(mask_x)).to(t2.device)
+        for d_i, d in enumerate(dir):
+            if d in self.dir_range:
+                mask_dir[d_i] = True
+                conf_dir[d_i] = self.dir_conf[self.dir_range == d]
+
         mask = mask_x * mask_y * mask_dir
+        conf_dir[~mask] = 0
         # Use the trained model to predict the new value
-        new_value_prediction = mask.sum() / (mask.sum() + 1e-20)
+        new_value_prediction = conf_dir.max()
         # satisfactions = new_value_prediction.argmax(dim=1) == self.y_0
 
         return new_value_prediction

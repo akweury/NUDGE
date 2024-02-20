@@ -53,7 +53,8 @@ def create_positive_behaviors(args, pos_beh_data):
 def create_negative_behavior(args, beh_i, beh):
     # create defense behaviors
     dist_range_pos = torch.tensor(beh["dist_range"], dtype=torch.float32)
-    dir_avg = torch.tensor(beh["dir_degree"], dtype=torch.float32)
+    dir_range_pos = torch.tensor(beh["dir_range"], dtype=torch.float32)
+    dir_conf_pos = torch.tensor(beh["dir_conf"], dtype=torch.float32)
 
     dist_pos = torch.tensor(beh["dists_pos"], dtype=torch.float32)
     dir_pos = torch.tensor(beh["dir_pos"], dtype=torch.float32)
@@ -69,13 +70,15 @@ def create_negative_behavior(args, beh_i, beh):
     mask = beh["masks"]
 
     # create predicate
-    dir_name = math_utils.pol2dir_name(dir_avg)
+    dir_names = []
+    for dir in dir_range_pos:
+        dir_names.append(math_utils.pol2dir_name(dir))
 
-    pred_name = (f"dir_{dir_name}_xi{dist_range_pos[0][0]:.2f}_xa{dist_range_pos[0][1]:.2f}_"
-                 f"yi_{dist_range_pos[1][0]:.2f}_ya{dist_range_pos[1][0]:.2f}")
+    pred_name = (f"dir_{dir_names}_xi{dist_range_pos[0][0]:.2f}_xa{dist_range_pos[0][1]:.2f}_"
+                 f"yi_{dist_range_pos[1][0]:.2f}_ya{dist_range_pos[1][1]:.2f}")
 
-    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dir_avg=dir_avg, name=pred_name,
-                                       plot_path=args.check_point_path / "defensive")
+    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dir_range=dir_range_pos, dir_conf=dir_conf_pos,
+                                       name=pred_name, plot_path=args.check_point_path / "defensive")
     pred = [dist_pred]
 
     beh_fact = VarianceFact(mask, obj_combs, prop_combs, pred)
@@ -107,7 +110,7 @@ def update_negative_behaviors(args, behaviors, def_beh_data):
         #         break
         if not behavior_exist:
             behavior = create_negative_behavior(args, data_i, beh_data)
-            print(f"- new behavior {behavior.clause}")
+            # print(f"- new behavior {behavior.clause}")
             defense_behaviors.append(behavior)
     return defense_behaviors
 
@@ -115,7 +118,7 @@ def update_negative_behaviors(args, behaviors, def_beh_data):
 def create_pf_behavior(args, beh_i, beh):
     # create attack behaviors
     dist_range_pos = torch.tensor(beh["dist_range"], dtype=torch.float32)
-    dir_avg = torch.tensor(beh["dir_degree"], dtype=torch.float32)
+    dir_range_pos = torch.tensor(beh["dir_range"], dtype=torch.float32)
 
     expected_reward = beh["rewards"]
     obj_combs = beh["obj_combs"]
@@ -124,13 +127,15 @@ def create_pf_behavior(args, beh_i, beh):
     mask = beh["masks"]
 
     # create predicate
-    dir_name = math_utils.pol2dir_name(dir_avg)
-    pred_name = (f"dir_{dir_name}_xi{dist_range_pos[0][0]:.2f}_xa{dist_range_pos[0][1]:.2f}_"
-                 f"yi_{dist_range_pos[1][0]:.2f}_ya{dist_range_pos[1][0]:.2f}")
+    dir_names = []
+    for dir in dir_range_pos:
+        dir_names.append(math_utils.pol2dir_name(dir))
+    pred_name = (f"dir_{dir_names}_xi{dist_range_pos[0][0]:.2f}_xa{dist_range_pos[0][1]:.2f}_"
+                 f"yi_{dist_range_pos[1][0]:.2f}_ya{dist_range_pos[1][1]:.2f}")
     # dir_pos = torch.cat((dir_pos), dim=1)
     # dir_neg = torch.cat((dir_neg, pos_neg), dim=1)
 
-    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dir_avg=dir_avg, name=pred_name,
+    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dir_range=dir_range_pos, name=pred_name,
                                        plot_path=args.check_point_path / "path_finding")
     pred = [dist_pred]
 
@@ -148,7 +153,9 @@ def create_pf_behavior(args, beh_i, beh):
 def create_attack_behavior(args, beh_i, beh):
     # create attack behaviors
     dist_range_pos = torch.tensor(beh["dist_range"], dtype=torch.float32)
-    dir_avg = torch.tensor(beh["dir_degree"], dtype=torch.float32)
+    dir_range_pos = torch.tensor(beh["dir_range"], dtype=torch.float32)
+    dir_conf_pos = torch.tensor(beh["dir_conf"], dtype=torch.float32)
+
     pos_pos = torch.tensor(beh["position_pos"], dtype=torch.float32)
     pos_neg = torch.tensor(beh["position_neg"], dtype=torch.float32)
     expected_reward = beh["rewards"]
@@ -158,13 +165,15 @@ def create_attack_behavior(args, beh_i, beh):
     mask = beh["masks"]
 
     # create predicate
-    dir_name = math_utils.pol2dir_name(dir_avg)
+    dir_names = []
+    for dir in dir_range_pos:
+        dir_names.append(math_utils.pol2dir_name(dir))
 
-    pred_name = (f"dir_{dir_name}_xi{dist_range_pos[0][0]:.2f}_xa{dist_range_pos[0][1]:.2f}_"
-                 f"yi_{dist_range_pos[1][0]:.2f}_ya{dist_range_pos[1][0]:.2f}")
+    pred_name = (f"dir_{dir_names}_xi{dist_range_pos[0][0]:.2f}_xa{dist_range_pos[0][1]:.2f}_"
+                 f"yi_{dist_range_pos[1][0]:.2f}_ya{dist_range_pos[1][1]:.2f}")
 
-    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dir_avg=dir_avg, name=pred_name,
-                                       plot_path=args.check_point_path / "attack")
+    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dir_range=dir_range_pos, dir_conf=dir_conf_pos,
+                                       name=pred_name, plot_path=args.check_point_path / "attack")
     pred = [dist_pred]
 
     beh_fact = VarianceFact(mask, obj_combs, prop_combs, pred)
