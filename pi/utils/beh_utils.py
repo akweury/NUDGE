@@ -119,6 +119,7 @@ def create_pf_behavior(args, beh_i, beh):
     # create attack behaviors
     dist_range_pos = torch.tensor(beh["dist_range"], dtype=torch.float32)
     dir_range_pos = torch.tensor(beh["dir_range"], dtype=torch.float32)
+    dir_conf_pos = torch.tensor(beh["dir_conf"], dtype=torch.float32)
 
     expected_reward = beh["rewards"]
     obj_combs = beh["obj_combs"]
@@ -135,8 +136,8 @@ def create_pf_behavior(args, beh_i, beh):
     # dir_pos = torch.cat((dir_pos), dim=1)
     # dir_neg = torch.cat((dir_neg, pos_neg), dim=1)
 
-    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dir_range=dir_range_pos, name=pred_name,
-                                       plot_path=args.check_point_path / "path_finding")
+    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dir_range=dir_range_pos, dir_conf=dir_conf_pos,
+                                       name=pred_name, plot_path=args.check_point_path / "path_finding")
     pred = [dist_pred]
 
     beh_fact = VarianceFact(mask, obj_combs, prop_combs, pred)

@@ -296,20 +296,20 @@ class Dist_Closest():
         input_t1 = t1_move_one_step[0:1]
         input_t2 = t2[0]
         dir = math_utils.dir_a_and_b_with_alignment(input_t1, input_t2).to(t2.device)
-
-        x_min, x_max = self.dist_range[0]
-        y_min, y_max = self.dist_range[1]
-
-        mask_x = (dist[:, 0] <= x_max) * (dist[:, 0] >= x_min)
-        mask_y = (dist[:, 1] <= y_max) * (dist[:, 1] >= y_min)
-        mask_dir = torch.zeros(len(mask_x), dtype=torch.bool).to(t2.device)
-        conf_dir = torch.zeros(len(mask_x)).to(t2.device)
+        mask = torch.zeros(len(input_t2), dtype=torch.bool).to(t2.device)
+        conf_dir = torch.zeros(len(input_t2)).to(t2.device)
         for d_i, d in enumerate(dir):
             if d in self.dir_range:
-                mask_dir[d_i] = True
+                mask[d_i] = True
                 conf_dir[d_i] = self.dir_conf[self.dir_range == d]
 
-        mask = mask_x * mask_y * mask_dir
+        if beh_type != "path_finding":
+            x_min, x_max = self.dist_range[0]
+            y_min, y_max = self.dist_range[1]
+            mask_x = (dist[:, 0] <= x_max) * (dist[:, 0] >= x_min)
+            mask_y = (dist[:, 1] <= y_max) * (dist[:, 1] >= y_min)
+            mask *= mask_x * mask_y
+
         conf_dir[~mask] = 0
         # Use the trained model to predict the new value
         new_value_prediction = conf_dir.max()
