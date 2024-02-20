@@ -8,17 +8,16 @@ class Behavior():
     """ generate one micro-program
     """
 
-    def __init__(self, beh_type, neg_beh, facts, action, reward, passed_state_num, test_passed_state_num, failed_state_num,
-                 test_failed_state_num):
+    def __init__(self, beh_type, neg_beh, facts, action, reward):
         super().__init__()
         self.beh_type=beh_type
         self.fact = facts
         self.action = action
         self.reward = reward
-        self.passed_state_num = passed_state_num
-        self.test_passed_state_num = test_passed_state_num
-        self.failed_state_num = failed_state_num
-        self.test_failed_state_num = test_failed_state_num
+        # self.passed_state_num = passed_state_num
+        # self.test_passed_state_num = test_passed_state_num
+        # self.failed_state_num = failed_state_num
+        # self.test_failed_state_num = test_failed_state_num
         self.neg_beh = neg_beh
         self.clause = None
 
@@ -56,11 +55,6 @@ class Behavior():
                 # try to find the closest obj B
                 data_B = x[:, obj_b_indices][:, :, prop]
                 # behavior is true if all pred is true (and)
-                esti = fact.preds[0].eval(data_A, data_B, self.action, self.beh_type)
-                if self.beh_type == "attack" and esti >10:
-                    print(f"esti: {esti:.1f} {self.clause}")
-                    a=True
-
                 confidence[f_i:f_i + 1] = fact.preds[0].eval(data_A, data_B, self.action, self.beh_type)
             prediction[f_i] = prediction / (len(obj_combs) + 1e-20)
         return confidence

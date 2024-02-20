@@ -2,6 +2,7 @@
 import torch
 import math
 import numpy as np
+from collections import Counter
 
 
 def calculate_direction(points, reference_point):
@@ -21,6 +22,32 @@ def calculate_direction(points, reference_point):
     return directions
 
 
+def degrees_to_direction(degrees):
+    # Ensure degrees are within the range [0, 360)
+    degrees = degrees % 360
+
+    # Define directional sectors
+    sectors = ['right', 'up-right', 'up', 'up-left', 'left', 'down-left', 'down', 'down-right']
+
+    # Determine the index of the closest sector
+    index = (torch.round(degrees / 45) % 8).to(torch.int)
+
+    # Return the corresponding direction
+    return sectors[index]
+
+
+def range_to_direction(given_range):
+    mid_value = (given_range[0] + (given_range[1] - given_range[0]) * 0.5) * 360
+    dir_degree = closest_multiple_of_45(mid_value)
+    return dir_degree
+
+
+def get_frequnst_value(data):
+    unique_values, counts = np.unique(data.reshape(-1), return_counts=True)
+    most_frequency_value = unique_values[np.argmax(counts)]
+    return most_frequency_value
+
+
 def get_90_percent_range_2d(data):
     """
     Get the range that covers 90% of the data for each dimension using PyTorch's percentile.
@@ -29,8 +56,8 @@ def get_90_percent_range_2d(data):
     """
     # Calculate the 5th and 95th percentiles for each dimension
 
-    ranges = np.zeros((data.shape[1], 2))
-    for i in range(data.shape[1]):
+    ranges = np.zeros((data.shape[-1], 2))
+    for i in range(data.shape[-1]):
         ranges[i] = np.percentile(data[:, i], [5, 95])
     return ranges
 
@@ -92,16 +119,18 @@ def cart2pol(x, y):
     return (rho, phi)
 
 
-def dir_a_and_b(data_A, data_B):
-    dir_vec = torch.sub(data_B, data_A)
-    dir_vec[1] = -dir_vec[1]
-    rho, phi = cart2pol(dir_vec[0], dir_vec[1])
-    assert (torch.abs(phi) <= 180).prod() == True
-    dir = phi / 180
+# def dir_a_and_b(data_A, data_B):
+#     dir_vec = torch.sub(data_B, data_A)
+#     dir_vec[1] = -dir_vec[1]
+#     rho, phi = cart2pol(dir_vec[0], dir_vec[1])
+#     assert (torch.abs(phi) <= 180).prod() == True
+#     dir = phi / 180
+#
+#     return dir
 
-    return dir
-
-
+def closest_quarter(dir_value):
+    rounded_dir = torch.round(dir_value /0.25 ) * 0.25
+    return rounded_dir
 def closest_multiple_of_45(degrees):
     # Ensure the input degree is within the range [0, 360]
     degrees = torch.tensor(degrees)
@@ -116,25 +145,35 @@ def closest_multiple_of_45(degrees):
     # Check if rounding up is closer than rounding down
 
     closest_multiple[remainder > 22.5] += 45
+    closest_multiple[closest_multiple <= 180] /= 180
+    closest_multiple[closest_multiple > 180] = -(360 - closest_multiple[closest_multiple > 180]) / 180
+    return closest_multiple
 
-    return closest_multiple / 360
 
-
-def dir_ab_with_alignment_batch(data_A, data_B, indices):
+def dir_ab_batch(data_A, data_B, indices):
     directions = []
     for d_i in range(data_A.shape[0]):
         index = indices[d_i]
         a = data_A[d_i]
         b = data_B[d_i][index:index + 1]
-        dir = dir_a_and_b_with_alignment(a, b).tolist()
+        dir = dir_a_and_b(a,b).tolist()
+        # dir = dir_a_and_b_with_alignment(a, b).tolist()
         directions.append(dir)
-    directions = torch.tensor(directions).squeeze(1)
+    directions = torch.tensor(directions)
     return directions
 
+def dir_a_and_b(data_A, data_B):
+    directions_in_degree = np.array(calculate_direction(data_B, data_A))
+
+    directions_in_degree[directions_in_degree <= 180] /= 180
+    directions_in_degree[directions_in_degree > 180] = -(360 - directions_in_degree[directions_in_degree > 180]) / 180
+    # directions_aligned = closest_multiple_of_45(directions_in_degree).unsqueeze(1)
+
+    return directions_in_degree
 
 def dir_a_and_b_with_alignment(data_A, data_B):
-    directions = calculate_direction(data_B, data_A)
-    directions_aligned = closest_multiple_of_45(directions).unsqueeze(1)
+    directions_in_degree = calculate_direction(data_B, data_A)
+    directions_aligned = closest_multiple_of_45(directions_in_degree).unsqueeze(1)
 
     return directions_aligned
 
@@ -184,3 +223,5 @@ def pol2dir_name(dir_mean):
         raise ValueError
 
     return dir_name
+
+

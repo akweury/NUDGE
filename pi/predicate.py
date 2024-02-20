@@ -207,90 +207,84 @@ class Dist_Closest():
     """ generate one micro-program
     """
 
-    def __init__(self, args, X_0, X_1, name, plot_path):
+    def __init__(self, args, dist_range, dir_avg, name, plot_path):
         super().__init__()
         self.args = args
-        self.X_0 = X_0
-        self.X_1 = X_1
+        self.dist_range = dist_range
+        self.dir_avg = dir_avg
         self.model = None
         self.num_epochs = args.train_nn_epochs
-        self.var, self.mean = torch.var_mean(X_0, dim=0)
-        self.var = self.var.sum()
-        self.mean = self.mean.sum()
         self.name = f"{name}"
         self.plot_path = plot_path
 
         self.y_0 = 0
         self.y_1 = 1
 
-    def add_item(self, x):
-        self.X_0 = torch.cat((self.X_0, x), dim=0)
+    # def gen_data(self):
+    #     X_0 = self.X_0
+    #     # generate enough data
+    #     if len(self.X_1) > len(X_0):
+    #         try:
+    #             generated_points = nn_model.generate_data(X_0, gen_num=len(self.X_1) - len(X_0))
+    #         except:
+    #             X_0 += torch.rand(X_0.shape) * 0.001
+    #             generated_points = nn_model.generate_data(X_0, gen_num=len(self.X_1) - len(X_0))
+    #         X_0 = torch.cat((X_0, generated_points), dim=0)
+    #
+    #     # prepare training data
+    #     X = torch.cat((X_0, self.X_1), dim=0)
+    #     # y = torch.zeros(len(X), 2)
+    #
+    #     y = torch.cat(
+    #         (torch.ones(len(X_0), dtype=torch.bool), torch.zeros(len(self.X_1), dtype=torch.bool)), dim=0)
+    #     return X, y
 
-    def gen_data(self):
-        X_0 = self.X_0
-        # generate enough data
-        if len(self.X_1) > len(X_0):
-            try:
-                generated_points = nn_model.generate_data(X_0, gen_num=len(self.X_1) - len(X_0))
-            except:
-                X_0 += torch.rand(X_0.shape) * 0.001
-                generated_points = nn_model.generate_data(X_0, gen_num=len(self.X_1) - len(X_0))
-            X_0 = torch.cat((X_0, generated_points), dim=0)
+    # def fit_pred(self):
+    #     X, y = s/elf.gen_data()
+    # fit a classifier using neural network
+    # self.model = nn_model.fit_classifier(x_tensor=X, y_tensor=y,
+    #                                      num_epochs=self.num_epochs, device=self.args.device,
+    #                                      classifier_type=self.name, plot_path=self.plot_path)
 
-        # prepare training data
-        X = torch.cat((X_0, self.X_1), dim=0)
-        # y = torch.zeros(len(X), 2)
+    # Generate sample 3D data (replace this with your actual data)
+    # Scatter plot for 3D data
 
-        y = torch.cat(
-            (torch.ones(len(X_0), dtype=torch.bool), torch.zeros(len(self.X_1), dtype=torch.bool)), dim=0)
-        return X, y
+    # Scatter plot for 2D data
+    # from sklearn.mixture import GaussianMixture
+    # n_components = 3  # Number of Gaussian components (you can adjust this)
+    # self.model = GaussianMixture(n_components=n_components, random_state=42)
+    # training_data = self.X_0
+    # self.model.fit(training_data)
+    #
+    # # Plot the training data
+    # plt.scatter(training_data[:, 0], training_data[:, 2], alpha=0.5)
+    #
+    # # Plot Gaussian components
+    # for mean, cov in zip(gmm.means_, gmm.covariances_):
+    #     v, w = np.linalg.eigh(cov)
+    #     v = 2.0 * np.sqrt(2.0) * np.sqrt(v)
+    #     u = w[0] / np.linalg.norm(w[0])
+    #     angle = np.arctan(u[1] / u[0])
+    #     angle = 180.0 * angle / np.pi  # convert to degrees
+    #     ell = plt.matplotlib.patches.Ellipse(mean, v[0], v[2], 180.0 + angle, color='red', alpha=0.5)
+    #     plt.gca().add_patch(ell)
+    #
+    # plt.title('Gaussian Mixture Model')
+    # plt.show()
+    #
+    # print("")
 
-    def fit_pred(self):
-        X, y = self.gen_data()
-        # fit a classifier using neural network
-        # self.model = nn_model.fit_classifier(x_tensor=X, y_tensor=y,
-        #                                      num_epochs=self.num_epochs, device=self.args.device,
-        #                                      classifier_type=self.name, plot_path=self.plot_path)
+    # if self.args.with_explain:
+    #     pos_indices = torch.argmax(y, dim=1) == 0
+    #     pos_data = self.X_0[pos_indices]
+    # neg_data = X[~pos_indices]
 
-        # Generate sample 3D data (replace this with your actual data)
-        # Scatter plot for 3D data
-
-        # Scatter plot for 2D data
-        from sklearn.mixture import GaussianMixture
-        n_components = 3  # Number of Gaussian components (you can adjust this)
-        self.model = GaussianMixture(n_components=n_components, random_state=42)
-        training_data = self.X_0
-        self.model.fit(training_data)
-        #
-        # # Plot the training data
-        # plt.scatter(training_data[:, 0], training_data[:, 2], alpha=0.5)
-        #
-        # # Plot Gaussian components
-        # for mean, cov in zip(gmm.means_, gmm.covariances_):
-        #     v, w = np.linalg.eigh(cov)
-        #     v = 2.0 * np.sqrt(2.0) * np.sqrt(v)
-        #     u = w[0] / np.linalg.norm(w[0])
-        #     angle = np.arctan(u[1] / u[0])
-        #     angle = 180.0 * angle / np.pi  # convert to degrees
-        #     ell = plt.matplotlib.patches.Ellipse(mean, v[0], v[2], 180.0 + angle, color='red', alpha=0.5)
-        #     plt.gca().add_patch(ell)
-        #
-        # plt.title('Gaussian Mixture Model')
-        # plt.show()
-        #
-        # print("")
-
-        # if self.args.with_explain:
-        #     pos_indices = torch.argmax(y, dim=1) == 0
-        #     pos_data = self.X_0[pos_indices]
-        # neg_data = X[~pos_indices]
-
-        # data = [[pos_data[:, 0], neg_data[:, 0]],
-        #         [pos_data[:, 1], neg_data[:, 1]],
-        #         [pos_data[:, 2], neg_data[:, 2]]
-        #         ]
-        # draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
-        #                           self.name, self.plot_path, figure_size=(20, 10))
+    # data = [[pos_data[:, 0], neg_data[:, 0]],
+    #         [pos_data[:, 1], neg_data[:, 1]],
+    #         [pos_data[:, 2], neg_data[:, 2]]
+    #         ]
+    # draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
+    #                           self.name, self.plot_path, figure_size=(20, 10))
 
     def eval(self, t1, t2, action, beh_type):
         direction = torch.tensor([math_utils.action_to_deg(self.args.action_names[action])] * t2.shape[1]).to(t2.device)
@@ -302,22 +296,18 @@ class Dist_Closest():
         input_t2 = t2[0]
         dir = math_utils.dir_a_and_b_with_alignment(input_t1, input_t2).to(t2.device)
 
-        t1_pos = torch.repeat_interleave(t1.squeeze(0), t2.shape[1], dim=0)
-        # dist_dir = torch.cat((dist, dir, t1_pos), dim=1)
+        x_min, x_max = self.dist_range[0]
+        y_min, y_max = self.dist_range[1]
 
-        if  beh_type=="path_finding":
-            x = dir  # x = torch.cat((dir), dim=1)
-        else:
-            x = torch.cat((dist, dir), dim=1)
+        mask_x = (dist[:, 0] <= x_max) * (dist[:, 0] >= x_min)
+        mask_y = (dist[:, 1] <= y_max) * (dist[:, 1] >= y_min)
+        mask_dir = dir.squeeze() == self.dir_avg
+        mask = mask_x * mask_y * mask_dir
         # Use the trained model to predict the new value
-        new_value_prediction = self.model.score_samples(x.to("cpu"))
+        new_value_prediction = mask.sum() / (mask.sum() + 1e-20)
         # satisfactions = new_value_prediction.argmax(dim=1) == self.y_0
-        if new_value_prediction.sum() == 0:
-            conf = 0
-        else:
-            # conf = new_value_prediction[new_value_prediction, self.y_0].max()
-            conf = np.exp(new_value_prediction).max()
-        return conf
+
+        return new_value_prediction
 
 
 class GT():

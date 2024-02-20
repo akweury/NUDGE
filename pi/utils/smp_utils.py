@@ -1,6 +1,7 @@
 # Created by jing at 23.12.23
 import os
 import torch
+import numpy as np
 from tqdm import tqdm
 from itertools import combinations
 import itertools
@@ -767,7 +768,7 @@ def stat_zero_rewards(states, actions, rewards, zero_reward, game_info, prop_ind
         obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
         obj_a_indices = obj_combs[:, 0].unique()
         obj_b_indices = obj_combs[:, 1].unique()
-        if len(obj_a_indices) == 1 and states_action_pos.shape[0] > 2:
+        if len(obj_a_indices) == 1 and states_action_pos.shape[0] > 2 and states_action_neg.shape[0] > 2:
             action_name = action_names[action_type]
             action_dir = math_utils.action_to_deg(action_name)
 
@@ -777,14 +778,14 @@ def stat_zero_rewards(states, actions, rewards, zero_reward, game_info, prop_ind
             data_A_one_step_move = math_utils.one_step_move(data_A, action_dir, step_dist)
             dist, b_index = math_utils.dist_a_and_b_closest(data_A_one_step_move, data_B)
 
-            dir_ab = math_utils.dir_ab_with_alignment_batch(data_A_one_step_move, data_B, b_index)
+            dir_ab = math_utils.dir_ab_batch(data_A_one_step_move, data_B, b_index)
 
             data_A_neg = states_action_neg[:, obj_a_indices][:, :, prop_type]
             data_B_neg = states_action_neg[:, obj_b_indices][:, :, prop_type]
 
             data_A_neg_one_step_move = math_utils.one_step_move(data_A_neg, action_dir, step_dist)
             dist_neg, b_neg_index = math_utils.dist_a_and_b_closest(data_A_neg_one_step_move, data_B_neg)
-            dir_ab_neg = math_utils.dir_ab_with_alignment_batch(data_A_neg_one_step_move, data_B_neg, b_neg_index)
+            dir_ab_neg = math_utils.dir_ab_batch(data_A_neg_one_step_move, data_B_neg, b_neg_index)
 
 
         else:
@@ -828,8 +829,17 @@ def stat_zero_rewards(states, actions, rewards, zero_reward, game_info, prop_ind
     behs = []
     for state_stat in passed_stats:
         indices = state_stat["indices"]
-
+        dist_range = math_utils.get_90_percent_range_2d(state_stat["dists_pos"].numpy())
+        dir_range = math_utils.get_90_percent_range_2d(state_stat["dir_pos"].numpy())
+        # dir_degree = math_utils.range_to_direction(dir_range.squeeze())
+        dir_values_aligned = math_utils.action_to_deg(state_stat["dir_pos"].numpy())
+        dir_degree = math_utils.get_frequnst_value(state_stat["dir_pos"].numpy())
+        action_id = state_stat["action_type"].tolist()
+        action_value = math_utils.action_to_deg(action_names[action_id])
+        assert action_value == dir_degree
         behs.append({
+            "dist_range": dist_range.tolist(),
+            "dir_degree": dir_degree.tolist(),
             "dists_pos": state_stat["dists_pos"].tolist(),
             "dir_pos": state_stat["dir_pos"].tolist(),
             "position_pos": state_stat["position_pos"].tolist(),
@@ -906,7 +916,7 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
 
             data_A_one_step_move = math_utils.one_step_move(data_A, action_dir, step_dist)
             dist, b_index = math_utils.dist_a_and_b_closest(data_A_one_step_move, data_B)
-            dir_ab = math_utils.dir_ab_with_alignment_batch(data_A_one_step_move, data_B, b_index)
+            dir_ab = math_utils.dir_ab_batch(data_A_one_step_move, data_B, b_index)
             dist_dir_pos = torch.cat((dist, dir_ab), dim=1)
 
             data_A_neg = states_action_neg[:, obj_a_indices][:, :, prop_type]
@@ -914,7 +924,7 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
 
             data_A_neg_one_step_move = math_utils.one_step_move(data_A_neg, action_dir, step_dist)
             dist_neg, b_neg_index = math_utils.dist_a_and_b_closest(data_A_neg_one_step_move, data_B_neg)
-            dir_ab_neg = math_utils.dir_ab_with_alignment_batch(data_A_neg_one_step_move, data_B_neg, b_neg_index)
+            dir_ab_neg = math_utils.dir_ab_batch(data_A_neg_one_step_move, data_B_neg, b_neg_index)
             dist_dir_neg = torch.cat((dist_neg, dir_ab_neg), dim=1)
 
         else:
@@ -951,7 +961,7 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
              "indices": mask_action_state_pos})
     variances_ranked, v_rank = variances.sort()
 
-    passed_variances = variances_ranked < 0.1
+    passed_variances = variances_ranked < var_th
     passed_comb_indices = v_rank[passed_variances]
     passed_stats = [states_stats[s_i] for s_i in passed_comb_indices]
     passed_combs = [type_combs[s_i] for s_i in passed_comb_indices]
@@ -959,10 +969,27 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
     for state_stat in passed_stats:
         indices = state_stat["indices"]
         dist_range = math_utils.get_90_percent_range_2d(state_stat["dists_pos"].numpy())
-        dir_range = math_utils.get_90_percent_range_2d(state_stat["dir_pos"].numpy())
+        if np.abs(dist_range).max() > 0.1:
+            continue
+        if state_stat["dir_pos"].max()>1:
+            print("")
+        dir_value = state_stat["dir_pos"]
+        dir_quarter_value = math_utils.closest_quarter(dir_value)
 
+
+        dir_degree = math_utils.get_frequnst_value(dir_quarter_value)
+
+        action_id = state_stat["action_type"].tolist()
+        action_value = math_utils.action_to_deg(action_names[action_id])
+        if not action_value == dir_degree and action_value != 100:
+            print(f"aciton value {action_value}, data direction: {dir_degree} variance: {state_stat['variances'].tolist()}")
+            print("")
+
+        # dir_degree = math_utils.range_to_direction(dir_range.squeeze())
         # symbolize the data further with specific direction and distance
         behs.append({
+            "dist_range": dist_range.tolist(),
+            "dir_degree": dir_degree.tolist(),
             "dists_pos": state_stat["dists_pos"].tolist(),
             "dir_pos": state_stat["dir_pos"].tolist(),
             "position_pos": state_stat["position_pos"].tolist(),
