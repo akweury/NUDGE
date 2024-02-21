@@ -969,6 +969,11 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
         dist_range = math_utils.get_90_percent_range_2d(state_stat["dists_pos"].numpy())
         if np.abs(dist_range).max() > 0.1:
             continue
+
+        dist_one_percent_value = math_utils.closest_one_percent(state_stat["dists_pos"].numpy())
+        dist_one_percent_values, dist_counts = dist_one_percent_value.unique(return_counts=True)
+        dist_conf = dist_one_percent_values / dist_one_percent_values.sum()
+
         dir_value = state_stat["dir_pos"]
         dir_quarter_value = math_utils.closest_quarter(dir_value)
         dir_quarter_values, dir_counts = dir_quarter_value.unique(return_counts=True)
@@ -984,7 +989,8 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
         # dir_degree = math_utils.range_to_direction(dir_range.squeeze())
         # symbolize the data further with specific direction and distance
         behs.append({
-            "dist_range": dist_range.tolist(),
+            "dist_range": dist_one_percent_values.tolist(),
+            "dist_conf": dist_conf.tolist(),
             "dir_range": dir_quarter_values.tolist(),
             "dir_conf": dir_conf.tolist(),
             "dists_pos": state_stat["dists_pos"].tolist(),

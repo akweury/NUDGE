@@ -207,10 +207,11 @@ class Dist_Closest():
     """ generate one micro-program
     """
 
-    def __init__(self, args, dist_range, dir_range, dir_conf, name, plot_path):
+    def __init__(self, args, dist_range,dist_conf, dir_range, dir_conf, name, plot_path):
         super().__init__()
         self.args = args
         self.dist_range = dist_range
+        self.dist_conf = dist_conf
         self.dir_range = dir_range
         self.dir_conf = dir_conf
         self.model = None
@@ -298,6 +299,7 @@ class Dist_Closest():
         dir = math_utils.dir_a_and_b_with_alignment(input_t1, input_t2).to(t2.device)
         mask = torch.zeros(len(input_t2), dtype=torch.bool).to(t2.device)
         conf_dir = torch.zeros(len(input_t2)).to(t2.device)
+        conf_dist = torch.zeros(len(input_t2)).to(t2.device)
         for d_i, d in enumerate(dir):
             if d in self.dir_range:
                 mask[d_i] = True

@@ -127,7 +127,9 @@ def cart2pol(x, y):
 #     dir = phi / 180
 #
 #     return dir
-
+def closest_one_percent(dir_value):
+    rounded_dist = torch.round(dir_value /0.01 ) * 0.01
+    return rounded_dist
 def closest_quarter(dir_value):
     rounded_dir = torch.round(dir_value /0.25 ) * 0.25
     return rounded_dir

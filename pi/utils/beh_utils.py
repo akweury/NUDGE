@@ -53,6 +53,7 @@ def create_positive_behaviors(args, pos_beh_data):
 def create_negative_behavior(args, beh_i, beh):
     # create defense behaviors
     dist_range_pos = torch.tensor(beh["dist_range"], dtype=torch.float32)
+    dist_conf_pos = torch.tensor(beh["dist_conf"], dtype=torch.float32)
     dir_range_pos = torch.tensor(beh["dir_range"], dtype=torch.float32)
     dir_conf_pos = torch.tensor(beh["dir_conf"], dtype=torch.float32)
 
@@ -77,7 +78,8 @@ def create_negative_behavior(args, beh_i, beh):
     pred_name = (f"dir_{dir_names}_xi{dist_range_pos[0][0]:.2f}_xa{dist_range_pos[0][1]:.2f}_"
                  f"yi_{dist_range_pos[1][0]:.2f}_ya{dist_range_pos[1][1]:.2f}")
 
-    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dir_range=dir_range_pos, dir_conf=dir_conf_pos,
+    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dist_conf=dist_conf_pos,
+                                       dir_range=dir_range_pos, dir_conf=dir_conf_pos,
                                        name=pred_name, plot_path=args.check_point_path / "defensive")
     pred = [dist_pred]
 
@@ -118,6 +120,7 @@ def update_negative_behaviors(args, behaviors, def_beh_data):
 def create_pf_behavior(args, beh_i, beh):
     # create attack behaviors
     dist_range_pos = torch.tensor(beh["dist_range"], dtype=torch.float32)
+    dist_conf_pos = torch.tensor(beh["dist_conf"], dtype=torch.float32)
     dir_range_pos = torch.tensor(beh["dir_range"], dtype=torch.float32)
     dir_conf_pos = torch.tensor(beh["dir_conf"], dtype=torch.float32)
 
@@ -136,7 +139,8 @@ def create_pf_behavior(args, beh_i, beh):
     # dir_pos = torch.cat((dir_pos), dim=1)
     # dir_neg = torch.cat((dir_neg, pos_neg), dim=1)
 
-    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dir_range=dir_range_pos, dir_conf=dir_conf_pos,
+    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dist_conf=dist_conf_pos,
+                                       dir_range=dir_range_pos, dir_conf=dir_conf_pos,
                                        name=pred_name, plot_path=args.check_point_path / "path_finding")
     pred = [dist_pred]
 
@@ -154,6 +158,7 @@ def create_pf_behavior(args, beh_i, beh):
 def create_attack_behavior(args, beh_i, beh):
     # create attack behaviors
     dist_range_pos = torch.tensor(beh["dist_range"], dtype=torch.float32)
+    dist_conf_pos = torch.tensor(beh["dist_conf"], dtype=torch.float32)
     dir_range_pos = torch.tensor(beh["dir_range"], dtype=torch.float32)
     dir_conf_pos = torch.tensor(beh["dir_conf"], dtype=torch.float32)
 
@@ -173,7 +178,8 @@ def create_attack_behavior(args, beh_i, beh):
     pred_name = (f"dir_{dir_names}_xi{dist_range_pos[0][0]:.2f}_xa{dist_range_pos[0][1]:.2f}_"
                  f"yi_{dist_range_pos[1][0]:.2f}_ya{dist_range_pos[1][1]:.2f}")
 
-    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dir_range=dir_range_pos, dir_conf=dir_conf_pos,
+    dist_pred = predicate.Dist_Closest(args, dist_range=dist_range_pos, dist_conf=dist_conf_pos,
+                                       dir_range=dir_range_pos, dir_conf=dir_conf_pos,
                                        name=pred_name, plot_path=args.check_point_path / "attack")
     pred = [dist_pred]
 
