@@ -12,7 +12,7 @@ def calculate_direction(points, reference_point):
 
         x, y = points[r_i].squeeze()
         delta_x = x - x_ref
-        delta_y = y_ref- y
+        delta_y = y_ref - y
 
         angle_radians = torch.atan2(delta_y, delta_x)
         angle_degrees = math.degrees(angle_radians)
@@ -127,12 +127,16 @@ def cart2pol(x, y):
 #     dir = phi / 180
 #
 #     return dir
-def closest_one_percent(dir_value):
-    rounded_dist = torch.round(dir_value /0.01 ) * 0.01
+def closest_one_percent(dist_value):
+    rounded_dist = torch.round(dist_value / 0.01) * 0.01
     return rounded_dist
+
+
 def closest_quarter(dir_value):
-    rounded_dir = torch.round(dir_value /0.25 ) * 0.25
+    rounded_dir = torch.round(dir_value / 0.25) * 0.25
     return rounded_dir
+
+
 def closest_multiple_of_45(degrees):
     # Ensure the input degree is within the range [0, 360]
     degrees = torch.tensor(degrees)
@@ -158,11 +162,12 @@ def dir_ab_batch(data_A, data_B, indices):
         index = indices[d_i]
         a = data_A[d_i]
         b = data_B[d_i][index:index + 1]
-        dir = dir_a_and_b(a,b).tolist()
+        dir = dir_a_and_b(a, b).tolist()
         # dir = dir_a_and_b_with_alignment(a, b).tolist()
         directions.append(dir)
     directions = torch.tensor(directions)
     return directions
+
 
 def dir_a_and_b(data_A, data_B):
     directions_in_degree = np.array(calculate_direction(data_B, data_A))
@@ -172,6 +177,7 @@ def dir_a_and_b(data_A, data_B):
     # directions_aligned = closest_multiple_of_45(directions_in_degree).unsqueeze(1)
 
     return directions_in_degree
+
 
 def dir_a_and_b_with_alignment(data_A, data_B):
     directions_in_degree = calculate_direction(data_B, data_A)
@@ -225,5 +231,3 @@ def pol2dir_name(dir_mean):
         raise ValueError
 
     return dir_name
-
-

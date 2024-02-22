@@ -207,11 +207,13 @@ class Dist_Closest():
     """ generate one micro-program
     """
 
-    def __init__(self, args, dist_range,dist_conf, dir_range, dir_conf, name, plot_path):
+    def __init__(self, args, x_range, x_conf, y_range, y_conf, dir_range, dir_conf, name, plot_path):
         super().__init__()
         self.args = args
-        self.dist_range = dist_range
-        self.dist_conf = dist_conf
+        self.x_range = x_range
+        self.y_range = y_range
+        self.x_conf = x_conf
+        self.y_conf = y_conf
         self.dir_range = dir_range
         self.dir_conf = dir_conf
         self.model = None
@@ -293,31 +295,49 @@ class Dist_Closest():
         t1_move_one_step = torch.repeat_interleave(math_utils.one_step_move(t1[0], direction[0], self.args.step_dist),
                                                    t2.shape[1], dim=0)
         assert t2.shape[0] == 1
-        dist = math_utils.dist_a_and_b(t1_move_one_step, t2[0])
+        dists = math_utils.dist_a_and_b(t1_move_one_step, t2[0])
+        dists_aligned = math_utils.closest_one_percent(dists)
         input_t1 = t1_move_one_step[0:1]
         input_t2 = t2[0]
-        dir = math_utils.dir_a_and_b_with_alignment(input_t1, input_t2).to(t2.device)
-        mask = torch.zeros(len(input_t2), dtype=torch.bool).to(t2.device)
+        dirs = math_utils.dir_a_and_b_with_alignment(input_t1, input_t2).to(t2.device)
+
         conf_dir = torch.zeros(len(input_t2)).to(t2.device)
-        conf_dist = torch.zeros(len(input_t2)).to(t2.device)
-        for d_i, d in enumerate(dir):
-            if d in self.dir_range:
-                mask[d_i] = True
-                conf_dir[d_i] = self.dir_conf[self.dir_range == d]
+        conf_x = torch.zeros(len(input_t2)).to(t2.device)
+        conf_y = torch.zeros(len(input_t2)).to(t2.device)
+        mask_dir = torch.zeros(len(input_t2), dtype=torch.bool).to(t2.device)
+        mask_x = torch.zeros(len(input_t2), dtype=torch.bool).to(t2.device)
+        mask_y = torch.zeros(len(input_t2), dtype=torch.bool).to(t2.device)
+        mask = torch.zeros(len(input_t2), dtype=torch.bool).to(t2.device)
+        for i in range(t2.shape[1]):
+            if dirs[i] in self.dir_range:
+                mask_dir[i] = True
+                conf_dir[i] = self.dir_conf[self.dir_range == dirs[i]]
 
-        if beh_type != "path_finding":
-            x_min, x_max = self.dist_range[0]
-            y_min, y_max = self.dist_range[1]
-            mask_x = (dist[:, 0] <= x_max) * (dist[:, 0] >= x_min)
-            mask_y = (dist[:, 1] <= y_max) * (dist[:, 1] >= y_min)
-            mask *= mask_x * mask_y
+            if beh_type != "path_finding":
+                if dists_aligned[i][0] in self.x_range:
+                    mask_x[i] = True
+                    conf_x[i] = self.x_conf[self.x_range == dists_aligned[i][0]]
+                if dists_aligned[i][1] in self.y_range:
+                    mask_y[i] = True
+                    conf_y[i] = self.y_conf[self.y_range == dists_aligned[i][1]]
 
-        conf_dir[~mask] = 0
+                mask[i] = mask_x[i] * mask_y[i] * mask_dir[i]
+            else:
+                mask[i] = mask_dir[i]
+
+        conf_dir[~mask_dir] = 0
+        conf_x[~mask_x] = 0
+        conf_y[~mask_y] = 0
+
         # Use the trained model to predict the new value
-        new_value_prediction = conf_dir.max()
+        valid_conf = ((conf_dir + conf_x + conf_y) / 3)[mask]
+        if len(valid_conf)>0:
+            pred_conf = valid_conf.max()
+        else:
+            pred_conf = 0
         # satisfactions = new_value_prediction.argmax(dim=1) == self.y_0
 
-        return new_value_prediction
+        return pred_conf
 
 
 class GT():
