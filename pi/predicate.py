@@ -210,12 +210,12 @@ class Dist_Closest():
     def __init__(self, args, x_range, x_conf, y_range, y_conf, dir_range, dir_conf, name, plot_path):
         super().__init__()
         self.args = args
-        self.x_range = x_range
-        self.y_range = y_range
-        self.x_conf = x_conf
-        self.y_conf = y_conf
-        self.dir_range = dir_range
-        self.dir_conf = dir_conf
+        self.x_range = x_range.to(args.device)
+        self.y_range = y_range.to(args.device)
+        self.x_conf = x_conf.to(args.device)
+        self.y_conf = y_conf.to(args.device)
+        self.dir_range = dir_range.to(args.device)
+        self.dir_conf = dir_conf.to(args.device)
         self.model = None
         self.num_epochs = args.train_nn_epochs
         self.name = f"{name}"
