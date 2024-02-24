@@ -187,23 +187,23 @@ def dir_a_and_b_with_alignment(data_A, data_B):
 
 
 def action_to_deg(action_name):
-    if action_name == "noop":
+    if action_name == "noop" or action_name=="fire":
         dir = 100
-    elif action_name == "up":
+    elif action_name == "up" or action_name == "upfire":
         dir = 90 / 180
-    elif action_name == "right":
+    elif action_name == "right" or action_name == "rightfire":
         dir = 0 / 180
-    elif action_name == "left":
+    elif action_name == "left" or action_name == "leftfire":
         dir = 180 / 180
-    elif action_name == "down":
+    elif action_name == "down" or action_name == "downfire":
         dir = -90 / 180
-    elif action_name == "upright":
+    elif action_name == "upright" or action_name == "uprightfire":
         dir = 45 / 180
-    elif action_name == "upleft":
+    elif action_name == "upleft" or action_name == "upleftfire":
         dir = 135 / 180
-    elif action_name == "downright":
+    elif action_name == "downright" or action_name == "downrightfire":
         dir = -45 / 180
-    elif action_name == "downleft":
+    elif action_name == "downleft" or action_name == "downleftfire":
         dir = -135 / 180
     else:
         raise ValueError

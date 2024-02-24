@@ -773,15 +773,18 @@ def stat_zero_rewards(states, actions, rewards, zero_reward, game_info, prop_ind
             action_dir = math_utils.action_to_deg(action_name)
             data_A = states_action_pos[:, obj_a_indices][:, :, prop_type]
             data_B = states_action_pos[:, obj_b_indices][:, :, prop_type]
-
-            data_A_one_step_move = math_utils.one_step_move(data_A, action_dir, step_dist)
-            dist, b_index = math_utils.dist_a_and_b_closest(data_A_one_step_move, data_B)
-            dir_ab = math_utils.dir_ab_batch(data_A_one_step_move, data_B, b_index)
-
             data_A_neg = states_action_neg[:, obj_a_indices][:, :, prop_type]
             data_B_neg = states_action_neg[:, obj_b_indices][:, :, prop_type]
 
-            data_A_neg_one_step_move = math_utils.one_step_move(data_A_neg, action_dir, step_dist)
+            if "fire" in action_name or "noop" in action_name:
+                data_A_one_step_move = data_A
+                data_A_neg_one_step_move = data_A_neg
+            else:
+                data_A_one_step_move = math_utils.one_step_move(data_A, action_dir, step_dist)
+                data_A_neg_one_step_move = math_utils.one_step_move(data_A_neg, action_dir, step_dist)
+
+            dist, b_index = math_utils.dist_a_and_b_closest(data_A_one_step_move, data_B)
+            dir_ab = math_utils.dir_ab_batch(data_A_one_step_move, data_B, b_index)
             dist_neg, b_neg_index = math_utils.dist_a_and_b_closest(data_A_neg_one_step_move, data_B_neg)
             dir_ab_neg = math_utils.dir_ab_batch(data_A_neg_one_step_move, data_B_neg, b_neg_index)
 
@@ -837,7 +840,7 @@ def stat_zero_rewards(states, actions, rewards, zero_reward, game_info, prop_ind
         dir_quarter_values, dir_counts = dir_quarter_value.unique(return_counts=True)
         dir_conf = dir_counts / dir_counts.sum()
         dir_quarter_value_best = dir_quarter_values[dir_counts.argmax()].reshape(-1)
-        dir_conf_best= dir_conf[dir_counts.argmax()].reshape(-1)
+        dir_conf_best = dir_conf[dir_counts.argmax()].reshape(-1)
 
         behs.append({
             "x_range": x_one_percent_types.tolist(),
@@ -865,7 +868,7 @@ def stat_zero_rewards(states, actions, rewards, zero_reward, game_info, prop_ind
 
 
 def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th, stat_type, action_names,
-                 step_dist):
+                 step_dist, max_dist):
     if stat_type == "attack":
         mask_reward = rewards > zero_reward
     elif stat_type == "defense":
@@ -919,16 +922,20 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
 
             data_A = states_action_pos[:, obj_a_indices][:, :, prop_type]
             data_B = states_action_pos[:, obj_b_indices][:, :, prop_type]
+            data_A_neg = states_action_neg[:, obj_a_indices][:, :, prop_type]
+            data_B_neg = states_action_neg[:, obj_b_indices][:, :, prop_type]
 
-            data_A_one_step_move = math_utils.one_step_move(data_A, action_dir, step_dist)
+            if "fire" in action_name:
+                data_A_one_step_move = data_A
+                data_A_neg_one_step_move = data_A_neg
+            else:
+                data_A_one_step_move = math_utils.one_step_move(data_A, action_dir, step_dist)
+                data_A_neg_one_step_move = math_utils.one_step_move(data_A_neg, action_dir, step_dist)
+
             dist, b_index = math_utils.dist_a_and_b_closest(data_A_one_step_move, data_B)
             dir_ab = math_utils.dir_ab_batch(data_A_one_step_move, data_B, b_index)
             dist_dir_pos = torch.cat((dist, dir_ab), dim=1)
 
-            data_A_neg = states_action_neg[:, obj_a_indices][:, :, prop_type]
-            data_B_neg = states_action_neg[:, obj_b_indices][:, :, prop_type]
-
-            data_A_neg_one_step_move = math_utils.one_step_move(data_A_neg, action_dir, step_dist)
             dist_neg, b_neg_index = math_utils.dist_a_and_b_closest(data_A_neg_one_step_move, data_B_neg)
             dir_ab_neg = math_utils.dir_ab_batch(data_A_neg_one_step_move, data_B_neg, b_neg_index)
             dist_dir_neg = torch.cat((dist_neg, dir_ab_neg), dim=1)
@@ -975,11 +982,11 @@ def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices,
     for state_stat in passed_stats:
         indices = state_stat["indices"]
         dist_range = math_utils.get_90_percent_range_2d(state_stat["dists_pos"].numpy())
-        if np.abs(dist_range).max() > 0.1:
+        if np.abs(dist_range).max() > max_dist:
             continue
 
         dist_one_percent_value = math_utils.closest_one_percent(state_stat["dists_pos"])
-        x_one_percent_types, x_counts = dist_one_percent_value[:,0].unique(return_counts=True)
+        x_one_percent_types, x_counts = dist_one_percent_value[:, 0].unique(return_counts=True)
         y_one_percent_types, y_counts = dist_one_percent_value[:, 1].unique(return_counts=True)
         x_conf = x_one_percent_types / x_one_percent_types.sum()
         y_conf = y_one_percent_types / y_one_percent_types.sum()

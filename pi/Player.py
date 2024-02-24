@@ -217,7 +217,8 @@ class SymbolicMicroProgramPlayer:
                                                   self.args.obj_info,
                                                   self.prop_indices,
                                                   self.args.var_th,
-                                                  "defense", self.args.action_names, self.args.step_dist)
+                                                  "defense", self.args.action_names,
+                                                  self.args.step_dist, self.args.max_dist)
             for beh_i, beh_data in enumerate(def_beh_data):
                 data = [[torch.tensor(beh_data["dists_pos"])[:, 0], torch.tensor(beh_data["dists_neg"])[:, 0]],
                         [torch.tensor(beh_data["dists_pos"])[:, 1], torch.tensor(beh_data["dists_neg"])[:, 1]],
@@ -264,8 +265,9 @@ class SymbolicMicroProgramPlayer:
                                                        self.args.zero_reward,
                                                        self.args.obj_info,
                                                        self.prop_indices,
-                                                       self.args.var_th, "attack", self.args.action_names,
-                                                       self.args.step_dist)
+                                                       self.args.var_th, "attack",
+                                                       self.args.action_names,
+                                                       self.args.step_dist, self.args.max_dist)
             for beh_i, beh_data in enumerate(att_behavior_data):
                 data = [[torch.tensor(beh_data["dists_pos"])[:, 0], torch.tensor(beh_data["dists_neg"])[:, 0]],
                         [torch.tensor(beh_data["dists_pos"])[:, 1], torch.tensor(beh_data["dists_neg"])[:, 1]],
@@ -289,6 +291,7 @@ class SymbolicMicroProgramPlayer:
         # for attack_behavior in attack_behaviors:
         #     print(f"# attack behavior: {attack_behavior.clause}")
         self.att_behaviors = attack_behaviors
+        return attack_behaviors
 
     def reasoning_path_behaviors(self, use_ckp=True):
         if len(self.pos_data) == 0:
@@ -298,15 +301,15 @@ class SymbolicMicroProgramPlayer:
             pf_behavior_data = file_utils.load_json(stat_file)
         else:
             pf_behavior_data = smp_utils.stat_zero_rewards(self.win_states,
-                                                      self.win_actions,
-                                                      self.win_rewards,
-                                                      self.args.zero_reward,
-                                                      self.args.obj_info,
-                                                      self.prop_indices,
-                                                      self.args.var_th,
-                                                      "path_finding",
-                                                      self.args.action_names,
-                                                      self.args.step_dist)
+                                                           self.win_actions,
+                                                           self.win_rewards,
+                                                           self.args.zero_reward,
+                                                           self.args.obj_info,
+                                                           self.prop_indices,
+                                                           self.args.var_th,
+                                                           "path_finding",
+                                                           self.args.action_names,
+                                                           self.args.step_dist)
             for beh_i, beh_data in enumerate(pf_behavior_data):
                 data = [[torch.tensor(beh_data["dists_pos"])[:, 0], torch.tensor(beh_data["dists_neg"])[:, 0]],
                         [torch.tensor(beh_data["dists_pos"])[:, 1], torch.tensor(beh_data["dists_neg"])[:, 1]],
@@ -330,6 +333,7 @@ class SymbolicMicroProgramPlayer:
         # for pf_behavior in pf_behaviors:
         #     print(f"# Path Finding behavior: {pf_behavior.clause}")
         self.pf_behaviors = pf_behaviors
+        return pf_behaviors
 
     def reasoning_pf_behaviors(self):
         # print(f"Reasoning defensive behaviors...")

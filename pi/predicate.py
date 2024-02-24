@@ -217,7 +217,7 @@ class Dist_Closest():
         self.dir_range = dir_range.to(args.device)
         self.dir_conf = dir_conf.to(args.device)
         self.model = None
-        self.num_epochs = args.train_nn_epochs
+
         self.name = f"{name}"
         self.plot_path = plot_path
 
