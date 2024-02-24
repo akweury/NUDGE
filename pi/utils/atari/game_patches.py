@@ -172,10 +172,10 @@ def patch_asterix(game_info, states, actions, rewards, lives):
     if lives == 0:
         game_over = True
     agent_pos = torch.tensor(new_states[-1][0][-2:]).unsqueeze(0)
-    enemy_pos = torch.tensor(new_states[-1][1:9])[:,-2:]
+    enemy_pos = torch.tensor(new_states[-1][1:9])[:, -2:]
     failed_dist = torch.abs(enemy_pos - agent_pos).sum(dim=1).min()
 
-    if failed_dist>0.2:
+    if failed_dist > 0.2:
         new_states = new_states[:-10]
         new_actions = actions[:len(new_states)]
         new_rewards = rewards[:len(new_states)]
@@ -212,6 +212,9 @@ def atari_patches(args, env_args, info):
             args.game_info, env_args.logic_states, env_args.actions, env_args.rewards, info['lives'])
     if args.m == 'Boxing':
         env_args.rewards = patch_boxing(env_args.actions, env_args.rewards, args.action_names)
+        reward_tensor = torch.tensor(env_args.rewards)
+        reward_tensor[reward_tensor > 0].sum()
+        env_args.state_score = reward_tensor[reward_tensor > 0].sum()
         if env_args.terminated or env_args.truncated:
             env_args.game_over = True
     if args.m == 'Kangaroo':
@@ -236,7 +239,7 @@ def remove_last_key_frame(game_info, states, max_dist=35):
             break
         else:
             state_i -= 1
-    new_states = states[:state_i+1]
+    new_states = states[:state_i + 1]
 
     pos_indices = [game_info["axis_x_col"], game_info["axis_y_col"]]
     test_state = torch.tensor(new_states[-1])

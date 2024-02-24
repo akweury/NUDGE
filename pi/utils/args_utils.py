@@ -27,6 +27,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--render", help="render the game", action="store_true", dest="render")
     parser.add_argument("--with_explain", help="explain the game", action="store_true", default=False)
     parser.add_argument("--save_frame", help="save each frame as img", action="store_true")
+    parser.add_argument("--revise", help="revise the loss games", action="store_true", default=False)
     parser.add_argument("--device", help="cpu or cuda", default="cpu", type=str)
     parser.add_argument('-d', '--dataset', required=False, help='the dataset to load if scoring', dest='d')
     parser.add_argument('--wandb', action="store_false")

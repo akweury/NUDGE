@@ -255,7 +255,11 @@ def plot_mt_asterix(env_args, agent):
     if agent.agent_type == "smp":
         explain_str = ""
         for i, beh_i in enumerate(env_args.explaining['behavior_index']):
-            explain_str += f"{env_args.explaining['behavior_conf'][i]:.1f} {agent.behaviors[beh_i].beh_type} {agent.behaviors[beh_i].clause}\n"
+            try:
+                explain_str += (f"{env_args.explaining['behavior_conf'][i]:.1f} "
+                                f"{agent.behaviors[beh_i].beh_type} {agent.behaviors[beh_i].clause}\n")
+            except IndexError:
+                print("")
         data = (f"Max steaks: {env_args.max_steak}\n"
                 f"(Frame) Behavior act: {agent.args.action_names[env_args.action]}\n"
                 f"{explain_str}"
@@ -379,9 +383,18 @@ def screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_count
 def game_over_log(args, agent, env_args):
     print(
         f"- Ep: {env_args.game_i}, Best Record: {env_args.best_score}, Ep Score: {env_args.state_score} Ep Loss: {env_args.state_loss}")
-    draw_utils.plot_line_chart(env_args.win_rate.unsqueeze(0)[:, :env_args.game_i], args.check_point_path,
-                               [agent.agent_type], title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")
+
+    if agent.agent_type == "pretrained":
+        draw_utils.plot_line_chart(env_args.win_rate.unsqueeze(0)[:, :env_args.game_i], args.check_point_path,
+                                   [agent.agent_type], title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")
     if agent.agent_type == "smp":
+
+        pretrained_wr = torch.load(args.output_folder / f"wr_pretrained_{args.teacher_game_nums}.pt")
+        smp_wr = env_args.win_rate.unsqueeze(0)[:, :env_args.game_i]
+        all_wr = torch.cat((pretrained_wr.unsqueeze(0)[:,:smp_wr.shape[1]], smp_wr), dim=0)
+        draw_utils.plot_line_chart(all_wr, args.check_point_path,
+                                   ["pretrained", agent.agent_type],
+                                   title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")
         for b_i, beh in enumerate(agent.def_behaviors):
             print(f"- DefBeh {b_i}/{len(agent.def_behaviors)}: {beh.clause}")
         for b_i, beh in enumerate(agent.att_behaviors):

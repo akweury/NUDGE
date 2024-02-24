@@ -13,6 +13,6 @@ python -m atari_py.import_roms /NUDGE/storage/ROMS
 ```
 
 ``` 
-python -m pi.play -m Asterix --with_explain --teacher_game_nums 1000 --device 12
+python -m pi.play -m Asterix --teacher_game_nums 1000 --device 12
 python -m pi.play --teacher_agent pretrained -m Boxing --with_explain --device 10 --teacher_game_nums 100
 ```
