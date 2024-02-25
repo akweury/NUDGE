@@ -363,19 +363,24 @@ def image_resize(image, width=None, height=None, inter=cv.INTER_AREA):
 def addText(img, text, pos='upper_left', font_size=1.6, color=(255, 255, 255), thickness=1):
     h, w = img.shape[:2]
     if pos == 'upper_left':
-        position = (350, 140)
+        position = [350, 140]
     elif pos == 'upper_right':
-        position = (w - 350, 80)
+        position = [w - 350, 80]
     elif pos == 'lower_right':
-        position = (h - 200, w - 20)
+        position = [h - 200, w - 20]
     elif pos == 'lower_left':
-        position = (10, w - 20)
+        position = [10, w - 20]
     else:
         raise ValueError('unsupported position to put text in the image.')
 
-    cv.putText(img, text=text, org=position,
-               fontFace=cv.FONT_HERSHEY_SIMPLEX, fontScale=font_size, color=color,
-               thickness=thickness, lineType=cv.LINE_AA)
+    text_y_shift = 40
+    lines = text.split("\n")
+    for line in lines:
+        addCustomText(img, f"{line}", position, font_size=font_size, color=color)
+        position[1] += text_y_shift
+    # cv.putText(img, text=text, org=position,
+    #            fontFace=cv.FONT_HERSHEY_SIMPLEX, fontScale=font_size, color=color,
+    #            thickness=thickness, lineType=cv.LINE_AA)
 
 
 def addCustomText(img, text, pos, font_size=1.6, color=(255, 255, 255), thickness=1):

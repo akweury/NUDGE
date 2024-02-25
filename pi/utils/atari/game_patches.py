@@ -187,7 +187,7 @@ def patch_asterix(game_info, states, actions, rewards, lives):
 
 def frame_back_stop_drop(states):
     states = torch.tensor(states)
-    key_frame_indices = []
+    key_frame_index = None
     for s_i in reversed(range(len(states))):
         print(s_i)
         delta = (states[s_i] - states[s_i - 1])[-6:]
@@ -196,9 +196,10 @@ def frame_back_stop_drop(states):
             not_left_border = states[s_i - 1, -6:][exist_missing_projectile][:, -2] > 0.1
             not_right_border = states[s_i - 1, -6:][exist_missing_projectile][:, -2] < 0.7
             not_bottom_border = states[s_i - 1, -6:][exist_missing_projectile][:, -1] < 0.8
-            if not_left_border and not_right_border and not_bottom_border:
-                key_frame_indices.append(s_i)
-    return key_frame_indices
+            if not_left_border.prod() and not_right_border.prod() and not_bottom_border.prod():
+                key_frame_index = s_i
+                break
+    return key_frame_index
 
 
 def patch_kangaroo(states):
@@ -206,12 +207,42 @@ def patch_kangaroo(states):
     return states[:key_frame_index]
 
 
+def frame_back_fire_action(states, actions, rewards, action_names):
+    for a_i in reversed(range(len(actions))):
+        if "fire" in action_names[actions[a_i]]:
+            rewards[a_i] = rewards[-1]
+            rewards = rewards[:a_i + 1]
+            states = states[:a_i + 1]
+            actions = actions[:a_i + 1]
+            break
+    return states, actions, rewards
+
+
+def frame_patch_boxing(states, actions, rewards, action_names):
+    if len(rewards) > 0 and rewards[-1] > 0:
+        states, actions, rewards = frame_back_fire_action(states, actions, rewards, action_names)
+
+    return states, actions, rewards
+
+
+def atari_frame_patches(args, env_args, info):
+    if args.m == 'Boxing':
+        env_args.logic_states, env_args.actions, env_args.rewards = frame_patch_boxing(env_args.logic_states,
+                                                                                       env_args.actions,
+                                                                                       env_args.rewards,
+                                                                                       args.action_names)
+        reward_tensor = torch.tensor(env_args.rewards)
+        reward_tensor[reward_tensor > 0].sum()
+        env_args.state_score = reward_tensor[reward_tensor > 0].sum()
+        if env_args.terminated or env_args.truncated:
+            env_args.game_over = True
+
+
 def atari_patches(args, env_args, info):
     if args.m == "Asterix":
         env_args.logic_states, env_args.actions, env_args.rewards, env_args.game_over = patch_asterix(
             args.game_info, env_args.logic_states, env_args.actions, env_args.rewards, info['lives'])
     if args.m == 'Boxing':
-        env_args.rewards = patch_boxing(env_args.actions, env_args.rewards, args.action_names)
         reward_tensor = torch.tensor(env_args.rewards)
         reward_tensor[reward_tensor > 0].sum()
         env_args.state_score = reward_tensor[reward_tensor > 0].sum()
@@ -222,6 +253,13 @@ def atari_patches(args, env_args, info):
         env_args.states = new_states
         if env_args.terminated or env_args.truncated:
             env_args.game_over = True
+    if args.m == "Breakout":
+        if env_args.terminated or env_args.truncated:
+            env_args.game_over = True
+            env_args.new_life = True
+            reward_tensor = torch.tensor(env_args.rewards)
+            reward_tensor[reward_tensor > 0].sum()
+            env_args.state_score = reward_tensor[reward_tensor > 0].sum()
 
 
 def patch_boxing(actions, rewards, action_names):

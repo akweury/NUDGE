@@ -16,7 +16,8 @@ from src.utils_game import render_getout
 def _render(args, agent, env_args, video_out):
     # render the game
     screen_text = (
-        f"{agent.agent_type} ep: {env_args.game_i}, Rec: {env_args.best_score} act: {args.action_names[env_args.action]}")
+        f"{agent.agent_type} ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
+        f"act: {args.action_names[env_args.action]} re: {env_args.reward}")
     wr_plot = game_utils.plot_wr(env_args)
     mt_plot = game_utils.plot_mt_asterix(env_args, agent)
     video_out, _ = game_utils.plot_game_frame(env_args, video_out, env_args.obs, wr_plot, mt_plot, [], screen_text)
@@ -26,6 +27,9 @@ def _act(agent, env_args, env):
     # agent predict an action
     if agent.agent_type == "smp":
         env_args.action, env_args.explaining = agent.act(env.objects)
+        if env_args.frame_i == 0 or env_args.new_life:
+            env_args.action = 1
+            env_args.new_life = False
     elif agent.agent_type == "pretrained":
         env_args.action, _ = agent(env.dqn_obs.to(env_args.device))
     elif agent.agent_type == "random":
@@ -69,6 +73,7 @@ def render_atari_game(agent, args, save_buffer):
                                                                                    obs.shape[0])
             env_args.obs = env_args.last_obs
             info = _act(agent, env_args, env)
+            game_patches.atari_frame_patches(args, env_args, info)
 
             # if env_args.reward > 0:
             #     env_args.state_score += env_args.reward
@@ -99,7 +104,6 @@ def render_atari_game(agent, args, save_buffer):
 
                     game_utils.frame_log(agent, env_args)
             # update game args
-
             env_args.update_args()
         env_args.buffer_game(args.zero_reward, args.save_frame)
 
@@ -117,7 +121,7 @@ def render_atari_game(agent, args, save_buffer):
 def render_game(agent, args, save_buffer=False):
     if args.m == 'getout' or args.m == "getoutplus":
         render_getout(agent, args)
-    elif args.m in ['Asterix', 'Boxing', 'Kangaroo']:
+    elif args.m in ['Asterix', 'Boxing', 'Kangaroo', "Breakout"]:
         render_atari_game(agent, args, save_buffer)
     else:
         raise ValueError("Game not exist.")

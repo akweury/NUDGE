@@ -426,14 +426,12 @@ class SymbolicMicroProgramPlayer:
             action, explaining = self.getout_actor(state)
         elif self.args.m == 'Assault':
             action, explaining = self.assault_actor(state)
-        elif self.args.m in ["Asterix", "Boxing"]:
+        elif self.args.m in ["Asterix", "Boxing", "Breakout"]:
             action, explaining = self.asterix_actor(state)
         elif self.args.m == 'threefish':
             action, explaining = self.threefish_actor(state)
         elif self.args.m == 'loot':
             action, explaining = self.loot_actor(state)
-        elif self.args.m == 'atari':
-            action, explaining = self.atari_actor(state)
         else:
             raise ValueError
         return action, explaining

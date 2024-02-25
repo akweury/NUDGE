@@ -99,6 +99,25 @@ def load_args(exp_args_path, m):
         args.reasoning_gap = 1
         args.step_dist = [0.01, -0.03]
         args.mile_stone_scores = [5, 10, 20, 40]
+    elif args.m == "Breakout" or args.m == "breakout":
+        args.model_path = config.path_model / args.m / 'model_50000000.gz'
+        args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
+        args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
+        args.zero_reward = 0.0
+        args.fact_conf = 0.5
+        args.action_names = config.action_name_breakout
+        args.prop_names = config.prop_name_breakout
+        args.max_lives = 3
+        args.max_dist = 0.1
+        args.reward_lost_one_live = -100
+        args.reward_score_one_enemy = 10
+        args.game_info = config.game_info_breakout
+        args.obj_info = args.game_info["obj_info"]
+        args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
+        args.var_th = 0.4
+        args.reasoning_gap = 1
+        args.step_dist = [0.01, -0.03]
+        args.mile_stone_scores = [5, 10, 20, 40]
     elif args.m == "Kangaroo":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"

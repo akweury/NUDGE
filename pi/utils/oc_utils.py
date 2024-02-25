@@ -117,8 +117,6 @@ def extract_logic_state_atari(objects, game_info, norm_factor, noise=False):
                 states[row_start + obj_count, game_info["axis_y_col"]] = obj.center[1] / norm_factor
                 states[row_start + obj_count, o_i] = 1
                 obj_count += 1
-                if obj_name == 'Projectile_top' and obj_count>2:
-                    print("")
             elif obj.category == "Score":
                 state_score = obj.value
         row_start += obj_num

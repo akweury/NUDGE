@@ -58,6 +58,7 @@ class EnvArgs():
         self.score_update = False
         self.best_score = 0
         self.mile_stone_scores = args.mile_stone_scores
+        self.new_life = False
 
     def reset_args(self, game_i):
         self.game_i = game_i
