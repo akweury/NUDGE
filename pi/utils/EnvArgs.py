@@ -42,7 +42,7 @@ class EnvArgs():
         self.current_steak = 0
         if agent.agent_type == "smp":
             self.game_num = args.student_game_nums
-        elif agent.agent_type == "pretrained":
+        elif agent.agent_type == "pretrained" or agent.agent_type == "ppo":
             self.game_num = args.teacher_game_nums
         else:
             raise ValueError

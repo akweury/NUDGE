@@ -128,9 +128,9 @@ def render_getout(agent, args):
     last_frame_time = 0
 
     num_epi = 1
-    max_epi = 100
-    win_rate = torch.zeros(2, max_epi)
-    win_rate[1, :] = agent.buffer_win_rates[:max_epi]
+
+    win_rate = torch.zeros(2, args.teacher_game_nums)
+    win_rate[1, :] = agent.buffer_win_rates[:args.teacher_game_nums]
     win_count = 0
     game_count = 0
     total_reward = 0
@@ -146,7 +146,7 @@ def render_getout(agent, args):
     game_frame_counter = 0
     win_rate_plot = np.zeros((getout.camera.screen.size[1], getout.camera.screen.size[1], 3), dtype=np.uint8)
     db_plots = []
-    while num_epi <= max_epi:
+    while num_epi <= args.teacher_game_nums:
 
         # control framerate
         current_frame_time = time.time()
@@ -164,12 +164,11 @@ def render_getout(agent, args):
         if not getout.level.terminated:
             if game_frame_counter > max_game_frames:
                 game_count += 1
-                agent.revise_timeout(decision_history)
                 getout = create_getout_instance(args)
                 decision_history = []
                 # print("epi_reward: ", round(epi_reward, 2))
                 # print("--------------------------     next game    --------------------------")
-                print(f"Episode {num_epi} Win: {win_count}/{game_count}")
+                print(f"Episode {num_epi} Win: {win_count + 1}/{game_count}")
                 print(f"==========")
                 if agent.agent_type == 'human':
                     data = [(num_epi, round(epi_reward, 2))]
@@ -200,13 +199,15 @@ def render_getout(agent, args):
                 action = agent.act(getout)
 
             reward = getout.step(action)
-            explaining["reward"].append(reward)
-            decision_history.append(explaining)
-            if args.render or args.with_explain:
-                for beh_i in explaining['behavior_index']:
-                    print(
-                        f"f: {game_frame_counter}, rw: {reward}, act: {action - 1}, behavior: {agent.behaviors[beh_i].clause}")
-            game_states.append(explaining['state'])
+            if agent.agent_type == 'smp':
+                explaining["reward"].append(reward)
+                decision_history.append(explaining)
+                game_states.append(explaining['state'])
+                if args.render or args.with_explain:
+                    for beh_i in explaining['behavior_index']:
+                        print(
+                            f"f: {game_frame_counter}, rw: {reward}, act: {action - 1}, behavior: {agent.behaviors[beh_i].clause}")
+
             # print(reward)
             epi_reward += reward
 
@@ -227,7 +228,6 @@ def render_getout(agent, args):
                     win_5 = num_epi
 
                 win_count += 1
-                agent.revise_win(decision_history, args.obj_info)
             else:
                 # the game total frame number has to greater than 2
                 current_steak = 0
@@ -243,7 +243,7 @@ def render_getout(agent, args):
             game_frame_counter = 0
             # print("epi_reward: ", round(epi_reward, 2))
             # print("--------------------------     next game    --------------------------")
-            print(f"Episode {num_epi} Win: {win_count}/{game_count}")
+            print(f"Episode {num_epi} Win: {win_count+1}/{game_count}")
             win_rate[0, num_epi - 1] = win_count / (game_count + 1e-20)
 
             win_rate_plot = draw_utils.plot_line_chart(win_rate[:, :num_epi], args.output_folder, ['smp', 'ppo'],

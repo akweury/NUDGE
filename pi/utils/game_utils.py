@@ -258,6 +258,8 @@ def plot_mt_asterix(env_args, agent):
             try:
                 explain_str += (f"{env_args.explaining['behavior_conf'][i]:.1f} "
                                 f"{agent.behaviors[beh_i].beh_type} {agent.behaviors[beh_i].clause}\n")
+                if i >5:
+                    break
             except IndexError:
                 print("")
         data = (f"Max steaks: {env_args.max_steak}\n"
@@ -384,7 +386,7 @@ def game_over_log(args, agent, env_args):
     print(
         f"- Ep: {env_args.game_i}, Best Record: {env_args.best_score}, Ep Score: {env_args.state_score} Ep Loss: {env_args.state_loss}")
 
-    if agent.agent_type == "pretrained":
+    if agent.agent_type == "pretrained" or agent.agent_type == "ppo":
         draw_utils.plot_line_chart(env_args.win_rate.unsqueeze(0)[:, :env_args.game_i], args.check_point_path,
                                    [agent.agent_type], title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")
     if agent.agent_type == "smp":

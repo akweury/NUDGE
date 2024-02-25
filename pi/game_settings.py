@@ -22,7 +22,7 @@ def get_idx(args):
         idx_y = config.state_idx_assault_y
         idx_list.append(idx_x)
         idx_list.append(idx_y)
-    elif args.m in ["Asterix", "Boxing", "Breakout"]:
+    elif args.m in ["Asterix", "Boxing", "Breakout", "Freeway", "Kangaroo"]:
         idx_x = args.game_info["axis_x_col"]
         idx_y = args.game_info["axis_y_col"]
         idx_list.append(idx_x)

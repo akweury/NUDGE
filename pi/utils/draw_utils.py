@@ -385,7 +385,7 @@ def addText(img, text, pos='upper_left', font_size=1.6, color=(255, 255, 255), t
 
 def addCustomText(img, text, pos, font_size=1.6, color=(255, 255, 255), thickness=1):
     h, w = img.shape[:2]
-    if pos[0] > h or pos[0] < 0 or pos[1] > w or pos[1] < 0:
+    if pos[0] > w or pos[0] < 0 or pos[1] > h or pos[1] < 0:
         raise ValueError('unsupported position to put text in the image.')
 
     cv.putText(img, text=text, org=pos,

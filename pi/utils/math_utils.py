@@ -187,7 +187,7 @@ def dir_a_and_b_with_alignment(data_A, data_B):
 
 
 def action_to_deg(action_name):
-    if action_name == "noop" or action_name=="fire":
+    if action_name == "noop" or action_name=="fire" or action_name=="jump":
         dir = 100
     elif action_name == "up" or action_name == "upfire":
         dir = 90 / 180

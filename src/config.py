@@ -156,7 +156,7 @@ obj_info_kangaroo = [('Player', 1),
                      ('Ladder', 3),
                      ('Monkey', 4),
                      ('FallingCoconut', 3),
-                     ('ThrownCoconut', 3),
+                     ('ThrownCoconut', 3)
                      ]
 
 game_info_kangaroo = {
@@ -166,6 +166,7 @@ game_info_kangaroo = {
     "axis_x_col": 9,
     "axis_y_col": 10
 }
+
 obj_info_boxing = [('Player', 1),
                    ('Enemy', 1)]
 game_info_boxing = {
@@ -195,6 +196,21 @@ action_name_boxing = ["noop",  # 0
                       "downrightfire",  # 16
                       "downleftfire",  # 17
                       ]
+
+obj_info_freeway = [('Chicken', 1),
+                    ('Car', 12)]
+game_info_freeway = {
+    "obj_info": obj_info_freeway,
+    "state_row_num": 13,
+    "state_col_num": 4,
+    "axis_x_col": 2,
+    "axis_y_col": 3
+}
+
+action_name_freeway = ["noop",  # 0
+                       "up",  # 1
+                       "down",  # 2
+                       ]
 
 ########### action info ############################
 
@@ -239,8 +255,9 @@ prop_name_assault = ['agent', 'player_missile_vertical', "player_missile_horizon
 prop_name_asterix = ["Player", "Enemy", "Consumable", "axis_x", "axis_y"]
 prop_name_boxing = ["Player", "Enemy", "axis_x", "axis_y"]
 prop_name_breakout = ["Player", "Ball", "BlockRow", "axis_x", "axis_y"]
+prop_name_freeway = ["Chicken", "Car", "axis_x", "axis_y"]
 prop_name_kangaroo = ['Player', 'Child', 'Fruit', 'Bell', 'Platform', 'Ladder',
-                      'Monkey', 'FallingCoconut', 'ThrownCoconut' "axis_x", "axis_y"]
+                      'Monkey', 'FallingCoconut', 'ThrownCoconut', "axis_x", "axis_y"]
 ########## language ########################
 
 func_pred_name = "func_pred"

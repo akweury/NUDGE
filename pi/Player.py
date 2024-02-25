@@ -252,6 +252,43 @@ class SymbolicMicroProgramPlayer:
         self.def_behaviors = defense_behaviors
         return defense_behaviors
 
+    def reasoning_att_skills(self, use_ckp=True):
+        if len(self.pos_data) == 0:
+            return []
+        stat_file = self.args.check_point_path / "attack" / f"attack_skill_stats.json"
+        if use_ckp and os.path.exists(stat_file):
+            att_behavior_data = file_utils.load_json(stat_file)
+        else:
+            att_behavior_data = smp_utils.stat_series_rewards(self.win_states,
+                                                              self.win_actions,
+                                                              self.win_rewards,
+                                                              self.prop_indices,
+                                                              self.args, "attack")
+            for beh_i, beh_data in enumerate(att_behavior_data):
+                data = [[torch.tensor(beh_data["dists_pos"])[:, 0], torch.tensor(beh_data["dists_neg"])[:, 0]],
+                        [torch.tensor(beh_data["dists_pos"])[:, 1], torch.tensor(beh_data["dists_neg"])[:, 1]],
+                        [torch.tensor(beh_data["dir_pos"]).squeeze(), torch.tensor(beh_data["dir_ab_neg"]).squeeze()]
+                        ]
+                beh_name = f"{beh_i}_{self.args.action_names[beh_data['action_type']]}_var_{beh_data['variance']:.2f}"
+                draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
+                                          beh_name, self.args.check_point_path / "attack", figure_size=(30, 10))
+            file_utils.save_json(stat_file, att_behavior_data)
+        att_behavior_file = self.args.check_point_path / "attack" / f"attack_behaviors.pkl"
+        if os.path.exists(att_behavior_file):
+            attack_behaviors = file_utils.load_pickle(att_behavior_file)
+            attack_behaviors = beh_utils.update_attack_behaviors(self.args, attack_behaviors, att_behavior_data)
+        else:
+            attack_behaviors = []
+            # print(f'- Create {len(att_behavior_data)} attack behaviors')
+            for beh_i, beh in enumerate(att_behavior_data):
+                attack_behaviors.append(beh_utils.create_attack_behavior(self.args, beh_i, beh))
+            file_utils.save_pkl(att_behavior_file, attack_behaviors)
+
+        # for attack_behavior in attack_behaviors:
+        #     print(f"# attack behavior: {attack_behavior.clause}")
+        self.att_behaviors = attack_behaviors
+        return attack_behaviors
+
     def reasoning_att_behaviors(self, use_ckp=True):
         if len(self.pos_data) == 0:
             return []
@@ -267,7 +304,8 @@ class SymbolicMicroProgramPlayer:
                                                        self.prop_indices,
                                                        self.args.var_th, "attack",
                                                        self.args.action_names,
-                                                       self.args.step_dist, self.args.max_dist)
+                                                       self.args.step_dist,
+                                                       self.args.max_dist)
             for beh_i, beh_data in enumerate(att_behavior_data):
                 data = [[torch.tensor(beh_data["dists_pos"])[:, 0], torch.tensor(beh_data["dists_neg"])[:, 0]],
                         [torch.tensor(beh_data["dists_pos"])[:, 1], torch.tensor(beh_data["dists_neg"])[:, 1]],
@@ -426,7 +464,7 @@ class SymbolicMicroProgramPlayer:
             action, explaining = self.getout_actor(state)
         elif self.args.m == 'Assault':
             action, explaining = self.assault_actor(state)
-        elif self.args.m in ["Asterix", "Boxing", "Breakout"]:
+        elif self.args.m in ["Asterix", "Boxing", "Breakout", "Freeway", "Kangaroo"]:
             action, explaining = self.asterix_actor(state)
         elif self.args.m == 'threefish':
             action, explaining = self.threefish_actor(state)
@@ -434,6 +472,7 @@ class SymbolicMicroProgramPlayer:
             action, explaining = self.loot_actor(state)
         else:
             raise ValueError
+
         return action, explaining
 
     def reasoning_act(self, state):
@@ -547,7 +586,7 @@ class PpoPlayer:
         return result
 
     def getout_actor(self, getout):
-        extracted_state = extract_neural_state_getout(getout, self.args)
+        extracted_state = extract_neural_state_getout(getout, self.args).to(self.args.device)
         predictions = self.model(extracted_state)
         prediction = torch.argmax(predictions).cpu().item()
         # explaining = explains[prediction]
@@ -556,7 +595,7 @@ class PpoPlayer:
         return action
 
     def getout_reasoning_actor(self, getout):
-        extracted_state = extract_neural_state_getout(getout, self.args)
+        extracted_state = extract_neural_state_getout(getout, self.args).to(self.args.device)
         predictions = self.model(extracted_state)
         prediction = torch.argmax(predictions).cpu().item()
 
@@ -567,7 +606,7 @@ class PpoPlayer:
 
         with open(model_path, "rb") as f:
             model = ActorCritic(args).to(args.device)
-            model.load_state_dict(state_dict=torch.load(f, map_location=args.device))
+            model.load_state_dict(state_dict=torch.load(f))
 
         print(f"- loaded player model from {model_path}")
         model = model.actor
