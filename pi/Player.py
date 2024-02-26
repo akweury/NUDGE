@@ -5,7 +5,7 @@ import torch
 from torch import nn as nn
 from torch.distributions import Categorical
 
-from src.agents.neural_agent import ActorCritic
+from src.agents.neural_agent import ActorCritic, NeuralPPO
 from src.agents.utils_getout import extract_neural_state_getout
 from pi import Reasoner
 from pi.utils import smp_utils, beh_utils, file_utils, oc_utils
@@ -171,9 +171,11 @@ class SymbolicMicroProgramPlayer:
             self.lost_actions = torch.cat((self.lost_actions, new_lost_actions), 0)
             self.lost_rewards = torch.cat((self.lost_rewards, new_lost_rewards), 0)
 
-    def update_behaviors(self, pf_behaviors, def_behaviors, att_behaviors, args=None):
+    def update_behaviors(self, pf_behaviors, def_behaviors, att_behaviors, skill_att_behavior, args=None):
         if args is not None:
             self.args = args
+        if skill_att_behavior is not None:
+            self.skill_att_behavior = skill_att_behavior
         if pf_behaviors is not None:
             self.pf_behaviors = pf_behaviors
         if def_behaviors is not None:
@@ -187,7 +189,7 @@ class SymbolicMicroProgramPlayer:
         if self.att_behaviors is None:
             self.att_behaviors = []
         try:
-            self.behaviors = self.pf_behaviors + self.def_behaviors + self.att_behaviors
+            self.behaviors = self.pf_behaviors + self.def_behaviors + self.att_behaviors + self.skill_att_behaviors
         except TypeError:
             print('pf_behaviors')
         self.model.update(args, self.behaviors)
@@ -265,28 +267,33 @@ class SymbolicMicroProgramPlayer:
                                                               self.prop_indices,
                                                               self.args, "attack")
             for beh_i, beh_data in enumerate(att_behavior_data):
-                data = [[torch.tensor(beh_data["dists_pos"])[:, 0], torch.tensor(beh_data["dists_neg"])[:, 0]],
-                        [torch.tensor(beh_data["dists_pos"])[:, 1], torch.tensor(beh_data["dists_neg"])[:, 1]],
-                        [torch.tensor(beh_data["dir_pos"]).squeeze(), torch.tensor(beh_data["dir_ab_neg"]).squeeze()]
-                        ]
-                beh_name = f"{beh_i}_{self.args.action_names[beh_data['action_type']]}_var_{beh_data['variance']:.2f}"
-                draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
-                                          beh_name, self.args.check_point_path / "attack", figure_size=(30, 10))
+                skill_len = beh_data["skill_len"]
+                for frame_i in range(skill_len):
+                    data = [[torch.tensor(beh_data["dists_pos"])[frame_i, :, 0],
+                             torch.tensor(beh_data["dists_neg"])[frame_i, :, 0]],
+                            [torch.tensor(beh_data["dists_pos"])[frame_i, :, 1],
+                             torch.tensor(beh_data["dists_neg"])[frame_i, :, 1]],
+                            [torch.tensor(beh_data["dir_pos"]).squeeze()[frame_i],
+                             torch.tensor(beh_data["dir_ab_neg"]).squeeze()[frame_i]]
+                            ]
+                    beh_name = f"{beh_i}_{skill_len}_{frame_i}_{self.args.action_names[beh_data['action_type'][frame_i]]}_var_{beh_data['variance']:.2f}"
+                    # draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
+                    #                           beh_name, self.args.check_point_path / "skill_attack", figure_size=(30, 10))
             file_utils.save_json(stat_file, att_behavior_data)
-        att_behavior_file = self.args.check_point_path / "attack" / f"attack_behaviors.pkl"
+        att_behavior_file = self.args.check_point_path / "skill_attack" / f"attack_behaviors.pkl"
         if os.path.exists(att_behavior_file):
             attack_behaviors = file_utils.load_pickle(att_behavior_file)
-            attack_behaviors = beh_utils.update_attack_behaviors(self.args, attack_behaviors, att_behavior_data)
+            attack_behaviors = beh_utils.update_skill_attack_behaviors(self.args, attack_behaviors, att_behavior_data)
         else:
             attack_behaviors = []
             # print(f'- Create {len(att_behavior_data)} attack behaviors')
             for beh_i, beh in enumerate(att_behavior_data):
-                attack_behaviors.append(beh_utils.create_attack_behavior(self.args, beh_i, beh))
+                attack_behaviors.append(beh_utils.create_skill_attack_behavior(self.args, beh_i, beh))
             file_utils.save_pkl(att_behavior_file, attack_behaviors)
 
         # for attack_behavior in attack_behaviors:
         #     print(f"# attack behavior: {attack_behavior.clause}")
-        self.att_behaviors = attack_behaviors
+        self.skill_att_behaviors = attack_behaviors
         return attack_behaviors
 
     def reasoning_att_behaviors(self, use_ckp=True):
@@ -605,8 +612,10 @@ class PpoPlayer:
     def load_model(self, model_path, args, set_eval=True):
 
         with open(model_path, "rb") as f:
-            model = ActorCritic(args).to(args.device)
-            model.load_state_dict(state_dict=torch.load(f))
+            # model = ActorCritic(args).to(args.device)
+            model = NeuralPPO(args).to(args.device)
+
+            model.load_state_dict(state_dict=torch.load(f, map_location="cpu"))
 
         print(f"- loaded player model from {model_path}")
         model = model.actor

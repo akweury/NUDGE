@@ -19,10 +19,19 @@ def extract_fact_terms(args, fact):
 
 
 def generate_action_predicate(args, behavior):
-    action_code = int(behavior.action)
-    action_name = args.action_names[action_code]
-    if behavior.neg_beh:
-        action_name = "not_" + action_name
+    action_name = ""
+    if isinstance(behavior.action, list):
+        for action_code in behavior.action:
+            action_name += args.action_names[int(action_code)] + "_"
+            if behavior.neg_beh:
+                action_name += "not_" + action_name + "_"
+        action_name = action_name[:-1]
+    else:
+        action_code = int(behavior.action)
+        action_name = args.action_names[action_code]
+        if behavior.neg_beh:
+            action_name = "not_" + action_name
+
     action_predicate = InvPredicate(action_name, 1, [DataType("agent")], config.action_pred_name)
 
     return action_predicate

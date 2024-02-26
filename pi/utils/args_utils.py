@@ -187,6 +187,7 @@ def load_args(exp_args_path, m):
         args.obj_info = args.game_info["obj_info"]
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
         args.var_th = 0.5
+        args.skill_var_th = 0.1
         args.max_dist = 0.2
 
         args.reasoning_gap = 1
@@ -208,6 +209,8 @@ def load_args(exp_args_path, m):
         os.mkdir(str(args.check_point_path / "defensive"))
     if not os.path.exists(args.check_point_path / "attack"):
         os.mkdir(str(args.check_point_path / "attack"))
+    if not os.path.exists(args.check_point_path / "skill_attack"):
+        os.mkdir(str(args.check_point_path / "skill_attack"))
     if not os.path.exists(args.check_point_path / "path_finding"):
         os.mkdir(str(args.check_point_path / "path_finding"))
     if not os.path.exists(str(args.output_folder)):

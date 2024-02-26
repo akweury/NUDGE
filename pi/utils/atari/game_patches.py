@@ -227,10 +227,10 @@ def frame_patch_boxing(states, actions, rewards, action_names):
 
 def atari_frame_patches(args, env_args, info):
     if args.m == 'Boxing':
-        env_args.logic_states, env_args.actions, env_args.rewards = frame_patch_boxing(env_args.logic_states,
-                                                                                       env_args.actions,
-                                                                                       env_args.rewards,
-                                                                                       args.action_names)
+        # env_args.logic_states, env_args.actions, env_args.rewards = frame_patch_boxing(env_args.logic_states,
+        #                                                                                env_args.actions,
+        #                                                                                env_args.rewards,
+        #                                                                                args.action_names)
         reward_tensor = torch.tensor(env_args.rewards)
         reward_tensor[reward_tensor > 0].sum()
         env_args.state_score = reward_tensor[reward_tensor > 0].sum()

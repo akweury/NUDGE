@@ -30,7 +30,10 @@ def main(render=True, m=None):
     att_behaviors = agent.reasoning_att_behaviors()
     pf_behaviors = agent.reasoning_path_behaviors()
     def_behaviors = agent.reasoning_def_behaviors()
-    agent.update_behaviors(pf_behaviors=pf_behaviors, def_behaviors=def_behaviors, att_behaviors=att_behaviors, args=args)
+    agent.update_behaviors(pf_behaviors=pf_behaviors, def_behaviors=def_behaviors,
+                           att_behaviors=att_behaviors,
+                           skill_att_behavior = att_skill,
+                           args=args)
 
     if render:
         # Test updated agent

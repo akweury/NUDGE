@@ -95,10 +95,10 @@ def render_getout(agent, args):
         return viewer
 
     def create_getout_instance(args, seed=None):
-        if args.hardness == 1:
-            enemies = True
-        else:
-            enemies = False
+        # if args.hardness == 1:
+        #     enemies = True
+        # else:
+        enemies = False
         # level_generator = DummyGenerator()
         getout = Getout()
         level_generator = ParameterizedLevelGenerator(enemies=enemies)

@@ -171,8 +171,8 @@ def create_attack_behavior(args, beh_i, beh):
     dir_range_pos = torch.tensor(beh["dir_range"], dtype=torch.float32)
     dir_conf_pos = torch.tensor(beh["dir_conf"], dtype=torch.float32)
 
-    pos_pos = torch.tensor(beh["position_pos"], dtype=torch.float32)
-    pos_neg = torch.tensor(beh["position_neg"], dtype=torch.float32)
+    # pos_pos = torch.tensor(beh["position_pos"], dtype=torch.float32)
+    # pos_neg = torch.tensor(beh["position_neg"], dtype=torch.float32)
     expected_reward = beh["rewards"]
     obj_combs = beh["obj_combs"]
     prop_combs = beh["prop_combs"]
@@ -203,6 +203,59 @@ def create_attack_behavior(args, beh_i, beh):
 
     return behavior
 
+def create_skill_attack_behavior(args, beh_i, beh):
+    # create attack behaviors
+    skill_len = beh["skill_len"]
+    x_range_pos = [torch.tensor(beh["x_range"][i], dtype=torch.float32) for i in range(skill_len)]
+    y_range_pos = [torch.tensor(beh["y_range"][i], dtype=torch.float32) for i in range(skill_len)]
+    x_conf_pos = [torch.tensor(beh["x_conf"][i], dtype=torch.float32) for i in range(skill_len)]
+    y_conf_pos = [torch.tensor(beh["y_conf"][i], dtype=torch.float32) for i in range(skill_len)]
+    dir_range_pos = [torch.tensor(beh["dir_range"][i], dtype=torch.float32) for i in range(skill_len)]
+    dir_conf_pos = [torch.tensor(beh["dir_conf"][i], dtype=torch.float32) for i in range(skill_len)]
+
+    # pos_pos = torch.tensor(beh["position_pos"], dtype=torch.float32)
+    # pos_neg = torch.tensor(beh["position_neg"], dtype=torch.float32)
+    expected_reward = beh["rewards"]
+    obj_combs = beh["obj_combs"]
+    prop_combs = beh["prop_combs"]
+    action_type = beh["action_type"]
+    mask = beh["masks"]
+    action_names = [args.action_names[a_i] for a_i in action_type]
+    # create predicate
+    dir_names = []
+    for i in range(skill_len):
+        dir_names.append([math_utils.pol2dir_name(dir) for dir in dir_range_pos[i]])
+
+    pred_name = (f"skill_{action_names}")
+
+    dist_pred = predicate.Skill_Dist_Dir(args, x_range=x_range_pos, x_conf=x_conf_pos,
+                                         y_range=y_range_pos, y_conf=y_conf_pos,
+                                         dir_range=dir_range_pos, dir_conf=dir_conf_pos,
+                                         name=pred_name, plot_path=args.check_point_path / "skill_attack",
+                                         skill_len=skill_len)
+    pred = [dist_pred]
+
+    beh_fact = VarianceFact(mask, obj_combs, prop_combs, pred)
+    neg_beh = False
+
+    behavior = Behavior("skill_attack", neg_beh, [beh_fact], action_type, expected_reward, skill_beh=True)
+    behavior.clause = pi_lang.behavior2clause(args, behavior)
+
+    print(f"# Attack behavior  {beh_i + 1}: {behavior.clause}")
+
+    return behavior
+
+def update_skill_attack_behaviors(args, behaviors, att_behavior_data):
+    # create attack behaviors
+    attack_behaviors = []
+    for data_i, beh_data in enumerate(att_behavior_data):
+        behavior_exist = False
+        if not behavior_exist:
+            behavior = create_skill_attack_behavior(args, data_i, beh_data)
+            if args.with_explain:
+                print(f"- new behavior {behavior.clause}")
+            attack_behaviors.append(behavior)
+    return attack_behaviors
 
 def update_attack_behaviors(args, behaviors, att_behavior_data):
     # create attack behaviors

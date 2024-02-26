@@ -239,7 +239,8 @@ def mask_tensors_from_series_states(states, obj_info):
         name, obj_indices = obj_info[i]['name'], obj_info[i]["indices"]
 
         obj_exist_counter = states[:, 0, obj_indices, i].sum(dim=-1)
-        mask_tensors[:, :, i] = torch.repeat_interleave((obj_exist_counter > 0).unsqueeze(1),mask_tensors.shape[1], dim=1)
+        mask_tensors[:, :, i] = torch.repeat_interleave((obj_exist_counter > 0).unsqueeze(1), mask_tensors.shape[1],
+                                                        dim=1)
 
     mask_tensors = mask_tensors.bool()
     return mask_tensors
@@ -1058,19 +1059,13 @@ def indices_and_previous_k(input_list, k, value_type):
 def stat_series_rewards(states, actions, rewards, prop_indices, args, stat_type):
     zero_reward = args.zero_reward
     game_info = args.obj_info
-    var_th = args.var_th
-    action_names = args.action_names
+    var_th = args.skill_var_th
+    action_name_all = args.action_names
     step_dist = args.step_dist
     max_dist = args.max_dist
-
+    passed_stats = []
     for skill_len in range(2, args.skill_len_max):
-        if stat_type == "attack":
-            mask_reward = rewards > zero_reward
-        elif stat_type == "defense":
-            mask_reward = rewards < zero_reward
-        else:
-            raise ValueError
-        rewards_pos, rewards_indices_pos = indices_and_previous_k(rewards, skill_len, "positive")
+        _, rewards_indices_pos = indices_and_previous_k(rewards, skill_len, "positive")
         states_pos = states[rewards_indices_pos]
         actions_pos = actions[rewards_indices_pos]
         masks_pos = mask_tensors_from_series_states(states_pos, game_info)
@@ -1080,7 +1075,7 @@ def stat_series_rewards(states, actions, rewards, prop_indices, args, stat_type)
         actions_neg = actions[rewards_indices_non_pos]
         masks_neg = mask_tensors_from_series_states(states_neg, game_info)
 
-        mask_pos_types = masks_pos[:,0].unique(dim=0)
+        mask_pos_types = masks_pos[:, 0].unique(dim=0)
         action_pos_types = actions_pos.unique(dim=0)
         obj_types = get_all_2_combinations(game_info, reverse=False)
         prop_types = [prop_indices]
@@ -1101,8 +1096,10 @@ def stat_series_rewards(states, actions, rewards, prop_indices, args, stat_type)
                 states_stats.append([])
                 continue
             # print(type_combs[t_i])
-            mask_action_state_pos = ((actions_pos == action_type).prod(-1) * (masks_pos[:,0] == mask_type).prod(-1)).bool()
-            mask_action_state_neg = ((actions_neg == action_type).prod(-1) * (masks_neg[:,0] == mask_type).prod(-1)).bool()
+            mask_action_state_pos = (
+                    (actions_pos == action_type).prod(-1) * (masks_pos[:, 0] == mask_type).prod(-1)).bool()
+            mask_action_state_neg = (
+                    (actions_neg == action_type).prod(-1) * (masks_neg[:, 0] == mask_type).prod(-1)).bool()
             states_action_pos = states_pos[mask_action_state_pos]
             states_action_neg = states_neg[mask_action_state_neg]
 
@@ -1111,48 +1108,61 @@ def stat_series_rewards(states, actions, rewards, prop_indices, args, stat_type)
             obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
             obj_a_indices = obj_combs[:, 0].unique()
             obj_b_indices = obj_combs[:, 1].unique()
-            if len(obj_a_indices) == 1 and states_action_pos.shape[0] > 8:
-                action_name = action_names[action_type]
-                action_dir = math_utils.action_to_deg(action_name)
 
-                data_A = states_action_pos[:, obj_a_indices][:, :, prop_type]
-                data_B = states_action_pos[:, obj_b_indices][:, :, prop_type]
-                data_A_neg = states_action_neg[:, obj_a_indices][:, :, prop_type]
-                data_B_neg = states_action_neg[:, obj_b_indices][:, :, prop_type]
+            dist = torch.zeros(2)
+            data_A = torch.zeros(2)
+            data_A_neg = torch.zeros(2)
+            dist_neg = torch.zeros(2)
+            dist_dir_pos = torch.zeros(skill_len, data_A.shape[0], 3)
+            dist_dir_neg = torch.zeros(skill_len, data_A_neg.shape[0], 3)
+            direction = torch.zeros(2)
+            direction_neg = torch.zeros(2)
 
-                if "fire" in action_name:
-                    data_A_one_step_move = data_A
-                    data_A_neg_one_step_move = data_A_neg
-                else:
-                    data_A_one_step_move = math_utils.one_step_move(data_A, action_dir, step_dist)
-                    data_A_neg_one_step_move = math_utils.one_step_move(data_A_neg, action_dir, step_dist)
+            if len(obj_a_indices) == 1 and states_action_pos.shape[0] > 8 and states_action_neg.shape[0] > 8:
+                action_names = [action_name_all[a_type] for a_type in action_type]
+                action_dir = [math_utils.action_to_deg(a_name) for a_name in action_names]
 
-                dist, b_index = math_utils.dist_a_and_b_closest(data_A_one_step_move, data_B)
-                dir_ab = math_utils.dir_ab_batch(data_A_one_step_move, data_B, b_index)
-                dist_dir_pos = torch.cat((dist, dir_ab), dim=1)
+                data_A = states_action_pos[:, :, obj_a_indices][:, :, :, prop_type]
+                data_B = states_action_pos[:, :, obj_b_indices][:, :, :, prop_type]
+                data_A_neg = states_action_neg[:, :, obj_a_indices][:, :, :, prop_type]
+                data_B_neg = states_action_neg[:, :, obj_b_indices][:, :, :, prop_type]
 
-                dist_neg, b_neg_index = math_utils.dist_a_and_b_closest(data_A_neg_one_step_move, data_B_neg)
-                dir_ab_neg = math_utils.dir_ab_batch(data_A_neg_one_step_move, data_B_neg, b_neg_index)
-                dist_dir_neg = torch.cat((dist_neg, dir_ab_neg), dim=1)
+                # variance calculation
+                dist_dir_pos = torch.zeros(skill_len, data_A.shape[0], 3)
+                dist_dir_neg = torch.zeros(skill_len, data_A_neg.shape[0], 3)
+                dist = torch.zeros(skill_len, data_A.shape[0], 2)
+                dist_neg = torch.zeros(skill_len, data_A_neg.shape[0], 2)
+                direction = torch.zeros(skill_len, data_A.shape[0], 1)
+                direction_neg = torch.zeros(skill_len, data_A_neg.shape[0], 1)
 
-            else:
-                dist = torch.zeros(2)
-                data_A = torch.zeros(2)
-                data_A_neg = torch.zeros(2)
-                dist_neg = torch.zeros(2)
-                dist_dir_pos = torch.zeros(2)
-                dist_dir_neg = torch.zeros(2)
-                dir_ab = torch.zeros(2)
-                dir_ab_neg = torch.zeros(2)
-            var_pos, mean_pos = torch.var_mean(dist_dir_pos, dim=0)
-            var_neg, mean_neg = torch.var_mean(dist_dir_neg, dim=0)
+                for a_i, action_name in enumerate(action_names):
+                    if "fire" in action_name:
+                        data_A_one_step_move = data_A[:, a_i]
+                        data_A_neg_one_step_move = data_A_neg[:, a_i]
+                    else:
+                        data_A_one_step_move = math_utils.one_step_move(data_A[:, a_i], action_dir[a_i], step_dist)
+                        data_A_neg_one_step_move = math_utils.one_step_move(data_A_neg[:, a_i], action_dir[a_i],
+                                                                            step_dist)
 
-            var_pos = var_pos.sum()
-            mean_pos = mean_pos.sum()
-            var_neg = var_neg.sum()
-            mean_neg = means_neg.sum()
+                    dist[a_i], b_index = math_utils.dist_a_and_b_closest(data_A_one_step_move, data_B[:, a_i])
+                    direction[a_i] = math_utils.dir_ab_batch(data_A_one_step_move, data_B[:, a_i], b_index)
+                    dist_dir_pos[a_i] = torch.cat((dist[a_i], direction[a_i]), dim=1)
 
-            if len(dist_dir_pos) < 3 or var_neg == 0 or dist.sum() == 0:
+                    dist_neg[a_i], b_neg_index = math_utils.dist_a_and_b_closest(data_A_neg_one_step_move,
+                                                                                 data_B_neg[:, a_i])
+                    direction_neg[a_i] = math_utils.dir_ab_batch(data_A_neg_one_step_move, data_B_neg[:, a_i],
+                                                                 b_neg_index)
+                    dist_dir_neg[a_i] = torch.cat((dist_neg[a_i], direction_neg[a_i]), dim=1)
+
+            var_pos, mean_pos = torch.var_mean(dist_dir_pos, dim=1)
+            var_neg, mean_neg = torch.var_mean(dist_dir_neg, dim=1)
+
+            var_pos = var_pos.sum(dim=1).mean()
+            mean_pos = mean_pos.sum(dim=1).mean()
+            var_neg = var_neg.sum(dim=1).mean()
+            mean_neg = mean_neg.sum(dim=1).mean()
+
+            if dist_dir_pos.shape[1] < 3 or var_neg == 0 or dist.sum() == 0:
                 var_pos = 1e+20
                 mean_pos = 1e+20
             variances[t_i] = var_pos
@@ -1161,8 +1171,8 @@ def stat_series_rewards(states, actions, rewards, prop_indices, args, stat_type)
             means_neg[t_i] = mean_neg
             percentage[t_i] = len(states_action_pos) / len(states_pos)
             states_stats.append(
-                {"dists_pos": dist, "dir_pos": dir_ab,
-                 "dists_neg": dist_neg, "dir_ab_neg": dir_ab_neg,
+                {"dists_pos": dist, "dir_pos": direction,
+                 "dists_neg": dist_neg, "dir_ab_neg": direction_neg,
                  "means": mean_pos, "variances": var_pos,
                  "position_pos": data_A.squeeze(), "position_neg": data_A_neg.squeeze(),
                  "action_type": action_type, "mask_type": mask_type, "prop_type": prop_type, "obj_types": obj_type,
@@ -1172,42 +1182,47 @@ def stat_series_rewards(states, actions, rewards, prop_indices, args, stat_type)
 
         passed_variances = variances_ranked < var_th
         passed_comb_indices = v_rank[passed_variances]
-        passed_stats = [states_stats[s_i] for s_i in passed_comb_indices]
-        passed_combs = [type_combs[s_i] for s_i in passed_comb_indices]
+        skill_n_stats = [states_stats[s_i] for s_i in passed_comb_indices]
+        skill_n_passed_combs = [type_combs[s_i] for s_i in passed_comb_indices]
+        passed_stats += skill_n_stats
     behs = []
     for state_stat in passed_stats:
         indices = state_stat["indices"]
-        dist_range = math_utils.get_90_percent_range_2d(state_stat["dists_pos"].numpy())
+        dist_pos = state_stat["dists_pos"]
+        dir_value = state_stat["dir_pos"]
+        action_ids = state_stat["action_type"].tolist()
+
+        dist_range = [math_utils.get_90_percent_range_2d(pos).tolist() for pos in dist_pos.numpy()]
         if np.abs(dist_range).max() > max_dist:
             continue
-
-        dist_one_percent_value = math_utils.closest_one_percent(state_stat["dists_pos"])
-        x_one_percent_types, x_counts = dist_one_percent_value[:, 0].unique(return_counts=True)
-        y_one_percent_types, y_counts = dist_one_percent_value[:, 1].unique(return_counts=True)
-        x_conf = x_one_percent_types / x_one_percent_types.sum()
-        y_conf = y_one_percent_types / y_one_percent_types.sum()
-
-        dir_value = state_stat["dir_pos"]
+        dist_one_percent_value = math_utils.closest_one_percent(dist_pos)
         dir_quarter_value = math_utils.closest_quarter(dir_value)
-        dir_quarter_values, dir_counts = dir_quarter_value.unique(return_counts=True)
-        dir_conf = dir_counts / dir_counts.sum()
+        x_types = []
+        y_types = []
+        x_confs = []
+        y_confs = []
+        direction_types = []
+        direction_confs = []
+        for frame_i in range(len(dist_one_percent_value)):
+            x_one_percent_types, x_counts = dist_one_percent_value[frame_i, :, 0].unique(return_counts=True)
+            y_one_percent_types, y_counts = dist_one_percent_value[frame_i, :, 1].unique(return_counts=True)
+            x_types.append(x_one_percent_types.tolist())
+            y_types.append(y_one_percent_types.tolist())
+            x_confs.append((x_one_percent_types / x_one_percent_types.sum()).tolist())
+            y_confs.append((y_one_percent_types / y_one_percent_types.sum()).tolist())
 
-        action_id = state_stat["action_type"].tolist()
-        action_value = math_utils.action_to_deg(action_names[action_id])
-        if action_value not in dir_quarter_values.tolist() and action_value != 100:
-            print(f"aciton value {action_value}, data direction: {dir_quarter_values} "
-                  f"variance: {state_stat['variances'].tolist()}")
-            print("")
+            dir_quarter_values, dir_counts = dir_quarter_value[frame_i].unique(return_counts=True)
+            direction_types.append(dir_quarter_values.tolist())
+            direction_confs.append((dir_counts / dir_counts.sum()).tolist())
 
-        # dir_degree = math_utils.range_to_direction(dir_range.squeeze())
-        # symbolize the data further with specific direction and distance
         behs.append({
-            "x_range": x_one_percent_types.tolist(),
-            "y_range": y_one_percent_types.tolist(),
-            "x_conf": x_conf.tolist(),
-            "y_conf": y_conf.tolist(),
-            "dir_range": dir_quarter_values.tolist(),
-            "dir_conf": dir_conf.tolist(),
+            "x_range": x_types,
+            "y_range": y_types,
+            "x_conf": x_confs,
+            "y_conf": y_confs,
+            "dir_range": direction_types,
+            "dir_conf": direction_confs,
+            "skill_len": len(x_types),
             "dists_pos": state_stat["dists_pos"].tolist(),
             "dir_pos": state_stat["dir_pos"].tolist(),
             "position_pos": state_stat["position_pos"].tolist(),
@@ -1220,7 +1235,7 @@ def stat_series_rewards(states, actions, rewards, prop_indices, args, stat_type)
             "masks": state_stat["mask_type"].tolist(),
             "obj_combs": state_stat["obj_types"],
             "prop_combs": state_stat["prop_type"],
-            "rewards": rewards_pos[indices].tolist(),
+            "rewards": None,
         })
 
     return behs

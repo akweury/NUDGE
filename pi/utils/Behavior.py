@@ -8,12 +8,14 @@ class Behavior():
     """ generate one micro-program
     """
 
-    def __init__(self, beh_type, neg_beh, facts, action, reward):
+    def __init__(self, beh_type, neg_beh, facts, action, reward, skill_beh=False):
         super().__init__()
-        self.beh_type=beh_type
+        self.beh_type = beh_type
         self.fact = facts
         self.action = action
         self.reward = reward
+        self.skill_stage = 0
+        self.skill_beh = skill_beh
         # self.passed_state_num = passed_state_num
         # self.test_passed_state_num = test_passed_state_num
         # self.failed_state_num = failed_state_num
@@ -47,7 +49,7 @@ class Behavior():
             if not mask_satisfaction:
                 return prediction
             # pred is true if any comb is true (or)
-            fact_satisfaction = False
+
             obj_a_indices = obj_combs[:, 0].unique()
             obj_b_indices = obj_combs[:, 1].unique()
             if len(obj_a_indices) == 1:
@@ -55,6 +57,6 @@ class Behavior():
                 # try to find the closest obj B
                 data_B = x[:, obj_b_indices][:, :, prop]
                 # behavior is true if all pred is true (and)
-                confidence[f_i:f_i + 1] = fact.preds[0].eval(data_A, data_B, self.action, self.beh_type)
+                confidence[f_i:f_i + 1] = fact.preds[0].eval(data_A, data_B, self.action, self.beh_type, self.skill_stage)
             prediction[f_i] = prediction / (len(obj_combs) + 1e-20)
         return confidence
