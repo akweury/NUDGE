@@ -128,7 +128,7 @@ def cart2pol(x, y):
 #
 #     return dir
 def closest_one_percent(dist_value):
-    rounded_dist = torch.round(dist_value / 0.01) * 0.01
+    rounded_dist = torch.round(dist_value / 0.001) * 0.001
     return rounded_dist
 
 

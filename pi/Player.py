@@ -257,7 +257,7 @@ class SymbolicMicroProgramPlayer:
     def reasoning_att_skills(self, use_ckp=True):
         if len(self.pos_data) == 0:
             return []
-        stat_file = self.args.check_point_path / "attack" / f"attack_skill_stats.json"
+        stat_file = self.args.check_point_path / "skill_attack" / f"attack_skill_stats.json"
         if use_ckp and os.path.exists(stat_file):
             att_behavior_data = file_utils.load_json(stat_file)
         else:

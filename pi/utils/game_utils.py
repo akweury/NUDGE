@@ -267,7 +267,8 @@ def plot_mt_asterix(env_args, agent):
                 f"{explain_str}"
                 f"# PF Behaviors: {len(agent.pf_behaviors)}\n"
                 f"# Def Behaviors: {len(agent.def_behaviors)}\n"
-                f"# Att Behaviors: {len(agent.att_behaviors)}\n")
+                f"# Att Behaviors: {len(agent.att_behaviors)}\n"
+                f"# Att Skill Behaviors: {len(agent.skill_att_behaviors)}\n")
 
     else:
         data = (f"Max steaks: {env_args.max_steak}\n"

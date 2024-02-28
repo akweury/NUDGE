@@ -1064,7 +1064,7 @@ def stat_series_rewards(states, actions, rewards, prop_indices, args, stat_type)
     step_dist = args.step_dist
     max_dist = args.max_dist
     passed_stats = []
-    for skill_len in range(2, args.skill_len_max):
+    for skill_len in range(1, args.skill_len_max):
         _, rewards_indices_pos = indices_and_previous_k(rewards, skill_len, "positive")
         states_pos = states[rewards_indices_pos]
         actions_pos = actions[rewards_indices_pos]
@@ -1179,6 +1179,25 @@ def stat_series_rewards(states, actions, rewards, prop_indices, args, stat_type)
                  "indices": mask_action_state_pos})
 
         variances_ranked, v_rank = variances.sort()
+        # state_num = states.shape[0]
+        # passed_indices = torch.zeros(state_num, dtype=torch.bool)
+        # v_i = 0
+        # coverage = 0
+        # skill_n_stats = []
+        # percentage_each_stat = []
+        # while coverage < 0.99 or v_i < len(variances_ranked):
+        #     if variances_ranked<
+        #     skill_indices = states_stats[v_rank[v_i]]["indices"]
+        #
+        #     stat_cover_state_indices = torch.tensor(rewards_indices_pos)[skill_indices].unique()
+        #
+        #     new_states_percent = (~passed_indices[stat_cover_state_indices]).sum() / state_num
+        #     percentage_each_stat.append(new_states_percent.tolist())
+        #     passed_indices[stat_cover_state_indices] = True
+        #     coverage = passed_indices.sum() / state_num
+        #     skill_n_stats.append(states_stats[v_rank[v_i]])
+        #     v_i += 1
+        # passed_stats += skill_n_stats
 
         passed_variances = variances_ranked < var_th
         passed_comb_indices = v_rank[passed_variances]

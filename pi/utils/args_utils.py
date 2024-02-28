@@ -92,6 +92,7 @@ def load_args(exp_args_path, m):
         args.mile_stone_scores = [5, 10, 20, 40]
 
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
+
     elif args.m == "Asterix" or args.m == "asterix":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
@@ -187,12 +188,12 @@ def load_args(exp_args_path, m):
         args.obj_info = args.game_info["obj_info"]
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
         args.var_th = 0.5
-        args.skill_var_th = 0.1
+        args.skill_var_th = 0.02
         args.max_dist = 0.2
-
+        args.skill_len_max = 8
         args.reasoning_gap = 1
-        args.att_var_th = 0.5
-        args.step_dist = [0.01, -0.03]
+        args.att_var_th = 0.1
+        args.step_dist = [0.01, -0.01]
         args.mile_stone_scores = [5, 10, 20, 40]
     else:
         raise ValueError

@@ -398,7 +398,7 @@ def visual_info(data, height, width, font_size, text_pos):
     # predicates info
 
     text_y_shift = 40
-    lines = data.split("\n")
+    lines = data.split("\n")[:9]
     for line in lines:
         addCustomText(info_image, f"{line}", text_pos, font_size=font_size)
         text_pos[1] += text_y_shift
