@@ -203,6 +203,12 @@ class SymbolicMicroProgramPlayer:
             print('Type Error (update behaviors)')
         self.model.update(args, self.behaviors)
 
+
+
+        weights= torch.zeros(len(self.behaviors)).to(self.args.device)
+        for beh_i, beh in enumerate(self.behaviors):
+            weights[beh_i] = beh.weight
+        self.model.weights = weights
         if not self.learned_jump:
             for beh in self.behaviors:
                 if "jump" == beh.clause.head.pred.name:
@@ -385,13 +391,14 @@ class SymbolicMicroProgramPlayer:
             o2o_weights = beh_utils.learn_o2o_weights(self.win_states, self.win_actions, self.win_rewards,
                                                       o2o_behaviors, self.args)
             for b_i, beh in enumerate(o2o_behaviors):
-                beh.weight = o2o_weights[b_i]
+                beh.weight = 1
             file_utils.save_pkl(pf_behavior_file, o2o_behaviors)
 
         # for pf_behavior in pf_behaviors:
         #     print(f"# Path Finding behavior: {pf_behavior.clause}")
 
         self.o2o_behaviors = o2o_behaviors
+
         return o2o_behaviors
 
     def reasoning_path_behaviors(self, use_ckp=True):
@@ -527,7 +534,7 @@ class SymbolicMicroProgramPlayer:
             action, explaining = self.getout_actor(state)
         elif self.args.m == 'Assault':
             action, explaining = self.assault_actor(state)
-        elif self.args.m in ["Asterix", "Boxing", "Breakout", "Freeway", "Kangaroo"]:
+        elif self.args.m in ["Asterix", "Boxing", "Breakout", "Freeway", "Kangaroo", "Pong"]:
             action, explaining = self.asterix_actor(state)
         elif self.args.m == 'threefish':
             action, explaining = self.threefish_actor(state)

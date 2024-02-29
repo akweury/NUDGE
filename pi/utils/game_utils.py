@@ -190,6 +190,16 @@ def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list, screen_text):
                                           int(game_plot.shape[1] * env_args.zoom_in))
     draw_utils.addText(screen_plot, screen_text,
                        color=(255, 228, 181), thickness=1, font_size=0.5, pos="upper_right")
+    # label position
+    for o_i in range(len(env_args.logic_state)):
+        o_pos = env_args.logic_state[o_i][-2:]
+        if torch.tensor(o_pos).sum() > 0:
+            pixel_x = int(screen_plot.shape[1] * o_pos[0])
+            pixel_y = int(screen_plot.shape[0] * o_pos[1])
+            text = f"{o_pos[0]:.2f}, {o_pos[1]:.2f}"
+            # print(f"{text} {screen_plot.shape}")
+            draw_utils.addText(screen_plot, text, color=(0, 228, 181), thickness=3, font_size=0.7,
+                               pos=[pixel_x, pixel_y])
 
     if len(db_list) == 0:
         db_plots = np.zeros((int(screen_plot.shape[0]), int(screen_plot.shape[0] * 0.5), 3), dtype=np.uint8)
@@ -258,7 +268,7 @@ def plot_mt_asterix(env_args, agent):
             try:
                 explain_str += (f"{env_args.explaining['behavior_conf'][i]:.1f} "
                                 f"{agent.behaviors[beh_i].beh_type} {agent.behaviors[beh_i].clause}\n")
-                if i >5:
+                if i > 5:
                     break
             except IndexError:
                 print("")
@@ -394,7 +404,7 @@ def game_over_log(args, agent, env_args):
 
         pretrained_wr = torch.load(args.output_folder / f"wr_pretrained_{args.teacher_game_nums}.pt")
         smp_wr = env_args.win_rate.unsqueeze(0)[:, :env_args.game_i]
-        all_wr = torch.cat((pretrained_wr.unsqueeze(0)[:,:smp_wr.shape[1]], smp_wr), dim=0)
+        all_wr = torch.cat((pretrained_wr.unsqueeze(0)[:, :smp_wr.shape[1]], smp_wr), dim=0)
         draw_utils.plot_line_chart(all_wr, args.check_point_path,
                                    ["pretrained", agent.agent_type],
                                    title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")

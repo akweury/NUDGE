@@ -371,7 +371,7 @@ def addText(img, text, pos='upper_left', font_size=1.6, color=(255, 255, 255), t
     elif pos == 'lower_left':
         position = [10, w - 20]
     else:
-        raise ValueError('unsupported position to put text in the image.')
+        position = pos
 
     text_y_shift = 40
     lines = text.split("\n")

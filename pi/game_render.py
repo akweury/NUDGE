@@ -70,7 +70,7 @@ def render_getout(agent, args, save_buffer):
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
         while not env_args.game_over:
-            if env_args.frame_i>300:
+            if env_args.frame_i > 300:
                 break
             # limit frame rate
             if args.with_explain:
@@ -129,7 +129,6 @@ def render_getout(agent, args, save_buffer):
         env_args.buffer_game(args.zero_reward, args.save_frame)
         env_args.reset_buffer_game()
         game_utils.game_over_log(args, agent, env_args)
-
 
     game_utils.finish_one_run(env_args, args, agent)
     if save_buffer:
@@ -217,7 +216,7 @@ def render_atari_game(agent, args, save_buffer):
 def render_game(agent, args, save_buffer=False):
     if args.m == 'getout' or args.m == "getoutplus":
         render_getout(agent, args, save_buffer)
-    elif args.m in ['Asterix', 'Boxing', 'Kangaroo', "Breakout", "Freeway"]:
+    elif args.m in ["Assault", 'Asterix', 'Boxing', 'Kangaroo', "Breakout", "Freeway", "Pong"]:
 
         render_atari_game(agent, args, save_buffer)
     else:

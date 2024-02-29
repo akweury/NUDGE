@@ -129,15 +129,15 @@ def learn_o2o_weights(states, actions, rewards, behaviors, args):
     reasoner.update(args, behaviors)
 
     for state_i in tqdm(range(len(states))):
-        mask_conf = reasoner.eval_behaviors(states[state_i])
+        mask_conf = reasoner.eval_behaviors(states[state_i:state_i + 1])
         mask_diff_action = actions[state_i] != reasoner.actions.squeeze()
         mask_same_action = actions[state_i] == reasoner.actions.squeeze()
-        pos_weights += (mask_conf* mask_same_action).to(torch.int)
-        neg_weights -= (mask_conf * mask_diff_action).to(torch.int)
+        pos_weights += (mask_conf * mask_same_action).to(torch.float)
+        neg_weights -= (mask_conf * mask_diff_action).to(torch.float)
 
     weights = pos_weights + neg_weights
     weights_min, weights_max = weights.min(), weights.max()
-    weights = (weights - weights_min)/(weights_max - weights_min)
+    weights = (weights - weights_min) / (weights_max - weights_min)
 
     return weights
 
@@ -167,7 +167,7 @@ def create_o2o_behavior(args, beh_i, beh):
     beh_fact = VarianceFact(mask, obj_combs, prop_combs, pred)
     neg_beh = False
 
-    behavior = Behavior("o2o", neg_beh, [beh_fact], action_type, 0)
+    behavior = Behavior("o2o", neg_beh, [beh_fact], action_type, beh["reward"])
     behavior.clause = pi_lang.behavior2clause(args, behavior)
 
     print(f"# O2O behavior  {beh_i + 1}: {behavior.clause}")

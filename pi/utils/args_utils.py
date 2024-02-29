@@ -92,7 +92,46 @@ def load_args(exp_args_path, m):
         args.mile_stone_scores = [5, 10, 20, 40]
 
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
-
+    elif args.m == "Assault" or args.m == "assault":
+        args.model_path = config.path_model / args.m / 'model_50000000.gz'
+        args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
+        args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
+        args.train_nn_epochs = 2000
+        args.zero_reward = 0.0
+        args.fact_conf = 0.5
+        args.action_names = config.action_name_assault
+        args.prop_names = config.prop_name_assault
+        args.max_lives = 4
+        args.max_dist = 0.1
+        args.reward_lost_one_live = -100
+        args.reward_score_one_enemy = 10
+        args.game_info = config.game_info_assault
+        args.obj_info = args.game_info["obj_info"]
+        args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
+        args.var_th = 0.4
+        args.reasoning_gap = 1
+        args.step_dist = [0.01, -0.03]
+        args.mile_stone_scores = [5, 10, 20, 40]
+    elif args.m == "Pong" or args.m == "pong":
+        args.model_path = config.path_model / args.m / 'model_50000000.gz'
+        args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
+        args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
+        args.train_nn_epochs = 2000
+        args.zero_reward = 0.0
+        args.fact_conf = 0.5
+        args.action_names = config.action_name_pong
+        args.prop_names = config.prop_name_pong
+        args.max_lives = 0
+        args.max_dist = 0.1
+        args.reward_lost_one_live = 0
+        args.reward_score_one_enemy = 10
+        args.game_info = config.game_info_pong
+        args.obj_info = args.game_info["obj_info"]
+        args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
+        args.var_th = 0.4
+        args.reasoning_gap = 1
+        args.step_dist = [0.01, -0.03]
+        args.mile_stone_scores = [5, 10, 20, 40]
     elif args.m == "Asterix" or args.m == "asterix":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"

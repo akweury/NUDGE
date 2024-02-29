@@ -22,7 +22,8 @@ class SmpReasoner(nn.Module):
         # convert behaviors to tensors
 
         self.o = torch.zeros(len(self.behaviors), 2, dtype=torch.int).to(self.args.device)
-        self.o_mask = torch.zeros(len(self.behaviors), 23, dtype=torch.bool).to(self.args.device)
+        self.o_mask = torch.zeros(len(self.behaviors), len(self.args.obj_info), dtype=torch.bool).to(
+            self.args.device)
         self.p = torch.zeros(len(self.behaviors), 2, dtype=torch.int).to(self.args.device)
         self.actions = torch.zeros(len(self.behaviors), 1, dtype=torch.int).to(self.args.device)
         self.move_directions = torch.zeros(len(self.behaviors)).to(self.args.device)
@@ -33,7 +34,7 @@ class SmpReasoner(nn.Module):
         self.mask_neg_beh = torch.zeros(len(self.behaviors), dtype=torch.bool).to(self.args.device)
         self.mask_pos_beh = torch.zeros(len(self.behaviors), dtype=torch.bool).to(self.args.device)
         self.beh_skill_stage = torch.zeros(len(self.behaviors)).to(self.args.device)
-
+        self.beh_weights = torch.zeros(len(self.behaviors)).to(self.args.device)
         self.o2_indices = torch.zeros(len(self.behaviors), self.args.game_info["state_row_num"], dtype=torch.bool).to(
             self.args.device)
         for b_i, beh in enumerate(self.behaviors):
@@ -41,12 +42,13 @@ class SmpReasoner(nn.Module):
             self.o_mask[b_i, beh.fact[0].obj_comb] = True
             obj_1_indices = self.args.obj_info[self.o[b_i, 1]]["indices"]
             self.o2_indices[b_i, obj_1_indices] = True
-
+            self.beh_weights[b_i] = beh.reward
             self.p[b_i] = torch.tensor(beh.fact[0].prop_comb)
             self.dir_types[b_i] = beh.fact[0].preds[0].dir_type
             self.x_types[b_i] = beh.fact[0].preds[0].x_type
             self.y_types[b_i] = beh.fact[0].preds[0].y_type
             self.actions[b_i] = beh.action
+
             self.move_directions[b_i] = math_utils.action_to_deg(self.args.action_names[beh.action])
             if beh.skill_beh:
                 self.mask_pos_att_beh[b_i] = True
@@ -54,6 +56,8 @@ class SmpReasoner(nn.Module):
                 self.mask_neg_beh[b_i] = True
             else:
                 self.mask_pos_beh[b_i] = True
+        self.beh_weights = (self.beh_weights - self.beh_weights.min()) / (
+                    self.beh_weights.max() - self.beh_weights.min())
 
     def update(self, args, behaviors):
         if args is not None:
@@ -76,18 +80,18 @@ class SmpReasoner(nn.Module):
 
         p1_moved = math_utils.one_step_move_o2o(p1, self.move_directions, self.args.step_dist)
         dists = math_utils.dist_a_and_b(p1_moved, p2)
-        dists = math_utils.closest_one_percent(dists, 0.1)
-        dirs = math_utils.dir_a_and_b_with_alignment(p1_moved, p2).squeeze()
+        dists = math_utils.closest_one_percent(dists, 0.05)
+        dirs = math_utils.dir_a_and_b_with_alignment(p1_moved, p2).reshape(-1, p2.shape[1])
 
         mask_dir_eq = torch.eq(dirs, self.dir_types.unsqueeze(1))
-        mask_x_eq = torch.eq(dists[:,:, 0], self.x_types.unsqueeze(1))
-        mask_y_eq = torch.eq(dists[:,:, 1], self.y_types.unsqueeze(1))
+        mask_x_eq = torch.eq(dists[:, :, 0], self.x_types.unsqueeze(1))
+        mask_y_eq = torch.eq(dists[:, :, 1], self.y_types.unsqueeze(1))
         mask = mask_dir_eq * mask_x_eq * mask_y_eq
         mask[~self.o_mask[:, 1:]] = False
         mask_sum = mask.sum(dim=1).to(torch.bool)
         self.beh_skill_stage[~mask_sum] = 0
-
-        return mask_sum
+        conf= mask_sum.float() * self.beh_weights
+        return conf
 
     def get_beh_mask(self, x):
 
@@ -116,7 +120,7 @@ class SmpReasoner(nn.Module):
         action_prob = torch.zeros(1, len(self.args.action_names))
         action_mask = torch.zeros(1, len(self.args.action_names), dtype=torch.bool)
         explains = {"behavior_index": [], "reward": [], 'state': x, "behavior_conf": [], "behavior_action": []}
-        beh_conf = self.eval_behaviors(x)
+        beh_conf = self.eval_behaviors(x) * self.weights
         # mask_pos_beh, mask_neg_beh, mask_pos_att_beh, beh_confidence = self.get_beh_mask(x)
 
         mask_neg_beh = self.mask_neg_beh * (beh_conf > 0)

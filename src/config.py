@@ -104,11 +104,47 @@ game_info_getoutplus = {
     "axis_x_col": 4,
     "axis_y_col": 5
 }
-obj_info_assault = [('agent', [0], [0]),
-                    ('player_missile_vertical', [1, 2], [1]),
-                    ('player_missile_horizontal', [3, 4], [2]),
-                    ('enemy', [5, 6, 7, 8, 9], [3]),
-                    ('enemy_missile', [10, 11], [4])]
+
+obj_info_assault = [('Player', 1),
+                    ('PlayerMissileVertical', 3),
+                    ('PlayerMissileHorizontal', 3),
+                    ('Enemy', 5),
+                    ('EnemyMissile', 2)
+                    ]
+action_name_assault = ["noop",  # 0
+                       "fire",  # 1
+                       "up",  # 2
+                       "right",  # 3
+                       "left",  # 4
+                       "rightfire",  # 5
+                       "leftfire"  # 6
+                       ]
+game_info_assault = {
+    "obj_info": obj_info_assault,
+    "state_row_num": 14,
+    "state_col_num": 7,
+    "axis_x_col": 5,
+    "axis_y_col": 6
+}
+
+obj_info_pong = [('Player', 1),
+                 ('Ball', 1),
+                 ('Enemy', 1)
+                 ]
+action_name_pong = ["noop",  # 0
+                    "fire",  # 1
+                    "right",  # 2
+                    "left",  # 3
+                    "rightfire",  # 4
+                    "leftfire"  # 5
+                    ]
+game_info_pong = {
+    "obj_info": obj_info_pong,
+    "state_row_num": 3,
+    "state_col_num": 5,
+    "axis_x_col": 3,
+    "axis_y_col": 4
+}
 
 obj_info_asterix = [('Player', 1),
                     ('Enemy', 8),
@@ -148,15 +184,15 @@ game_info_breakout = {
     "axis_x_col": 3,
     "axis_y_col": 4
 }
-obj_info_kangaroo = [('Player', 1), # 0
-                     ('Child', 1), # 1
-                     ('Fruit', 3), # 2
-                     ('Bell', 1), # 3
-                     ('Platform', 4), # 4
-                     ('Ladder', 3), # 5
-                     ('Monkey', 4), # 6
-                     ('FallingCoconut', 3), # 7
-                     ('ThrownCoconut', 3) # 8
+obj_info_kangaroo = [('Player', 1),  # 0
+                     ('Child', 1),  # 1
+                     ('Fruit', 3),  # 2
+                     ('Bell', 1),  # 3
+                     ('Platform', 4),  # 4
+                     ('Ladder', 3),  # 5
+                     ('Monkey', 4),  # 6
+                     ('FallingCoconut', 3),  # 7
+                     ('ThrownCoconut', 3)  # 8
                      ]
 action_name_kangaroo = ["noop",  # 0
                         "fire",  # 1
@@ -233,16 +269,6 @@ action_name_freeway = ["noop",  # 0
 ########### action info ############################
 
 action_name_getout = ["left", "right", "jump"]
-action_name_assault = ["noop",  # 0
-                       "fire",  # 1
-                       "up",  # 2
-                       "right",  # 3
-                       "left",  # 4
-                       "rightfire",  # 5
-                       "leftfire"  # 6
-                       ]
-
-
 
 action_name_threefish = ["left", "right", "jump"]
 
@@ -253,6 +279,7 @@ prop_name_threefish = ['agent', 'fish', "radius", "axis_x", "axis_y"]
 prop_name_assault = ['agent', 'player_missile_vertical', "player_missile_horizontal", "enemy", "enemy_missile",
                      "axis_x", "axis_y"]
 prop_name_asterix = ["Player", "Enemy", "Consumable", "axis_x", "axis_y"]
+prop_name_pong = ["Player", "Ball", "Enemy", "axis_x", "axis_y"]
 prop_name_boxing = ["Player", "Enemy", "axis_x", "axis_y"]
 prop_name_breakout = ["Player", "Ball", "BlockRow", "axis_x", "axis_y"]
 prop_name_freeway = ["Chicken", "Car", "axis_x", "axis_y"]
