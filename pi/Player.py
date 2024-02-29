@@ -62,6 +62,8 @@ class SymbolicMicroProgramPlayer:
         self.def_behaviors = []
         self.att_behaviors = []
         self.pf_behaviors = []
+        self.skill_att_behaviors = []
+        self.o2o_behaviors = []
         self.win_states = []
         self.win_actions = []
         self.win_rewards = []
@@ -82,12 +84,12 @@ class SymbolicMicroProgramPlayer:
     def load_atari_buffer(self, args):
         if os.path.exists(args.buffer_tensor_filename):
             data = torch.load(args.buffer_tensor_filename)
-            self.win_states = data["states"]
-            self.win_actions = data["actions"]
-            self.win_rewards = data["rewards"]
-            self.lost_states = data["lost_states"]
-            self.lost_rewards = data["lost_rewards"]
-            self.lost_actions = data["lost_actions"]
+            self.win_states = data["states"].to(self.args.device)
+            self.win_actions = data["actions"].to(self.args.device)
+            self.win_rewards = data["rewards"].to(self.args.device)
+            self.lost_states = data["lost_states"].to(self.args.device)
+            self.lost_rewards = data["lost_rewards"].to(self.args.device)
+            self.lost_actions = data["lost_actions"].to(self.args.device)
             self.pos_data = data["pos_data"]
             self.neg_data = data["neg_data"]
             self.zero_data = data["zero_data"]
@@ -107,12 +109,12 @@ class SymbolicMicroProgramPlayer:
                 self.lost_states += buffer.logic_states[g_i].tolist()
                 self.lost_game_ids += [g_i] * len(buffer.logic_states[g_i].tolist())
 
-            self.win_states = torch.tensor(self.win_states)
-            self.win_actions = torch.tensor(self.win_actions)
-            self.win_rewards = torch.tensor(self.win_rewards)
-            self.lost_states = torch.tensor(self.lost_states)
-            self.lost_actions = torch.tensor(self.lost_actions)
-            self.lost_rewards = torch.tensor(self.lost_rewards)
+            self.win_states = torch.tensor(self.win_states).to(self.args.device)
+            self.win_actions = torch.tensor(self.win_actions).to(self.args.device)
+            self.win_rewards = torch.tensor(self.win_rewards).to(self.args.device)
+            self.lost_states = torch.tensor(self.lost_states).to(self.args.device)
+            self.lost_actions = torch.tensor(self.lost_actions).to(self.args.device)
+            self.lost_rewards = torch.tensor(self.lost_rewards).to(self.args.device)
 
             self.pos_data, self.neg_data, self.zero_data = smp_utils.split_data_by_reward(self.win_states,
                                                                                           self.win_rewards,
@@ -143,12 +145,12 @@ class SymbolicMicroProgramPlayer:
             self.lost_states += buffer.lost_logic_states[g_i].tolist()
             self.lost_game_ids += [g_i] * len(buffer.lost_logic_states[g_i].tolist())
 
-        self.win_states = torch.tensor(self.win_states)
-        self.win_actions = torch.tensor(self.win_actions)
-        self.win_rewards = torch.tensor(self.win_rewards)
-        self.lost_states = torch.tensor(self.lost_states)
-        self.lost_actions = torch.tensor(self.lost_actions)
-        self.lost_rewards = torch.tensor(self.lost_rewards)
+        self.win_states = torch.tensor(self.win_states).to(self.args.device)
+        self.win_actions = torch.tensor(self.win_actions).to(self.args.device)
+        self.win_rewards = torch.tensor(self.win_rewards).to(self.args.device)
+        self.lost_states = torch.tensor(self.lost_states).to(self.args.device)
+        self.lost_actions = torch.tensor(self.lost_actions).to(self.args.device)
+        self.lost_rewards = torch.tensor(self.lost_rewards).to(self.args.device)
 
         states = torch.cat((self.win_states, self.lost_states), 0)
         actions = torch.cat((self.win_actions, self.lost_actions), 0)
@@ -171,11 +173,14 @@ class SymbolicMicroProgramPlayer:
             self.lost_actions = torch.cat((self.lost_actions, new_lost_actions), 0)
             self.lost_rewards = torch.cat((self.lost_rewards, new_lost_rewards), 0)
 
-    def update_behaviors(self, pf_behaviors, def_behaviors, att_behaviors, skill_att_behavior, args=None):
+    def update_behaviors(self, pf_behaviors, def_behaviors, att_behaviors, skill_att_behavior, o2o_behaviors,
+                         args=None):
         if args is not None:
             self.args = args
         if skill_att_behavior is not None:
             self.skill_att_behavior = skill_att_behavior
+        if o2o_behaviors is not None:
+            self.o2o_behaviors = o2o_behaviors
         if pf_behaviors is not None:
             self.pf_behaviors = pf_behaviors
         if def_behaviors is not None:
@@ -188,10 +193,14 @@ class SymbolicMicroProgramPlayer:
             self.def_behaviors = []
         if self.att_behaviors is None:
             self.att_behaviors = []
+        if self.skill_att_behaviors is None:
+            self.skill_att_behavior = []
+        if self.o2o_behaviors is None:
+            self.o2o_behaviors = []
         try:
-            self.behaviors = self.pf_behaviors + self.def_behaviors + self.att_behaviors + self.skill_att_behaviors
+            self.behaviors = self.pf_behaviors + self.def_behaviors + self.att_behaviors + self.skill_att_behaviors + self.o2o_behaviors
         except TypeError:
-            print('pf_behaviors')
+            print('Type Error (update behaviors)')
         self.model.update(args, self.behaviors)
 
         if not self.learned_jump:
@@ -337,6 +346,53 @@ class SymbolicMicroProgramPlayer:
         #     print(f"# attack behavior: {attack_behavior.clause}")
         self.att_behaviors = attack_behaviors
         return attack_behaviors
+
+    def reasoning_o2o_behaviors(self, use_ckp=True):
+        if len(self.pos_data) == 0:
+            return []
+        stat_file = self.args.check_point_path / "o2o" / f"pf_stats.json"
+        if use_ckp and os.path.exists(stat_file):
+            pf_behavior_data = file_utils.load_json(stat_file)
+        else:
+            pf_behavior_data = smp_utils.stat_o2o_rewards(self.win_states,
+                                                          self.win_actions,
+                                                          self.win_rewards,
+                                                          self.args.zero_reward,
+                                                          self.args.obj_info,
+                                                          self.prop_indices,
+                                                          self.args.var_th,
+                                                          "o2o",
+                                                          self.args.action_names,
+                                                          self.args.step_dist)
+            # for beh_i, beh_data in enumerate(pf_behavior_data):
+            #     data = [[torch.tensor(beh_data["dists_pos"])[:, 0], torch.tensor(beh_data["dists_neg"])[:, 0]],
+            #             [torch.tensor(beh_data["dists_pos"])[:, 1], torch.tensor(beh_data["dists_neg"])[:, 1]],
+            #             [torch.tensor(beh_data["dir_pos"]).squeeze(), torch.tensor(beh_data["dir_ab_neg"]).squeeze()]
+            #             ]
+            #     beh_name = f"{beh_i}_{self.args.action_names[beh_data['action_type']]}_{beh_data['obj_combs']}_var_{beh_data['variance']:.2f}"
+            #     draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
+            #                               beh_name, self.args.check_point_path / "o2o", figure_size=(30, 10))
+            file_utils.save_json(stat_file, pf_behavior_data)
+        pf_behavior_file = self.args.check_point_path / "o2o" / f"o2o_behaviors.pkl"
+        if os.path.exists(pf_behavior_file):
+            o2o_behaviors = file_utils.load_pickle(pf_behavior_file)
+            # o2o_behaviors = beh_utils.update_o2o_behaviors(self.args, o2o_behaviors, pf_behavior_data)
+        else:
+            o2o_behaviors = []
+            # print(f'- Create {len(pf_behavior_data)} path_finding behaviors')
+            for beh_i, beh in enumerate(pf_behavior_data):
+                o2o_behaviors.append(beh_utils.create_o2o_behavior(self.args, beh_i, beh))
+            o2o_weights = beh_utils.learn_o2o_weights(self.win_states, self.win_actions, self.win_rewards,
+                                                      o2o_behaviors, self.args)
+            for b_i, beh in enumerate(o2o_behaviors):
+                beh.weight = o2o_weights[b_i]
+            file_utils.save_pkl(pf_behavior_file, o2o_behaviors)
+
+        # for pf_behavior in pf_behaviors:
+        #     print(f"# Path Finding behavior: {pf_behavior.clause}")
+
+        self.o2o_behaviors = o2o_behaviors
+        return o2o_behaviors
 
     def reasoning_path_behaviors(self, use_ckp=True):
         if len(self.pos_data) == 0:

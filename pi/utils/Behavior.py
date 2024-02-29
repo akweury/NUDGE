@@ -32,9 +32,35 @@ class Behavior():
         mask_tensors = mask_tensors.bool()
         return mask_tensors
 
+    def eval_o2o_behavior(self, x, game_info):
+        prediction = torch.zeros(x.shape[0], len(self.fact), dtype=torch.bool)
+        confidence = torch.zeros(x.shape[0], len(self.fact)).to(x.device)
+        for f_i, fact in enumerate(self.fact):
+            type_0_index = fact.obj_comb[0]
+            type_1_index = fact.obj_comb[1]
+            prop = fact.prop_comb
+            obj_0_indices = game_info[type_0_index]["indices"]
+            obj_1_indices = game_info[type_1_index]["indices"]
+            obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
+
+            obj_a_indices = obj_combs[:, 0].unique()
+            obj_b_indices = obj_combs[:, 1].unique()
+            if len(obj_a_indices) == 1:
+                data_A = x[:, obj_a_indices][:, :, prop]
+                # try to find the closest obj B
+                data_B = x[:, obj_b_indices][:, :, prop]
+                # behavior is true if all pred is true (and)
+                try:
+                    confidence[:, f_i] = fact.preds[0].eval_o2o(data_A, data_B, self.action, self.beh_type,
+                                                                    self.skill_stage)
+                except RuntimeError:
+                    print("")
+
+        return confidence
+
     def eval_behavior(self, x, game_info):
         prediction = torch.zeros(len(self.fact), dtype=torch.bool)
-        confidence = torch.zeros(len(self.fact))
+        confidence = torch.zeros(len(self.fact)).to(x.device)
         for f_i, fact in enumerate(self.fact):
             type_0_index = fact.obj_comb[0]
             type_1_index = fact.obj_comb[1]
@@ -47,7 +73,7 @@ class Behavior():
             mask_satisfaction = (fact_mask_tensor == self.mask_tensors_from_states(x, game_info)).prod(
                 dim=-1).bool().reshape(-1)
             if not mask_satisfaction:
-                return prediction
+                return confidence
             # pred is true if any comb is true (or)
 
             obj_a_indices = obj_combs[:, 0].unique()
@@ -57,6 +83,7 @@ class Behavior():
                 # try to find the closest obj B
                 data_B = x[:, obj_b_indices][:, :, prop]
                 # behavior is true if all pred is true (and)
-                confidence[f_i:f_i + 1] = fact.preds[0].eval(data_A, data_B, self.action, self.beh_type, self.skill_stage)
+                confidence[f_i:f_i + 1] = fact.preds[0].eval(data_A, data_B, self.action, self.beh_type,
+                                                             self.skill_stage)
             prediction[f_i] = prediction / (len(obj_combs) + 1e-20)
         return confidence

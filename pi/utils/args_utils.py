@@ -164,6 +164,7 @@ def load_args(exp_args_path, m):
         args.reward_score_one_enemy = 10
         args.var_th = 0.01
         args.step_dist = [0.01, -0.03]
+        args.skill_len_max = 8
 
         args.mile_stone_scores = [5, 10, 20, 40]
         args.action_names = config.action_name_kangaroo
@@ -214,6 +215,8 @@ def load_args(exp_args_path, m):
         os.mkdir(str(args.check_point_path / "skill_attack"))
     if not os.path.exists(args.check_point_path / "path_finding"):
         os.mkdir(str(args.check_point_path / "path_finding"))
+    if not os.path.exists(args.check_point_path / "o2o"):
+        os.mkdir(str(args.check_point_path / "o2o"))
     if not os.path.exists(str(args.output_folder)):
         os.mkdir(str(args.output_folder))
     if not os.path.exists(str(args.game_buffer_path)):

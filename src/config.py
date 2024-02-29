@@ -148,17 +148,35 @@ game_info_breakout = {
     "axis_x_col": 3,
     "axis_y_col": 4
 }
-obj_info_kangaroo = [('Player', 1),
-                     ('Child', 1),
-                     ('Fruit', 3),
-                     ('Bell', 1),
-                     ('Platform', 4),
-                     ('Ladder', 3),
-                     ('Monkey', 4),
-                     ('FallingCoconut', 3),
-                     ('ThrownCoconut', 3)
+obj_info_kangaroo = [('Player', 1), # 0
+                     ('Child', 1), # 1
+                     ('Fruit', 3), # 2
+                     ('Bell', 1), # 3
+                     ('Platform', 4), # 4
+                     ('Ladder', 3), # 5
+                     ('Monkey', 4), # 6
+                     ('FallingCoconut', 3), # 7
+                     ('ThrownCoconut', 3) # 8
                      ]
-
+action_name_kangaroo = ["noop",  # 0
+                        "fire",  # 1
+                        "up",  # 2
+                        "right",  # 3
+                        "left",  # 4
+                        "down",  # 5
+                        "upright",  # 6
+                        "upleft",  # 7
+                        "downright",  # 8
+                        "downleft",  # 9
+                        "upfire",  # 10
+                        "rightfire",  # 11
+                        "leftfire",  # 12
+                        "downfire",  # 13
+                        "uprightfire",  # 14
+                        "upleftfire",  # 15
+                        "downrightfire",  # 16
+                        "downleftfire",  # 17
+                        ]
 game_info_kangaroo = {
     "obj_info": obj_info_kangaroo,
     "state_row_num": 23,
@@ -224,25 +242,7 @@ action_name_assault = ["noop",  # 0
                        "leftfire"  # 6
                        ]
 
-action_name_kangaroo = ["noop",  # 0
-                        "fire",  # 1
-                        "up",  # 2
-                        "right",  # 3
-                        "left",  # 4
-                        "down",  # 5
-                        "upright",  # 6
-                        "upleft",  # 7
-                        "downright",  # 8
-                        "downleft",  # 9
-                        "upfire",  # 10
-                        "rightfire",  # 11
-                        "leftfire",  # 12
-                        "downfire",  # 13
-                        "uprightfire",  # 14
-                        "upleftfire",  # 15
-                        "downrightfire",  # 16
-                        "downleftfire",  # 17
-                        ]
+
 
 action_name_threefish = ["left", "right", "jump"]
 

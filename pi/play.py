@@ -28,16 +28,22 @@ def main(render=True, m=None):
     else:
         agent.load_atari_buffer(args)
     args = game_settings.switch_hardness(args)
-    att_skill = agent.reasoning_att_skills()
-    att_behaviors = agent.reasoning_att_behaviors()
     pf_behaviors = None
     def_behaviors = None
-    pf_behaviors = agent.reasoning_path_behaviors()
+    att_behaviors = None
+    att_skill = None
 
-    def_behaviors = agent.reasoning_def_behaviors()
+    o2o_behaviors = agent.reasoning_o2o_behaviors()
+
+    # att_skill = agent.reasoning_att_skills()
+    # att_behaviors = agent.reasoning_att_behaviors()
+
+    # pf_behaviors = agent.reasoning_path_behaviors()
+    # def_behaviors = agent.reasoning_def_behaviors()
     agent.update_behaviors(pf_behaviors=pf_behaviors, def_behaviors=def_behaviors,
                            att_behaviors=att_behaviors,
                            skill_att_behavior=att_skill,
+                           o2o_behaviors=o2o_behaviors,
                            args=args)
 
     if render:

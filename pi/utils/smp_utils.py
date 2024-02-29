@@ -880,6 +880,124 @@ def stat_zero_rewards(states, actions, rewards, zero_reward, game_info, prop_ind
     return behs
 
 
+def stat_o2o_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th, stat_type, action_names,
+                     step_dist):
+    import numpy as np
+    cumulative_avg = torch.cumsum(rewards, dim=0) / (torch.arange(len(rewards)) + 1).to(states.device)
+
+    threshold_percentile = np.percentile(cumulative_avg.to("cpu").numpy(), 50)
+    cumulative_avg_thresholded = np.where(cumulative_avg.to("cpu") < threshold_percentile, 0, cumulative_avg.to("cpu"))
+
+    mask_reward = torch.from_numpy(cumulative_avg_thresholded).to(states.device) > 0
+    rewards_pos = rewards[mask_reward]
+    states_pos = states[mask_reward]
+    actions_pos = actions[mask_reward]
+    masks_pos = mask_tensors_from_states(states_pos, game_info).to(states.device)
+
+    states_neg = states[~mask_reward]
+    actions_neg = actions[~mask_reward]
+    masks_neg = mask_tensors_from_states(states_neg, game_info).to(states.device)
+
+    mask_pos_types = masks_pos.unique(dim=0)
+    action_pos_types = actions_pos.unique()
+    action_pf_pos = [action_pos_types[at] for at in action_pos_types if "fire" not in action_names[at]]
+    obj_types = get_all_2_combinations(game_info, reverse=False)
+    obj_types = [ot for ot in obj_types if ot[0] == 0]
+    prop_types = [prop_indices]
+    dir_types = torch.arange(-0.75, 1.25, 0.25, dtype=torch.float).to(states.device)
+    x_types = torch.arange(0, 1, 0.1, dtype=torch.float).to(states.device)
+    y_types = torch.arange(0, 1, 0.1, dtype=torch.float).to(states.device)
+    type_combs = list(itertools.product(action_pf_pos, obj_types, prop_types, dir_types, x_types, y_types))
+    states_stats = []
+    # variances = torch.zeros(len(type_combs))
+    # variances_neg = torch.zeros(len(type_combs))
+    # means = torch.zeros(len(type_combs))
+    # means_neg = torch.zeros(len(type_combs))
+    # percentage = torch.zeros(len(type_combs))
+    for t_i in tqdm(range(len(type_combs)), desc="O2O TypeComb Stat"):
+
+        action_type, obj_type, prop_type, dir_type, x_type, y_type = type_combs[t_i]
+        if action_type == 3 and obj_type[1] == 5:
+            print("")
+        # print(type_combs[t_i])
+        mask_obj_pos = masks_pos[:, obj_type].prod(dim=1) > 0
+        mask_obj_neg = masks_neg[:, obj_type].prod(dim=1) > 0
+        mask_action_state_pos = (actions_pos == action_type) * mask_obj_pos
+        mask_action_state_neg = (actions_neg == action_type) * mask_obj_neg
+        states_action_pos = states_pos[mask_action_state_pos]
+        states_action_neg = states_neg[mask_action_state_neg]
+
+        satisfy_state_num = 0
+        obj_0_indices = game_info[obj_type[0]]["indices"]
+        obj_1_indices = game_info[obj_type[1]]["indices"]
+        obj_combs = torch.tensor(list(itertools.product(obj_0_indices, obj_1_indices)))
+        obj_a_indices = obj_combs[:, 0].unique()
+        obj_b_indices = obj_combs[:, 1].unique()
+        if len(obj_a_indices) == 1 and states_action_pos.shape[0] > 8 and states_action_neg.shape[0] > 20:
+            action_name = action_names[action_type]
+            action_dir = math_utils.action_to_deg(action_name)
+            data_A = states_action_pos[:, obj_a_indices][:, :, prop_type]
+            data_B = states_action_pos[:, obj_b_indices][:, :, prop_type]
+            data_A_neg = states_action_neg[:, obj_a_indices][:, :, prop_type]
+            data_B_neg = states_action_neg[:, obj_b_indices][:, :, prop_type]
+
+            if "fire" in action_name or "noop" in action_name:
+                data_A_one_step_move = data_A
+                data_A_neg_one_step_move = data_A_neg
+            else:
+                data_A_one_step_move = math_utils.one_step_move(data_A, action_dir, step_dist)
+                data_A_neg_one_step_move = math_utils.one_step_move(data_A_neg, action_dir, step_dist)
+            # if data_B.shape[1]>1:
+            #     print("")
+            # dir_ab = math_utils.dir_ab_any(data_A_one_step_move, data_B)
+            dir_ab_aligned = math_utils.dir_a_and_b_with_alignment_o2o(data_A_one_step_move, data_B).to(states.device)
+            # dir_ab_neg = math_utils.dir_ab_any(data_A_neg_one_step_move, data_B_neg)
+
+            dist = math_utils.dist_a_and_b(data_A_one_step_move, data_B)
+            dist_neg = math_utils.dist_a_and_b(data_A_neg_one_step_move, data_B_neg)
+
+            dist_aligned = math_utils.closest_one_percent(dist, 0.1)
+            dist_aligned_neg = math_utils.closest_one_percent(dist_neg, 0.1)
+
+            mask_dist = torch.logical_and(dist_aligned[:, :, 0] == x_type, dist_aligned[:, :, 1] == y_type)
+            mask_dir = dir_ab_aligned.squeeze(1).permute(1, 0) == dir_type
+            mask = mask_dist * mask_dir
+
+            satisfy_state_num = (mask.sum(dim=1) > 0).sum()
+
+        if satisfy_state_num > 0:
+            # # print(satisfy_state_num)
+            # print(f"act:{action_names[action_type]}, "
+            #       f"{game_info[obj_type[0]]['name']} {game_info[obj_type[1]]['name']} "
+            #       f"x:{x_type:.1f}, y:{y_type:.1f}, "
+            #       f"dir:{math_utils.pol2dir_name(dir_type)}, {satisfy_state_num.item()}")
+            states_stats.append(
+                {"dir_pos": dir_ab_aligned,
+                 "dists_pos":dist,
+                 "dists_neg": dist_neg,
+                 "position_pos": data_A.squeeze(), "position_neg": data_A_neg.squeeze(),
+                 "action_type": action_type, "prop_type": prop_type, "obj_types": obj_type, "dir_type": dir_type,
+                 "x_type": x_type, "y_type": y_type, "indices": mask_action_state_pos})
+    # variances_ranked, v_rank = variances.sort()
+
+    # passed_variances = variances_ranked < 1e+20
+    # passed_comb_indices = v_rank[passed_variances]
+    # passed_stats = [states_stats[s_i] for s_i in passed_comb_indices]
+    # passed_combs = [type_combs[s_i] for s_i in passed_comb_indices]
+    behs = []
+    for state_stat in states_stats:
+        behs.append({
+            "x_type": state_stat["x_type"].tolist(),
+            "y_type": state_stat["y_type"].tolist(),
+            "dir_type": state_stat["dir_type"].tolist(),
+            "action_type": state_stat["action_type"].tolist(),
+            "obj_combs": state_stat["obj_types"],
+            "prop_combs": state_stat["prop_type"],
+        })
+
+    return behs
+
+
 def stat_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th, stat_type, action_names,
                  step_dist, max_dist):
     if stat_type == "attack":

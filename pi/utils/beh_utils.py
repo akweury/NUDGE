@@ -1,6 +1,6 @@
 # Created by jing at 31.01.24
 import torch
-
+from tqdm import tqdm
 from pi.utils.Behavior import Behavior
 from pi.utils.Fact import ProbFact, VarianceFact
 from pi import predicate
@@ -8,6 +8,7 @@ from pi import pi_lang
 from pi.utils import math_utils
 from pi.neural import nn_model
 from pi.utils import draw_utils
+from pi.Reasoner import SmpReasoner
 
 
 def create_positive_behaviors(args, pos_beh_data):
@@ -121,6 +122,59 @@ def update_negative_behaviors(args, behaviors, def_beh_data):
     return defense_behaviors
 
 
+def learn_o2o_weights(states, actions, rewards, behaviors, args):
+    pos_weights = torch.zeros(len(behaviors)).to(states.device)
+    neg_weights = torch.zeros(len(behaviors)).to(states.device)
+    reasoner = SmpReasoner(args)
+    reasoner.update(args, behaviors)
+
+    for state_i in tqdm(range(len(states))):
+        mask_conf = reasoner.eval_behaviors(states[state_i])
+        mask_diff_action = actions[state_i] != reasoner.actions.squeeze()
+        mask_same_action = actions[state_i] == reasoner.actions.squeeze()
+        pos_weights += (mask_conf* mask_same_action).to(torch.int)
+        neg_weights -= (mask_conf * mask_diff_action).to(torch.int)
+
+    weights = pos_weights + neg_weights
+    weights_min, weights_max = weights.min(), weights.max()
+    weights = (weights - weights_min)/(weights_max - weights_min)
+
+    return weights
+
+
+def create_o2o_behavior(args, beh_i, beh):
+    # create attack behaviors
+    x_type = torch.tensor(beh["x_type"], dtype=torch.float32)
+    y_type = torch.tensor(beh["y_type"], dtype=torch.float32)
+    dir_type = torch.tensor(beh["dir_type"], dtype=torch.float32)
+
+    obj_combs = beh["obj_combs"]
+    prop_combs = beh["prop_combs"]
+    action_type = beh["action_type"]
+    mask = torch.zeros(len(args.obj_info), dtype=torch.bool)
+    mask[obj_combs] = True
+    # create predicate
+    dir_name = math_utils.pol2dir_name(dir_type)
+    pred_name = (f"{dir_name}_x_{x_type:.2f}_y_{y_type:.2f}")
+
+    dist_pred = predicate.O2ODir(args, x_type=x_type,
+                                 y_type=y_type,
+                                 dir_type=dir_type,
+                                 name=pred_name,
+                                 plot_path=args.check_point_path / "o2o")
+    pred = [dist_pred]
+
+    beh_fact = VarianceFact(mask, obj_combs, prop_combs, pred)
+    neg_beh = False
+
+    behavior = Behavior("o2o", neg_beh, [beh_fact], action_type, 0)
+    behavior.clause = pi_lang.behavior2clause(args, behavior)
+
+    print(f"# O2O behavior  {beh_i + 1}: {behavior.clause}")
+
+    return behavior
+
+
 def create_pf_behavior(args, beh_i, beh):
     # create attack behaviors
     x_range_pos = torch.tensor(beh["x_range"], dtype=torch.float32)
@@ -203,6 +257,7 @@ def create_attack_behavior(args, beh_i, beh):
 
     return behavior
 
+
 def create_skill_attack_behavior(args, beh_i, beh):
     # create attack behaviors
     skill_len = beh["skill_len"]
@@ -245,6 +300,7 @@ def create_skill_attack_behavior(args, beh_i, beh):
 
     return behavior
 
+
 def update_skill_attack_behaviors(args, behaviors, att_behavior_data):
     # create attack behaviors
     attack_behaviors = []
@@ -256,6 +312,7 @@ def update_skill_attack_behaviors(args, behaviors, att_behavior_data):
                 print(f"- new behavior {behavior.clause}")
             attack_behaviors.append(behavior)
     return attack_behaviors
+
 
 def update_attack_behaviors(args, behaviors, att_behavior_data):
     # create attack behaviors
@@ -278,6 +335,20 @@ def update_attack_behaviors(args, behaviors, att_behavior_data):
                 print(f"- new behavior {behavior.clause}")
             attack_behaviors.append(behavior)
     return attack_behaviors
+
+
+def update_o2o_behaviors(args, behaviors, o2o_behavior_data):
+    # create attack behaviors
+    o2o_behaviors = []
+    for data_i, beh_data in enumerate(o2o_behavior_data):
+        # if behavior is exist
+        behavior_exist = False
+        if not behavior_exist:
+            behavior = create_o2o_behavior(args, data_i, beh_data)
+            if args.with_explain:
+                print(f"- new behavior {behavior.clause}")
+            o2o_behaviors.append(behavior)
+    return o2o_behaviors
 
 
 def update_pf_behaviors(args, behaviors, pf_behavior_data):

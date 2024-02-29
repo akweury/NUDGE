@@ -6,18 +6,32 @@ from collections import Counter
 
 
 def calculate_direction(points, reference_point):
-    directions = []
-    for r_i in range(points.shape[0]):
-        x_ref, y_ref = reference_point[0].squeeze()
 
-        x, y = points[r_i].squeeze()
+    x_ref, y_ref = reference_point[0, :, 0].squeeze(), reference_point[0, :, 1].squeeze()
+    x, y = points[:,:,0].squeeze(), points[:,:,1].squeeze()
+    delta_x = x - x_ref
+    delta_y = y_ref - y
+
+    angle_radians = torch.atan2(delta_y, delta_x)
+    angle_degrees = torch.rad2deg(angle_radians)
+
+    return angle_degrees
+
+
+
+def calculate_direction_o2o(points, reference_point):
+    directions = []
+    for r_i in range(points.shape[1]):
+        x_ref, y_ref = reference_point[:, 0, 0], reference_point[:, 0, 1]
+
+        x, y = points[:, r_i, 0], points[:, r_i, 1]
         delta_x = x - x_ref
         delta_y = y_ref - y
 
         angle_radians = torch.atan2(delta_y, delta_x)
-        angle_degrees = math.degrees(angle_radians)
+        angle_degrees = torch.rad2deg(angle_radians)
 
-        directions.append(angle_degrees)
+        directions.append(angle_degrees.tolist())
 
     return directions
 
@@ -87,6 +101,32 @@ def one_step_move(data, direction, distance):
     return new_points
 
 
+def one_step_move_o2o(data, direction, distance):
+    """
+    Move a list of 2D points along a given direction by a specified distance.
+
+    Parameters:
+    - points: List of 2D points [(x1, y1), (x2, y2), ...]
+    - direction: Tuple representing the direction vector (dx, dy)
+    - distance: Distance to move points along the direction
+
+    Returns:
+    - List of moved points
+    """
+
+    direction_rad = torch.deg2rad(direction * 180)
+    dx = torch.cos(direction_rad)
+    dy = torch.sin(direction_rad)
+    direction_vec = torch.cat((dx.unsqueeze(0), dy.unsqueeze(0)), dim=0).to(data.device)
+
+    direction_unit_vector = (direction_vec / torch.norm(direction_vec, dim=0)).permute(1, 0)
+    direction_unit_vector[direction > 1] = torch.zeros(2).to(data.device)
+    direction_unit_vector = torch.repeat_interleave(direction_unit_vector.unsqueeze(1), data.shape[1], dim=1)
+    new_points = data + direction_unit_vector * torch.tensor(distance).to(data.device)
+
+    return new_points
+
+
 def dist_a_and_b_closest(data_A, data_B):
     closest_index = torch.zeros(data_A.shape[0])
     if len(data_B.size()) == 3:
@@ -108,7 +148,6 @@ def dist_a_and_b_closest(data_A, data_B):
 
 def dist_a_and_b(data_A, data_B):
     diff_abs = torch.abs(torch.sub(data_A, data_B))
-
     return diff_abs
 
 
@@ -127,8 +166,8 @@ def cart2pol(x, y):
 #     dir = phi / 180
 #
 #     return dir
-def closest_one_percent(dist_value):
-    rounded_dist = torch.round(dist_value / 0.001) * 0.001
+def closest_one_percent(dist_value, unit=0.001):
+    rounded_dist = torch.round(dist_value / unit) * unit
     return rounded_dist
 
 
@@ -139,7 +178,7 @@ def closest_quarter(dir_value):
 
 def closest_multiple_of_45(degrees):
     # Ensure the input degree is within the range [0, 360]
-    degrees = torch.tensor(degrees)
+
     degrees = degrees % 360
 
     # Calculate the remainder when dividing by 45
@@ -169,6 +208,26 @@ def dir_ab_batch(data_A, data_B, indices):
     return directions
 
 
+def dir_ab_any(data_A, data_B):
+    directions = torch.zeros(data_B.shape[0], data_B.shape[1]).to(data_A.device)
+    for d_i in range(data_A.shape[0]):
+        a = data_A[d_i]
+        b = data_B[d_i]
+        dir = dir_a_and_b_tensor(a, b)
+        directions[d_i] = dir
+    return directions
+
+
+def dir_a_and_b_tensor(data_A, data_B):
+    directions_in_degree = calculate_direction(data_B, data_A)
+
+    directions_in_degree[directions_in_degree <= 180] /= 180
+    directions_in_degree[directions_in_degree > 180] = -(360 - directions_in_degree[directions_in_degree > 180]) / 180
+    # directions_aligned = closest_multiple_of_45(directions_in_degree).unsqueeze(1)
+
+    return directions_in_degree
+
+
 def dir_a_and_b(data_A, data_B):
     directions_in_degree = np.array(calculate_direction(data_B, data_A))
 
@@ -186,8 +245,15 @@ def dir_a_and_b_with_alignment(data_A, data_B):
     return directions_aligned
 
 
+def dir_a_and_b_with_alignment_o2o(data_A, data_B):
+    directions_in_degree = calculate_direction_o2o(data_B, data_A)
+    directions_aligned = closest_multiple_of_45(directions_in_degree).unsqueeze(1)
+
+    return directions_aligned
+
+
 def action_to_deg(action_name):
-    if action_name == "noop" or action_name=="fire" or action_name=="jump":
+    if action_name == "noop" or action_name == "fire" or action_name == "jump":
         dir = 100
     elif action_name == "up" or action_name == "upfire":
         dir = 90 / 180

@@ -361,6 +361,47 @@ class Dist_Closest():
     #         ]
     # draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
     #                           self.name, self.plot_path, figure_size=(20, 10))
+    def eval_o2o(self, t1, t2, action, beh_type, skill_stage=None):
+        direction = torch.tensor([math_utils.action_to_deg(self.args.action_names[action])] * t2.shape[1]).to(t2.device)
+        t1_move_one_step = torch.repeat_interleave(math_utils.one_step_move_o2o(t1, direction[0], self.args.step_dist),
+                                                   t2.shape[1], dim=1)
+        dists = math_utils.dist_a_and_b(t1_move_one_step, t2)
+        dists_aligned = math_utils.closest_one_percent(dists)
+
+        dirs = math_utils.dir_a_and_b_with_alignment_o2o(t1_move_one_step, t2).to(t2.device)
+
+        conf_dir = torch.zeros(t2.shape[1], t2.shape[0]).to(t2.device)
+        conf_x = torch.zeros(t2.shape[1], t2.shape[0]).to(t2.device)
+        conf_y = torch.zeros(t2.shape[1], t2.shape[0]).to(t2.device)
+        mask_dir = torch.zeros(t2.shape[1], t2.shape[0], dtype=torch.bool).to(t2.device)
+        mask_x = torch.zeros(t2.shape[1], t2.shape[0], dtype=torch.bool).to(t2.device)
+        mask_y = torch.zeros(t2.shape[1], t2.shape[0], dtype=torch.bool).to(t2.device)
+        mask = torch.zeros(t2.shape[1], t2.shape[0], dtype=torch.bool).to(t2.device)
+        for i in range(t2.shape[1]):
+            self.dir_range = self.dir_range.to(t2.device)
+            result_tensor = torch.eq(dirs[i, 0, :], self.dir_range)
+            # result= torch.any(result_tensor, dim=0)
+            mask_dir[i, result_tensor] = True
+            dir_weight = torch.repeat_interleave(self.dir_conf.reshape(1, -1), dirs.shape[2], dim=1)
+
+            conf_dir[i, result_tensor] = dir_weight[self.dir_range == dirs[i]]
+            mask[i] = mask_dir[i]
+
+        conf_dir[~mask_dir] = 0
+        conf_x[~mask_x] = 0
+        conf_y[~mask_y] = 0
+
+        # Use the trained model to predict the new value
+        conf = ((conf_dir + conf_x + conf_y) / 3)
+        pred_conf = torch.zeros((conf_dir.shape[1])).to(t2.device)
+        for i in range(conf_dir.shape[1]):
+            if len(conf[mask[:, i], i]) > 0:
+                pred_conf[i] = conf[mask[:, i], i].max()
+            else:
+                pred_conf[i] = 0
+        # satisfactions = new_value_prediction.argmax(dim=1) == self.y_0
+
+        return pred_conf
 
     def eval(self, t1, t2, action, beh_type, skill_stage=None):
         direction = torch.tensor([math_utils.action_to_deg(self.args.action_names[action])] * t2.shape[1]).to(t2.device)
@@ -410,6 +451,57 @@ class Dist_Closest():
         # satisfactions = new_value_prediction.argmax(dim=1) == self.y_0
 
         return pred_conf
+
+
+class O2ODir():
+    """ generate one micro-program
+    """
+
+    def __init__(self, args, x_type, y_type, dir_type, name, plot_path):
+        super().__init__()
+        self.args = args
+        self.x_type = x_type.to(args.device)
+        self.y_type = y_type.to(args.device)
+        self.dir_type = dir_type.to(args.device)
+        self.name = f"{name}"
+        self.plot_path = plot_path
+
+    def eval_o2o(self, t1, t2, action, beh_type, skill_stage=None):
+        direction = torch.tensor([math_utils.action_to_deg(self.args.action_names[action])] * t2.shape[1]).to(t2.device)
+        t1_move_one_step = torch.repeat_interleave(math_utils.one_step_move_o2o(t1, direction[0], self.args.step_dist),
+                                                   t2.shape[1], dim=1)
+        dists = math_utils.dist_a_and_b(t1_move_one_step, t2)
+        dists_aligned = math_utils.closest_one_percent(dists, 0.1).permute(1,2,0)
+
+        dirs = math_utils.dir_a_and_b_with_alignment_o2o(t1_move_one_step, t2).to(t2.device)
+
+        # mask_dir = torch.zeros(t2.shape[1], t2.shape[0], dtype=torch.bool).to(t2.device)
+        # mask_x = torch.zeros(t2.shape[1], t2.shape[0], dtype=torch.bool).to(t2.device)
+        # mask_y = torch.zeros(t2.shape[1], t2.shape[0], dtype=torch.bool).to(t2.device)
+        mask = torch.zeros(t2.shape[1], t2.shape[0], dtype=torch.bool).to(t2.device)
+        for i in range(t2.shape[1]):
+            mask_dir_eq = torch.eq(dirs[i, 0, :], self.dir_type)
+            mask_x_eq = torch.eq(dists_aligned[i, 0, :], self.x_type)
+            mask_y_eq = torch.eq(dists_aligned[i, 1, :], self.y_type)
+            # result= torch.any(result_tensor, dim=0)
+
+            # dir_weight = torch.repeat_interleave(self.dir_type.reshape(1, -1), dirs.shape[2], dim=1)
+            mask[i] = mask_dir_eq * mask_x_eq * mask_y_eq
+        mask = mask.prod(dim=0)
+        return mask
+
+
+def o2o_model(move_direction, p1, p2, step_dist, dir_types, x_types, y_types):
+    p1_moved = math_utils.one_step_move_o2o(p1, move_direction, step_dist)
+    dists = math_utils.dist_a_and_b(p1_moved, p2)
+    dists = math_utils.closest_one_percent(dists, 0.1).permute(1,2,0)
+    dirs = math_utils.dir_a_and_b_with_alignment(p1,p2)
+
+    mask_dir_eq = torch.eq(dirs[:,0,:], dir_types)
+    mask_x_eq = torch.eq(dists[:,0,:], x_types)
+    mask_y_eq = torch.eq(dists[:,1,:], y_types)
+    mask = mask_dir_eq * mask_x_eq * mask_y_eq
+    return mask
 
 
 class GT():
