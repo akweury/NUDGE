@@ -267,6 +267,8 @@ def load_args(exp_args_path, m):
         os.mkdir(str(args.game_buffer_path / "key_frames"))
     if not os.path.exists(args.game_buffer_path / "frames"):
         os.mkdir(str(args.game_buffer_path / "frames"))
+    if not os.path.exists(args.game_buffer_path / "acc_frames"):
+        os.mkdir(str(args.game_buffer_path / "acc_frames"))
     if not os.path.exists(args.game_buffer_path / "lost_frames"):
         os.mkdir(str(args.game_buffer_path / "lost_frames"))
     return args

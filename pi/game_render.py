@@ -171,12 +171,6 @@ def render_atari_game(agent, args, save_buffer):
             env_args.obs = env_args.last_obs
             info = _act(agent, env_args, env)
             game_patches.atari_frame_patches(args, env_args, info)
-
-            # if env_args.reward > 0:
-            #     env_args.state_score += env_args.reward
-            # if env_args.reward < 0:
-            #     env_args.state_loss += env_args.reward
-            # assign reward for lost one live
             if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
                 game_patches.atari_patches(args, env_args, info)
                 env_args.frame_i = len(env_args.logic_states) - 1
@@ -235,30 +229,32 @@ def replay_atari_game(agent, args):
 
         # agent predict an action
         frame = draw_utils.load_img(file_paths[frame_i])
-        state = agent.win_states[frame_i]
+        state = agent.states[frame_i]
         pos = state[:, -2:]
         pos[:, 0] = pos[:, 0] * frame.shape[0] * (160 / 210)
         pos[:, 1] = pos[:, 1] * frame.shape[0]
         pos = pos.to(torch.int).tolist()
         if frame_i > 1:
-            position_x = agent.win_states[frame_i - 2:frame_i + 1, :, -2]
-            position_y = agent.win_states[frame_i - 2:frame_i + 1, :, -1]
+            position_x = agent.states[frame_i - 2:frame_i + 1, :, -2]
+            position_y = agent.states[frame_i - 2:frame_i + 1, :, -1]
             acceleration = math_utils.calculate_acceleration_2d(position_x, position_y).permute(1,0)
             acceleration = math_utils.closest_one_percent(acceleration, 0.01).tolist()
 
-        show_analysis_frame(env_args, video_out, frame, pos, acceleration)
+        show_analysis_frame(frame_i,env_args, video_out, frame, pos, acceleration)
     game_utils.finish_one_run(env_args, args, agent)
 
     draw_utils.release_video(video_out)
 
 
-def show_analysis_frame(env_args, video_out, frame, pos, acc):
+def show_analysis_frame(frame_i, env_args, video_out, frame, pos, acc):
     if acc is not None:
         for obj_i in range(len(acc)):
             acc_text = [f"{n:.2f}" for n in acc[obj_i]]
             draw_utils.addCustomText(frame, str(acc_text), pos[obj_i], font_size=0.3, shift=[0, 20])
             frame = draw_utils.draw_arrow(frame, pos[obj_i], acc[obj_i], scale=5, shift = [30, 0])
 
+    draw_utils.save_np_as_img(frame,
+                              env_args.output_folder / "acc_frames" / f"acc_f_{frame_i}.png")
     out = draw_utils.write_video_frame(video_out, frame)
 
 

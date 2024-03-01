@@ -83,33 +83,46 @@ class SymbolicMicroProgramPlayer:
 
     def load_atari_buffer(self, args):
         if os.path.exists(args.buffer_tensor_filename):
-            if args.device!="cpu":
+            if args.device != "cpu":
                 args.device = f"cuda:{args.device}"
             data = torch.load(args.buffer_tensor_filename, map_location=args.device)
-            self.win_states = data["states"].to(self.args.device)
-            self.win_actions = data["actions"].to(self.args.device)
-            self.win_rewards = data["rewards"].to(self.args.device)
+            self.states = data["states"].to(self.args.device)
+            self.actions = data["actions"].to(self.args.device)
+            self.rewards = data["rewards"].to(self.args.device)
+
+            self.win_states = data["win_states"].to(self.args.device)
+            self.win_actions = data["win_actions"].to(self.args.device)
+            self.win_rewards = data["win_rewards"].to(self.args.device)
+
             self.lost_states = data["lost_states"].to(self.args.device)
             self.lost_rewards = data["lost_rewards"].to(self.args.device)
             self.lost_actions = data["lost_actions"].to(self.args.device)
-            self.pos_data = data["pos_data"]
-            self.neg_data = data["neg_data"]
-            self.zero_data = data["zero_data"]
+
         else:
             buffer = game_utils.load_buffer(args)
             print(f'- Loaded game history : {len(buffer.logic_states)}')
             self.buffer_win_rates = buffer.win_rates
             game_num = len(buffer.actions)
-
+            self.actions = []
+            self.rewards = []
+            self.states = []
             for g_i in range(game_num):
-                self.win_actions += buffer.actions[g_i]
-                self.win_rewards += buffer.rewards[g_i]
-                self.win_states += buffer.logic_states[g_i].tolist()
-                self.lost_actions += buffer.actions[g_i]
-                self.lost_rewards += buffer.rewards[g_i]
-                self.lost_states += buffer.logic_states[g_i].tolist()
-                self.lost_game_ids += [g_i] * len(buffer.logic_states[g_i].tolist())
-
+                self.actions += buffer.actions[g_i]
+                self.rewards += buffer.rewards[g_i]
+                self.states += buffer.logic_states[g_i].tolist()
+                if self.buffer_win_rates[g_i] > 0:
+                    self.win_actions += buffer.actions[g_i]
+                    self.win_rewards += buffer.rewards[g_i]
+                    self.win_states += buffer.logic_states[g_i].tolist()
+                elif self.buffer_win_rates[g_i] < 0:
+                    self.lost_actions += buffer.actions[g_i]
+                    self.lost_rewards += buffer.rewards[g_i]
+                    self.lost_states += buffer.logic_states[g_i].tolist()
+                else:
+                    raise ValueError
+            self.states = torch.tensor(self.states).to(self.args.device)
+            self.actions = torch.tensor(self.actions).to(self.args.device)
+            self.rewards = torch.tensor(self.rewards).to(self.args.device)
             self.win_states = torch.tensor(self.win_states).to(self.args.device)
             self.win_actions = torch.tensor(self.win_actions).to(self.args.device)
             self.win_rewards = torch.tensor(self.win_rewards).to(self.args.device)
@@ -117,15 +130,15 @@ class SymbolicMicroProgramPlayer:
             self.lost_actions = torch.tensor(self.lost_actions).to(self.args.device)
             self.lost_rewards = torch.tensor(self.lost_rewards).to(self.args.device)
 
-            self.pos_data, self.neg_data, self.zero_data = smp_utils.split_data_by_reward(self.win_states,
-                                                                                          self.win_rewards,
-                                                                                          self.win_actions,
-                                                                                          self.args.zero_reward,
-                                                                                          self.args.obj_info)
-            train_data = {"states": self.win_states, "actions": self.win_actions, "rewards": self.win_rewards,
-                          "lost_states": self.lost_states, "lost_actions": self.lost_actions,
-                          "lost_rewards": self.lost_rewards,
-                          "pos_data": self.pos_data, "neg_data": self.neg_data, "zero_data": self.zero_data}
+            train_data = {"states": self.states,
+                          "actions": self.actions,
+                          "rewards": self.rewards,
+                          "win_states": self.win_states,
+                          "win_actions": self.win_actions,
+                          "win_rewards": self.win_rewards,
+                          "lost_states": self.lost_states,
+                          "lost_actions": self.lost_actions,
+                          "lost_rewards": self.lost_rewards}
             torch.save(train_data, args.buffer_tensor_filename)
 
     def load_buffer(self, buffer):
@@ -204,9 +217,7 @@ class SymbolicMicroProgramPlayer:
             print('Type Error (update behaviors)')
         self.model.update(args, self.behaviors)
 
-
-
-        weights= torch.zeros(len(self.behaviors)).to(self.args.device)
+        weights = torch.zeros(len(self.behaviors)).to(self.args.device)
         for beh_i, beh in enumerate(self.behaviors):
             weights[beh_i] = beh.weight
         self.model.weights = weights
@@ -355,30 +366,31 @@ class SymbolicMicroProgramPlayer:
         return attack_behaviors
 
     def reasoning_o2o_behaviors(self, use_ckp=True):
-        if len(self.pos_data) == 0:
-            return []
         stat_file = self.args.check_point_path / "o2o" / f"pf_stats.json"
         if use_ckp and os.path.exists(stat_file):
             pf_behavior_data = file_utils.load_json(stat_file)
         else:
-            pf_behavior_data = smp_utils.stat_o2o_rewards(self.win_states,
-                                                          self.win_actions,
-                                                          self.win_rewards,
-                                                          self.args.zero_reward,
-                                                          self.args.obj_info,
-                                                          self.prop_indices,
-                                                          self.args.var_th,
-                                                          "o2o",
-                                                          self.args.action_names,
-                                                          self.args.step_dist)
-            # for beh_i, beh_data in enumerate(pf_behavior_data):
-            #     data = [[torch.tensor(beh_data["dists_pos"])[:, 0], torch.tensor(beh_data["dists_neg"])[:, 0]],
-            #             [torch.tensor(beh_data["dists_pos"])[:, 1], torch.tensor(beh_data["dists_neg"])[:, 1]],
-            #             [torch.tensor(beh_data["dir_pos"]).squeeze(), torch.tensor(beh_data["dir_ab_neg"]).squeeze()]
-            #             ]
-            #     beh_name = f"{beh_i}_{self.args.action_names[beh_data['action_type']]}_{beh_data['obj_combs']}_var_{beh_data['variance']:.2f}"
-            #     draw_utils.plot_histogram(data, [[["x_pos", "x_neg"]], [["y_pos", "y_neg"]], [["dir_pos", "dir_neg"]]],
-            #                               beh_name, self.args.check_point_path / "o2o", figure_size=(30, 10))
+            if len(self.win_states) > 0:
+                pf_behavior_data = smp_utils.stat_o2o_rewards("win", self.win_states,
+                                                              self.win_actions,
+                                                              self.win_rewards,
+
+                                                              self.args.obj_info,
+                                                              self.prop_indices,
+
+                                                              self.args.action_names,
+                                                              self.args.step_dist)
+            elif len(self.lost_states) > 0:
+                pf_behavior_data = smp_utils.stat_o2o_rewards("lost", self.lost_states,
+                                                              self.lost_actions,
+                                                              self.lost_rewards,
+                                                              self.args.obj_info,
+                                                              self.prop_indices,
+                                                              self.args.action_names,
+                                                              self.args.step_dist)
+            else:
+                raise ValueError
+
             file_utils.save_json(stat_file, pf_behavior_data)
         pf_behavior_file = self.args.check_point_path / "o2o" / f"o2o_behaviors.pkl"
         if os.path.exists(pf_behavior_file):

@@ -884,16 +884,16 @@ def get_state_acc(states):
     state_3 = torch.cat(
         (states[:-2, :, -2:].unsqueeze(0), states[1:-1, :, -2:].unsqueeze(0), states[2:, :, -2:].unsqueeze(0)), dim=0)
     acceleration = math_utils.calculate_acceleration_2d(state_3[:, :, :, 0], state_3[:, :, :, 1]).permute(1, 2, 0)
-    acceleration = math_utils.closest_one_percent(acceleration, 0.01).tolist()
+    acceleration = math_utils.closest_one_percent(acceleration, 0.01)
+    acceleration = torch.cat(
+        (torch.zeros(2, acceleration.shape[1], acceleration.shape[2]).to(acceleration.device), acceleration), dim=0)
     return acceleration
 
-def stat_o2o_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th, stat_type, action_names,
+
+def stat_o2o_rewards(win_or_lost, states, actions, rewards, game_info, prop_indices, action_names,
                      step_dist):
     dist_unit = 0.05
-    import numpy as np
-    rewards[rewards == -100] = 0
-
-    def discounted_rewards(rewards, gamma=0.5):
+    def discounted_rewards(rewards, gamma=0.2):
         discounted = []
         running_add = 0
         for r in reversed(rewards):
@@ -902,8 +902,14 @@ def stat_o2o_rewards(states, actions, rewards, zero_reward, game_info, prop_indi
         return torch.tensor(discounted)
 
     rewards = discounted_rewards(rewards).to(states.device)
+    if win_or_lost == "win":
+        mask_reward = rewards > 0
+    elif win_or_lost == "lost":
+        mask_reward = rewards < 0
+    else:
+        raise ValueError
     accelerations = get_state_acc(states)
-    mask_reward = rewards > 0
+    accelerations_pos = accelerations[mask_reward]
     rewards_pos = rewards[mask_reward]
     states_pos = states[mask_reward]
     actions_pos = actions[mask_reward]
@@ -913,7 +919,7 @@ def stat_o2o_rewards(states, actions, rewards, zero_reward, game_info, prop_indi
     actions_neg = actions[~mask_reward]
     rewards_neg = rewards[~mask_reward]
     masks_neg = mask_tensors_from_states(states_neg, game_info).to(states.device)
-
+    accelerations_neg = accelerations[~mask_reward]
     action_pos_types = actions_pos.unique()
     obj_types = get_all_2_combinations(game_info, reverse=False)
     obj_types = [ot for ot in obj_types if ot[0] == 0]
@@ -921,12 +927,18 @@ def stat_o2o_rewards(states, actions, rewards, zero_reward, game_info, prop_indi
     dir_types = torch.arange(-0.75, 1.25, 0.25, dtype=torch.float).to(states.device)
     x_types = torch.arange(0, 1, dist_unit, dtype=torch.float).to(states.device)
     y_types = torch.arange(0, 1, dist_unit, dtype=torch.float).to(states.device)
-    type_combs = list(itertools.product(action_pos_types, obj_types, prop_types, dir_types, x_types, y_types))
+    acc_dir_types = torch.arange(-0.75, 1.25, 0.25, dtype=torch.float).to(states.device)
+    acc_x_types = accelerations[:, :, 0].unique()
+    acc_y_types = accelerations[:, :, 1].unique()
+    type_combs = list(
+        itertools.product(action_pos_types, obj_types, prop_types, dir_types, x_types, y_types, acc_x_types,
+                          acc_y_types, acc_dir_types))
     states_stats = []
 
     for t_i in tqdm(range(len(type_combs)), desc="O2O TypeComb Stat"):
 
-        action_type, obj_type, prop_type, dir_type, x_type, y_type = type_combs[t_i]
+        action_type, obj_type, prop_type, dir_type, x_type, y_type, acc_x_type, acc_y_type, acc_dir_type = type_combs[
+            t_i]
         # print(type_combs[t_i])
         mask_obj_pos = masks_pos[:, obj_type].prod(dim=1) > 0
         mask_obj_neg = masks_neg[:, obj_type].prod(dim=1) > 0

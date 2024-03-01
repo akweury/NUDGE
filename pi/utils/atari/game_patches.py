@@ -236,6 +236,12 @@ def atari_frame_patches(args, env_args, info):
         env_args.state_score = reward_tensor[reward_tensor > 0].sum()
         if env_args.terminated or env_args.truncated:
             env_args.game_over = True
+    if args.m == 'Pong':
+        reward_tensor = torch.tensor(env_args.rewards)
+        reward_tensor[reward_tensor > 0].sum()
+        env_args.state_score = reward_tensor[reward_tensor > 0].sum()
+        if env_args.reward != 0:
+            env_args.terminated = True
 
 
 def atari_patches(args, env_args, info):
@@ -264,9 +270,10 @@ def atari_patches(args, env_args, info):
         if env_args.terminated or env_args.truncated:
             env_args.game_over = True
             env_args.new_life = True
-            reward_tensor = torch.tensor(env_args.rewards)
-            reward_tensor[reward_tensor > 0].sum()
-            env_args.state_score = reward_tensor[reward_tensor > 0].sum()
+            env_args.state_score = env_args.reward
+            env_args.rewards[-1] = env_args.reward
+
+
     if args.m == "Freeway":
         if env_args.terminated or env_args.truncated:
             env_args.game_over = True
