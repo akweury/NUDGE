@@ -880,10 +880,18 @@ def stat_zero_rewards(states, actions, rewards, zero_reward, game_info, prop_ind
     return behs
 
 
+def get_state_acc(states):
+    state_3 = torch.cat(
+        (states[:-2, :, -2:].unsqueeze(0), states[1:-1, :, -2:].unsqueeze(0), states[2:, :, -2:].unsqueeze(0)), dim=0)
+    acceleration = math_utils.calculate_acceleration_2d(state_3[:, :, :, 0], state_3[:, :, :, 1]).permute(1, 2, 0)
+    acceleration = math_utils.closest_one_percent(acceleration, 0.01).tolist()
+    return acceleration
+
 def stat_o2o_rewards(states, actions, rewards, zero_reward, game_info, prop_indices, var_th, stat_type, action_names,
                      step_dist):
+    dist_unit = 0.05
     import numpy as np
-    rewards[rewards==-100] = 0
+    rewards[rewards == -100] = 0
 
     def discounted_rewards(rewards, gamma=0.5):
         discounted = []
@@ -894,15 +902,9 @@ def stat_o2o_rewards(states, actions, rewards, zero_reward, game_info, prop_indi
         return torch.tensor(discounted)
 
     rewards = discounted_rewards(rewards).to(states.device)
-
-    # cumulative_avg = torch.cumsum(rewards, dim=0) / (torch.arange(len(rewards)) + 1).to(states.device)
-
-    # threshold_percentile = np.percentile(cumulative_avg.to("cpu").numpy(), 50)
-    # cumulative_avg_thresholded = np.where(cumulative_avg.to("cpu") < threshold_percentile, 0, cumulative_avg.to("cpu"))
-
+    accelerations = get_state_acc(states)
     mask_reward = rewards > 0
     rewards_pos = rewards[mask_reward]
-
     states_pos = states[mask_reward]
     actions_pos = actions[mask_reward]
     masks_pos = mask_tensors_from_states(states_pos, game_info).to(states.device)
@@ -911,23 +913,17 @@ def stat_o2o_rewards(states, actions, rewards, zero_reward, game_info, prop_indi
     actions_neg = actions[~mask_reward]
     rewards_neg = rewards[~mask_reward]
     masks_neg = mask_tensors_from_states(states_neg, game_info).to(states.device)
-    dist_unit = 0.05
-    mask_pos_types = masks_pos.unique(dim=0)
+
     action_pos_types = actions_pos.unique()
-    action_pf_pos = [action_pos_types[at] for at in action_pos_types]
     obj_types = get_all_2_combinations(game_info, reverse=False)
     obj_types = [ot for ot in obj_types if ot[0] == 0]
     prop_types = [prop_indices]
     dir_types = torch.arange(-0.75, 1.25, 0.25, dtype=torch.float).to(states.device)
     x_types = torch.arange(0, 1, dist_unit, dtype=torch.float).to(states.device)
     y_types = torch.arange(0, 1, dist_unit, dtype=torch.float).to(states.device)
-    type_combs = list(itertools.product(action_pf_pos, obj_types, prop_types, dir_types, x_types, y_types))
+    type_combs = list(itertools.product(action_pos_types, obj_types, prop_types, dir_types, x_types, y_types))
     states_stats = []
-    # variances = torch.zeros(len(type_combs))
-    # variances_neg = torch.zeros(len(type_combs))
-    # means = torch.zeros(len(type_combs))
-    # means_neg = torch.zeros(len(type_combs))
-    # percentage = torch.zeros(len(type_combs))
+
     for t_i in tqdm(range(len(type_combs)), desc="O2O TypeComb Stat"):
 
         action_type, obj_type, prop_type, dir_type, x_type, y_type = type_combs[t_i]
@@ -1005,12 +1001,7 @@ def stat_o2o_rewards(states, actions, rewards, zero_reward, game_info, prop_indi
                      "position_pos": data_A.squeeze(), "position_neg": data_A_neg.squeeze(),
                      "action_type": action_type, "prop_type": prop_type, "obj_types": obj_type, "dir_type": dir_type,
                      "x_type": x_type, "y_type": y_type, "indices": mask_action_state_pos})
-    # variances_ranked, v_rank = variances.sort()
 
-    # passed_variances = variances_ranked < 1e+20
-    # passed_comb_indices = v_rank[passed_variances]
-    # passed_stats = [states_stats[s_i] for s_i in passed_comb_indices]
-    # passed_combs = [type_combs[s_i] for s_i in passed_comb_indices]
     behs = []
     for state_stat in states_stats:
         behs.append({

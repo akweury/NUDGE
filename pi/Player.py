@@ -83,6 +83,8 @@ class SymbolicMicroProgramPlayer:
 
     def load_atari_buffer(self, args):
         if os.path.exists(args.buffer_tensor_filename):
+            if args.device!="cpu":
+                args.device = f"cuda:{args.device}"
             data = torch.load(args.buffer_tensor_filename, map_location=args.device)
             self.win_states = data["states"].to(self.args.device)
             self.win_actions = data["actions"].to(self.args.device)
@@ -103,7 +105,6 @@ class SymbolicMicroProgramPlayer:
                 self.win_actions += buffer.actions[g_i]
                 self.win_rewards += buffer.rewards[g_i]
                 self.win_states += buffer.logic_states[g_i].tolist()
-
                 self.lost_actions += buffer.actions[g_i]
                 self.lost_rewards += buffer.rewards[g_i]
                 self.lost_states += buffer.logic_states[g_i].tolist()

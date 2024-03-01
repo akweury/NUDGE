@@ -383,14 +383,32 @@ def addText(img, text, pos='upper_left', font_size=1.6, color=(255, 255, 255), t
     #            thickness=thickness, lineType=cv.LINE_AA)
 
 
-def addCustomText(img, text, pos, font_size=1.6, color=(255, 255, 255), thickness=1):
+def addCustomText(img, text, pos, font_size=1.6, color=(255, 255, 255), thickness=1, shift=None):
     h, w = img.shape[:2]
     if pos[0] > w or pos[0] < 0 or pos[1] > h or pos[1] < 0:
         raise ValueError('unsupported position to put text in the image.')
-
+    if shift is not None:
+        pos[0] = pos[0] + shift[0]
+        pos[1] = pos[1] + shift[1]
     cv.putText(img, text=text, org=pos,
                fontFace=cv.FONT_HERSHEY_SIMPLEX, fontScale=font_size, color=color,
                thickness=thickness, lineType=cv.LINE_AA)
+
+
+# Function to draw arrow on an image
+def draw_arrow(image, position, acceleration, scale=50, color=(0, 0, 255), thickness=2, shift=None):
+    x, y = position
+    ax, ay = acceleration
+    if shift is not None:
+        x, y = x + shift[0], y + shift[1]
+
+    # Calculate the arrow endpoint based on acceleration
+    arrow_end = (int(x + scale * ax), int(y + scale * ay))
+
+    # Draw arrow on the image
+    image_with_arrow = cv.arrowedLine(image.copy(), (int(x), int(y)), arrow_end, color, thickness)
+
+    return image_with_arrow
 
 
 def visual_info(data, height, width, font_size, text_pos):
@@ -464,3 +482,10 @@ def rgb_to_bgr(rgb_img):
 def save_np_as_img(np_array, file_name):
     # Convert the NumPy array to a Pillow Image
     cv.imwrite(str(file_name), np_array)
+
+
+def load_img(image_path):
+    img = cv.imread(image_path)
+    if img is None:
+        raise ValueError(f"Error: Unable to load the image from {image_path}")
+    return img

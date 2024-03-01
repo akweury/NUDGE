@@ -32,8 +32,12 @@ def main(render=True, m=None):
     def_behaviors = None
     att_behaviors = None
     att_skill = None
-
     o2o_behaviors = agent.reasoning_o2o_behaviors()
+    if args.analysis_play:
+        # Test updated agent
+        pi.game_render.replay_atari_game(agent, args)
+
+
 
     # att_skill = agent.reasoning_att_skills()
     # att_behaviors = agent.reasoning_att_behaviors()

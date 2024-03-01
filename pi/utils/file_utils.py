@@ -2,7 +2,7 @@
 import json
 import torch
 import pickle
-
+import os
 
 def save_json(filename, data):
     with open(filename, 'w') as f:
@@ -28,3 +28,10 @@ def load_pickle(pkl_file):
 def save_pkl(pkl_file, obj):
     with open(pkl_file, 'wb') as f:
         pickle.dump(obj, f)
+
+
+def all_file_in_folder(path_frames):
+    paths = [os.path.join(path_frames, filename) for filename in os.listdir(path_frames) if
+     os.path.isfile(os.path.join(path_frames, filename))]
+    sorted_paths = sorted(paths, key=lambda f: os.stat(f).st_ctime)
+    return sorted_paths

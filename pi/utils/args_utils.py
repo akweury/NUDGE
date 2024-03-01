@@ -25,6 +25,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("-rec", "--record", help="record the rendering of the game", action="store_true")
     parser.add_argument("--log_file_name", help="the name of log file", required=False, dest='logfile')
     parser.add_argument("--render", help="render the game", action="store_true", dest="render")
+    parser.add_argument("--analysis_play", help="render and analysis version", action="store_true", default=False)
     parser.add_argument("--with_explain", help="explain the game", action="store_true", default=False)
     parser.add_argument("--save_frame", help="save each frame as img", action="store_true")
     parser.add_argument("--revise", help="revise the loss games", action="store_true", default=False)
@@ -130,7 +131,7 @@ def load_args(exp_args_path, m):
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
         args.var_th = 0.4
         args.reasoning_gap = 1
-        args.step_dist = [0.01, -0.03]
+        args.step_dist = [0.01, -0.01]
         args.mile_stone_scores = [5, 10, 20, 40]
     elif args.m == "Asterix" or args.m == "asterix":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'

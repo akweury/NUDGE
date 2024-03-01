@@ -110,10 +110,9 @@ class EnvArgs():
         actions = []
         rewards = []
         for f_i, reward in enumerate(self.rewards):
-            if f_i % 10 == 0 or reward != zero_reward:
-                states.append(self.logic_states[f_i])
-                actions.append(self.actions[f_i])
-                rewards.append(self.rewards[f_i])
+            states.append(self.logic_states[f_i])
+            actions.append(self.actions[f_i])
+            rewards.append(self.rewards[f_i])
             if save_frame:
                 # move dead frame to some folder
                 shutil.copy2(self.output_folder /"frames" /f"g_{self.game_i}_f_{f_i}.png",

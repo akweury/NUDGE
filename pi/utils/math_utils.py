@@ -6,9 +6,8 @@ from collections import Counter
 
 
 def calculate_direction(points, reference_point):
-
     x_ref, y_ref = reference_point[0, :, 0].squeeze(), reference_point[0, :, 1].squeeze()
-    x, y = points[:,:,0].squeeze(), points[:,:,1].squeeze()
+    x, y = points[:, :, 0].squeeze(), points[:, :, 1].squeeze()
     delta_x = x - x_ref
     delta_y = y_ref - y
 
@@ -16,7 +15,6 @@ def calculate_direction(points, reference_point):
     angle_degrees = torch.rad2deg(angle_radians)
 
     return angle_degrees
-
 
 
 def calculate_direction_o2o(points, reference_point):
@@ -297,3 +295,20 @@ def pol2dir_name(dir_mean):
         raise ValueError
 
     return dir_name
+
+
+def calculate_acceleration_2d(positions_x, positions_y):
+    times = [0, 1, 2]
+    # Ensure we have enough data points
+    if len(positions_x) == len(positions_y) == len(times) == 3:
+        # Calculate changes in velocity in each dimension
+        delta_v_x = (positions_x[2] - positions_x[0]) / (times[2] - times[0])
+        delta_v_y = (positions_y[2] - positions_y[0]) / (times[2] - times[0])
+
+        # Calculate accelerations in each dimension
+        acceleration_x = delta_v_x / (times[2] - times[0])
+        acceleration_y = delta_v_y / (times[2] - times[0])
+
+        return torch.cat((acceleration_x.unsqueeze(0), acceleration_y.unsqueeze(0)))
+    else:
+        print("Insufficient data points. Need positions_x, positions_y, and times for t1, t2, and t3.")

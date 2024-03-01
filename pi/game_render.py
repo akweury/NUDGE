@@ -1,14 +1,16 @@
 # Created by shaji at 12/02/2024
+
 import time
 import numpy as np
 import shutil
+import torch
 from tqdm import tqdm
 from ocatari.core import OCAtari
 from src.environments.getout.getout.getout.paramLevelGenerator import ParameterizedLevelGenerator
 from src.environments.getout.getout.getout.getout import Getout
 from src.agents.utils_getout import extract_logic_state_getout
 
-from pi.utils import game_utils, draw_utils
+from pi.utils import game_utils, file_utils, draw_utils, math_utils
 from pi.utils.EnvArgs import EnvArgs
 from pi.utils.oc_utils import extract_logic_state_atari
 from pi.utils.atari import game_patches
@@ -194,7 +196,7 @@ def render_atari_game(agent, args, save_buffer):
                 # record game states
                 env_args.buffer_frame()
                 # render the game
-                if args.with_explain:
+                if args.with_explain or args.save_frame:
                     _render(args, agent, env_args, video_out)
 
                     game_utils.frame_log(agent, env_args)
@@ -211,6 +213,53 @@ def render_atari_game(agent, args, save_buffer):
         game_utils.save_game_buffer(args, env_args)
     if args.with_explain:
         draw_utils.release_video(video_out)
+
+
+def replay_atari_game(agent, args):
+    path_frames = args.game_buffer_path / "frames"
+    file_paths = file_utils.all_file_in_folder(path_frames)
+    window_size = [210, 160]
+    env_args = EnvArgs(agent=agent, args=args, window_size=window_size, fps=60)
+    agent.position_norm_factor = 210
+    video_out = game_utils.get_game_viewer(env_args)
+    acceleration = None
+    for frame_i in range(len(file_paths)):
+
+        if args.with_explain:
+            current_frame_time = time.time()
+            if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
+                sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
+                time.sleep(sl)
+                continue
+            env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
+
+        # agent predict an action
+        frame = draw_utils.load_img(file_paths[frame_i])
+        state = agent.win_states[frame_i]
+        pos = state[:, -2:]
+        pos[:, 0] = pos[:, 0] * frame.shape[0] * (160 / 210)
+        pos[:, 1] = pos[:, 1] * frame.shape[0]
+        pos = pos.to(torch.int).tolist()
+        if frame_i > 1:
+            position_x = agent.win_states[frame_i - 2:frame_i + 1, :, -2]
+            position_y = agent.win_states[frame_i - 2:frame_i + 1, :, -1]
+            acceleration = math_utils.calculate_acceleration_2d(position_x, position_y).permute(1,0)
+            acceleration = math_utils.closest_one_percent(acceleration, 0.01).tolist()
+
+        show_analysis_frame(env_args, video_out, frame, pos, acceleration)
+    game_utils.finish_one_run(env_args, args, agent)
+
+    draw_utils.release_video(video_out)
+
+
+def show_analysis_frame(env_args, video_out, frame, pos, acc):
+    if acc is not None:
+        for obj_i in range(len(acc)):
+            acc_text = [f"{n:.2f}" for n in acc[obj_i]]
+            draw_utils.addCustomText(frame, str(acc_text), pos[obj_i], font_size=0.3, shift=[0, 20])
+            frame = draw_utils.draw_arrow(frame, pos[obj_i], acc[obj_i], scale=5, shift = [30, 0])
+
+    out = draw_utils.write_video_frame(video_out, frame)
 
 
 def render_game(agent, args, save_buffer=False):

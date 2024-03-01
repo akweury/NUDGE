@@ -177,7 +177,7 @@ def zoom_image(image, width=None, height=None, inter=cv.INTER_AREA):
 
 
 def get_game_viewer(env_args):
-    width = int(env_args.width_game_window + env_args.width_left_panel + env_args.width_right_panel)
+    width = int(env_args.width_game_window + env_args.width_left_panel)
     height = int(env_args.zoom_in * env_args.height_game_window)
     out = draw_utils.create_video_out(width, height)
     return out
@@ -219,7 +219,7 @@ def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list, screen_text):
     mt_plot = draw_utils.image_resize(mt_plot, width=int(env_args.width_left_panel), height=int(screen_plot.shape[0]))
 
     # explain_plot_four_channel = draw_utils.three_to_four_channel(explain_plot)
-    screen_with_explain = draw_utils.hconcat_resize([screen_plot, mt_plot, db_plots])
+    screen_with_explain = draw_utils.hconcat_resize([screen_plot, mt_plot])
     out = draw_utils.write_video_frame(out, screen_with_explain)
     if env_args.save_frame:
         draw_utils.save_np_as_img(screen_with_explain,
