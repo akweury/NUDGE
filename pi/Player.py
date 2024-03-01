@@ -83,7 +83,7 @@ class SymbolicMicroProgramPlayer:
 
     def load_atari_buffer(self, args):
         if os.path.exists(args.buffer_tensor_filename):
-            data = torch.load(args.buffer_tensor_filename)
+            data = torch.load(args.buffer_tensor_filename, map_location=args.device)
             self.win_states = data["states"].to(self.args.device)
             self.win_actions = data["actions"].to(self.args.device)
             self.win_rewards = data["rewards"].to(self.args.device)

@@ -885,7 +885,7 @@ def stat_o2o_rewards(states, actions, rewards, zero_reward, game_info, prop_indi
     import numpy as np
     rewards[rewards==-100] = 0
 
-    def discounted_rewards(rewards, gamma=0.99):
+    def discounted_rewards(rewards, gamma=0.5):
         discounted = []
         running_add = 0
         for r in reversed(rewards):
@@ -988,7 +988,7 @@ def stat_o2o_rewards(states, actions, rewards, zero_reward, game_info, prop_indi
             satisfy_state_num = (mask.sum(dim=1) > 0).sum()
             unsatisfied_state_num = (mask_neg.sum(dim=1) > 0).sum()
 
-            if reward_pos_sum > reward_neg_sum and reward_pos_sum >= 0:
+            if reward_pos_sum > reward_neg_sum and reward_pos_sum > 0:
                 log_text = (f"\n act:{action_names[action_type]}, "
                             f"{game_info[obj_type[0]]['name']} {game_info[obj_type[1]]['name']} "
                             f"x:{x_type:.2f}, "

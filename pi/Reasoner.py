@@ -176,7 +176,7 @@ class SmpReasoner(nn.Module):
             for pos_index in beh_pos_indices:
                 beh = self.behaviors[pos_index]
                 if not action_mask[0, beh.action]:
-                    if beh_conf[pos_index] > 0.1:
+                    if beh_conf[pos_index] > 0.0:
                         if beh.beh_type == "path_finding" or beh.beh_type == "o2o":
                             action_prob[0, beh.action] = beh_conf[pos_index]
                             explains["behavior_index"].append(pos_index)
