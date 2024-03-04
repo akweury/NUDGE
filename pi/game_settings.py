@@ -23,8 +23,8 @@ def get_idx(args):
         idx_list.append(idx_x)
         idx_list.append(idx_y)
     elif args.m in ["Asterix", "Boxing", "Breakout", "Freeway", "Kangaroo", "Pong"]:
-        idx_x = args.game_info["axis_x_col"]
-        idx_y = args.game_info["axis_y_col"]
+        idx_x = args.game_info["prop_info"]['axis_x_col']
+        idx_y = args.game_info['prop_info']["axis_y_col"]
         idx_list.append(idx_x)
         idx_list.append(idx_y)
     else:

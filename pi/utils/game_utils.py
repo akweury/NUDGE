@@ -189,7 +189,7 @@ def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list, screen_text):
                                           int(game_plot.shape[0] * env_args.zoom_in),
                                           int(game_plot.shape[1] * env_args.zoom_in))
     draw_utils.addText(screen_plot, screen_text,
-                       color=(255, 228, 181), thickness=1, font_size=0.5, pos="upper_right")
+                       color=(255, 228, 181), thickness=2, font_size=0.6, pos="upper_right")
     # label position
     for o_i in range(len(env_args.logic_state)):
         o_pos = env_args.logic_state[o_i][-2:]
@@ -198,8 +198,12 @@ def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list, screen_text):
             pixel_y = int(screen_plot.shape[0] * o_pos[1])
             text = f"{o_pos[0]:.2f}, {o_pos[1]:.2f}"
             # print(f"{text} {screen_plot.shape}")
-            draw_utils.addText(screen_plot, text, color=(0, 228, 181), thickness=3, font_size=0.7,
+            draw_utils.addText(screen_plot, text, color=(0, 0, 255), thickness=2, font_size=0.8,
                                pos=[pixel_x, pixel_y])
+    pixel_x = int(screen_plot.shape[1] * 0.05)
+    pixel_y = int(screen_plot.shape[0] * 0.7)
+    draw_utils.addText(screen_plot, env_args.explain_text, color=(255, 255, 255), thickness=1, font_size=0.5,
+                       pos=[pixel_x, pixel_y])
 
     if len(db_list) == 0:
         db_plots = np.zeros((int(screen_plot.shape[0]), int(screen_plot.shape[0] * 0.5), 3), dtype=np.uint8)

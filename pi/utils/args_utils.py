@@ -70,6 +70,39 @@ def load_args(exp_args_path, m):
     args.exp_name = args.m
     # args.log_file = log_utils.create_log_file(config.path_log, args.exp_name)
     make_deterministic(args.seed)
+    # output folder
+    args.output_folder = config.path_check_point / f"{args.m}"
+    args.check_point_path = config.path_check_point / f"{args.m}"
+    args.game_buffer_path = config.path_check_point / f"{args.m}" / "game_buffer"
+    args.path_bs_data = config.path_bs_data / args.m
+
+    if not os.path.isdir(args.check_point_path):
+        os.mkdir(str(args.check_point_path))
+    if not os.path.exists(args.check_point_path / "defensive"):
+        os.mkdir(str(args.check_point_path / "defensive"))
+    if not os.path.exists(args.check_point_path / "attack"):
+        os.mkdir(str(args.check_point_path / "attack"))
+    if not os.path.exists(args.check_point_path / "skill_attack"):
+        os.mkdir(str(args.check_point_path / "skill_attack"))
+    if not os.path.exists(args.check_point_path / "path_finding"):
+        os.mkdir(str(args.check_point_path / "path_finding"))
+    if not os.path.exists(args.check_point_path / "o2o"):
+        os.mkdir(str(args.check_point_path / "o2o"))
+    if not os.path.exists(str(args.output_folder)):
+        os.mkdir(str(args.output_folder))
+    if not os.path.exists(str(args.game_buffer_path)):
+        os.mkdir(str(args.game_buffer_path))
+    if not os.path.exists(str(args.path_bs_data)):
+        os.mkdir(str(args.path_bs_data))
+    if not os.path.exists(args.game_buffer_path / "key_frames"):
+        os.mkdir(str(args.game_buffer_path / "key_frames"))
+    if not os.path.exists(args.game_buffer_path / "frames"):
+        os.mkdir(str(args.game_buffer_path / "frames"))
+    if not os.path.exists(args.game_buffer_path / "acc_frames"):
+        os.mkdir(str(args.game_buffer_path / "acc_frames"))
+    if not os.path.exists(args.game_buffer_path / "lost_frames"):
+        os.mkdir(str(args.game_buffer_path / "lost_frames"))
+
     if args.m == "getout":
         args.teacher_agent = "ppo"
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
@@ -117,6 +150,10 @@ def load_args(exp_args_path, m):
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
+        args.o2o_data_file = args.check_point_path / "o2o" / f"pf_stats.json"
+        args.o2o_behavior_file = args.check_point_path / "o2o" / f"o2o_behaviors.pkl"
+        args.reward_gamma = 0.9
+        args.reward_alignment = 0.01
         args.train_nn_epochs = 2000
         args.zero_reward = 0.0
         args.fact_conf = 0.5
@@ -218,6 +255,10 @@ def load_args(exp_args_path, m):
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
+        args.o2o_data_file = args.check_point_path / "o2o" / f"pf_stats.json"
+        args.o2o_behavior_file = args.check_point_path / "o2o" / f"o2o_behaviors.pkl"
+        args.reward_gamma = 0.7
+        args.reward_alignment = 0.1
         args.zero_reward = 0.0
         args.fact_conf = 0.5
         args.action_names = config.action_name_boxing
@@ -239,38 +280,6 @@ def load_args(exp_args_path, m):
     else:
         raise ValueError
 
-    # output folder
-    args.output_folder = config.path_check_point / f"{args.m}"
-    args.check_point_path = config.path_check_point / f"{args.m}"
-    args.game_buffer_path = config.path_check_point / f"{args.m}" / "game_buffer"
-    args.path_bs_data = config.path_bs_data / args.m
-
-    if not os.path.isdir(args.check_point_path):
-        os.mkdir(str(args.check_point_path))
-    if not os.path.exists(args.check_point_path / "defensive"):
-        os.mkdir(str(args.check_point_path / "defensive"))
-    if not os.path.exists(args.check_point_path / "attack"):
-        os.mkdir(str(args.check_point_path / "attack"))
-    if not os.path.exists(args.check_point_path / "skill_attack"):
-        os.mkdir(str(args.check_point_path / "skill_attack"))
-    if not os.path.exists(args.check_point_path / "path_finding"):
-        os.mkdir(str(args.check_point_path / "path_finding"))
-    if not os.path.exists(args.check_point_path / "o2o"):
-        os.mkdir(str(args.check_point_path / "o2o"))
-    if not os.path.exists(str(args.output_folder)):
-        os.mkdir(str(args.output_folder))
-    if not os.path.exists(str(args.game_buffer_path)):
-        os.mkdir(str(args.game_buffer_path))
-    if not os.path.exists(str(args.path_bs_data)):
-        os.mkdir(str(args.path_bs_data))
-    if not os.path.exists(args.game_buffer_path / "key_frames"):
-        os.mkdir(str(args.game_buffer_path / "key_frames"))
-    if not os.path.exists(args.game_buffer_path / "frames"):
-        os.mkdir(str(args.game_buffer_path / "frames"))
-    if not os.path.exists(args.game_buffer_path / "acc_frames"):
-        os.mkdir(str(args.game_buffer_path / "acc_frames"))
-    if not os.path.exists(args.game_buffer_path / "lost_frames"):
-        os.mkdir(str(args.game_buffer_path / "lost_frames"))
     return args
 
 

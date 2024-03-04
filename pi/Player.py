@@ -8,7 +8,7 @@ from torch.distributions import Categorical
 from src.agents.neural_agent import ActorCritic, NeuralPPO
 from src.agents.utils_getout import extract_neural_state_getout
 from pi import Reasoner
-from pi.utils import smp_utils, beh_utils, file_utils, oc_utils
+from pi.utils import smp_utils, beh_utils, file_utils, oc_utils, reason_utils
 from pi.utils import game_utils, draw_utils
 
 
@@ -97,6 +97,12 @@ class SymbolicMicroProgramPlayer:
             self.lost_states = data["lost_states"].to(self.args.device)
             self.lost_rewards = data["lost_rewards"].to(self.args.device)
             self.lost_actions = data["lost_actions"].to(self.args.device)
+            self.data = {'win_states': self.win_states,
+                         'win_actions': self.win_actions,
+                         'win_rewards': self.win_rewards,
+                         'lost_states': self.lost_states,
+                         'lost_actions': self.lost_actions,
+                         'lost_rewards': self.lost_rewards}
 
         else:
             buffer = game_utils.load_buffer(args)
@@ -129,7 +135,12 @@ class SymbolicMicroProgramPlayer:
             self.lost_states = torch.tensor(self.lost_states).to(self.args.device)
             self.lost_actions = torch.tensor(self.lost_actions).to(self.args.device)
             self.lost_rewards = torch.tensor(self.lost_rewards).to(self.args.device)
-
+            self.data = {'win_states': self.win_states,
+                         'win_actions': self.win_actions,
+                         'win_rewards': self.win_rewards,
+                         'lost_states': self.lost_states,
+                         'lost_actions': self.lost_actions,
+                         'lost_rewards': self.lost_rewards}
             train_data = {"states": self.states,
                           "actions": self.actions,
                           "rewards": self.rewards,
@@ -165,14 +176,12 @@ class SymbolicMicroProgramPlayer:
         self.lost_states = torch.tensor(self.lost_states).to(self.args.device)
         self.lost_actions = torch.tensor(self.lost_actions).to(self.args.device)
         self.lost_rewards = torch.tensor(self.lost_rewards).to(self.args.device)
-
-        states = torch.cat((self.win_states, self.lost_states), 0)
-        actions = torch.cat((self.win_actions, self.lost_actions), 0)
-        rewards = torch.cat((self.win_rewards, self.lost_rewards), 0)
-
-        self.pos_data, self.neg_data, self.zero_data = smp_utils.split_data_by_reward(states, rewards, actions,
-                                                                                      self.args.zero_reward,
-                                                                                      self.args.obj_info)
+        self.data = {'win_states': self.win_states,
+                     'win_actions': self.win_actions,
+                     'win_rewards': self.win_rewards,
+                     'lost_states': self.lost_states,
+                     'lost_actions': self.lost_actions,
+                     'lost_rewards': self.lost_rewards}
 
     def update_lost_buffer(self, logic_states, actions, rewards):
         new_lost_states = torch.tensor(logic_states).squeeze()
@@ -215,17 +224,17 @@ class SymbolicMicroProgramPlayer:
             self.behaviors = self.pf_behaviors + self.def_behaviors + self.att_behaviors + self.skill_att_behaviors + self.o2o_behaviors
         except TypeError:
             print('Type Error (update behaviors)')
-        self.model.update(args, self.behaviors)
-
-        weights = torch.zeros(len(self.behaviors)).to(self.args.device)
-        for beh_i, beh in enumerate(self.behaviors):
-            weights[beh_i] = beh.weight
-        self.model.weights = weights
-        if not self.learned_jump:
-            for beh in self.behaviors:
-                if "jump" == beh.clause.head.pred.name:
-                    self.learned_jump = True
-                    return True
+        self.model.update(args, self.behaviors, o2o_data=self.o2o_data, action_delta=self.action_delta)
+        #
+        # weights = torch.zeros(len(self.behaviors)).to(self.args.device)
+        # for beh_i, beh in enumerate(self.behaviors):
+        #     weights[beh_i] = beh.weight
+        # self.model.weights = weights
+        # if not self.learned_jump:
+        #     for beh in self.behaviors:
+        #         if "jump" == beh.clause.head.pred.name:
+        #             self.learned_jump = True
+        #             return True
 
         return False
 
@@ -365,54 +374,14 @@ class SymbolicMicroProgramPlayer:
         self.att_behaviors = attack_behaviors
         return attack_behaviors
 
-    def reasoning_o2o_behaviors(self, use_ckp=True):
-        stat_file = self.args.check_point_path / "o2o" / f"pf_stats.json"
-        if use_ckp and os.path.exists(stat_file):
-            pf_behavior_data = file_utils.load_json(stat_file)
+    def reasoning_o2o_behaviors(self):
+        if os.path.exists(self.args.o2o_data_file):
+            o2o_dict = file_utils.load_json(self.args.o2o_data_file)
         else:
-            if len(self.win_states) > 0:
-                pf_behavior_data = smp_utils.stat_o2o_rewards("win", self.win_states,
-                                                              self.win_actions,
-                                                              self.win_rewards,
-
-                                                              self.args.obj_info,
-                                                              self.prop_indices,
-
-                                                              self.args.action_names,
-                                                              self.args.step_dist)
-            elif len(self.lost_states) > 0:
-                pf_behavior_data = smp_utils.stat_o2o_rewards("lost", self.lost_states,
-                                                              self.lost_actions,
-                                                              self.lost_rewards,
-                                                              self.args.obj_info,
-                                                              self.prop_indices,
-                                                              self.args.action_names,
-                                                              self.args.step_dist)
-            else:
-                raise ValueError
-
-            file_utils.save_json(stat_file, pf_behavior_data)
-        pf_behavior_file = self.args.check_point_path / "o2o" / f"o2o_behaviors.pkl"
-        if os.path.exists(pf_behavior_file):
-            o2o_behaviors = file_utils.load_pickle(pf_behavior_file)
-            # o2o_behaviors = beh_utils.update_o2o_behaviors(self.args, o2o_behaviors, pf_behavior_data)
-        else:
-            o2o_behaviors = []
-            # print(f'- Create {len(pf_behavior_data)} path_finding behaviors')
-            for beh_i, beh in enumerate(pf_behavior_data):
-                o2o_behaviors.append(beh_utils.create_o2o_behavior(self.args, beh_i, beh))
-            o2o_weights = beh_utils.learn_o2o_weights(self.win_states, self.win_actions, self.win_rewards,
-                                                      o2o_behaviors, self.args)
-            for b_i, beh in enumerate(o2o_behaviors):
-                beh.weight = 1
-            file_utils.save_pkl(pf_behavior_file, o2o_behaviors)
-
-        # for pf_behavior in pf_behaviors:
-        #     print(f"# Path Finding behavior: {pf_behavior.clause}")
-
-        self.o2o_behaviors = o2o_behaviors
-
-        return o2o_behaviors
+            o2o_dict = reason_utils.reason_o2o_states(self.args, self.data)
+        self.o2o_data = o2o_dict['behavior_data']
+        self.action_delta = o2o_dict['action_data']
+        return self.o2o_data
 
     def reasoning_path_behaviors(self, use_ckp=True):
         if len(self.pos_data) == 0:

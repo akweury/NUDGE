@@ -365,7 +365,7 @@ def addText(img, text, pos='upper_left', font_size=1.6, color=(255, 255, 255), t
     if pos == 'upper_left':
         position = [350, 140]
     elif pos == 'upper_right':
-        position = [w - 350, 80]
+        position = [w - 350, 180]
     elif pos == 'lower_right':
         position = [h - 200, w - 20]
     elif pos == 'lower_left':
@@ -376,7 +376,7 @@ def addText(img, text, pos='upper_left', font_size=1.6, color=(255, 255, 255), t
     text_y_shift = 40
     lines = text.split("\n")
     for line in lines:
-        addCustomText(img, f"{line}", position, font_size=font_size, color=color)
+        addCustomText(img, f"{line}", position, font_size=font_size, color=color, thickness=thickness)
         position[1] += text_y_shift
     # cv.putText(img, text=text, org=position,
     #            fontFace=cv.FONT_HERSHEY_SIMPLEX, fontScale=font_size, color=color,
@@ -489,3 +489,78 @@ def load_img(image_path):
     if img is None:
         raise ValueError(f"Error: Unable to load the image from {image_path}")
     return img
+
+
+def plot_heat_map(data, path=None, name=None, cla_leg=True, figsize=(10, 10), key_col=None, row_names=None):
+    if figsize is not None:
+        plt.figure(figsize=figsize)
+    # Plot the heatmap
+    plt.imshow(data, cmap='viridis', interpolation='nearest')
+    plt.colorbar()  # Add colorbar to show values
+    # Adjust layout for better spacing
+
+    if key_col is not None:
+        plt.axvline(x=key_col, color='red', linestyle='--', linewidth=2)
+        plt.text(key_col, 5, 'key', color='red', fontsize=12, ha='center', va='center')
+    if row_names is not None:
+        plt.yticks(range(len(row_names)), row_names)
+
+    filename = str(Path(path) / f"heatmap_{name}.png")
+    plt.savefig(filename)
+
+    plot_array = plot_to_np_array()
+
+    if cla_leg:
+        plt.cla()
+
+    matplotlib.pyplot.close()
+    return plot_array
+
+
+def plot_compare_line_chart(data, path, name, figsize, row_names=None, cla_leg=True, key_name=None, neg_name=None,
+                            key_rows=None, key_cols=None, neg_rows=None, neg_cols=None,
+                            pos_color=None, neg_color=None):
+    # Generate some example data
+    # x = np.linspace(0, 10, 100)
+
+    # Create a figure and three subplots vertically
+    fig, axs = plt.subplots(len(data), 1, figsize=figsize, sharex='col')
+
+    # Plot the first line chart
+    for i in range(len(data)):
+        if row_names is not None:
+            label = row_names[i]
+        else:
+            label = "None"
+        axs[i].plot(data[i], label=label)
+        axs[i].set_title(label)
+        axs[i].legend()
+
+    if key_cols is not None:
+        for ax in axs:
+            for key_col in key_cols:
+                ax.axvline(x=key_col, color=pos_color, linestyle='--', linewidth=2)
+                ax.text(key_col, 5, "", color=pos_color, fontsize=8, ha='center', va='center')
+            for key_col in neg_cols:
+                ax.axvline(x=key_col, color=neg_color, linestyle='--', linewidth=1)
+                ax.text(key_col, 5, "", color=neg_color, fontsize=8, ha='center', va='center')
+    if key_rows is not None:
+        for plot_i in range(len(key_rows)):
+            pos_rows = key_rows[plot_i]
+            for r_i, row in enumerate(pos_rows):
+                axs[plot_i].axhline(y=row, color=pos_color, linestyle='--', linewidth=2)
+                axs[plot_i].text(5, row, key_name[plot_i][r_i], color=pos_color, fontsize=10, ha='center', va='center')
+            plot_neg_rows = neg_rows[plot_i]
+            for r_i, row in enumerate(plot_neg_rows):
+                axs[plot_i].axhline(y=row, color=neg_color, linestyle='--', linewidth=1)
+                axs[plot_i].text(5, row, neg_name[plot_i][r_i], color=neg_color, fontsize=10, ha='center', va='center')
+    filename = str(Path(path) / f"lines_{name}.png")
+    plt.savefig(filename)
+
+    plot_array = plot_to_np_array()
+
+    if cla_leg:
+        plt.cla()
+
+    matplotlib.pyplot.close()
+    return plot_array

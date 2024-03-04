@@ -100,6 +100,26 @@ def extract_logic_state_assault(objects, args, noise=False):
     return states
 
 
+def extract_obj_state_boxing(obj, obj_id, objt_len, prop_info, norm_factor):
+    obj_state = torch.zeros(objt_len)
+    obj_state[obj_id] = 1
+    obj_state[prop_info['left_arm_length']] = obj.left_arm_length
+    obj_state[prop_info['right_arm_length']] = obj.right_arm_length
+    if obj.left_arm_length > 0:
+        print('')
+    obj_state[prop_info['axis_x_col']] = obj.center[0] / norm_factor
+    obj_state[prop_info['axis_y_col']] = obj.center[1] / norm_factor
+    return obj_state
+
+
+def extract_obj_state_pong(obj, obj_id, objt_len, prop_info, norm_factor):
+    obj_state = torch.zeros(objt_len)
+    obj_state[obj_id] = 1
+    obj_state[prop_info['axis_x_col']] = obj.center[0] / norm_factor
+    obj_state[prop_info['axis_y_col']] = obj.center[1] / norm_factor
+    return obj_state
+
+
 def extract_logic_state_atari(objects, game_info, norm_factor, noise=False):
     # print('Extracting logic states...')
     states = torch.zeros((game_info["state_row_num"], game_info["state_col_num"]))
@@ -113,9 +133,14 @@ def extract_logic_state_atari(objects, game_info, norm_factor, noise=False):
             if obj.category == obj_name:
                 if obj_count >= obj_num:
                     continue
-                states[row_start + obj_count, game_info["axis_x_col"]] = obj.center[0] / norm_factor
-                states[row_start + obj_count, game_info["axis_y_col"]] = obj.center[1] / norm_factor
-                states[row_start + obj_count, o_i] = 1
+                if game_info['name'] == 'Boxing':
+                    states[row_start + obj_count] = extract_obj_state_boxing(obj, o_i, game_info["state_col_num"],
+                                                                             game_info['prop_info'], norm_factor)
+                elif game_info['name'] == 'Pong':
+                    states[row_start + obj_count] = extract_obj_state_pong(obj, o_i, game_info["state_col_num"],
+                                                                           game_info['prop_info'], norm_factor)
+                else:
+                    raise ValueError
                 obj_count += 1
             elif obj.category == "Score":
                 state_score = obj.value

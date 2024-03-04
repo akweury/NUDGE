@@ -2,6 +2,9 @@
 import torch
 import math
 import numpy as np
+import torch.nn.functional as F
+from itertools import chain, combinations
+
 from collections import Counter
 
 
@@ -142,6 +145,18 @@ def dist_a_and_b_closest(data_A, data_B):
         dist = data_A - data_B
 
     return dist, closest_index
+
+
+def all_subsets(input_list):
+    # Convert the input list to a tuple for use in combinations
+    input_tuple = tuple(input_list)
+
+    # Generate all possible subsets using combinations
+    subsets = chain.from_iterable(combinations(input_tuple, r) for r in range(1, len(input_tuple) + 1))
+
+    # Convert the subsets from tuples back to lists
+    subsets = [list(subset) for subset in subsets]
+    return subsets
 
 
 def dist_a_and_b(data_A, data_B):
@@ -311,4 +326,92 @@ def calculate_acceleration_2d(positions_x, positions_y):
 
         return torch.cat((acceleration_x.unsqueeze(0), acceleration_y.unsqueeze(0)))
     else:
-        print("Insufficient data points. Need positions_x, positions_y, and times for t1, t2, and t3.")
+        print("Insufficient data points. Need positions_x, positions_y.")
+
+
+def calculate_velocity_2d(positions_x, positions_y):
+    times = [0, 1]
+    # Ensure we have enough data points
+    if len(positions_x) == len(positions_y) == len(times) == 2:
+        # Calculate changes in velocity in each dimension
+        delta_v_x = (positions_x[1] - positions_x[0]) / (times[1] - times[0])
+        delta_v_y = (positions_y[1] - positions_y[0]) / (times[1] - times[0])
+        return torch.cat((delta_v_x.unsqueeze(0), delta_v_y.unsqueeze(0)))
+    else:
+        print("Insufficient data points. Need positions_x, positions_y.")
+
+
+def discounted_rewards(rewards, gamma=0.2):
+    discounted = []
+    running_add = 0
+    for r in reversed(rewards):
+        running_add = running_add * gamma + r
+        discounted.insert(0, running_add)
+    return torch.tensor(discounted)
+
+
+def normalize(data):
+    return (data - data.min()) / (data.max() - data.min())
+
+
+def smooth_action(actions):
+    # Set the window size for the moving average
+    window_size = 5
+    # Define the moving average filter
+    kernel = torch.ones(window_size) / window_size
+    actions_smooth = F.conv1d(actions.view(1, 1, -1), kernel.view(1, 1, -1), padding=(window_size - 1) // 2)[0, 0, :]
+    return actions_smooth
+
+
+def get_velo_dir(velo):
+    velo_dir = torch.atan2(velo[:, :, 1], velo[:, :, 0])
+    velo_dir = torch.rad2deg(velo_dir)
+    velo_dir = (torch.round(velo_dir / 45) % 8)
+    velo_dir = normalize(velo_dir)
+    return velo_dir
+
+
+# Define a function to remove outliers based on the interquartile range (IQR)
+def remove_outliers_iqr(data, factor=1.5):
+    # Calculate the first and third quartiles (Q1 and Q3)
+    q1 = torch.quantile(data, 0.25)
+    q3 = torch.quantile(data, 0.75)
+
+    # Calculate the interquartile range (IQR)
+    iqr = q3 - q1
+
+    # Define the lower and upper bounds for outliers
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+
+    # Remove outliers
+    filtered_data = data[(data >= lower_bound) & (data <= upper_bound)]
+
+    return filtered_data
+
+
+def common_elements(lists):
+    # Use the set intersection to find common elements
+    values_0 = set(lists[0])
+    for one_list in lists:
+        values_0 = values_0.intersection(one_list)
+
+    return list(values_0)
+
+
+def non_sublists(lists):
+    result = []
+    indices = []
+    for l_i, lst1 in enumerate(lists):
+        is_sublist = False
+        for lst2 in lists:
+            if lst1 != lst2 and all(item in lst2 for item in lst1):
+                is_sublist = True
+                break
+        if not is_sublist:
+            result.append(lst1)
+            indices.append(l_i)
+    return result, indices
+
+def is_sublist(sublist, mainlist):
+    return all(item in mainlist for item in sublist)

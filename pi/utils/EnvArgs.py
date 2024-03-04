@@ -31,6 +31,9 @@ class EnvArgs():
         self.last_obs = torch.zeros((window_size[0], window_size[1], 3), dtype=torch.uint8).numpy()
         self.action = None
         self.logic_state = None
+        self.last_state = None
+        self.last2nd_state = None
+        self.next_state = None
         self.reward = None
         self.obs = None
         self.game_states = []
@@ -40,6 +43,7 @@ class EnvArgs():
         self.win_count = 0
         self.dead_counter = 0
         self.current_steak = 0
+        self.explain_text = ""
         if agent.agent_type == "smp":
             self.game_num = args.student_game_nums
         elif agent.agent_type == "pretrained" or agent.agent_type == "ppo":
@@ -115,7 +119,7 @@ class EnvArgs():
             rewards.append(self.rewards[f_i])
             if save_frame:
                 # move dead frame to some folder
-                shutil.copy2(self.output_folder /"frames" /f"g_{self.game_i}_f_{f_i}.png",
+                shutil.copy2(self.output_folder / "frames" / f"g_{self.game_i}_f_{f_i}.png",
                              self.output_folder / "key_frames" / f"g_{self.game_i}_f_{f_i}.png")
         self.game_states.append(states)
         self.game_rewards.append(rewards)

@@ -14,19 +14,19 @@ from pi.utils import game_utils, file_utils, draw_utils, math_utils
 from pi.utils.EnvArgs import EnvArgs
 from pi.utils.oc_utils import extract_logic_state_atari
 from pi.utils.atari import game_patches
+from pi.utils import reason_utils
 
 
 def _render(args, agent, env_args, video_out):
     # render the game
-    try:
-        screen_text = (
-            f"{agent.agent_type} ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
-            f"act: {args.action_names[env_args.action]} re: {env_args.reward}")
-    except IndexError:
-        print("IndexError")
+
+    screen_text = (
+        f"{agent.agent_type} ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
+        f"act: {args.action_names[env_args.action]} re: {env_args.reward}")
     wr_plot = game_utils.plot_wr(env_args)
     mt_plot = game_utils.plot_mt_asterix(env_args, agent)
-    video_out, _ = game_utils.plot_game_frame(env_args, video_out, env_args.obs, wr_plot, mt_plot, [], screen_text)
+    video_out, _ = game_utils.plot_game_frame(env_args, video_out, env_args.obs, wr_plot, mt_plot, [],
+                                              screen_text)
 
 
 def _act(agent, env_args, env):
@@ -209,40 +209,76 @@ def render_atari_game(agent, args, save_buffer):
         draw_utils.release_video(video_out)
 
 
-def replay_atari_game(agent, args):
-    path_frames = args.game_buffer_path / "frames"
-    file_paths = file_utils.all_file_in_folder(path_frames)
-    window_size = [210, 160]
-    env_args = EnvArgs(agent=agent, args=args, window_size=window_size, fps=60)
-    agent.position_norm_factor = 210
+def replay_atari_game(agent, args, o2o_data):
+    env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
+    obs, info = env.reset()
+    env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
+    agent.position_norm_factor = obs.shape[0]
     video_out = game_utils.get_game_viewer(env_args)
-    acceleration = None
-    for frame_i in range(len(file_paths)):
+    for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
+        env_args.obs, info = env.reset()
+        env_args.reset_args(game_i)
+        env_args.reset_buffer_game()
+        while not env_args.game_over:
+            # limit frame rate
+            if args.with_explain:
+                current_frame_time = time.time()
+                if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
+                    sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
+                    time.sleep(sl)
+                    continue
+                env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
-        if args.with_explain:
-            current_frame_time = time.time()
-            if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
-                sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
-                time.sleep(sl)
-                continue
-            env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
+            # agent predict an action
+            env_args.logic_state, env_args.state_score = extract_logic_state_atari(env.objects, args.game_info,
+                                                                                   obs.shape[0])
 
-        # agent predict an action
-        frame = draw_utils.load_img(file_paths[frame_i])
-        state = agent.states[frame_i]
-        pos = state[:, -2:]
-        pos[:, 0] = pos[:, 0] * frame.shape[0] * (160 / 210)
-        pos[:, 1] = pos[:, 1] * frame.shape[0]
-        pos = pos.to(torch.int).tolist()
-        if frame_i > 1:
-            position_x = agent.states[frame_i - 2:frame_i + 1, :, -2]
-            position_y = agent.states[frame_i - 2:frame_i + 1, :, -1]
-            acceleration = math_utils.calculate_acceleration_2d(position_x, position_y).permute(1,0)
-            acceleration = math_utils.closest_one_percent(acceleration, 0.01).tolist()
+            if env_args.last2nd_state is not None:
+                env_args.explain_text = reason_utils.game_explain(env_args.logic_state,
+                                                                  env_args.last_state,
+                                                                  env_args.last2nd_state,
+                                                                  o2o_data)
 
-        show_analysis_frame(frame_i,env_args, video_out, frame, pos, acceleration)
+            env_args.obs = env_args.last_obs
+            env_args.last2nd_state = env_args.last_state
+            env_args.last_state = env_args.logic_state
+            info = _act(agent, env_args, env)
+            game_patches.atari_frame_patches(args, env_args, info)
+            if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
+                game_patches.atari_patches(args, env_args, info)
+                env_args.frame_i = len(env_args.logic_states) - 1
+
+                env_args.update_lost_live(info["lives"])
+                # revise the game rules
+                if agent.agent_type == "smp" and len(
+                        env_args.logic_states) > 2 and game_i % args.reasoning_gap == 0 and args.revise:
+                    agent.revise_loss(args, env_args)
+                    if args.with_explain:
+                        game_utils.revise_loss_log(env_args, agent, video_out)
+                if args.save_frame:
+                    # move dead frame to some folder
+                    shutil.copy2(env_args.output_folder / "frames" / f"g_{env_args.game_i}_f_{env_args.frame_i}.png",
+                                 env_args.output_folder / "lost_frames" / f"g_{env_args.game_i}_f_{env_args.frame_i}.png")
+            else:
+                # record game states
+                env_args.buffer_frame()
+                # render the game
+                if args.with_explain or args.save_frame:
+                    _render(args, agent, env_args, video_out)
+
+                    game_utils.frame_log(agent, env_args)
+            # update game args
+            # if env_args.explain_text != '':
+            #     print("")
+            env_args.update_args()
+        env_args.buffer_game(args.zero_reward, args.save_frame)
+
+        env_args.reset_buffer_game()
+        game_utils.game_over_log(args, agent, env_args)
+        env_args.win_rate[game_i] = env_args.state_score  # update ep score
+    env.close()
     game_utils.finish_one_run(env_args, args, agent)
-
+    game_utils.save_game_buffer(args, env_args)
     draw_utils.release_video(video_out)
 
 
@@ -251,7 +287,7 @@ def show_analysis_frame(frame_i, env_args, video_out, frame, pos, acc):
         for obj_i in range(len(acc)):
             acc_text = [f"{n:.2f}" for n in acc[obj_i]]
             draw_utils.addCustomText(frame, str(acc_text), pos[obj_i], font_size=0.3, shift=[0, 20])
-            frame = draw_utils.draw_arrow(frame, pos[obj_i], acc[obj_i], scale=5, shift = [30, 0])
+            frame = draw_utils.draw_arrow(frame, pos[obj_i], acc[obj_i], scale=5, shift=[30, 0])
 
     draw_utils.save_np_as_img(frame,
                               env_args.output_folder / "acc_frames" / f"acc_f_{frame_i}.png")

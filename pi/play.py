@@ -32,13 +32,9 @@ def main(render=True, m=None):
     def_behaviors = None
     att_behaviors = None
     att_skill = None
-    if args.analysis_play:
-        # Test updated agent
-        pi.game_render.replay_atari_game(agent, args)
-    o2o_behaviors = agent.reasoning_o2o_behaviors()
+    o2o_behaviors = None
 
-
-
+    o2o_data = agent.reasoning_o2o_behaviors()
 
     # att_skill = agent.reasoning_att_skills()
     # att_behaviors = agent.reasoning_att_behaviors()
@@ -50,6 +46,10 @@ def main(render=True, m=None):
                            skill_att_behavior=att_skill,
                            o2o_behaviors=o2o_behaviors,
                            args=args)
+    # if args.analysis_play:
+    #     # Test updated agent
+    #     teacher_agent = create_agent(args, agent_type=args.teacher_agent)
+    #     pi.game_render.replay_atari_game(teacher_agent, args, o2o_data)
 
     if render:
         # Test updated agent

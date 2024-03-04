@@ -138,12 +138,15 @@ action_name_pong = ["noop",  # 0
                     "rightfire",  # 4
                     "leftfire"  # 5
                     ]
+
+prop_info_pong = {'axis_x_col': 3,
+                  'axis_y_col': 4}
 game_info_pong = {
+    'name':'Pong',
     "obj_info": obj_info_pong,
+    'prop_info': prop_info_pong,
     "state_row_num": 3,
-    "state_col_num": 5,
-    "axis_x_col": 3,
-    "axis_y_col": 4
+    "state_col_num": 5
 }
 
 obj_info_asterix = [('Player', 1),
@@ -223,12 +226,17 @@ game_info_kangaroo = {
 
 obj_info_boxing = [('Player', 1),
                    ('Enemy', 1)]
+prop_info_boxing = {'left_arm_length': 2,
+                    'right_arm_length': 3,
+                    'axis_x_col': 4,
+                    'axis_y_col': 5
+                    }
 game_info_boxing = {
     "obj_info": obj_info_boxing,
+    'prop_info': prop_info_boxing,
     "state_row_num": 2,
-    "state_col_num": 4,
-    "axis_x_col": 2,
-    "axis_y_col": 3
+    "state_col_num": 6,
+
 }
 
 action_name_boxing = ["noop",  # 0

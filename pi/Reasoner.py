@@ -2,7 +2,7 @@
 
 import torch
 import torch.nn as nn
-from pi.utils import math_utils
+from pi.utils import math_utils, reason_utils
 
 
 class SmpReasoner(nn.Module):
@@ -15,7 +15,7 @@ class SmpReasoner(nn.Module):
         self.behaviors = None
         self.obj_type_indices = None
         self.explains = None
-
+        self.last_state = None
         # self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
 
     def set_model(self):
@@ -57,12 +57,14 @@ class SmpReasoner(nn.Module):
             else:
                 self.mask_pos_beh[b_i] = True
         self.beh_weights = (self.beh_weights - self.beh_weights.min()) / (
-                    self.beh_weights.max() - self.beh_weights.min())
+                self.beh_weights.max() - self.beh_weights.min())
 
-    def update(self, args, behaviors):
+    def update(self, args, behaviors, o2o_data, action_delta):
+        self.o2o_data = o2o_data
+        self.action_delta = action_delta
         if args is not None:
             self.args = args
-        if behaviors is not None:
+        if behaviors is not None and len(behaviors) > 0:
             self.behaviors = behaviors
             self.set_model()
 
@@ -90,7 +92,7 @@ class SmpReasoner(nn.Module):
         mask[~self.o_mask[:, 1:]] = False
         mask_sum = mask.sum(dim=1).to(torch.bool)
         self.beh_skill_stage[~mask_sum] = 0
-        conf= mask_sum.float() * self.beh_weights
+        conf = mask_sum.float() * self.beh_weights
         return conf
 
     def get_beh_mask(self, x):
@@ -115,11 +117,100 @@ class SmpReasoner(nn.Module):
 
         return mask_pos_beh, mask_neg_beh, mask_pos_att_beh, confidences
 
+    def eval_o2o_behavior(self, state_tensor):
+
+        for o2o_indices, o2o_beh in self.o2o_data:
+            o2o_data = torch.tensor(o2o_beh)[:, :-1]
+            o2o_act = torch.tensor(o2o_beh)[:, 2]
+            data = state_tensor[o2o_indices]
+            mask = (data == o2o_data).prod(dim=1).bool()
+            act = o2o_act[mask]
+            if len(act) > 0:
+                return act[0]
+        action = None
+        return action
+
+    def get_closest_o2o_beh(self, state_tensor):
+        least_dist = 1e+20
+        closest_beh = None
+        closest_beh_index = None
+        for o2o_indices, o2o_beh in self.o2o_data:
+            o2o_beh = torch.tensor(o2o_beh)
+            o2o_data = o2o_beh[:, :-1]
+            data = state_tensor[o2o_indices]
+            least_diff_beh_dist = torch.abs(data - o2o_data).sum(dim=1).min()
+            index = torch.abs(data - o2o_data).sum(dim=1).argmin()
+            if least_diff_beh_dist < least_dist:
+                least_dist = least_diff_beh_dist
+                closest_beh = o2o_beh[index]
+                closest_beh_index = o2o_indices
+        return closest_beh, closest_beh_index, least_dist
+
+    def get_next_state_tensor(self, state_time3):
+
+        next_state_tensors = torch.zeros(len(self.action_delta), 5).to(state_time3.device)
+
+        for a_i in range(len(self.action_delta)):
+            past_now_next_states = state_time3[a_i]
+            past_now_next_states = math_utils.closest_one_percent(past_now_next_states, 0.01)
+            obj_ab_dir = math_utils.closest_multiple_of_45(reason_utils.get_ab_dir(past_now_next_states,
+                                                                                   0, 1)).reshape(-1)
+
+            obj_velocities = reason_utils.get_state_velo(past_now_next_states)
+            obj_velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(obj_velocities), 0.01)
+
+            next_state_tensors[a_i, 0] = torch.abs(
+                past_now_next_states[-1, 0, -2:-1] - past_now_next_states[-1, 1, -2:-1])
+            next_state_tensors[a_i, 1] = torch.abs(past_now_next_states[-1, 0, -1:] - past_now_next_states[-1, 1, -1:])
+            next_state_tensors[a_i, 2] = obj_velo_dir[-1, 0]
+            next_state_tensors[a_i, 3] = obj_velo_dir[-1, 1]
+            next_state_tensors[a_i, 4] = obj_ab_dir[-1]
+
+        next_state_tensors = math_utils.closest_one_percent(next_state_tensors, 0.01)
+        return next_state_tensors
+
+    def get_next_states(self, state_with_past):
+        state_time3 = torch.zeros((len(self.action_delta), 3, state_with_past.shape[1], state_with_past.shape[2])).to(
+            state_with_past.device)
+
+        for a_i in range(len(self.action_delta)):
+            next_states = torch.zeros(state_with_past.shape[1], state_with_past.shape[2])
+            player_pos_delta = torch.tensor(self.action_delta[f'{a_i}']).to(state_with_past.device)
+            obj_velocities = reason_utils.get_state_velo(state_with_past)[-1]
+            next_states[0, -2:] = state_with_past[-1, 0, -2:] + player_pos_delta[:2]
+            next_states[1, -2:] = state_with_past[-1, 1, -2:] + obj_velocities[1]
+            state_time3[a_i] = torch.cat((state_with_past, next_states.unsqueeze(0)), dim=0)
+        return state_time3
+
     def forward(self, x):
         # game Getout: tensor with size 1 * 4 * 6
         action_prob = torch.zeros(1, len(self.args.action_names))
         action_mask = torch.zeros(1, len(self.args.action_names), dtype=torch.bool)
         explains = {"behavior_index": [], "reward": [], 'state': x, "behavior_conf": [], "behavior_action": []}
+        if self.last_state is None:
+            self.last_state = x
+        state_with_past = torch.cat((x, self.last_state), dim=0)
+        self.last_state = x
+        state_tensor = reason_utils.state2analysis_tensor(state_with_past, 0, 1)
+        action = self.eval_o2o_behavior(state_tensor[-1])
+        if action is not None:
+            action_prob[0, action.to(torch.int)] = 1
+            return action_prob, explains
+        else:
+            state_time3 = self.get_next_states(state_with_past)
+            next_state_tensors = self.get_next_state_tensor(state_time3)
+
+            next_best_dist = 1e+20
+            best_action = 0
+            for a_i in range(len(self.action_delta)):
+                closest_beh, closest_beh_index, closest_beh_dist = self.get_closest_o2o_beh(next_state_tensors[a_i])
+                if closest_beh_dist < next_best_dist:
+                    best_action = a_i
+                    next_best_dist = closest_beh_dist
+            action_prob[0, best_action] = 1
+            return action_prob, explains
+            # find the optimal action
+
         beh_conf = self.eval_behaviors(x) * self.weights
         # mask_pos_beh, mask_neg_beh, mask_pos_att_beh, beh_confidence = self.get_beh_mask(x)
 

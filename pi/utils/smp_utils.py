@@ -892,7 +892,8 @@ def get_state_acc(states):
 
 def stat_o2o_rewards(win_or_lost, states, actions, rewards, game_info, prop_indices, action_names,
                      step_dist):
-    dist_unit = 0.05
+    dist_unit = 0.1
+
     def discounted_rewards(rewards, gamma=0.2):
         discounted = []
         running_add = 0
@@ -914,6 +915,14 @@ def stat_o2o_rewards(win_or_lost, states, actions, rewards, game_info, prop_indi
     states_pos = states[mask_reward]
     actions_pos = actions[mask_reward]
     masks_pos = mask_tensors_from_states(states_pos, game_info).to(states.device)
+
+    for s_i in range(len(states)):
+        obj_a = 0
+        obj_b = 1
+
+        pos_a = states[:, obj_a, -2:]
+        pos_b = states[:, obj_b, -2:]
+        ay = states[:, obj_a, -1]
 
     states_neg = states[~mask_reward]
     actions_neg = actions[~mask_reward]
