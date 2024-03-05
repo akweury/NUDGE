@@ -20,13 +20,13 @@ def main(render=True, m=None):
         teacher_agent = create_agent(args, agent_type=args.teacher_agent)
         pi.game_render.render_game(teacher_agent, args, save_buffer=True)
     # learn behaviors from data
-    agent = create_agent(args, agent_type='smp')
-    agent.prop_indices = game_settings.get_idx(args)
+    student_agent = create_agent(args, agent_type='smp')
+    student_agent.prop_indices = game_settings.get_idx(args)
 
     if args.m == "getout":
-        agent.load_buffer(game_utils.load_buffer(args))
+        student_agent.load_buffer(game_utils.load_buffer(args))
     else:
-        agent.load_atari_buffer(args)
+        student_agent.load_atari_buffer(args)
     args = game_settings.switch_hardness(args)
     pf_behaviors = None
     def_behaviors = None
@@ -34,28 +34,28 @@ def main(render=True, m=None):
     att_skill = None
     o2o_behaviors = None
 
-    o2o_data = agent.reasoning_o2o_behaviors()
+    o2o_data = student_agent.reasoning_o2o_behaviors()
 
     # att_skill = agent.reasoning_att_skills()
     # att_behaviors = agent.reasoning_att_behaviors()
 
     # pf_behaviors = agent.reasoning_path_behaviors()
     # def_behaviors = agent.reasoning_def_behaviors()
-    agent.update_behaviors(pf_behaviors=pf_behaviors, def_behaviors=def_behaviors,
+    student_agent.update_behaviors(pf_behaviors=pf_behaviors, def_behaviors=def_behaviors,
                            att_behaviors=att_behaviors,
                            skill_att_behavior=att_skill,
                            o2o_behaviors=o2o_behaviors,
                            args=args)
-    # if args.analysis_play:
-    #     # Test updated agent
-    #     teacher_agent = create_agent(args, agent_type=args.teacher_agent)
-    #     pi.game_render.replay_atari_game(teacher_agent, args, o2o_data)
+    if args.analysis_play:
+        # Test updated agent
+        teacher_agent = create_agent(args, agent_type=args.teacher_agent)
+        pi.game_render.train_atari_game(teacher_agent,student_agent, args, o2o_data)
 
     if render:
         # Test updated agent
-        pi.game_render.render_game(agent, args)
+        pi.game_render.render_game(student_agent, args)
 
-    return agent
+    return student_agent
 
 
 if __name__ == "__main__":

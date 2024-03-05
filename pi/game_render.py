@@ -25,8 +25,13 @@ def _render(args, agent, env_args, video_out):
         f"act: {args.action_names[env_args.action]} re: {env_args.reward}")
 
     if env_args.frame_i % 100 == 0:
-        env_args.analysis_plot = draw_utils.plot_line_chart(agent.model.o2o_data_weights.reshape(1, -1),
+        if agent.agent_type != "smp":
+            analysis_data = torch.zeros(1, 10)
+        else:
+            analysis_data = agent.model.o2o_data_weights.reshape(1, -1)
+        env_args.analysis_plot = draw_utils.plot_line_chart(analysis_data,
                                                             args.output_folder, "o2o_weights", figure_size=(5, 5))
+    env_args.logic_state = agent.now_state
     video_out, _ = game_utils.plot_game_frame(env_args, video_out, env_args.obs, env_args.analysis_plot, screen_text)
 
 
@@ -51,6 +56,12 @@ def _act(agent, env_args, env):
     env_args.last_obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(env_args.action)
     ram = env._env.unwrapped.ale.getRAM()
     return info
+
+
+def _update_weights(env_args, student_agent):
+    if env_args.frame_i <= 20:
+        return
+    student_agent.learn_from_dqn(env_args.action)
 
 
 def render_getout(agent, args, save_buffer):
@@ -150,14 +161,15 @@ def render_atari_game(agent, args, save_buffer):
         render_mode = None
     else:
         render_mode = 'rgb_array'
-    env = OCAtari(args.m, mode="revised", hud=True, render_mode=render_mode)
+    env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     agent.position_norm_factor = obs.shape[0]
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
     for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
-        agent.model.game_o2o_weights = []
+        if agent.agent_type == "smp":
+            agent.model.game_o2o_weights = []
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
@@ -208,11 +220,13 @@ def render_atari_game(agent, args, save_buffer):
         game_utils.game_over_log(args, agent, env_args)
 
         env_args.win_rate[game_i] = env_args.state_score  # update ep score
-        used_beh = torch.tensor(agent.model.game_o2o_weights).unique()
-        if env_args.state_score > 0:
-            agent.model.o2o_data_weights[used_beh] *= 2
-        else:
-            agent.model.o2o_data_weights[used_beh] *= 0.5
+        if agent.agent_type == "smp":
+
+            used_beh = torch.tensor(agent.model.game_o2o_weights).unique()
+            if env_args.state_score > 0:
+                agent.model.o2o_data_weights[used_beh] *= 2
+            else:
+                agent.model.o2o_data_weights[used_beh] *= 0.5
 
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
@@ -222,13 +236,14 @@ def render_atari_game(agent, args, save_buffer):
         draw_utils.release_video(video_out)
 
 
-def replay_atari_game(agent, args, o2o_data):
-    env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
+def train_atari_game(teacher_agent, student_agent, args, o2o_data):
+    env = OCAtari(args.m, mode="revised", hud=True, render_mode= 'rgb_array')
     obs, info = env.reset()
-    env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
-    agent.position_norm_factor = obs.shape[0]
+    env_args = EnvArgs(agent=teacher_agent, args=args, window_size=obs.shape[:2], fps=60)
+    teacher_agent.position_norm_factor = obs.shape[0]
+    student_agent.position_norm_factor = obs.shape[0]
     video_out = game_utils.get_game_viewer(env_args)
-    for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
+    for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {teacher_agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
@@ -242,21 +257,16 @@ def replay_atari_game(agent, args, o2o_data):
                     continue
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
-            # agent predict an action
-            env_args.logic_state, env_args.state_score = extract_logic_state_atari(env.objects, args.game_info,
-                                                                                   obs.shape[0])
+            now_state, _ = extract_logic_state_atari(env.objects, args.game_info, obs.shape[0])
+            student_agent.now_state = torch.tensor(now_state).to(args.device)
+            teacher_agent.now_state = torch.tensor(now_state).to(args.device)
+            info = _act(teacher_agent, env_args, env)
 
-            if env_args.last2nd_state is not None:
-                env_args.explain_text = reason_utils.game_explain(env_args.logic_state,
-                                                                  env_args.last_state,
-                                                                  env_args.last2nd_state,
-                                                                  o2o_data)
+            next_state, _ = extract_logic_state_atari(env.objects, args.game_info, obs.shape[0])
+            student_agent.next_state = torch.tensor(next_state).to(args.device)
 
-            env_args.obs = env_args.last_obs
-            env_args.last2nd_state = env_args.last_state
-            env_args.last_state = env_args.logic_state
-
-            info = _act(agent, env_args, env)
+            _update_weights(env_args, student_agent)
+            # update the weight of student agent
 
             game_patches.atari_frame_patches(args, env_args, info)
             if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
@@ -265,11 +275,11 @@ def replay_atari_game(agent, args, o2o_data):
 
                 env_args.update_lost_live(info["lives"])
                 # revise the game rules
-                if agent.agent_type == "smp" and len(
+                if teacher_agent.agent_type == "smp" and len(
                         env_args.logic_states) > 2 and game_i % args.reasoning_gap == 0 and args.revise:
-                    agent.revise_loss(args, env_args)
+                    teacher_agent.revise_loss(args, env_args)
                     if args.with_explain:
-                        game_utils.revise_loss_log(env_args, agent, video_out)
+                        game_utils.revise_loss_log(env_args, teacher_agent, video_out)
                 if args.save_frame:
                     # move dead frame to some folder
                     shutil.copy2(env_args.output_folder / "frames" / f"g_{env_args.game_i}_f_{env_args.frame_i}.png",
@@ -279,9 +289,9 @@ def replay_atari_game(agent, args, o2o_data):
                 env_args.buffer_frame()
                 # render the game
                 if args.with_explain or args.save_frame:
-                    _render(args, agent, env_args, video_out)
+                    _render(args, teacher_agent, env_args, video_out)
 
-                    game_utils.frame_log(agent, env_args)
+                    game_utils.frame_log(teacher_agent, env_args)
             # update game args
             # if env_args.explain_text != '':
             #     print("")
@@ -289,10 +299,10 @@ def replay_atari_game(agent, args, o2o_data):
         env_args.buffer_game(args.zero_reward, args.save_frame)
 
         env_args.reset_buffer_game()
-        game_utils.game_over_log(args, agent, env_args)
+        game_utils.game_over_log(args, teacher_agent, env_args)
         env_args.win_rate[game_i] = env_args.state_score  # update ep score
     env.close()
-    game_utils.finish_one_run(env_args, args, agent)
+    game_utils.finish_one_run(env_args, args, teacher_agent)
     game_utils.save_game_buffer(args, env_args)
     draw_utils.release_video(video_out)
 

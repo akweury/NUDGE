@@ -59,6 +59,10 @@ class SymbolicMicroProgramPlayer:
         self.model = SymbolicMicroProgramModel(args).actor.to(args.device)
         self.position_norm_factor = None
         self.prop_indices = None
+        self.now_state = None
+        self.next_state = None
+        self.last_state = None
+        self.last2nd_state = None
         self.def_behaviors = []
         self.att_behaviors = []
         self.pf_behaviors = []
@@ -526,6 +530,19 @@ class SymbolicMicroProgramPlayer:
             raise ValueError
 
         return action, explaining
+
+    def learn_from_dqn(self, dqn_action):
+        if self.last2nd_state is not None:
+            state4 = torch.cat((self.last2nd_state.unsqueeze(0),
+                                self.last_state.unsqueeze(0),
+                                self.now_state.unsqueeze(0),
+                                self.next_state.unsqueeze(0)), dim=0)
+            self.model.learn_from_dqn(state4, dqn_action)
+        else:
+            self.last2nd_state = self.last_state
+            self.last_state = self.now_state
+
+        return
 
     def reasoning_act(self, state):
         if self.args.m == 'getout':

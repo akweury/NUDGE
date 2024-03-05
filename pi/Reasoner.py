@@ -17,6 +17,7 @@ class SmpReasoner(nn.Module):
         self.explains = None
         self.last_state = None
         self.last2nd_state = None
+        self.predicate_weights_table = None
         # self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
 
     def set_model(self):
@@ -65,6 +66,9 @@ class SmpReasoner(nn.Module):
         self.action_delta = action_delta
         self.o2o_data_weights = torch.ones(len(o2o_data))
         self.game_o2o_weights = []
+        self.previous_pred_mask = torch.zeros(len(self.o2o_data), dtype=torch.bool)
+        self.pwt = torch.zeros(len(self.o2o_data), len(self.o2o_data))
+
         if args is not None:
             self.args = args
         if behaviors is not None and len(behaviors) > 0:
@@ -177,7 +181,7 @@ class SmpReasoner(nn.Module):
             state3.device)
 
         for a_i in range(len(self.action_delta)):
-            next_states = torch.zeros(state3.shape[1], state3.shape[2])
+            next_states = torch.zeros(state3.shape[1], state3.shape[2]).to(state3.device)
             player_pos_delta = torch.tensor(self.action_delta[f'{a_i}']).to(state3.device)
             obj_velocities = reason_utils.get_state_velo(state3)[-1]
             if torch.abs(obj_velocities).max() > 0.3:
@@ -189,6 +193,27 @@ class SmpReasoner(nn.Module):
                     print("")
             state4_by_actions[a_i] = torch.cat((state3, next_states.unsqueeze(0)), dim=0)
         return state4_by_actions
+
+    def explain_for_each_action(self):
+        for a_i in range(len(self.action_delta)):
+            pass
+
+    def learn_from_dqn(self, state4, dqn_action):
+        state_tensor_now = reason_utils.state2analysis_tensor(state4[:-1], 0, 1)
+        state_tensor_next = reason_utils.state2analysis_tensor(state4[1:], 0, 1)
+
+        dist_now, explain_now = reason_utils.text_from_tensor(self.o2o_data, state_tensor_now)
+        dist_next, explain_next = reason_utils.text_from_tensor(self.o2o_data, state_tensor_next)
+
+        # check if any predicate has been achieved
+        closer_beh_mask = (dist_now - dist_next) > 0.01
+
+        if self.previous_pred_mask.sum() > 0:
+            self.pwt[self.previous_pred_mask, closer_beh_mask] += 0.01
+
+        previous_pred_mask = dist_now == 0
+        if previous_pred_mask.sum() > 0:
+            self.previous_pred_mask = previous_pred_mask
 
     def forward(self, x):
         # game Getout: tensor with size 1 * 4 * 6

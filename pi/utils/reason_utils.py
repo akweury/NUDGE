@@ -213,10 +213,10 @@ def stat_o2o_action(args, states, actions):
         dir_mean = dir.median()
         action_delta = [x_mean.tolist(), y_mean.tolist(), dir_mean.tolist()]
         actions_delta[action_type] = action_delta
-        draw_utils.plot_compare_line_chart(action_state_tensors.permute(1, 0),
+        draw_utils.plot_compare_line_chart(action_state_tensors.permute(1, 0).tolist(),
                                            args.check_point_path / "o2o", f'act_delta_{action_type}',
                                            (30, 10), row_names=['dx', 'dy', 'dir_a'])
-        draw_utils.plot_compare_line_chart([x, y, dir],
+        draw_utils.plot_compare_line_chart([x.tolist(), y.tolist(), dir.tolist()],
                                            args.check_point_path / "o2o", f'act_delta_{action_type}_iqr',
                                            (30, 10), row_names=['dx', 'dy', 'dir_a'])
 
@@ -233,26 +233,17 @@ def text_from_tensor(o2o_data, state_tensors):
     for beh_i, o2o_beh in enumerate(o2o_data):
         beh_type = o2o_beh[3]
         game_values = state_tensors[-1, o2o_beh[0]]
-        game_last_values = state_tensors[-2, o2o_beh[0]]
-        beh_values = torch.tensor(o2o_beh[1])
-
-        # if beh_type == 'local_min' and (game_last_values > game_values).prod().bool():
-            # local_type = "min"
-        # elif beh_type == 'local_max' and (game_last_values < game_values).prod().bool():
-            # local_type = "max"
-        # else:
-        #     dist_to_o2o_behs.append(100)
-        #     next_possile_beh_explain_text.append("Pass")
-        #     continue
+        beh_values = torch.tensor(o2o_beh[1]).to(state_tensors.device)
 
         value = ["{:.2f}".format(num) for num in o2o_beh[1]]
         prop_explains = [prop_explain[prop] for prop in o2o_beh[0]]
         if (game_values == beh_values).prod().bool():
             explain_text += f"{prop_explains}_{value}_{len(o2o_beh[2])}\n"
             next_possile_beh_explain_text.append("")
-            dist = torch.zeros(1)
             o2o_behs.append(beh_i)
             dist_to_o2o_behs.append(0)
+            dist_o2o_behs.append(torch.tensor([0]))
+
 
         else:
             dist = game_values - beh_values
@@ -260,9 +251,11 @@ def text_from_tensor(o2o_data, state_tensors):
             next_possile_beh_explain_text.append(
                 f"goto_{beh_type}_dist_{dist_value}_{prop_explains}_{value}_{len(o2o_beh[2])}\n")
             dist_to_o2o_behs.append(torch.abs(dist).sum().tolist())
-            dist_o2o_behs.append(beh_i)
+            dist_o2o_behs.append(torch.abs(dist).sum())
 
-    return explain_text, o2o_behs, dist_o2o_behs, dist_to_o2o_behs, next_possile_beh_explain_text
+    dist_to_o2o_behs = torch.tensor(dist_o2o_behs).abs()
+
+    return dist_to_o2o_behs, next_possile_beh_explain_text
 
 
 def game_explain(state, last_state, last2nd_state, o2o_data):
@@ -384,7 +377,7 @@ def reason_o2o_states(args, data):
         neg_cols = sorted((list(set(neg_cols))))
         neg_cols = [k for k in neg_cols if k < 100]
 
-        draw_utils.plot_compare_line_chart(state_tensors.permute(1, 0)[:, :100], path=args.check_point_path / "o2o",
+        draw_utils.plot_compare_line_chart(state_tensors.permute(1, 0)[:, :100].tolist(), path=args.check_point_path / "o2o",
                                            name=f"win_states_{args.m}", figsize=(30, 20),
                                            key_cols=key_cols,
                                            key_rows=[key_pos_x_pos, key_pos_y_pos, key_pos_va_pos, key_pos_vb_pos,

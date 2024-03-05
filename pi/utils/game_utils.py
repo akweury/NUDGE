@@ -184,7 +184,15 @@ def get_game_viewer(env_args):
 
 
 def plot_game_frame(env_args, out, obs, analysis_plot, screen_text):
+    # Red
+    obs[:10,:10] = 0
+    obs[:10, :10, 0] = 255
+    # Blue
+    obs[:10, 10:20] = 0
+    obs[:10, 10:20, 2] = 255
     game_plot = draw_utils.rgb_to_bgr(obs)
+
+
     screen_plot = draw_utils.image_resize(game_plot,
                                           int(game_plot.shape[0] * env_args.zoom_in),
                                           int(game_plot.shape[1] * env_args.zoom_in))
