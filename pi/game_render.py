@@ -23,19 +23,24 @@ def _render(args, agent, env_args, video_out):
     screen_text = (
         f"{agent.agent_type} ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
         f"act: {args.action_names[env_args.action]} re: {env_args.reward}")
-    wr_plot = game_utils.plot_wr(env_args)
-    mt_plot = game_utils.plot_mt_asterix(env_args, agent)
-    video_out, _ = game_utils.plot_game_frame(env_args, video_out, env_args.obs, wr_plot, mt_plot, [],
-                                              screen_text)
+
+    if env_args.frame_i % 100 == 0:
+        env_args.analysis_plot = draw_utils.plot_line_chart(agent.model.o2o_data_weights.reshape(1, -1),
+                                                            args.output_folder, "o2o_weights", figure_size=(5, 5))
+    video_out, _ = game_utils.plot_game_frame(env_args, video_out, env_args.obs, env_args.analysis_plot, screen_text)
 
 
 def _act(agent, env_args, env):
     # agent predict an action
     if agent.agent_type == "smp":
-        env_args.action, env_args.explaining = agent.act(env.objects)
-        if env_args.frame_i == 0 or env_args.new_life:
+
+        if env_args.frame_i <= 20 or env_args.new_life:
             env_args.action = 1
+            env_args.explaining = None
             env_args.new_life = False
+        else:
+            env_args.action, env_args.explaining = agent.act(env.objects)
+            env_args.explain_text = env_args.explaining["text"]
     elif agent.agent_type == "pretrained":
         env_args.action, _ = agent(env.dqn_obs.to(env_args.device))
     elif agent.agent_type == "random":
@@ -152,6 +157,7 @@ def render_atari_game(agent, args, save_buffer):
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
     for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
+        agent.model.game_o2o_weights = []
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
@@ -200,7 +206,14 @@ def render_atari_game(agent, args, save_buffer):
 
         env_args.reset_buffer_game()
         game_utils.game_over_log(args, agent, env_args)
+
         env_args.win_rate[game_i] = env_args.state_score  # update ep score
+        used_beh = torch.tensor(agent.model.game_o2o_weights).unique()
+        if env_args.state_score > 0:
+            agent.model.o2o_data_weights[used_beh] *= 2
+        else:
+            agent.model.o2o_data_weights[used_beh] *= 0.5
+
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
     if save_buffer:
@@ -242,7 +255,9 @@ def replay_atari_game(agent, args, o2o_data):
             env_args.obs = env_args.last_obs
             env_args.last2nd_state = env_args.last_state
             env_args.last_state = env_args.logic_state
+
             info = _act(agent, env_args, env)
+
             game_patches.atari_frame_patches(args, env_args, info)
             if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
                 game_patches.atari_patches(args, env_args, info)

@@ -183,7 +183,7 @@ def get_game_viewer(env_args):
     return out
 
 
-def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list, screen_text):
+def plot_game_frame(env_args, out, obs, analysis_plot, screen_text):
     game_plot = draw_utils.rgb_to_bgr(obs)
     screen_plot = draw_utils.image_resize(game_plot,
                                           int(game_plot.shape[0] * env_args.zoom_in),
@@ -201,29 +201,14 @@ def plot_game_frame(env_args, out, obs, wr_plot, mt_plot, db_list, screen_text):
             draw_utils.addText(screen_plot, text, color=(0, 0, 255), thickness=2, font_size=0.8,
                                pos=[pixel_x, pixel_y])
     pixel_x = int(screen_plot.shape[1] * 0.05)
-    pixel_y = int(screen_plot.shape[0] * 0.7)
+    pixel_y = int(screen_plot.shape[0] * 0.6)
     draw_utils.addText(screen_plot, env_args.explain_text, color=(255, 255, 255), thickness=1, font_size=0.5,
                        pos=[pixel_x, pixel_y])
 
-    if len(db_list) == 0:
-        db_plots = np.zeros((int(screen_plot.shape[0]), int(screen_plot.shape[0] * 0.5), 3), dtype=np.uint8)
-    else:
-        db_plots = []
-        for plot_dict in db_list:
-            plot_i = plot_dict['plot_i']
-            plot = plot_dict['plot']
-            draw_utils.addText(plot, f"beh_{plot_i}", font_size=1.8, thickness=3, color=(0, 0, 255))
-            db_plots.append(plot)
-        if len(db_plots) < env_args.db_num:
-            empty_plots = [np.zeros(db_plots[0].shape, dtype=np.uint8)] * (env_args.db_num - len(db_plots))
-            db_plots += empty_plots
-        db_plots = db_plots[-env_args.db_num:]
-        db_plots = draw_utils.vconcat_resize(db_plots)
 
-    mt_plot = draw_utils.image_resize(mt_plot, width=int(env_args.width_left_panel), height=int(screen_plot.shape[0]))
 
     # explain_plot_four_channel = draw_utils.three_to_four_channel(explain_plot)
-    screen_with_explain = draw_utils.hconcat_resize([screen_plot, mt_plot])
+    screen_with_explain = draw_utils.hconcat_resize([screen_plot, analysis_plot])
     out = draw_utils.write_video_frame(out, screen_with_explain)
     if env_args.save_frame:
         draw_utils.save_np_as_img(screen_with_explain,
@@ -392,14 +377,14 @@ def create_agent(args, agent_type):
 
 
 def screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_counter, screen_text):
-    _, screen_with_explain = plot_game_frame(env_args, video_out, obs, wr_plot, mt_plot, db_plots, screen_text)
+    _, screen_with_explain = plot_game_frame(env_args, video_out, obs, wr_plot, screen_text)
     file_name = str(env_args.output_folder / f"screen_{dead_counter}.png")
     draw_utils.save_np_as_img(screen_with_explain, file_name)
 
 
 def game_over_log(args, agent, env_args):
     print(
-        f"- Ep: {env_args.game_i}, Best Record: {env_args.best_score}, Ep Score: {env_args.state_score} Ep Loss: {env_args.state_loss}")
+        f"- Ep: {env_args.game_i}, Reward Pos: {env_args.win_rate[env_args.win_rate>0].sum()}, Ep Score: {env_args.state_score} Ep Loss: {env_args.state_loss}")
 
     if agent.agent_type == "pretrained" or agent.agent_type == "ppo":
         draw_utils.plot_line_chart(env_args.win_rate.unsqueeze(0)[:, :env_args.game_i], args.check_point_path,
@@ -408,6 +393,8 @@ def game_over_log(args, agent, env_args):
 
         pretrained_wr = torch.load(args.output_folder / f"wr_pretrained_{args.teacher_game_nums}.pt")
         smp_wr = env_args.win_rate.unsqueeze(0)[:, :env_args.game_i]
+        if len(pretrained_wr)<smp_wr.shape[1]:
+            pretrained_wr = torch.cat((pretrained_wr, torch.zeros(10000)))
         all_wr = torch.cat((pretrained_wr.unsqueeze(0)[:, :smp_wr.shape[1]], smp_wr), dim=0)
         draw_utils.plot_line_chart(all_wr, args.check_point_path,
                                    ["pretrained", agent.agent_type],
@@ -423,10 +410,11 @@ def game_over_log(args, agent, env_args):
 def frame_log(agent, env_args):
     # game log
     if agent.agent_type == "smp":
-        for beh_i in env_args.explaining['behavior_index']:
-            print(
-                f"({agent.agent_type})g: {env_args.game_i} f: {env_args.frame_i}, rw: {env_args.reward}, act: {env_args.action}, "
-                f"behavior: {agent.behaviors[beh_i].clause}")
+        if env_args.explaining is not None:
+            for beh_i in env_args.explaining['behavior_index']:
+                print(
+                    f"({agent.agent_type})g: {env_args.game_i} f: {env_args.frame_i}, rw: {env_args.reward}, act: {env_args.action}, "
+                    f"behavior: {agent.behaviors[beh_i].clause}")
 
 
 def revise_loss_log(env_args, agent, video_out):

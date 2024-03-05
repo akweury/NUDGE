@@ -415,3 +415,15 @@ def non_sublists(lists):
 
 def is_sublist(sublist, mainlist):
     return all(item in mainlist for item in sublist)
+
+def indices_of_minimum(tensor):
+    min_value = tensor.min().item()  # Find the minimum value
+    min_indices = (tensor == min_value).nonzero()  # Find indices where the value equals the minimum
+
+    return min_indices
+
+def indices_of_maximum(tensor):
+    max_value = tensor.max().item()  # Find the maximum value
+    max_indices = (tensor == max_value).nonzero()  # Find indices where the value equals the maximum
+
+    return max_indices

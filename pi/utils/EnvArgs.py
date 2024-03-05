@@ -20,7 +20,7 @@ class EnvArgs():
         self.db_num = 4
         self.width_game_window = int(window_size[1] * args.zoom_in)
         self.height_game_window = int(window_size[0] * args.zoom_in)
-        self.width_left_panel = int(window_size[0] * 2 * args.zoom_in)
+        self.width_left_panel = int(window_size[0] * args.zoom_in)
         self.width_right_panel = int(window_size[1] * 0.25 * args.zoom_in)
         self.position_norm_factor = window_size[0]
         # frame rate limiting

@@ -155,7 +155,7 @@ def stat_reward_behaviors(state_tensors, key_frames, actions, rewards):
 def stat_pf_behaviors(state_tensors, key_frames):
     beh_least_sample_num = 30
     prop_num = state_tensors.shape[1]
-    prop_combs = math_utils.all_subsets(list(range(prop_num)))
+    prop_combs = math_utils.all_subsets(list(range(2)))
     pf_behs = []
     for key_frame_type, key_frame_indices in key_frames.items():
         pf_data = []
@@ -223,9 +223,51 @@ def stat_o2o_action(args, states, actions):
     return actions_delta
 
 
+def text_from_tensor(o2o_data, state_tensors):
+    explain_text = ""
+    prop_explain = {0: 'dx', 1: 'dy', 2: 'va', 3: 'vb', 4: 'dir_ab'}
+    o2o_behs = []
+    dist_o2o_behs = []
+    dist_to_o2o_behs = []
+    next_possile_beh_explain_text = []
+    for beh_i, o2o_beh in enumerate(o2o_data):
+        beh_type = o2o_beh[3]
+        game_values = state_tensors[-1, o2o_beh[0]]
+        game_last_values = state_tensors[-2, o2o_beh[0]]
+        beh_values = torch.tensor(o2o_beh[1])
+
+        # if beh_type == 'local_min' and (game_last_values > game_values).prod().bool():
+            # local_type = "min"
+        # elif beh_type == 'local_max' and (game_last_values < game_values).prod().bool():
+            # local_type = "max"
+        # else:
+        #     dist_to_o2o_behs.append(100)
+        #     next_possile_beh_explain_text.append("Pass")
+        #     continue
+
+        value = ["{:.2f}".format(num) for num in o2o_beh[1]]
+        prop_explains = [prop_explain[prop] for prop in o2o_beh[0]]
+        if (game_values == beh_values).prod().bool():
+            explain_text += f"{prop_explains}_{value}_{len(o2o_beh[2])}\n"
+            next_possile_beh_explain_text.append("")
+            dist = torch.zeros(1)
+            o2o_behs.append(beh_i)
+            dist_to_o2o_behs.append(0)
+
+        else:
+            dist = game_values - beh_values
+            dist_value = ["{:.2f}".format(num) for num in dist]
+            next_possile_beh_explain_text.append(
+                f"goto_{beh_type}_dist_{dist_value}_{prop_explains}_{value}_{len(o2o_beh[2])}\n")
+            dist_to_o2o_behs.append(torch.abs(dist).sum().tolist())
+            dist_o2o_behs.append(beh_i)
+
+    return explain_text, o2o_behs, dist_o2o_behs, dist_to_o2o_behs, next_possile_beh_explain_text
+
+
 def game_explain(state, last_state, last2nd_state, o2o_data):
     explain_text = ""
-    prop_explain = {0:'dx', 1:'dy', 2:'va', 3:'vb', 4:'dir_ab'}
+    prop_explain = {0: 'dx', 1: 'dy', 2: 'va', 3: 'vb', 4: 'dir_ab'}
     state3 = torch.cat((torch.tensor(last2nd_state).unsqueeze(0),
                         torch.tensor(last_state).unsqueeze(0),
                         torch.tensor(state).unsqueeze(0)), dim=0)

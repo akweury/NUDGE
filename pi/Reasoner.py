@@ -16,6 +16,7 @@ class SmpReasoner(nn.Module):
         self.obj_type_indices = None
         self.explains = None
         self.last_state = None
+        self.last2nd_state = None
         # self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
 
     def set_model(self):
@@ -62,6 +63,8 @@ class SmpReasoner(nn.Module):
     def update(self, args, behaviors, o2o_data, action_delta):
         self.o2o_data = o2o_data
         self.action_delta = action_delta
+        self.o2o_data_weights = torch.ones(len(o2o_data))
+        self.game_o2o_weights = []
         if args is not None:
             self.args = args
         if behaviors is not None and len(behaviors) > 0:
@@ -169,35 +172,122 @@ class SmpReasoner(nn.Module):
         next_state_tensors = math_utils.closest_one_percent(next_state_tensors, 0.01)
         return next_state_tensors
 
-    def get_next_states(self, state_with_past):
-        state_time3 = torch.zeros((len(self.action_delta), 3, state_with_past.shape[1], state_with_past.shape[2])).to(
-            state_with_past.device)
+    def get_next_states(self, state3):
+        state4_by_actions = torch.zeros((len(self.action_delta), 4, state3.shape[1], state3.shape[2])).to(
+            state3.device)
 
         for a_i in range(len(self.action_delta)):
-            next_states = torch.zeros(state_with_past.shape[1], state_with_past.shape[2])
-            player_pos_delta = torch.tensor(self.action_delta[f'{a_i}']).to(state_with_past.device)
-            obj_velocities = reason_utils.get_state_velo(state_with_past)[-1]
-            next_states[0, -2:] = state_with_past[-1, 0, -2:] + player_pos_delta[:2]
-            next_states[1, -2:] = state_with_past[-1, 1, -2:] + obj_velocities[1]
-            state_time3[a_i] = torch.cat((state_with_past, next_states.unsqueeze(0)), dim=0)
-        return state_time3
+            next_states = torch.zeros(state3.shape[1], state3.shape[2])
+            player_pos_delta = torch.tensor(self.action_delta[f'{a_i}']).to(state3.device)
+            obj_velocities = reason_utils.get_state_velo(state3)[-1]
+            if torch.abs(obj_velocities).max() > 0.3:
+                next_states = state3[-1]
+            else:
+                next_states[0, -2:] = state3[-1, 0, -2:] + player_pos_delta[:2]
+                next_states[1, -2:] = state3[-1, 1, -2:] + obj_velocities[1]
+                if torch.abs(next_states[:, -2:]).max() > 1:
+                    print("")
+            state4_by_actions[a_i] = torch.cat((state3, next_states.unsqueeze(0)), dim=0)
+        return state4_by_actions
 
     def forward(self, x):
         # game Getout: tensor with size 1 * 4 * 6
         action_prob = torch.zeros(1, len(self.args.action_names))
         action_mask = torch.zeros(1, len(self.args.action_names), dtype=torch.bool)
-        explains = {"behavior_index": [], "reward": [], 'state': x, "behavior_conf": [], "behavior_action": []}
-        if self.last_state is None:
-            self.last_state = x
-        state_with_past = torch.cat((x, self.last_state), dim=0)
+        explains = {"behavior_index": [], "reward": [], 'state': x, "behavior_conf": [], "behavior_action": [],
+                    "text": ""}
+
+        if self.last2nd_state is not None:
+            state3 = torch.cat((self.last2nd_state, self.last_state, x), dim=0)
+        else:
+            state3 = torch.cat((x, x, x), dim=0)
+        self.last2nd_state = self.last_state
         self.last_state = x
-        state_tensor = reason_utils.state2analysis_tensor(state_with_past, 0, 1)
+
+        # use state3 check if satisfy any predicate
+        state_tensor = reason_utils.state2analysis_tensor(state3, 0, 1)
+        explain_text, onpos_sel_behs, dist_behs, dist_to_o2o_behs, next_possile_beh_explain_text = reason_utils.text_from_tensor(
+            self.o2o_data, state_tensor)
+
+        on_pos_best_score = 0
+        on_pos_best_beh = None
+        on_pos_best_text = ""
+        pf_best_score = 0
+        pf_best_act = None
+        pf_best_text = ""
+
+        # choose the action
+        # on_pos = False
+        # on_pos_best_text = explain_text
+        # if len(onpos_sel_behs) > 0:
+        #     on_pos = True
+        #     best_beh_index = math_utils.indices_of_maximum(self.o2o_data_weights[onpos_sel_behs]).reshape(-1)
+        #     onpos_sel_beh_index = onpos_sel_behs[best_beh_index]
+
+        # on_pos_best_score = self.o2o_data_weights[onpos_sel_beh_index]
+        # on_pos_best_beh = onpos_sel_beh_index
+
+        # else using state4 go to next possible predicate
+
+        state4_by_actions = self.get_next_states(state3)
+        a_dists = []
+        behs = []
+        beh_texts = []
+        actions = []
+        all_dist_behs = []
+        action_scores = []
+        for a_i in range(len(self.action_delta)):
+            state_tensor = reason_utils.state2analysis_tensor(state4_by_actions[a_i], 0, 1)
+            next_explain_text, sel_behs, dist_behs, dist_to_o2o_behs2, next_possile_beh_explain_text2 = reason_utils.text_from_tensor(
+                self.o2o_data, state_tensor)
+            if len(dist_to_o2o_behs2) > 0:
+                closest_beh = torch.tensor(dist_to_o2o_behs2).abs().argmin()
+                beh_dists = torch.tensor(dist_to_o2o_behs2).abs()
+                # assert min(beh_dists) > 0
+                dist_inv = 1 - (torch.tensor(beh_dists))
+                weigths = dist_inv * self.o2o_data_weights
+                # action best behavior
+
+                act_sel_best_beh_index = math_utils.indices_of_maximum(weigths).reshape(-1)[0]
+
+                # act_sel_best_beh_index = 11
+                behs.append(act_sel_best_beh_index)
+                beh_texts.append(next_possile_beh_explain_text2[act_sel_best_beh_index])
+                action_scores.append(weigths[act_sel_best_beh_index].tolist())
+            else:
+                raise ValueError
+                # action_scores.append(0)
+
+        # select closest action
+
+        best_sel_act = math_utils.indices_of_maximum(torch.tensor(action_scores)).reshape(-1, 1)[0]
+        # action_prob[0, best_sel_act] = 1
+        pf_best_act = best_sel_act
+        sel_beh_index = behs[best_sel_act]
+        # self.game_o2o_weights[sel_beh_index] += 0.1
+
+        pf_best_text = beh_texts[best_sel_act]
+        pf_best_score = action_scores[best_sel_act]
+        try:
+            if pf_best_score > on_pos_best_score:
+                action_prob[0, pf_best_act] = 1
+                explains['text'] = pf_best_text
+                # self.game_o2o_weights.append(sel_beh_index)
+        except TypeError:
+            print("")
+        if len(onpos_sel_behs) > 0:
+            action_prob[0, pf_best_act] = 1
+            self.game_o2o_weights += onpos_sel_behs
+            explains['text'] = on_pos_best_text
+
+        return action_prob, explains
+
         action = self.eval_o2o_behavior(state_tensor[-1])
         if action is not None:
             action_prob[0, action.to(torch.int)] = 1
             return action_prob, explains
         else:
-            state_time3 = self.get_next_states(state_with_past)
+            state_time3 = self.get_next_states(state3)
             next_state_tensors = self.get_next_state_tensor(state_time3)
 
             next_best_dist = 1e+20
