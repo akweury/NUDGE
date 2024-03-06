@@ -183,13 +183,15 @@ def get_game_viewer(env_args):
     return out
 
 
-def plot_game_frame(env_args, out, obs, analysis_plot, screen_text):
+def plot_game_frame(agent_type, env_args, out, obs, analysis_plot, screen_text):
     # Red
     obs[:10,:10] = 0
     obs[:10, :10, 0] = 255
     # Blue
     obs[:10, 10:20] = 0
     obs[:10, 10:20, 2] = 255
+    draw_utils.addCustomText(obs, agent_type,
+                       color=(255, 255, 255), thickness=1, font_size=0.3, pos=[1, 5])
     game_plot = draw_utils.rgb_to_bgr(obs)
     analysis_plot = draw_utils.rgb_to_bgr(analysis_plot)
 

@@ -232,6 +232,7 @@ prop_info_boxing = {'left_arm_length': 2,
                     'axis_y_col': 5
                     }
 game_info_boxing = {
+    'name': 'Boxing',
     "obj_info": obj_info_boxing,
     'prop_info': prop_info_boxing,
     "state_row_num": 2,

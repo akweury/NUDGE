@@ -17,7 +17,7 @@ from pi.utils.atari import game_patches
 from pi.utils import reason_utils
 
 
-def _render(args, agent, student_agent, env_args, video_out):
+def _render(args, agent, env_args, video_out, agent_type):
     # render the game
 
     screen_text = (
@@ -25,7 +25,6 @@ def _render(args, agent, student_agent, env_args, video_out):
         f"act: {args.action_names[env_args.action]} re: {env_args.reward}")
 
     if env_args.frame_i % 100 == 0:
-
         if agent.model.pwt is not None:
             analysis_data = agent.model.pwt
         else:
@@ -33,9 +32,9 @@ def _render(args, agent, student_agent, env_args, video_out):
 
         env_args.analysis_plot = draw_utils.plot_heat_map(analysis_data,
                                                           args.output_folder, "o2o_weights", figsize=(5, 5))
-    if student_agent is not None:
-        env_args.logic_state = agent.now_state
-    video_out, _ = game_utils.plot_game_frame(env_args, video_out, env_args.obs, env_args.analysis_plot, screen_text)
+
+    # env_args.logic_state = agent.now_state
+    video_out, _ = game_utils.plot_game_frame(agent_type, env_args, video_out, env_args.obs, env_args.analysis_plot, screen_text)
 
 
 def _act(agent, env_args, env):
@@ -58,8 +57,9 @@ def _act(agent, env_args, env):
     # env execute action
     env_args.last_obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(env_args.action)
     ram = env._env.unwrapped.ale.getRAM()
-    agent.model.last2nd_state = agent.model.last_state
-    agent.model.last_state = torch.tensor(env_args.logic_state).unsqueeze(0)
+    if agent.agent_type == "smp":
+        agent.model.last2nd_state = agent.model.last_state
+        agent.model.last_state = torch.tensor(env_args.logic_state).unsqueeze(0)
     return info
 
 
@@ -139,7 +139,7 @@ def render_getout(agent, args, save_buffer):
                 env_args.buffer_frame()
                 # render the game
                 if args.with_explain:
-                    _render(args, agent, env_args, video_out)
+                    _render(args, agent, env_args, video_out, "")
 
                     game_utils.frame_log(agent, env_args)
             # update game args
@@ -217,7 +217,7 @@ def render_atari_game(agent, args, save_buffer):
                 env_args.buffer_frame()
                 # render the game
                 if args.with_explain or args.save_frame:
-                    _render(args, agent, None, env_args, video_out)
+                    _render(args, agent, env_args, video_out, "smp")
 
                     game_utils.frame_log(agent, env_args)
             # update game args
@@ -291,7 +291,7 @@ def train_atari_game(teacher_agent, student_agent, args, o2o_data):
                 env_args.buffer_frame()
                 # render the game
                 if args.with_explain or args.save_frame:
-                    _render(args, teacher_agent, student_agent, env_args, video_out)
+                    _render(args, student_agent, env_args, video_out, "dqn")
 
                     game_utils.frame_log(teacher_agent, env_args)
             # update game args
