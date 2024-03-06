@@ -42,15 +42,15 @@ def main(render=True, m=None):
     # pf_behaviors = agent.reasoning_path_behaviors()
     # def_behaviors = agent.reasoning_def_behaviors()
     student_agent.update_behaviors(pf_behaviors=pf_behaviors, def_behaviors=def_behaviors,
-                           att_behaviors=att_behaviors,
-                           skill_att_behavior=att_skill,
-                           o2o_behaviors=o2o_behaviors,
-                           args=args)
+                                   att_behaviors=att_behaviors,
+                                   skill_att_behavior=att_skill,
+                                   o2o_behaviors=o2o_behaviors,
+                                   args=args)
     if args.analysis_play:
-        # Test updated agent
-        teacher_agent = create_agent(args, agent_type=args.teacher_agent)
-        pi.game_render.train_atari_game(teacher_agent,student_agent, args, o2o_data)
-
+        if not os.path.exists(args.o2o_weight_file):
+            # Test updated agent
+            teacher_agent = create_agent(args, agent_type=args.teacher_agent)
+            pi.game_render.train_atari_game(teacher_agent, student_agent, args, o2o_data)
     if render:
         # Test updated agent
         pi.game_render.render_game(student_agent, args)

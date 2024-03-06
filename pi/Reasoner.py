@@ -209,11 +209,29 @@ class SmpReasoner(nn.Module):
         closer_beh_mask = (dist_now - dist_next) > 0.01
 
         if self.previous_pred_mask.sum() > 0:
-            self.pwt[self.previous_pred_mask, closer_beh_mask] += 0.01
+            repeat_prevpredmask = torch.repeat_interleave(self.previous_pred_mask.reshape(-1, 1),
+                                                          len(self.previous_pred_mask), 1)
+            repeat_closer_beh_mask = torch.repeat_interleave(closer_beh_mask.reshape(1, -1), len(closer_beh_mask), 0)
+            self.pwt[repeat_prevpredmask * repeat_closer_beh_mask] += 0.01
 
         previous_pred_mask = dist_now == 0
         if previous_pred_mask.sum() > 0:
             self.previous_pred_mask = previous_pred_mask
+
+    def get_closest_action(self, state3, next_o2o_data):
+        state4_by_actions = self.get_next_states(state3)
+        dist_actions = torch.zeros(len(self.action_delta))
+
+
+        for a_i in range(len(self.action_delta)):
+            state_tensor = reason_utils.state2analysis_tensor(state4_by_actions[a_i], 0, 1)
+            dist_a_i, explain_a_i = reason_utils.text_from_tensor([next_o2o_data], state_tensor)
+            target_dist = torch.tensor(next_o2o_data[1])
+            beh_dists = (dist_a_i - target_dist).abs().sum()
+
+            dist_actions[a_i] = beh_dists
+        best_action = torch.argmin(dist_actions)
+        return best_action
 
     def forward(self, x):
         # game Getout: tensor with size 1 * 4 * 6
@@ -221,18 +239,26 @@ class SmpReasoner(nn.Module):
         action_mask = torch.zeros(1, len(self.args.action_names), dtype=torch.bool)
         explains = {"behavior_index": [], "reward": [], 'state': x, "behavior_conf": [], "behavior_action": [],
                     "text": ""}
-
-        if self.last2nd_state is not None:
-            state3 = torch.cat((self.last2nd_state, self.last_state, x), dim=0)
-        else:
-            state3 = torch.cat((x, x, x), dim=0)
-        self.last2nd_state = self.last_state
-        self.last_state = x
+        state3 = torch.cat((self.last2nd_state, self.last_state, x), dim=0)
 
         # use state3 check if satisfy any predicate
         state_tensor = reason_utils.state2analysis_tensor(state3, 0, 1)
-        explain_text, onpos_sel_behs, dist_behs, dist_to_o2o_behs, next_possile_beh_explain_text = reason_utils.text_from_tensor(
-            self.o2o_data, state_tensor)
+        dist_now, explain_now = reason_utils.text_from_tensor(self.o2o_data, state_tensor)
+
+        # find the best next predicate
+        if self.previous_pred_mask.sum() > 0:
+            max_position = self.pwt[self.previous_pred_mask].argmax(dim=1)
+            # find the action
+            try:
+                action = self.get_closest_action(state3, self.o2o_data[max_position[-1]])
+            except IndexError:
+                print("")
+            action_prob[:, action] = 1
+        previous_pred_mask = dist_now == 0
+        if previous_pred_mask.sum() > 0:
+            self.previous_pred_mask = previous_pred_mask
+
+        return action_prob, explains
 
         on_pos_best_score = 0
         on_pos_best_beh = None

@@ -53,6 +53,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--hardness", type=int, default=0, help="Hardness of the game.")
     parser.add_argument("--teacher_game_nums", type=int, default=100, help="Number of the teacher game.")
     parser.add_argument("--student_game_nums", type=int, default=1000, help="Number of the student game.")
+    parser.add_argument("--train_epochs", type=int, default=20, help="Epochs for training the predicate weight.")
     parser.add_argument("--fact_conf", type=float, default=0.1,
                         help="Minimum confidence required to save a fact as a behavior.")
     args = parser.parse_args()
@@ -152,6 +153,7 @@ def load_args(exp_args_path, m):
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
         args.o2o_data_file = args.check_point_path / "o2o" / f"pf_stats.json"
         args.o2o_behavior_file = args.check_point_path / "o2o" / f"o2o_behaviors.pkl"
+        args.o2o_weight_file = args.check_point_path/ "o2o" / f"predicate_weights.pkl"
         args.reward_gamma = 0.9
         args.reward_alignment = 0.01
         args.train_nn_epochs = 2000

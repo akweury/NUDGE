@@ -11,7 +11,7 @@ from torch import nn
 from pi.Player import SymbolicMicroProgramPlayer, PpoPlayer
 from pi.ale_env import ALEModern
 
-from pi.utils import draw_utils, math_utils
+from pi.utils import draw_utils, math_utils, file_utils
 from src.agents.random_agent import RandomPlayer
 
 
@@ -191,6 +191,7 @@ def plot_game_frame(env_args, out, obs, analysis_plot, screen_text):
     obs[:10, 10:20] = 0
     obs[:10, 10:20, 2] = 255
     game_plot = draw_utils.rgb_to_bgr(obs)
+    analysis_plot = draw_utils.rgb_to_bgr(analysis_plot)
 
 
     screen_plot = draw_utils.image_resize(game_plot,
@@ -392,7 +393,8 @@ def screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_count
 
 def game_over_log(args, agent, env_args):
     print(
-        f"- Ep: {env_args.game_i}, Reward Pos: {env_args.win_rate[env_args.win_rate>0].sum()}, Ep Score: {env_args.state_score} Ep Loss: {env_args.state_loss}")
+        f"- Ep: {env_args.game_i}, Win: {env_args.win_rate[env_args.win_rate>0].sum()}/{env_args.game_i} "
+        f"Ep Score: {env_args.state_score} Ep Loss: {env_args.state_loss}")
 
     if agent.agent_type == "pretrained" or agent.agent_type == "ppo":
         draw_utils.plot_line_chart(env_args.win_rate.unsqueeze(0)[:, :env_args.game_i], args.check_point_path,
@@ -440,6 +442,7 @@ def save_game_buffer(args, env_args):
     # if args.m == "Asterix":
     #     buffer.check_validation_asterix()
     buffer.save_data()
+
 
 
 def finish_one_run(env_args, args, agent):

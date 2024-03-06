@@ -17,7 +17,7 @@ from pi.utils.atari import game_patches
 from pi.utils import reason_utils
 
 
-def _render(args, agent, env_args, video_out):
+def _render(args, agent, student_agent, env_args, video_out):
     # render the game
 
     screen_text = (
@@ -25,13 +25,16 @@ def _render(args, agent, env_args, video_out):
         f"act: {args.action_names[env_args.action]} re: {env_args.reward}")
 
     if env_args.frame_i % 100 == 0:
-        if agent.agent_type != "smp":
-            analysis_data = torch.zeros(1, 10)
+
+        if agent.model.pwt is not None:
+            analysis_data = agent.model.pwt
         else:
-            analysis_data = agent.model.o2o_data_weights.reshape(1, -1)
-        env_args.analysis_plot = draw_utils.plot_line_chart(analysis_data,
-                                                            args.output_folder, "o2o_weights", figure_size=(5, 5))
-    env_args.logic_state = agent.now_state
+            analysis_data = torch.zeros(10, 10)
+
+        env_args.analysis_plot = draw_utils.plot_heat_map(analysis_data,
+                                                          args.output_folder, "o2o_weights", figsize=(5, 5))
+    if student_agent is not None:
+        env_args.logic_state = agent.now_state
     video_out, _ = game_utils.plot_game_frame(env_args, video_out, env_args.obs, env_args.analysis_plot, screen_text)
 
 
@@ -55,6 +58,8 @@ def _act(agent, env_args, env):
     # env execute action
     env_args.last_obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(env_args.action)
     ram = env._env.unwrapped.ale.getRAM()
+    agent.model.last2nd_state = agent.model.last_state
+    agent.model.last_state = torch.tensor(env_args.logic_state).unsqueeze(0)
     return info
 
 
@@ -165,6 +170,8 @@ def render_atari_game(agent, args, save_buffer):
     obs, info = env.reset()
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     agent.position_norm_factor = obs.shape[0]
+    agent.model.pwt = torch.load(args.o2o_weight_file)
+
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
     for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
@@ -187,6 +194,7 @@ def render_atari_game(agent, args, save_buffer):
             env_args.logic_state, env_args.state_score = extract_logic_state_atari(env.objects, args.game_info,
                                                                                    obs.shape[0])
             env_args.obs = env_args.last_obs
+
             info = _act(agent, env_args, env)
             game_patches.atari_frame_patches(args, env_args, info)
             if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
@@ -209,7 +217,7 @@ def render_atari_game(agent, args, save_buffer):
                 env_args.buffer_frame()
                 # render the game
                 if args.with_explain or args.save_frame:
-                    _render(args, agent, env_args, video_out)
+                    _render(args, agent, None, env_args, video_out)
 
                     game_utils.frame_log(agent, env_args)
             # update game args
@@ -220,13 +228,6 @@ def render_atari_game(agent, args, save_buffer):
         game_utils.game_over_log(args, agent, env_args)
 
         env_args.win_rate[game_i] = env_args.state_score  # update ep score
-        if agent.agent_type == "smp":
-
-            used_beh = torch.tensor(agent.model.game_o2o_weights).unique()
-            if env_args.state_score > 0:
-                agent.model.o2o_data_weights[used_beh] *= 2
-            else:
-                agent.model.o2o_data_weights[used_beh] *= 0.5
 
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
@@ -237,13 +238,13 @@ def render_atari_game(agent, args, save_buffer):
 
 
 def train_atari_game(teacher_agent, student_agent, args, o2o_data):
-    env = OCAtari(args.m, mode="revised", hud=True, render_mode= 'rgb_array')
+    env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
     env_args = EnvArgs(agent=teacher_agent, args=args, window_size=obs.shape[:2], fps=60)
     teacher_agent.position_norm_factor = obs.shape[0]
     student_agent.position_norm_factor = obs.shape[0]
     video_out = game_utils.get_game_viewer(env_args)
-    for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {teacher_agent.agent_type}"):
+    for game_i in tqdm(range(env_args.train_num), desc=f"Agent  {teacher_agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
@@ -258,6 +259,7 @@ def train_atari_game(teacher_agent, student_agent, args, o2o_data):
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
             now_state, _ = extract_logic_state_atari(env.objects, args.game_info, obs.shape[0])
+            env_args.obs = env_args.last_obs
             student_agent.now_state = torch.tensor(now_state).to(args.device)
             teacher_agent.now_state = torch.tensor(now_state).to(args.device)
             info = _act(teacher_agent, env_args, env)
@@ -289,7 +291,7 @@ def train_atari_game(teacher_agent, student_agent, args, o2o_data):
                 env_args.buffer_frame()
                 # render the game
                 if args.with_explain or args.save_frame:
-                    _render(args, teacher_agent, env_args, video_out)
+                    _render(args, teacher_agent, student_agent, env_args, video_out)
 
                     game_utils.frame_log(teacher_agent, env_args)
             # update game args
@@ -303,7 +305,9 @@ def train_atari_game(teacher_agent, student_agent, args, o2o_data):
         env_args.win_rate[game_i] = env_args.state_score  # update ep score
     env.close()
     game_utils.finish_one_run(env_args, args, teacher_agent)
-    game_utils.save_game_buffer(args, env_args)
+
+    torch.save(student_agent.model.pwt, args.o2o_weight_file)
+
     draw_utils.release_video(video_out)
 
 
