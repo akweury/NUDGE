@@ -1,18 +1,7 @@
 # Created by jing at 28.11.23
 import torch
-import numpy as np
-from sklearn import svm
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from scipy.stats import multivariate_normal
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neighbors import KernelDensity
-from sklearn.model_selection import train_test_split
 
-from pi.utils import draw_utils, math_utils
-from pi.neural import nn_model
+from pi.utils import math_utils
 
 pass_th = 0.8
 

@@ -10,6 +10,7 @@ class EnvArgs():
     def __init__(self, agent, args, window_size, fps):
         super().__init__()
         # game setting
+        self.jump_frames = args.jump_frames
         self.device = args.device
         self.save_frame = args.save_frame
         self.output_folder = args.game_buffer_path
@@ -36,6 +37,7 @@ class EnvArgs():
         self.next_state = None
         self.reward = None
         self.obs = None
+        self.game_next_states = []
         self.game_states = []
         self.game_actions = []
         self.game_rewards = []
@@ -106,6 +108,9 @@ class EnvArgs():
         self.dead_counter += 1
 
     def buffer_frame(self):
+        if self.frame_i<self.jump_frames:
+            return
+        self.next_states.append(self.next_state)
         self.logic_states.append(self.logic_state)
         self.actions.append(self.action)
         self.rewards.append(self.reward)
@@ -114,7 +119,9 @@ class EnvArgs():
         states = []
         actions = []
         rewards = []
+        next_states = []
         for f_i, reward in enumerate(self.rewards):
+            next_states.append(self.next_states[f_i])
             states.append(self.logic_states[f_i])
             actions.append(self.actions[f_i])
             rewards.append(self.rewards[f_i])
@@ -125,8 +132,10 @@ class EnvArgs():
         self.game_states.append(states)
         self.game_rewards.append(rewards)
         self.game_actions.append(actions)
+        self.game_next_states.append(next_states)
 
     def reset_buffer_game(self):
+        self.next_states = []
         self.logic_states = []
         self.actions = []
         self.rewards = []

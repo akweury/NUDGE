@@ -2,6 +2,7 @@
 import torch
 import numpy as np
 from src import config
+from pi.utils import draw_utils
 
 
 def extract_logic_state_assault(objects, args, noise=False):
@@ -103,10 +104,10 @@ def extract_logic_state_assault(objects, args, noise=False):
 def extract_obj_state_boxing(obj, obj_id, objt_len, prop_info, norm_factor):
     obj_state = torch.zeros(objt_len)
     obj_state[obj_id] = 1
-    obj_state[prop_info['left_arm_length']] = obj.left_arm_length
-    obj_state[prop_info['right_arm_length']] = obj.right_arm_length
-    if obj.left_arm_length > 0:
-        print('')
+    arm_max_length = 72
+    obj_state[prop_info['left_arm_length']] = obj.left_arm_length / arm_max_length
+    obj_state[prop_info['right_arm_length']] = obj.right_arm_length / arm_max_length
+
     obj_state[prop_info['axis_x_col']] = obj.center[0] / norm_factor
     obj_state[prop_info['axis_y_col']] = obj.center[1] / norm_factor
     return obj_state
@@ -120,11 +121,36 @@ def extract_obj_state_pong(obj, obj_id, objt_len, prop_info, norm_factor):
     return obj_state
 
 
-def extract_logic_state_atari(objects, game_info, norm_factor, noise=False):
+def extract_obj_state_kangaroo(obj, obj_id, objt_len, prop_info, norm_factor):
+    obj_state = torch.zeros(objt_len)
+    obj_state[obj_id] = 1
+    obj_state[prop_info['axis_x_col']] = obj.center[0] / norm_factor
+    obj_state[prop_info['axis_y_col']] = obj.center[1] / norm_factor
+    return obj_state
+
+
+def extract_obj_state_frostbite(obj, obj_id, objt_len, prop_info, norm_factor):
+    obj_state = torch.zeros(objt_len)
+    obj_state[obj_id] = 1
+    obj_state[prop_info['axis_x_col']] = obj.center[0] / norm_factor
+    obj_state[prop_info['axis_y_col']] = obj.center[1] / norm_factor
+    return obj_state
+
+
+def extract_obj_state_montezuma_revenge(obj, obj_id, objt_len, norm_factor):
+    obj_state = torch.zeros(objt_len)
+    obj_state[obj_id] = 1
+    obj_state[-2] = obj.center[0] / norm_factor
+    obj_state[-1] = obj.center[1] / norm_factor
+    return obj_state
+
+
+def extract_logic_state_atari(args, objects, game_info, norm_factor, noise=False):
     # print('Extracting logic states...')
     states = torch.zeros((game_info["state_row_num"], game_info["state_col_num"]))
     state_score = 0
     row_start = 0
+    row_names = []
     # print(objects)
     for o_i, (obj_name, obj_num) in enumerate(game_info["obj_info"]):
         obj_count = 0
@@ -139,13 +165,24 @@ def extract_logic_state_atari(objects, game_info, norm_factor, noise=False):
                 elif game_info['name'] == 'Pong':
                     states[row_start + obj_count] = extract_obj_state_pong(obj, o_i, game_info["state_col_num"],
                                                                            game_info['prop_info'], norm_factor)
+                elif game_info['name'] == 'Kangaroo':
+                    states[row_start + obj_count] = extract_obj_state_kangaroo(obj, o_i, game_info["state_col_num"],
+                                                                               game_info['prop_info'], norm_factor)
+                elif game_info['name'] == 'Frostbite':
+                    states[row_start + obj_count] = extract_obj_state_frostbite(obj, o_i, game_info["state_col_num"],
+                                                                                game_info['prop_info'], norm_factor)
+                elif game_info['name'] == 'montezuma_revenge':
+                    states[row_start + obj_count] = extract_obj_state_montezuma_revenge(obj, o_i,
+                                                                                        game_info["state_col_num"],
+                                                                                        norm_factor)
                 else:
                     raise ValueError
+                row_names.append(obj_name)
                 obj_count += 1
-            elif obj.category == "Score":
-                state_score = obj.value
+            # elif obj.category == "Score":
+            #     state_score = obj.value
         row_start += obj_num
-
+    # draw_utils.plot_heat_map(states, args.output_folder, "montezuma_revenge", row_names=row_names)
     return states.tolist(), state_score
 
 

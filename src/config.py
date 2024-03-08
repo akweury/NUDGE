@@ -142,7 +142,7 @@ action_name_pong = ["noop",  # 0
 prop_info_pong = {'axis_x_col': 3,
                   'axis_y_col': 4}
 game_info_pong = {
-    'name':'Pong',
+    'name': 'Pong',
     "obj_info": obj_info_pong,
     'prop_info': prop_info_pong,
     "state_row_num": 3,
@@ -216,13 +216,55 @@ action_name_kangaroo = ["noop",  # 0
                         "downrightfire",  # 16
                         "downleftfire",  # 17
                         ]
+prop_info_kangaroo = {'axis_x_col': 9,
+                      'axis_y_col': 10}
+
 game_info_kangaroo = {
+    "name": "Kangaroo",
     "obj_info": obj_info_kangaroo,
+    "prop_info": prop_info_kangaroo,
     "state_row_num": 23,
     "state_col_num": 11,
     "axis_x_col": 9,
     "axis_y_col": 10
 }
+
+obj_info_frostbite = [('Player', 1),
+                      ('Enemy', 1)]
+prop_info_frostbite = {'Player': 0,
+                       'left_arm_length': 2,
+                       'right_arm_length': 3,
+                       'axis_x_col': 4,
+                       'axis_y_col': 5
+                       }
+game_info_frostbite = {
+    'name': 'Frostbite',
+    "obj_info": obj_info_frostbite,
+    'prop_info': prop_info_frostbite,
+    "state_row_num": 2,
+    "state_col_num": 6,
+
+}
+
+action_name_18 = ["noop",  # 0
+                  "fire",  # 1
+                  "up",  # 2
+                  "right",  # 3
+                  "left",  # 4
+                  "down",  # 5
+                  "upright",  # 6
+                  "upleft",  # 7
+                  "downright",  # 8
+                  "downleft",  # 9
+                  "upfire",  # 10
+                  "rightfire",  # 11
+                  "leftfire",  # 12
+                  "downfire",  # 13
+                  "uprightfire",  # 14
+                  "upleftfire",  # 15
+                  "downrightfire",  # 16
+                  "downleftfire",  # 17
+                  ]
 
 obj_info_boxing = [('Player', 1),
                    ('Enemy', 1)]
@@ -240,6 +282,27 @@ game_info_boxing = {
 
 }
 
+prop_info_basic_pos = {'Player': 0,
+                       'Enemy': 1,
+                       'axis_x_col': 2,
+                       'axis_y_col': 3
+                       }
+obj_info_montezumaRevenge = [('Player', 1),
+                             ('Skull', 1),
+                             ("Key", 1),
+                             ('Barrier', 2),
+                             ("Rope", 1),
+                             ("Platform", 7),
+                             ("Ladder", 3),
+                             ("Conveyer_Belt", 2),
+                             ]
+game_info_montezumaRevenge = {
+    'name': 'montezuma_revenge',
+    "obj_info": obj_info_montezumaRevenge,
+    "state_row_num": sum([n for _, n in obj_info_montezumaRevenge]),
+    "state_col_num": len(obj_info_montezumaRevenge) + 2,
+
+}
 action_name_boxing = ["noop",  # 0
                       "fire",  # 1
                       "up",  # 2
@@ -289,6 +352,7 @@ prop_name_assault = ['agent', 'player_missile_vertical', "player_missile_horizon
                      "axis_x", "axis_y"]
 prop_name_asterix = ["Player", "Enemy", "Consumable", "axis_x", "axis_y"]
 prop_name_pong = ["Player", "Ball", "Enemy", "axis_x", "axis_y"]
+
 prop_name_boxing = ["Player", "Enemy", "axis_x", "axis_y"]
 prop_name_breakout = ["Player", "Ball", "BlockRow", "axis_x", "axis_y"]
 prop_name_freeway = ["Chicken", "Car", "axis_x", "axis_y"]

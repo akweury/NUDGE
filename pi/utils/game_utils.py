@@ -21,6 +21,7 @@ class RolloutBuffer:
         self.win_rate = 0
         self.actions = []
         self.lost_actions = []
+        self.game_next_states = []
         self.logic_states = []
         self.lost_logic_states = []
         self.neural_states = []
@@ -38,6 +39,7 @@ class RolloutBuffer:
         del self.win_rate
         del self.actions[:]
         del self.lost_actions[:]
+        del self.game_next_states[:]
         del self.logic_states[:]
         del self.lost_logic_states[:]
         del self.neural_states[:]
@@ -62,6 +64,8 @@ class RolloutBuffer:
                              range(len(state_info['lost_actions']))]
         self.logic_states = [torch.tensor(state_info['logic_states'][i]) for i in
                              range(len(state_info['logic_states']))]
+        self.game_next_states = [torch.tensor(state_info['next_states'][i]) for i in
+                                 range(len(state_info['next_states']))]
         self.lost_logic_states = [torch.tensor(state_info['lost_logic_states'][i]) for i in
                                   range(len(state_info['lost_logic_states']))]
         self.rewards = [torch.tensor(state_info['reward'][i]) for i in range(len(state_info['reward']))]
@@ -90,6 +94,7 @@ class RolloutBuffer:
 
     def save_data(self):
         data = {'actions': self.actions,
+                'next_states': self.game_next_states,
                 'logic_states': self.logic_states,
                 'neural_states': self.neural_states,
                 'action_probs': self.action_probs,
@@ -110,18 +115,6 @@ class RolloutBuffer:
         with open(self.filename, 'w') as f:
             json.dump(data, f)
         print(f'data saved in file {self.filename}')
-
-    # def check_validation_asterix(self):
-    #     for game_i in range(len(self.rewards)):
-    #         game_states = torch.tensor(self.logic_states[game_i])
-    #         game_rewards = torch.tensor(self.rewards[game_i])
-    #         neg_states = game_states[game_rewards < 0]
-    #         pos_indices = [3, 4]
-    #         for state in neg_states:
-    #             pos_agent = state[0:1, pos_indices].unsqueeze(0)
-    #             enemy_indices = state[:, 1] > 0
-    #             pos_enemy = (state[enemy_indices][:, pos_indices]).unsqueeze(0)
-    #             dist, _ = math_utils.dist_a_and_b_next_step_closest(pos_agent, pos_enemy)
 
 
 def load_buffer(args):
@@ -185,16 +178,15 @@ def get_game_viewer(env_args):
 
 def plot_game_frame(agent_type, env_args, out, obs, analysis_plot, screen_text):
     # Red
-    obs[:10,:10] = 0
+    obs[:10, :10] = 0
     obs[:10, :10, 0] = 255
     # Blue
     obs[:10, 10:20] = 0
     obs[:10, 10:20, 2] = 255
     draw_utils.addCustomText(obs, agent_type,
-                       color=(255, 255, 255), thickness=1, font_size=0.3, pos=[1, 5])
+                             color=(255, 255, 255), thickness=1, font_size=0.3, pos=[1, 5])
     game_plot = draw_utils.rgb_to_bgr(obs)
     analysis_plot = draw_utils.rgb_to_bgr(analysis_plot)
-
 
     screen_plot = draw_utils.image_resize(game_plot,
                                           int(game_plot.shape[0] * env_args.zoom_in),
@@ -208,15 +200,17 @@ def plot_game_frame(agent_type, env_args, out, obs, analysis_plot, screen_text):
             pixel_x = int(screen_plot.shape[1] * o_pos[0])
             pixel_y = int(screen_plot.shape[0] * o_pos[1])
             text = f"{o_pos[0]:.2f}, {o_pos[1]:.2f}"
+            if o_pos[0] < 0 or o_pos[1] < 0:
+                o_pos = [10, 10]
             # print(f"{text} {screen_plot.shape}")
-            draw_utils.addText(screen_plot, text, color=(0, 0, 255), thickness=2, font_size=0.8,
+            draw_utils.addText(screen_plot, text, color=(255, 255, 255), thickness=1, font_size=0.5,
                                pos=[pixel_x, pixel_y])
+
+    # smp explanations
     pixel_x = int(screen_plot.shape[1] * 0.05)
     pixel_y = int(screen_plot.shape[0] * 0.6)
     draw_utils.addText(screen_plot, env_args.explain_text, color=(255, 255, 255), thickness=1, font_size=0.5,
                        pos=[pixel_x, pixel_y])
-
-
 
     # explain_plot_four_channel = draw_utils.three_to_four_channel(explain_plot)
     screen_with_explain = draw_utils.hconcat_resize([screen_plot, analysis_plot])
@@ -395,7 +389,7 @@ def screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_count
 
 def game_over_log(args, agent, env_args):
     print(
-        f"- Ep: {env_args.game_i}, Win: {env_args.win_rate[env_args.win_rate>0].sum()}/{env_args.game_i} "
+        f"- Ep: {env_args.game_i}, Win: {env_args.win_rate[env_args.win_rate > 0].sum()}/{env_args.game_i} "
         f"Ep Score: {env_args.state_score} Ep Loss: {env_args.state_loss}")
 
     if agent.agent_type == "pretrained" or agent.agent_type == "ppo":
@@ -405,7 +399,7 @@ def game_over_log(args, agent, env_args):
 
         pretrained_wr = torch.load(args.output_folder / f"wr_pretrained_{args.teacher_game_nums}.pt")
         smp_wr = env_args.win_rate.unsqueeze(0)[:, :env_args.game_i]
-        if len(pretrained_wr)<smp_wr.shape[1]:
+        if len(pretrained_wr) < smp_wr.shape[1]:
             pretrained_wr = torch.cat((pretrained_wr, torch.zeros(10000)))
         all_wr = torch.cat((pretrained_wr.unsqueeze(0)[:, :smp_wr.shape[1]], smp_wr), dim=0)
         draw_utils.plot_line_chart(all_wr, args.check_point_path,
@@ -437,6 +431,7 @@ def revise_loss_log(env_args, agent, video_out):
 
 def save_game_buffer(args, env_args):
     buffer = RolloutBuffer(args.buffer_filename)
+    buffer.game_next_states = env_args.game_next_states
     buffer.logic_states = env_args.game_states
     buffer.actions = env_args.game_actions
     buffer.rewards = env_args.game_rewards
@@ -446,8 +441,14 @@ def save_game_buffer(args, env_args):
     buffer.save_data()
 
 
-
 def finish_one_run(env_args, args, agent):
     draw_utils.plot_line_chart(env_args.win_rate.unsqueeze(0), args.check_point_path,
                                [agent.agent_type], title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")
     torch.save(env_args.win_rate, args.check_point_path / f"wr_{agent.agent_type}_{len(env_args.win_rate)}.pt")
+
+
+def get_ocname(m):
+    if m == "montezuma_revenge":
+        return "MontezumaRevenge"
+    else:
+        raise ValueError

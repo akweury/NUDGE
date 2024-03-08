@@ -33,7 +33,7 @@ def main(render=True, m=None):
     att_behaviors = None
     att_skill = None
     o2o_behaviors = None
-
+    student_agent.train_state_estimator()
     o2o_data = student_agent.reasoning_o2o_behaviors()
 
     # att_skill = agent.reasoning_att_skills()

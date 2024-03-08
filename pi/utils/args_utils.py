@@ -40,7 +40,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--skill_len_max", type=int, default=5, help="Maximum skill length (default 5 frames)")
     parser.add_argument('--lr_scheduler', default="100,1000", type=str, help='lr schedular.')
     parser.add_argument("--net_name", type=str, help="The name of the neural network")
-    parser.add_argument("--batch_size", type=int, default=1, help="Batch size to infer with")
+    parser.add_argument("--batch_size", type=int, default=64, help="Batch size to infer with")
     parser.add_argument("--num_workers", type=int, default=4,
                         help="Number of Workers simultaneously putting data into RAM")
     parser.add_argument("--resume", type=bool, default=False, help="Resume training from previous work")
@@ -53,7 +53,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--hardness", type=int, default=0, help="Hardness of the game.")
     parser.add_argument("--teacher_game_nums", type=int, default=100, help="Number of the teacher game.")
     parser.add_argument("--student_game_nums", type=int, default=1000, help="Number of the student game.")
-    parser.add_argument("--train_epochs", type=int, default=5, help="Epochs for training the predicate weight.")
+    parser.add_argument("--train_epochs", type=int, default=100, help="Epochs for training the predicate weight.")
     parser.add_argument("--fact_conf", type=float, default=0.1,
                         help="Minimum confidence required to save a fact as a behavior.")
     args = parser.parse_args()
@@ -76,6 +76,9 @@ def load_args(exp_args_path, m):
     args.check_point_path = config.path_check_point / f"{args.m}"
     args.game_buffer_path = config.path_check_point / f"{args.m}" / "game_buffer"
     args.path_bs_data = config.path_bs_data / args.m
+    args.model_path = config.path_model / args.m / 'model_50000000.gz'
+    args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
+    args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
 
     if not os.path.isdir(args.check_point_path):
         os.mkdir(str(args.check_point_path))
@@ -153,7 +156,11 @@ def load_args(exp_args_path, m):
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
         args.o2o_data_file = args.check_point_path / "o2o" / f"pf_stats.json"
         args.o2o_behavior_file = args.check_point_path / "o2o" / f"o2o_behaviors.pkl"
-        args.o2o_weight_file = args.check_point_path/ "o2o" / f"predicate_weights.pkl"
+        args.o2o_weight_file = args.check_point_path / "o2o" / f"predicate_weights.pkl"
+        args.state_tensor_properties = ["dx_01", "dy_01", "va_dir", "vb_dir", "dir_ab"]
+        args.prop_explain = {0: 'dx', 1: 'dy', 2: "va_dir", 3: "vb_dir", 4: 'dir_ab'}
+        args.train_epochs = 30
+        args.jump_frames = 20
         args.reward_gamma = 0.9
         args.reward_alignment = 0.01
         args.train_nn_epochs = 2000
@@ -166,6 +173,61 @@ def load_args(exp_args_path, m):
         args.reward_lost_one_live = 0
         args.reward_score_one_enemy = 10
         args.game_info = config.game_info_pong
+        args.obj_info = args.game_info["obj_info"]
+        args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
+        args.var_th = 0.4
+        args.reasoning_gap = 1
+        args.step_dist = [0.01, -0.01]
+        args.mile_stone_scores = [5, 10, 20, 40]
+    elif args.m == "Frostbite":
+        args.model_path = config.path_model / args.m / 'model_50000000.gz'
+        args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
+        args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
+        args.o2o_data_file = args.check_point_path / "o2o" / f"pf_stats.json"
+        args.o2o_behavior_file = args.check_point_path / "o2o" / f"o2o_behaviors.pkl"
+        args.o2o_weight_file = args.check_point_path / "o2o" / f"predicate_weights.pkl"
+        args.state_tensor_properties = ["dx_01", "dy_01", "va_dir", "vb_dir", "dir_ab"]
+        args.prop_explain = {0: 'dx', 1: 'dy', 2: "va_dir", 3: "vb_dir", 4: 'dir_ab'}
+        args.train_epochs = 30
+        args.jump_frames = 20
+        args.reward_gamma = 0.9
+        args.reward_alignment = 0.01
+        args.train_nn_epochs = 2000
+        args.zero_reward = 0.0
+        args.fact_conf = 0.5
+        args.action_names = config.action_name_frostbite
+        args.prop_names = config.prop_info_frostbite
+        args.max_lives = 0
+        args.max_dist = 0.1
+        args.reward_lost_one_live = 0
+        args.reward_score_one_enemy = 10
+        args.game_info = config.game_info_frostbite
+        args.obj_info = args.game_info["obj_info"]
+        args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
+        args.var_th = 0.4
+        args.reasoning_gap = 1
+        args.step_dist = [0.01, -0.01]
+        args.mile_stone_scores = [5, 10, 20, 40]
+    elif args.m == "montezuma_revenge":
+        args.o2o_data_file = args.check_point_path / "o2o" / f"pf_stats.json"
+        args.o2o_behavior_file = args.check_point_path / "o2o" / f"o2o_behaviors.pkl"
+        args.o2o_weight_file = args.check_point_path / "o2o" / f"predicate_weights.pkl"
+        args.state_tensor_properties = ["dx_01", "dy_01", "va_dir", "vb_dir", "dir_ab"]
+        args.prop_explain = {0: 'dx', 1: 'dy', 2: "va_dir", 3: "vb_dir", 4: 'dir_ab'}
+        args.train_epochs = 30
+        args.jump_frames = 20
+        args.reward_gamma = 0.9
+        args.reward_alignment = 0.01
+        args.train_nn_epochs = 2000
+        args.zero_reward = 0.0
+        args.fact_conf = 0.5
+        args.action_names = config.action_name_18
+
+        args.max_lives = 0
+        args.max_dist = 0.1
+        args.reward_lost_one_live = 0
+        args.reward_score_one_enemy = 10
+        args.game_info = config.game_info_montezumaRevenge
         args.obj_info = args.game_info["obj_info"]
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
         args.var_th = 0.4
@@ -231,6 +293,7 @@ def load_args(exp_args_path, m):
         args.step_dist = [0.01, -0.03]
         args.mile_stone_scores = [5, 10, 20, 40]
     elif args.m == "Kangaroo":
+        args.jump_frames = 10
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
@@ -254,12 +317,15 @@ def load_args(exp_args_path, m):
 
 
     elif args.m == "Boxing":
+        args.jump_frames = 3
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
         args.o2o_data_file = args.check_point_path / "o2o" / f"pf_stats.json"
         args.o2o_behavior_file = args.check_point_path / "o2o" / f"o2o_behaviors.pkl"
-        args.o2o_weight_file = args.check_point_path/ "o2o" / f"predicate_weights.pkl"
+        args.o2o_weight_file = args.check_point_path / "o2o" / f"predicate_weights.pkl"
+        args.train_nn_epochs = 5000
+
         args.reward_gamma = 0.7
         args.reward_alignment = 0.1
         args.zero_reward = 0.0
@@ -280,6 +346,7 @@ def load_args(exp_args_path, m):
         args.att_var_th = 0.1
         args.step_dist = [0.01, -0.01]
         args.mile_stone_scores = [5, 10, 20, 40]
+        args.state_tensor_properties = ["dx_01", "dy_01", "la0", "ra0", "va_dir", "vb_dir", "dir_ab"]
     else:
         raise ValueError
 

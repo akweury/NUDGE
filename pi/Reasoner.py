@@ -61,9 +61,9 @@ class SmpReasoner(nn.Module):
         self.beh_weights = (self.beh_weights - self.beh_weights.min()) / (
                 self.beh_weights.max() - self.beh_weights.min())
 
-    def update(self, args, behaviors, o2o_data, action_delta):
+    def update(self, args, behaviors, o2o_data):
         self.o2o_data = o2o_data
-        self.action_delta = action_delta
+
         self.o2o_data_weights = torch.ones(len(o2o_data))
         self.game_o2o_weights = []
         self.previous_pred_mask = torch.zeros(len(self.o2o_data), dtype=torch.bool)
@@ -176,34 +176,66 @@ class SmpReasoner(nn.Module):
         next_state_tensors = math_utils.closest_one_percent(next_state_tensors, 0.01)
         return next_state_tensors
 
-    def get_next_states(self, state3):
-        state4_by_actions = torch.zeros((len(self.action_delta), 4, state3.shape[1], state3.shape[2])).to(
-            state3.device)
+    def get_next_states_boxing(self, x):
+        batch_size = len(self.args.action_names)
+        batch_current_state = torch.repeat_interleave(x, batch_size, 0).reshape(batch_size, -1)
+        batch_actions = torch.arange(batch_size).unsqueeze(1)
 
-        for a_i in range(len(self.action_delta)):
-            next_states = torch.zeros(state3.shape[1], state3.shape[2]).to(state3.device)
-            player_pos_delta = torch.tensor(self.action_delta[f'{a_i}']).to(state3.device)
-            obj_velocities = reason_utils.get_state_velo(state3)[-1]
-            if torch.abs(obj_velocities).max() > 0.3:
-                next_states = state3[-1]
-            else:
-                next_states[0, -2:] = state3[-1, 0, -2:] + player_pos_delta[:2]
-                next_states[1, -2:] = state3[-1, 1, -2:] + obj_velocities[1]
-                if torch.abs(next_states[:, -2:]).max() > 1:
-                    print("")
-            state4_by_actions[a_i] = torch.cat((state3, next_states.unsqueeze(0)), dim=0)
-        return state4_by_actions
+        batch_next_states = self.state_estimator(batch_current_state, batch_actions).reshape(batch_size, x.shape[1],
+                                                                                             x.shape[2])
+        batch_current_states = torch.repeat_interleave(x.unsqueeze(0), batch_size, 0)
+        batch_last_states = torch.repeat_interleave(self.last_state.unsqueeze(0), batch_size, 0)
+        batch_last2nd_states = torch.repeat_interleave(self.last2nd_state.unsqueeze(0), batch_size, 0)
+        batch_state4 = torch.cat(
+            (batch_last2nd_states, batch_last_states, batch_current_states, batch_next_states.unsqueeze(1)), dim=1)
+        return batch_state4
+
+    def get_next_states_pong(self, x):
+        # state4_by_actions = torch.zeros((len(self.args.action_names), 4, state3.shape[1], state3.shape[2])).to(
+        #     state3.device)
+        #
+        # for a_i in range(len(self.action_delta)):
+        #     next_states = torch.zeros(state3.shape[1], state3.shape[2]).to(state3.device)
+        #     player_pos_delta = torch.tensor(self.action_delta[f'{a_i}']).to(state3.device)
+        #     obj_velocities = reason_utils.get_state_velo(state3)[-1]
+        #     if torch.abs(obj_velocities).max() > 0.3:
+        #         next_states = state3[-1]
+        #     else:
+        #         next_states[0, -2:] = state3[-1, 0, -2:] + player_pos_delta[:2]
+        #         next_states[1, -2:] = state3[-1, 1, -2:] + obj_velocities[1]
+        #         if torch.abs(next_states[:, -2:]).max() > 1:
+        #             print("")
+        #     state4_by_actions[a_i] = torch.cat((state3, next_states.unsqueeze(0)), dim=0)
+        batch_size = len(self.args.action_names)
+        batch_current_state = torch.repeat_interleave(x, batch_size, 0).reshape(batch_size, -1)
+        batch_actions = torch.arange(batch_size).unsqueeze(1)
+
+        batch_next_states = self.state_estimator(batch_current_state, batch_actions).reshape(batch_size, x.shape[1],
+                                                                                             x.shape[2])
+        batch_current_states = torch.repeat_interleave(x.unsqueeze(0), batch_size, 0)
+        batch_last_states = torch.repeat_interleave(self.last_state.unsqueeze(0), batch_size, 0)
+        batch_last2nd_states = torch.repeat_interleave(self.last2nd_state.unsqueeze(0), batch_size, 0)
+        batch_state4 = torch.cat(
+            (batch_last2nd_states, batch_last_states, batch_current_states, batch_next_states.unsqueeze(1)), dim=1)
+        return batch_state4
 
     def explain_for_each_action(self):
         for a_i in range(len(self.action_delta)):
             pass
 
     def learn_from_dqn(self, state4, dqn_action):
-        state_tensor_now = reason_utils.state2analysis_tensor(state4[:-1], 0, 1)
-        state_tensor_next = reason_utils.state2analysis_tensor(state4[1:], 0, 1)
+        if self.args.m == "Boxing":
+            state_tensor_now = reason_utils.state2analysis_tensor_boxing(state4[:-1], 0, 1)
+            state_tensor_next = reason_utils.state2analysis_tensor_boxing(state4[1:], 0, 1)
+        elif self.args.m == "Pong":
+            state_tensor_now = reason_utils.state2analysis_tensor_pong(state4[:-1], 0, 1)
+            state_tensor_next = reason_utils.state2analysis_tensor_pong(state4[1:], 0, 1)
+        else:
+            raise ValueError
 
-        dist_now, explain_now = reason_utils.text_from_tensor(self.o2o_data, state_tensor_now)
-        dist_next, explain_next = reason_utils.text_from_tensor(self.o2o_data, state_tensor_next)
+        dist_now, explain_now = reason_utils.text_from_tensor(self.o2o_data, state_tensor_now, self.args.prop_explain)
+        dist_next, explain_next = reason_utils.text_from_tensor(self.o2o_data, state_tensor_next,
+                                                                self.args.prop_explain)
 
         # check if any predicate has been achieved
         closer_beh_mask = (dist_now - dist_next) > 0.01
@@ -218,14 +250,19 @@ class SmpReasoner(nn.Module):
         if previous_pred_mask.sum() > 0:
             self.previous_pred_mask = previous_pred_mask
 
-    def get_closest_action(self, state3, next_o2o_data):
-        state4_by_actions = self.get_next_states(state3)
-        dist_actions = torch.zeros(len(self.action_delta))
+    def get_closest_action(self, x, state3, next_o2o_data):
+        if self.args.m == "Pong":
+            state4_by_actions = self.get_next_states_pong(x)
+        elif self.args.m == "Boxing":
+            state4_by_actions = self.get_next_states_boxing(x)
+        dist_actions = torch.zeros(len(self.args.action_names))
 
-
-        for a_i in range(len(self.action_delta)):
-            state_tensor = reason_utils.state2analysis_tensor(state4_by_actions[a_i], 0, 1)
-            dist_a_i, explain_a_i = reason_utils.text_from_tensor([next_o2o_data], state_tensor)
+        for a_i in range(len(self.args.action_names)):
+            if self.args.m == "Pong":
+                state_tensor = reason_utils.state2analysis_tensor(state4_by_actions[a_i], 0, 1)
+            elif self.args.m == "Boxing":
+                state_tensor = reason_utils.state2analysis_tensor_boxing(state4_by_actions[a_i], 0, 1)
+            dist_a_i, explain_a_i = reason_utils.text_from_tensor([next_o2o_data], state_tensor, self.args.prop_explain)
             target_dist = torch.tensor(next_o2o_data[1])
             beh_dists = (dist_a_i - target_dist).abs().sum()
 
@@ -242,15 +279,18 @@ class SmpReasoner(nn.Module):
         state3 = torch.cat((self.last2nd_state, self.last_state, x), dim=0)
 
         # use state3 check if satisfy any predicate
-        state_tensor = reason_utils.state2analysis_tensor(state3, 0, 1)
-        dist_now, explain_now = reason_utils.text_from_tensor(self.o2o_data, state_tensor)
+        if self.args.m == "Pong":
+            state_tensor = reason_utils.state2analysis_tensor_pong(state3, 0, 1)
+        elif self.args.m == "Boxing":
+            state_tensor = reason_utils.state2analysis_tensor_boxing(state3, 0, 1)
+        dist_now, explain_now = reason_utils.text_from_tensor(self.o2o_data, state_tensor, self.args.prop_explain)
 
         # find the best next predicate
         if self.previous_pred_mask.sum() > 0:
             max_position = self.pwt[self.previous_pred_mask].argmax(dim=1)
             # find the action
             try:
-                action = self.get_closest_action(state3, self.o2o_data[max_position[-1]])
+                action = self.get_closest_action(x, state3, self.o2o_data[max_position[-1]])
             except IndexError:
                 print("")
             action_prob[:, action] = 1
@@ -280,7 +320,7 @@ class SmpReasoner(nn.Module):
 
         # else using state4 go to next possible predicate
 
-        state4_by_actions = self.get_next_states(state3)
+        state4_by_actions = self.get_next_states_pong(x)
         a_dists = []
         behs = []
         beh_texts = []
@@ -338,7 +378,7 @@ class SmpReasoner(nn.Module):
             action_prob[0, action.to(torch.int)] = 1
             return action_prob, explains
         else:
-            state_time3 = self.get_next_states(state3)
+            state_time3 = self.get_next_states_pong(x)
             next_state_tensors = self.get_next_state_tensor(state_time3)
 
             next_best_dist = 1e+20

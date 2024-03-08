@@ -10,6 +10,7 @@ from src.agents.utils_getout import extract_neural_state_getout
 from pi import Reasoner
 from pi.utils import smp_utils, beh_utils, file_utils, oc_utils, reason_utils
 from pi.utils import game_utils, draw_utils
+from pi.utils import nn_model
 
 
 class SymbolicMicroProgramModel(nn.Module):
@@ -97,6 +98,7 @@ class SymbolicMicroProgramPlayer:
             self.win_states = data["win_states"].to(self.args.device)
             self.win_actions = data["win_actions"].to(self.args.device)
             self.win_rewards = data["win_rewards"].to(self.args.device)
+            self.win_next_states = data["win_next_states"].to(self.args.device)
 
             self.lost_states = data["lost_states"].to(self.args.device)
             self.lost_rewards = data["lost_rewards"].to(self.args.device)
@@ -104,6 +106,7 @@ class SymbolicMicroProgramPlayer:
             self.data = {'win_states': self.win_states,
                          'win_actions': self.win_actions,
                          'win_rewards': self.win_rewards,
+                         "win_next_states":self.win_next_states,
                          'lost_states': self.lost_states,
                          'lost_actions': self.lost_actions,
                          'lost_rewards': self.lost_rewards}
@@ -116,6 +119,7 @@ class SymbolicMicroProgramPlayer:
             self.actions = []
             self.rewards = []
             self.states = []
+            self.win_next_states = []
             for g_i in range(game_num):
                 self.actions += buffer.actions[g_i]
                 self.rewards += buffer.rewards[g_i]
@@ -124,6 +128,7 @@ class SymbolicMicroProgramPlayer:
                     self.win_actions += buffer.actions[g_i]
                     self.win_rewards += buffer.rewards[g_i]
                     self.win_states += buffer.logic_states[g_i].tolist()
+                    self.win_next_states += buffer.game_next_states[g_i].tolist()
                 elif self.buffer_win_rates[g_i] < 0:
                     self.lost_actions += buffer.actions[g_i]
                     self.lost_rewards += buffer.rewards[g_i]
@@ -133,6 +138,7 @@ class SymbolicMicroProgramPlayer:
             self.states = torch.tensor(self.states).to(self.args.device)
             self.actions = torch.tensor(self.actions).to(self.args.device)
             self.rewards = torch.tensor(self.rewards).to(self.args.device)
+            self.win_next_states = torch.tensor(self.win_next_states).to(self.args.device)
             self.win_states = torch.tensor(self.win_states).to(self.args.device)
             self.win_actions = torch.tensor(self.win_actions).to(self.args.device)
             self.win_rewards = torch.tensor(self.win_rewards).to(self.args.device)
@@ -142,12 +148,14 @@ class SymbolicMicroProgramPlayer:
             self.data = {'win_states': self.win_states,
                          'win_actions': self.win_actions,
                          'win_rewards': self.win_rewards,
+                         "win_next_states": self.win_next_states,
                          'lost_states': self.lost_states,
                          'lost_actions': self.lost_actions,
                          'lost_rewards': self.lost_rewards}
             train_data = {"states": self.states,
                           "actions": self.actions,
                           "rewards": self.rewards,
+                          "win_next_states": self.win_next_states,
                           "win_states": self.win_states,
                           "win_actions": self.win_actions,
                           "win_rewards": self.win_rewards,
@@ -228,7 +236,7 @@ class SymbolicMicroProgramPlayer:
             self.behaviors = self.pf_behaviors + self.def_behaviors + self.att_behaviors + self.skill_att_behaviors + self.o2o_behaviors
         except TypeError:
             print('Type Error (update behaviors)')
-        self.model.update(args, self.behaviors, o2o_data=self.o2o_data, action_delta=self.action_delta)
+        self.model.update(args, self.behaviors, o2o_data=self.o2o_data)
         #
         # weights = torch.zeros(len(self.behaviors)).to(self.args.device)
         # for beh_i, beh in enumerate(self.behaviors):
@@ -384,8 +392,16 @@ class SymbolicMicroProgramPlayer:
         else:
             o2o_dict = reason_utils.reason_o2o_states(self.args, self.data)
         self.o2o_data = o2o_dict['behavior_data']
-        self.action_delta = o2o_dict['action_data']
+        # self.action_delta = o2o_dict['action_data']
         return self.o2o_data
+
+    def train_state_estimator(self):
+
+        current_states = self.data['win_states']
+        next_states = self.data['win_next_states']
+        actions = self.data['win_actions']
+
+        self.model.state_estimator = nn_model.train_state_predictor(current_states, actions, next_states, self.args)
 
     def reasoning_path_behaviors(self, use_ckp=True):
         if len(self.pos_data) == 0:

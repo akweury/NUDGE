@@ -6,8 +6,6 @@ from pi.utils.Fact import ProbFact, VarianceFact
 from pi import predicate
 from pi import pi_lang
 from pi.utils import math_utils
-from pi.neural import nn_model
-from pi.utils import draw_utils
 from pi.Reasoner import SmpReasoner
 
 

@@ -88,6 +88,48 @@ def get_diff_rows(data_a, data_b):
     return diff_row, diff_row_indices
 
 
+def state2analysis_tensor_boxing(states, obj_a_id, obj_b_id):
+    obj_ab_dir = math_utils.closest_multiple_of_45(get_ab_dir(states, obj_a_id, obj_b_id)).reshape(-1)
+    obj_velocities = get_state_velo(states)
+    obj_velocities[obj_velocities > 0.2] = 0
+    obj_velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(obj_velocities), 0.01)
+    states = math_utils.closest_one_percent(states, 0.01)
+    state_tensors = torch.zeros(len(states), 7).to(states.device)
+    for s_i in range(states.shape[0]):
+        # pos x dist
+        state_tensors[s_i, [0]] = torch.abs(states[s_i, obj_a_id, -2:-1] - states[s_i, obj_b_id, -2:-1])
+        # pos y dist
+        state_tensors[s_i, [1]] = torch.abs(states[s_i, obj_a_id, -1:] - states[s_i, obj_b_id, -1:])
+        # left arm length
+        state_tensors[s_i, [2]] = torch.abs(states[s_i, obj_a_id, -4])
+        # right arm length
+        state_tensors[s_i, [3]] = torch.abs(states[s_i, obj_a_id, -3])
+        # va_dir
+        state_tensors[s_i, [4]] = obj_velo_dir[s_i, obj_a_id]
+        # vb_dir
+        state_tensors[s_i, [5]] = obj_velo_dir[s_i, obj_b_id]
+        # dir_ab
+        state_tensors[s_i, [6]] = obj_ab_dir[s_i]
+
+    state_tensors = math_utils.closest_one_percent(state_tensors, 0.01)
+    return state_tensors
+
+def state2analysis_tensor_pong(states, obj_a_id, obj_b_id):
+    obj_ab_dir = math_utils.closest_multiple_of_45(get_ab_dir(states, obj_a_id, obj_b_id)).reshape(-1)
+    obj_velocities = get_state_velo(states)
+    obj_velocities[obj_velocities > 0.2] = 0
+    obj_velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(obj_velocities), 0.01)
+    states = math_utils.closest_one_percent(states, 0.01)
+    state_tensors = torch.zeros(len(states), 5).to(states.device)
+    for s_i in range(states.shape[0]):
+        state_tensors[s_i, [0]] = torch.abs(states[s_i, obj_a_id, -2:-1] - states[s_i, obj_b_id, -2:-1])
+        state_tensors[s_i, [1]] = torch.abs(states[s_i, obj_a_id, -1:] - states[s_i, obj_b_id, -1:])
+        state_tensors[s_i, [2]] = obj_velo_dir[s_i, obj_a_id]
+        state_tensors[s_i, [3]] = obj_velo_dir[s_i, obj_b_id]
+        state_tensors[s_i, [4]] = obj_ab_dir[s_i]
+    state_tensors = math_utils.closest_one_percent(state_tensors, 0.01)
+    return state_tensors
+
 def state2analysis_tensor(states, obj_a_id, obj_b_id):
     obj_ab_dir = math_utils.closest_multiple_of_45(get_ab_dir(states, obj_a_id, obj_b_id)).reshape(-1)
     obj_velocities = get_state_velo(states)
@@ -155,7 +197,7 @@ def stat_reward_behaviors(state_tensors, key_frames, actions, rewards):
 def stat_pf_behaviors(state_tensors, key_frames):
     beh_least_sample_num = 30
     prop_num = state_tensors.shape[1]
-    prop_combs = math_utils.all_subsets(list(range(2)))
+    prop_combs = math_utils.all_subsets(list(range(state_tensors.shape[1])))
     pf_behs = []
     for key_frame_type, key_frame_indices in key_frames.items():
         pf_data = []
@@ -223,9 +265,8 @@ def stat_o2o_action(args, states, actions):
     return actions_delta
 
 
-def text_from_tensor(o2o_data, state_tensors):
+def text_from_tensor(o2o_data, state_tensors, prop_explain):
     explain_text = ""
-    prop_explain = {0: 'dx', 1: 'dy', 2: 'va', 3: 'vb', 4: 'dir_ab'}
     o2o_behs = []
     dist_o2o_behs = []
     dist_to_o2o_behs = []
@@ -290,17 +331,18 @@ def reason_o2o_states(args, data):
     if len(data['win_states']) > 0:
         obj_a_id = 0
         obj_b_id = 1
-        state_tensors = state2analysis_tensor(states, obj_a_id, obj_b_id)
+        if args.m == "Boxing":
+            state_tensors = state2analysis_tensor_boxing(states, obj_a_id, obj_b_id)
+        elif args.m=="Pong":
+            state_tensors = state2analysis_tensor_pong(states, obj_a_id, obj_b_id)
+
+        else:
+            raise ValueError
         # for s_ in range(state_tensors.shape[1]):
         #     state_tensors[:, s_] = math_utils.smooth_action(state_tensors[:, s_])
         key_frames = get_key_frame_batch(state_tensors.permute(1, 0))
         stat_pf_data = stat_pf_behaviors(state_tensors, key_frames)
-        # stat_pos_data = stat_reward_behaviors(state_tensors, key_frames, actions, rewards)
-
-        state_pos_tensors = state2pos_tensor(states, obj_a_id, obj_b_id)
-        stat_act_data = stat_o2o_action(args, state_pos_tensors, actions)
-
-        behavior_data['action_data'] = stat_act_data
+        # behavior_data['action_data'] = stat_act_data
         behavior_data['behavior_data'] += stat_pf_data
 
         # draw_utils.plot_heat_map(stat_pos_data.permute(1, 0)[:, :150], path=args.check_point_path / "o2o",
@@ -308,68 +350,23 @@ def reason_o2o_states(args, data):
         #                          row_names=['dx', 'dy', 'vdir', 'act', 'd_rew', 'rew'])
         key_cols = []
         neg_cols = []
-        key_pos_x_pos = []
-        key_pos_y_pos = []
-        key_pos_va_pos = []
-        key_pos_vb_pos = []
-        key_dir_pos = []
-        key_pos_x_count = []
-        key_pos_y_count = []
-        key_pos_va_count = []
-        key_pos_vb_count = []
-        key_pos_dir_count = []
-
-        neg_x = []
-        neg_y = []
-        neg_va = []
-        neg_vb = []
-        neg_dir_ab = []
-        neg_x_count = []
-        neg_y_count = []
-        neg_va_count = []
-        neg_vb_count = []
-        neg_dir_count = []
-
+        pos_prop_values = [[] for i in range(len(args.state_tensor_properties))]
+        pos_prop_counts = [[] for i in range(len(args.state_tensor_properties))]
+        neg_prop_values = [[] for i in range(len(args.state_tensor_properties))]
+        neg_prop_counts = [[] for i in range(len(args.state_tensor_properties))]
         for data in stat_pf_data:
             if data[3] == 'local_min':
                 neg_cols += data[2]
-                if 0 in data[0]:
-                    neg_x += data[1]
-                    neg_x_count += [len(data[2])] * len(data[1])
-
-                if 1 in data[0]:
-                    neg_y += data[1]
-                    neg_y_count += [len(data[2])] * len(data[1])
-
-                if 2 in data[0]:
-                    neg_va += data[1]
-                    neg_va_count += [len(data[2])] * len(data[1])
-
-                if 3 in data[0]:
-                    neg_vb += data[1]
-                    neg_vb_count += [len(data[2])] * len(data[1])
-
-                if 4 in data[0]:
-                    neg_dir_ab += data[1]
-                    neg_dir_count += [len(data[2])] * len(data[1])
-
+                for i in range(len(args.state_tensor_properties)):
+                    if i in data[0]:
+                        neg_prop_values[i] += data[1]
+                        neg_prop_counts[i] += [len(data[2])] * len(data[1])
             else:
                 key_cols += data[2]
-                if 0 in data[0]:
-                    key_pos_x_pos += data[1]
-                    key_pos_x_count += [len(data[2])] * len(data[1])
-                if 1 in data[0]:
-                    key_pos_y_pos += data[1]
-                    key_pos_y_count += [len(data[2])] * len(data[1])
-                if 2 in data[0]:
-                    key_pos_va_pos += data[1]
-                    key_pos_va_count += [len(data[2])] * len(data[1])
-                if 3 in data[0]:
-                    key_pos_vb_pos += data[1]
-                    key_pos_vb_count += [len(data[2])] * len(data[1])
-                if 4 in data[0]:
-                    key_dir_pos += data[1]
-                    key_pos_dir_count += [len(data[2])] * len(data[1])
+                for i in range(len(args.state_tensor_properties)):
+                    if i in data[0]:
+                        pos_prop_values[i] += data[1]
+                        pos_prop_counts[i] += [len(data[2])] * len(data[1])
 
         key_cols = sorted(list(set(key_cols)))
         key_cols = [k for k in key_cols if k < 100]
@@ -377,19 +374,17 @@ def reason_o2o_states(args, data):
         neg_cols = sorted((list(set(neg_cols))))
         neg_cols = [k for k in neg_cols if k < 100]
 
-        draw_utils.plot_compare_line_chart(state_tensors.permute(1, 0)[:, :100].tolist(), path=args.check_point_path / "o2o",
+        draw_utils.plot_compare_line_chart(state_tensors.permute(1, 0)[:, :100].tolist(),
+                                           path=args.check_point_path / "o2o",
                                            name=f"win_states_{args.m}", figsize=(30, 20),
                                            key_cols=key_cols,
-                                           key_rows=[key_pos_x_pos, key_pos_y_pos, key_pos_va_pos, key_pos_vb_pos,
-                                                     key_dir_pos],
-                                           neg_rows=[neg_x, neg_y, neg_va, neg_vb, neg_dir_ab],
+                                           key_rows=pos_prop_values,
+                                           neg_rows=neg_prop_values,
                                            neg_cols=neg_cols,
-                                           key_name=[key_pos_x_count, key_pos_y_count, key_pos_va_count,
-                                                     key_pos_vb_count, key_pos_dir_count],
-                                           neg_name=[neg_x_count, neg_y_count, neg_va_count, neg_vb_count,
-                                                     neg_dir_count],
+                                           key_name=pos_prop_counts,
+                                           neg_name=neg_prop_counts,
                                            pos_color="orange",
                                            neg_color="blue",
-                                           row_names=['dx_0_1', 'dy_0_1', 'vadir', 'vbdir', 'dir_ab'])
+                                           row_names=args.state_tensor_properties)
     file_utils.save_json(args.o2o_data_file, behavior_data)
     return behavior_data
