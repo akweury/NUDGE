@@ -354,12 +354,13 @@ def normalize(data):
     return (data - data.min()) / (data.max() - data.min())
 
 
-def smooth_action(actions):
+def smooth_filter(data, window_size=5):
     # Set the window size for the moving average
-    window_size = 5
     # Define the moving average filter
     kernel = torch.ones(window_size) / window_size
-    actions_smooth = F.conv1d(actions.view(1, 1, -1), kernel.view(1, 1, -1), padding=(window_size - 1) // 2)[0, 0, :]
+    actions_smooth = F.conv1d(data.view(1, 1, -1),
+                              kernel.view(1, 1, -1),
+                              padding=(window_size - 1) // 2)[0, 0, :]
     return actions_smooth
 
 
@@ -413,14 +414,17 @@ def non_sublists(lists):
             indices.append(l_i)
     return result, indices
 
+
 def is_sublist(sublist, mainlist):
     return all(item in mainlist for item in sublist)
+
 
 def indices_of_minimum(tensor):
     min_value = tensor.min().item()  # Find the minimum value
     min_indices = (tensor == min_value).nonzero()  # Find indices where the value equals the minimum
 
     return min_indices
+
 
 def indices_of_maximum(tensor):
     max_value = tensor.max().item()  # Find the maximum value

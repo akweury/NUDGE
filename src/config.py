@@ -197,25 +197,6 @@ obj_info_kangaroo = [('Player', 1),  # 0
                      ('FallingCoconut', 3),  # 7
                      ('ThrownCoconut', 3)  # 8
                      ]
-action_name_kangaroo = ["noop",  # 0
-                        "fire",  # 1
-                        "up",  # 2
-                        "right",  # 3
-                        "left",  # 4
-                        "down",  # 5
-                        "upright",  # 6
-                        "upleft",  # 7
-                        "downright",  # 8
-                        "downleft",  # 9
-                        "upfire",  # 10
-                        "rightfire",  # 11
-                        "leftfire",  # 12
-                        "downfire",  # 13
-                        "uprightfire",  # 14
-                        "upleftfire",  # 15
-                        "downrightfire",  # 16
-                        "downleftfire",  # 17
-                        ]
 prop_info_kangaroo = {'axis_x_col': 9,
                       'axis_y_col': 10}
 
@@ -223,8 +204,10 @@ game_info_kangaroo = {
     "name": "Kangaroo",
     "obj_info": obj_info_kangaroo,
     "prop_info": prop_info_kangaroo,
-    "state_row_num": 23,
-    "state_col_num": 11,
+
+    "state_row_num": sum([n for _, n in obj_info_kangaroo]),
+    "state_col_num": len(obj_info_kangaroo) + 2,
+
     "axis_x_col": 9,
     "axis_y_col": 10
 }
@@ -287,6 +270,22 @@ prop_info_basic_pos = {'Player': 0,
                        'axis_x_col': 2,
                        'axis_y_col': 3
                        }
+obj_info_fishingderby = [('PlayerOneHook', 1),
+                         ('PlayerTwoHook', 1),
+                         ("Fish", 6),
+                         ('Shark', 1)
+                         ]
+prop_info_fishingderby = {'axis_x_col': 4,
+                          'axis_y_col': 5
+                          }
+game_info_fishingderby = {
+    'name': 'fishing_derby',
+    "obj_info": obj_info_fishingderby,
+    'prop_info': prop_info_fishingderby,
+    "state_row_num": sum([n for _, n in obj_info_fishingderby]),
+    "state_col_num": len(obj_info_fishingderby) + 2,
+
+}
 obj_info_montezumaRevenge = [('Player', 1),
                              ('Skull', 1),
                              ("Key", 1),
@@ -370,3 +369,10 @@ counter_action_pred_name = "counter_action_pred"
 obj_type_indices_getout = {'agent': [0], 'key': [1], 'door': [2], 'enemy': [3]}
 obj_type_indices_getout_plus = {'agent': [0], 'key': [1], 'door': [2], 'enemy': [3, 4, 5], 'buzzsaw': [6, 7]}
 obj_type_indices_threefish = {'agent': [0], 'fish': [1, 2]}
+
+
+def get_row_names(obj_info):
+    row_names = []
+    for obj_name, obj_num in obj_info:
+        row_names += [obj_name] * obj_num
+    return row_names

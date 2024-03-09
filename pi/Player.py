@@ -64,6 +64,7 @@ class SymbolicMicroProgramPlayer:
         self.next_state = None
         self.last_state = None
         self.last2nd_state = None
+        self.next_states = []
         self.def_behaviors = []
         self.att_behaviors = []
         self.pf_behaviors = []
@@ -79,6 +80,7 @@ class SymbolicMicroProgramPlayer:
         self.lost_actions = []
         self.lost_rewards = []
         self.lost_game_ids = []
+        self.lost_next_states = []
 
         self.learned_jump = False
         self.learn_jump_at = None
@@ -94,74 +96,34 @@ class SymbolicMicroProgramPlayer:
             self.states = data["states"].to(self.args.device)
             self.actions = data["actions"].to(self.args.device)
             self.rewards = data["rewards"].to(self.args.device)
-
-            self.win_states = data["win_states"].to(self.args.device)
-            self.win_actions = data["win_actions"].to(self.args.device)
-            self.win_rewards = data["win_rewards"].to(self.args.device)
-            self.win_next_states = data["win_next_states"].to(self.args.device)
-
-            self.lost_states = data["lost_states"].to(self.args.device)
-            self.lost_rewards = data["lost_rewards"].to(self.args.device)
-            self.lost_actions = data["lost_actions"].to(self.args.device)
-            self.data = {'win_states': self.win_states,
-                         'win_actions': self.win_actions,
-                         'win_rewards': self.win_rewards,
-                         "win_next_states":self.win_next_states,
-                         'lost_states': self.lost_states,
-                         'lost_actions': self.lost_actions,
-                         'lost_rewards': self.lost_rewards}
-
+            self.next_states = data["next_states"].to(self.args.device)
+            self.row_names = data["row_names"]
         else:
             buffer = game_utils.load_buffer(args)
             print(f'- Loaded game history : {len(buffer.logic_states)}')
             self.buffer_win_rates = buffer.win_rates
+            self.row_names = buffer.row_names
             game_num = len(buffer.actions)
             self.actions = []
             self.rewards = []
             self.states = []
-            self.win_next_states = []
+            self.next_states = []
             for g_i in range(game_num):
                 self.actions += buffer.actions[g_i]
                 self.rewards += buffer.rewards[g_i]
                 self.states += buffer.logic_states[g_i].tolist()
-                if self.buffer_win_rates[g_i] > 0:
-                    self.win_actions += buffer.actions[g_i]
-                    self.win_rewards += buffer.rewards[g_i]
-                    self.win_states += buffer.logic_states[g_i].tolist()
-                    self.win_next_states += buffer.game_next_states[g_i].tolist()
-                elif self.buffer_win_rates[g_i] < 0:
-                    self.lost_actions += buffer.actions[g_i]
-                    self.lost_rewards += buffer.rewards[g_i]
-                    self.lost_states += buffer.logic_states[g_i].tolist()
-                else:
-                    raise ValueError
+                self.next_states += buffer.game_next_states[g_i].tolist()
+
             self.states = torch.tensor(self.states).to(self.args.device)
             self.actions = torch.tensor(self.actions).to(self.args.device)
             self.rewards = torch.tensor(self.rewards).to(self.args.device)
-            self.win_next_states = torch.tensor(self.win_next_states).to(self.args.device)
-            self.win_states = torch.tensor(self.win_states).to(self.args.device)
-            self.win_actions = torch.tensor(self.win_actions).to(self.args.device)
-            self.win_rewards = torch.tensor(self.win_rewards).to(self.args.device)
-            self.lost_states = torch.tensor(self.lost_states).to(self.args.device)
-            self.lost_actions = torch.tensor(self.lost_actions).to(self.args.device)
-            self.lost_rewards = torch.tensor(self.lost_rewards).to(self.args.device)
-            self.data = {'win_states': self.win_states,
-                         'win_actions': self.win_actions,
-                         'win_rewards': self.win_rewards,
-                         "win_next_states": self.win_next_states,
-                         'lost_states': self.lost_states,
-                         'lost_actions': self.lost_actions,
-                         'lost_rewards': self.lost_rewards}
+            self.next_states = torch.tensor(self.next_states).to(self.args.device)
+
             train_data = {"states": self.states,
                           "actions": self.actions,
                           "rewards": self.rewards,
-                          "win_next_states": self.win_next_states,
-                          "win_states": self.win_states,
-                          "win_actions": self.win_actions,
-                          "win_rewards": self.win_rewards,
-                          "lost_states": self.lost_states,
-                          "lost_actions": self.lost_actions,
-                          "lost_rewards": self.lost_rewards}
+                          "next_states":self.next_states,
+                          "row_names":self.row_names}
             torch.save(train_data, args.buffer_tensor_filename)
 
     def load_buffer(self, buffer):
@@ -390,16 +352,15 @@ class SymbolicMicroProgramPlayer:
         if os.path.exists(self.args.o2o_data_file):
             o2o_dict = file_utils.load_json(self.args.o2o_data_file)
         else:
-            o2o_dict = reason_utils.reason_o2o_states(self.args, self.data)
+            o2o_dict = reason_utils.reason_o2o_states(self.args, self.states, self.actions, self.rewards, self.row_names)
         self.o2o_data = o2o_dict['behavior_data']
         # self.action_delta = o2o_dict['action_data']
         return self.o2o_data
 
     def train_state_estimator(self):
-
-        current_states = self.data['win_states']
-        next_states = self.data['win_next_states']
-        actions = self.data['win_actions']
+        current_states = self.states
+        next_states = self.next_states
+        actions = self.actions
 
         self.model.state_estimator = nn_model.train_state_predictor(current_states, actions, next_states, self.args)
 

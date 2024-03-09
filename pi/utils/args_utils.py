@@ -79,6 +79,9 @@ def load_args(exp_args_path, m):
     args.model_path = config.path_model / args.m / 'model_50000000.gz'
     args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
     args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
+    args.o2o_data_file = args.check_point_path / "o2o" / f"pf_stats.json"
+    args.o2o_behavior_file = args.check_point_path / "o2o" / f"o2o_behaviors.pkl"
+    args.o2o_weight_file = args.check_point_path / "o2o" / f"predicate_weights.pkl"
 
     if not os.path.isdir(args.check_point_path):
         os.mkdir(str(args.check_point_path))
@@ -297,7 +300,7 @@ def load_args(exp_args_path, m):
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
-        args.train_nn_epochs = 5000
+        args.train_nn_epochs = 500
         args.zero_reward = 0.0
         args.fact_conf = 0.1
         args.max_lives = 3
@@ -309,12 +312,37 @@ def load_args(exp_args_path, m):
         args.skill_len_max = 8
 
         args.mile_stone_scores = [5, 10, 20, 40]
-        args.action_names = config.action_name_kangaroo
+        args.action_names = config.action_name_18
+
         args.prop_names = config.prop_name_kangaroo
         args.game_info = config.game_info_kangaroo
         args.obj_info = args.game_info["obj_info"]
+        args.row_names = config.get_row_names(args.obj_info)
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
+        args.state_tensor_properties = ["dx_01", "dy_01", "la0", "ra0", "va_dir", "vb_dir", "dir_ab"]
 
+    elif args.m == "fishing_derby":
+        args.jump_frames = 10
+        args.model_path = config.path_model / args.m / 'model_50000000.gz'
+        args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
+        args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
+        args.train_nn_epochs = 100
+        args.zero_reward = 0.0
+        args.fact_conf = 0.1
+        args.max_lives = 0
+        args.max_dist = 0.1
+        args.reward_lost_one_live = -100
+        args.reward_score_one_enemy = 10
+        args.var_th = 0.01
+        args.step_dist = [0.01, -0.03]
+        args.skill_len_max = 8
+
+        args.mile_stone_scores = [5, 10, 20, 40]
+        args.action_names = config.action_name_18
+        args.prop_names = config.prop_name_kangaroo
+        args.game_info = config.game_info_fishingderby
+        args.obj_info = args.game_info["obj_info"]
+        args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
 
     elif args.m == "Boxing":
         args.jump_frames = 3

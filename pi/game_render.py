@@ -189,7 +189,8 @@ def render_atari_game(agent, args, save_buffer):
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
             # agent predict an action
-
+            if env_args.frame_i == 250:
+                print("")
             env_args.logic_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
                                                                                    obs.shape[0])
             env_args.obs = env_args.last_obs
@@ -321,7 +322,7 @@ def render_game(agent, args, save_buffer=False):
     if args.m == 'getout' or args.m == "getoutplus":
         render_getout(agent, args, save_buffer)
     elif args.m in ["Assault", 'Asterix', 'Boxing', 'Kangaroo', "Breakout", "Freeway", "Pong", "Frostbite",
-                    "montezuma_revenge"]:
+                    "montezuma_revenge", "fishing_derby"]:
         render_atari_game(agent, args, save_buffer)
     else:
         raise ValueError("Game not exist.")

@@ -18,6 +18,7 @@ from src.agents.random_agent import RandomPlayer
 class RolloutBuffer:
     def __init__(self, filename):
         self.filename = filename
+        self.row_names = []
         self.win_rate = 0
         self.actions = []
         self.lost_actions = []
@@ -60,19 +61,12 @@ class RolloutBuffer:
 
         self.win_rates = torch.tensor(state_info['win_rates'])
         self.actions = [torch.tensor(state_info['actions'][i]) for i in range(len(state_info['actions']))]
-        self.lost_actions = [torch.tensor(state_info['lost_actions'][i]) for i in
-                             range(len(state_info['lost_actions']))]
         self.logic_states = [torch.tensor(state_info['logic_states'][i]) for i in
                              range(len(state_info['logic_states']))]
         self.game_next_states = [torch.tensor(state_info['next_states'][i]) for i in
                                  range(len(state_info['next_states']))]
-        self.lost_logic_states = [torch.tensor(state_info['lost_logic_states'][i]) for i in
-                                  range(len(state_info['lost_logic_states']))]
         self.rewards = [torch.tensor(state_info['reward'][i]) for i in range(len(state_info['reward']))]
-
-        self.lost_rewards = [torch.tensor(state_info['lost_rewards'][i]) for i in
-                             range(len(state_info['lost_rewards']))]
-
+        self.row_names = state_info['row_names']
         if 'neural_states' in list(state_info.keys()):
             self.neural_states = torch.tensor(state_info['neural_states']).to(args.device)
         if 'action_probs' in list(state_info.keys()):
@@ -105,11 +99,8 @@ class RolloutBuffer:
                 'predictions': self.predictions,
                 "reason_source": self.reason_source,
                 'game_number': self.game_number,
-                'win_rates': self.win_rates,
-                "lost_actions": self.lost_actions,
-                "lost_logic_states": self.lost_logic_states,
-                "lost_rewards": self.lost_rewards,
-
+                'row_names':self.row_names,
+                'win_rates': self.win_rates
                 }
 
         with open(self.filename, 'w') as f:
@@ -436,8 +427,7 @@ def save_game_buffer(args, env_args):
     buffer.actions = env_args.game_actions
     buffer.rewards = env_args.game_rewards
     buffer.win_rates = env_args.win_rate.tolist()
-    # if args.m == "Asterix":
-    #     buffer.check_validation_asterix()
+    buffer.row_names = args.row_names
     buffer.save_data()
 
 
@@ -450,5 +440,9 @@ def finish_one_run(env_args, args, agent):
 def get_ocname(m):
     if m == "montezuma_revenge":
         return "MontezumaRevenge"
+    elif m =="Kangaroo":
+        return "Kangaroo"
+    elif m=="fishing_derby":
+        return "FishingDerby"
     else:
         raise ValueError

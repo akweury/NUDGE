@@ -255,8 +255,6 @@ def atari_patches(args, env_args, info):
         if env_args.terminated or env_args.truncated:
             env_args.game_over = True
     if args.m == 'Kangaroo':
-        new_states = patch_kangaroo(env_args.logic_states)
-        env_args.states = new_states
         if env_args.terminated or env_args.truncated:
             env_args.game_over = True
     if args.m == "Breakout":
@@ -281,7 +279,13 @@ def atari_patches(args, env_args, info):
             reward_tensor = torch.tensor(env_args.rewards)
             reward_tensor[reward_tensor > 0].sum()
             env_args.state_score = reward_tensor[reward_tensor > 0].sum()
-
+    if args.m == "fishing_derby":
+        if env_args.terminated or env_args.truncated:
+            env_args.game_over = True
+            env_args.new_life = True
+            reward_tensor = torch.tensor(env_args.rewards)
+            reward_tensor[reward_tensor > 0].sum()
+            env_args.state_score = reward_tensor[reward_tensor > 0].sum()
 
 def patch_boxing(actions, rewards, action_names):
     new_rewards = shift_reward_to_attack_actions(actions, rewards, action_names)

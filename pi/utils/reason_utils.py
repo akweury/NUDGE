@@ -2,6 +2,7 @@
 import torch
 from itertools import combinations
 from pi.utils import file_utils, math_utils, draw_utils
+from itertools import product
 
 
 def discounted_rewards(rewards, gamma=0.2, alignment=None):
@@ -114,6 +115,7 @@ def state2analysis_tensor_boxing(states, obj_a_id, obj_b_id):
     state_tensors = math_utils.closest_one_percent(state_tensors, 0.01)
     return state_tensors
 
+
 def state2analysis_tensor_pong(states, obj_a_id, obj_b_id):
     obj_ab_dir = math_utils.closest_multiple_of_45(get_ab_dir(states, obj_a_id, obj_b_id)).reshape(-1)
     obj_velocities = get_state_velo(states)
@@ -129,6 +131,43 @@ def state2analysis_tensor_pong(states, obj_a_id, obj_b_id):
         state_tensors[s_i, [4]] = obj_ab_dir[s_i]
     state_tensors = math_utils.closest_one_percent(state_tensors, 0.01)
     return state_tensors
+
+
+def state2analysis_tensor_fishing_derby(states):
+    obj_ab_dir = math_utils.closest_multiple_of_45(get_ab_dir(states)).reshape(-1)
+    obj_velocities = get_state_velo(states)
+    obj_velocities[obj_velocities > 0.2] = 0
+    obj_velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(obj_velocities), 0.01)
+    states = math_utils.closest_one_percent(states, 0.01)
+    state_tensors = torch.zeros(len(states), 5).to(states.device)
+    for s_i in range(states.shape[0]):
+        state_tensors[s_i, [0]] = torch.abs(states[s_i, obj_a_id, -2:-1] - states[s_i, obj_b_id, -2:-1])
+        state_tensors[s_i, [1]] = torch.abs(states[s_i, obj_a_id, -1:] - states[s_i, obj_b_id, -1:])
+        state_tensors[s_i, [2]] = obj_velo_dir[s_i, obj_a_id]
+        state_tensors[s_i, [3]] = obj_velo_dir[s_i, obj_b_id]
+        state_tensors[s_i, [4]] = obj_ab_dir[s_i]
+    state_tensors = math_utils.closest_one_percent(state_tensors, 0.01)
+    return state_tensors
+
+
+def state2analysis_tensor_kangaroo(states):
+    a_i = 0  # player id is 0
+    obj_num = states.shape[1]
+    states = math_utils.closest_one_percent(states, 0.01)
+    state_tensors = torch.zeros((obj_num - 1) * 2, len(states)).to(states.device)
+    combinations = list(product(list(range(1, obj_num)), [-2, -1]))
+
+
+    for c_i in range(len(combinations)):
+        b_i, p_i = combinations[c_i]
+        mask = states[:, b_i, :-2].sum(dim=1) > 0
+        state_tensors[c_i, mask] = torch.abs(states[mask, a_i, p_i] - states[mask, b_i, p_i])
+        state_tensors = math_utils.closdest_one_percent(state_tensors, 0.01)
+
+
+    state_tensors = torch.cat((states[:,0:1,-2].permute(1,0), states[:, 0:1, -1].permute(1,0), state_tensors), dim=0)
+    return state_tensors
+
 
 def state2analysis_tensor(states, obj_a_id, obj_b_id):
     obj_ab_dir = math_utils.closest_multiple_of_45(get_ab_dir(states, obj_a_id, obj_b_id)).reshape(-1)
@@ -323,21 +362,35 @@ def game_explain(state, last_state, last2nd_state, o2o_data):
     return explain_text
 
 
-def reason_o2o_states(args, data):
-    behavior_data = {'behavior_data': [], 'action_data': []}
-    states = torch.cat([data['win_states'], data['lost_states']], dim=0)
-    actions = torch.cat([data['win_actions'], data['lost_actions']], dim=0)
-    rewards = torch.cat([data['win_rewards'], data['lost_rewards']], dim=0)
-    if len(data['win_states']) > 0:
-        obj_a_id = 0
-        obj_b_id = 1
-        if args.m == "Boxing":
-            state_tensors = state2analysis_tensor_boxing(states, obj_a_id, obj_b_id)
-        elif args.m=="Pong":
-            state_tensors = state2analysis_tensor_pong(states, obj_a_id, obj_b_id)
+def visual_state_tensors(args, state_tensors, top_data=500):
+    row_names = []
+    for r_i in range(0, len(args.row_names)):
+        row_names.append(f"{args.row_names[r_i]}_x")
+        row_names.append(f"{args.row_names[r_i]}_y")
 
+    draw_utils.plot_compare_line_chart(state_tensors[:, :top_data].tolist(),
+                                       path=args.check_point_path / "o2o",
+                                       name=f"st_{args.m}", figsize=(30, 100),
+                                       pos_color="orange",
+                                       neg_color="blue",
+                                       row_names=row_names)
+
+
+def reason_o2o_states(args, states, actions, rewards, row_names):
+    behavior_data = {'behavior_data': [], 'action_data': []}
+    if len(states) > 0:
+        if args.m == "Boxing":
+            state_tensors = state2analysis_tensor_boxing(states)
+        elif args.m == "Pong":
+            state_tensors = state2analysis_tensor_pong(states)
+        elif args.m == "fishing_derby":
+            state_tensors = state2analysis_tensor_fishing_derby(states)
+        elif args.m == "Kangaroo":
+            state_tensors = state2analysis_tensor_kangaroo(states)
         else:
             raise ValueError
+
+        visual_state_tensors(args, state_tensors)
         # for s_ in range(state_tensors.shape[1]):
         #     state_tensors[:, s_] = math_utils.smooth_action(state_tensors[:, s_])
         key_frames = get_key_frame_batch(state_tensors.permute(1, 0))

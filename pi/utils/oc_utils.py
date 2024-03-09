@@ -145,16 +145,24 @@ def extract_obj_state_montezuma_revenge(obj, obj_id, objt_len, norm_factor):
     return obj_state
 
 
+def extract_obj_state_fishing_derby(obj, obj_id, objt_len, norm_factor):
+    obj_state = torch.zeros(objt_len)
+    obj_state[obj_id] = 1
+    obj_state[-2] = obj.center[0] / norm_factor
+    obj_state[-1] = obj.center[1] / norm_factor
+    return obj_state
+
+
 def extract_logic_state_atari(args, objects, game_info, norm_factor, noise=False):
     # print('Extracting logic states...')
     states = torch.zeros((game_info["state_row_num"], game_info["state_col_num"]))
     state_score = 0
     row_start = 0
-    row_names = []
+    args.row_names = []
+
     # print(objects)
     for o_i, (obj_name, obj_num) in enumerate(game_info["obj_info"]):
         obj_count = 0
-
         for obj in objects:
             if obj.category == obj_name:
                 if obj_count >= obj_num:
@@ -175,14 +183,18 @@ def extract_logic_state_atari(args, objects, game_info, norm_factor, noise=False
                     states[row_start + obj_count] = extract_obj_state_montezuma_revenge(obj, o_i,
                                                                                         game_info["state_col_num"],
                                                                                         norm_factor)
+                elif game_info['name'] == 'fishing_derby':
+                    states[row_start + obj_count] = extract_obj_state_fishing_derby(obj, o_i,
+                                                                                    game_info["state_col_num"],
+                                                                                    norm_factor)
                 else:
                     raise ValueError
-                row_names.append(obj_name)
                 obj_count += 1
             # elif obj.category == "Score":
             #     state_score = obj.value
         row_start += obj_num
-    # draw_utils.plot_heat_map(states, args.output_folder, "montezuma_revenge", row_names=row_names)
+        args.row_names += [obj_name] * obj_num
+    # draw_utils.plot_heat_map(states, args.output_folder, game_info['name'], row_names=row_names)
     return states.tolist(), state_score
 
 

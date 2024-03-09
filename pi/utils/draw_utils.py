@@ -522,8 +522,6 @@ def plot_heat_map(data, path=None, name=None, cla_leg=True, figsize=(10, 10), ke
 def plot_compare_line_chart(data, path, name, figsize, row_names=None, cla_leg=True, key_name=None, neg_name=None,
                             key_rows=None, key_cols=None, neg_rows=None, neg_cols=None,
                             pos_color=None, neg_color=None):
-    # Generate some example data
-    # x = np.linspace(0, 10, 100)
 
     # Create a figure and three subplots vertically
     fig, axs = plt.subplots(len(data), 1, figsize=figsize, sharex='col')
