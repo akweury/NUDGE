@@ -93,10 +93,10 @@ class SymbolicMicroProgramPlayer:
             if args.device != "cpu":
                 args.device = f"cuda:{args.device}"
             data = torch.load(args.buffer_tensor_filename, map_location=args.device)
-            self.states = data["states"].to(self.args.device)
-            self.actions = data["actions"].to(self.args.device)
-            self.rewards = data["rewards"].to(self.args.device)
-            self.next_states = data["next_states"].to(self.args.device)
+            self.states = data["states"]
+            self.actions = data["actions"]
+            self.rewards = data["rewards"]
+            self.next_states = data["next_states"]
             self.row_names = data["row_names"]
         else:
             buffer = game_utils.load_buffer(args)
@@ -108,22 +108,18 @@ class SymbolicMicroProgramPlayer:
             self.rewards = []
             self.states = []
             self.next_states = []
-            for g_i in range(game_num):
-                self.actions += buffer.actions[g_i]
-                self.rewards += buffer.rewards[g_i]
-                self.states += buffer.logic_states[g_i].tolist()
-                self.next_states += buffer.game_next_states[g_i].tolist()
 
-            self.states = torch.tensor(self.states).to(self.args.device)
-            self.actions = torch.tensor(self.actions).to(self.args.device)
-            self.rewards = torch.tensor(self.rewards).to(self.args.device)
-            self.next_states = torch.tensor(self.next_states).to(self.args.device)
+            for g_i in range(game_num):
+                self.actions.append(buffer.actions[g_i].to(self.args.device))
+                self.rewards.append(buffer.rewards[g_i].to(self.args.device))
+                self.states.append(buffer.logic_states[g_i].to(self.args.device))
+                self.next_states.append(buffer.game_next_states[g_i].to(self.args.device))
 
             train_data = {"states": self.states,
                           "actions": self.actions,
                           "rewards": self.rewards,
-                          "next_states":self.next_states,
-                          "row_names":self.row_names}
+                          "next_states": self.next_states,
+                          "row_names": self.row_names}
             torch.save(train_data, args.buffer_tensor_filename)
 
     def load_buffer(self, buffer):
@@ -352,7 +348,8 @@ class SymbolicMicroProgramPlayer:
         if os.path.exists(self.args.o2o_data_file):
             o2o_dict = file_utils.load_json(self.args.o2o_data_file)
         else:
-            o2o_dict = reason_utils.reason_o2o_states(self.args, self.states, self.actions, self.rewards, self.row_names)
+            o2o_dict = reason_utils.reason_o2o_states(self.args, self.states, self.actions, self.rewards,
+                                                      self.row_names)
         self.o2o_data = o2o_dict['behavior_data']
         # self.action_delta = o2o_dict['action_data']
         return self.o2o_data

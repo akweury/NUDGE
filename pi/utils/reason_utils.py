@@ -56,7 +56,7 @@ def get_key_frame(data):
     return torch.tensor(local_min_indices), torch.tensor(local_max_indices)
 
 
-def get_key_frame_batch(data_batch):
+def get_gradient_change_key_frame_batch(data_batch):
     # Find local maximum and minimum indices
     local_min_frames = []
     local_max_frames = []
@@ -66,6 +66,33 @@ def get_key_frame_batch(data_batch):
         local_max_frames.append(local_max.tolist())
     key_frames = {'local_min': local_min_frames, 'local_max': local_max_frames}
     return key_frames
+
+
+def get_intersect_key_frames(data, rewards):
+    # Initial positions as tensors [x, y]
+    position_a = data[:, 0, -2:]
+    position_b = data[:, 1, -2:]
+    mask_a = data[:, 0, :-2].sum(dim=1) > 0
+    mask_b = data[:, 1, :-2].sum(dim=1) > 0
+    mask = mask_a * mask_b
+    if mask.sum() > 0:
+        dist_ab = torch.norm(position_a - position_b, dim=1, keepdim=True)
+        dist_min = dist_ab[mask].min()
+
+        dist_argmin = dist_ab[mask].argmin()
+    else:
+        dist_min = torch.nan
+        dist_argmin = torch.nan
+    return dist_min, dist_argmin
+
+
+def get_intersect_sequence(dist_min, dist_argmin, obj_names):
+    dist_frames, indices = dist_argmin.sort()
+    obj_names_sorted = [obj_names[f_i] for f_i in indices]
+    dist_min_sorted = dist_min[indices]
+    for i in range(len(obj_names_sorted)):
+        print(f"obj: {obj_names_sorted[i]}, frame: {dist_frames[i]}, dist: {dist_min_sorted[i]}")
+    return dist_min_sorted, obj_names_sorted
 
 
 def get_common_rows(data_a, data_b):
@@ -157,15 +184,14 @@ def state2analysis_tensor_kangaroo(states):
     state_tensors = torch.zeros((obj_num - 1) * 2, len(states)).to(states.device)
     combinations = list(product(list(range(1, obj_num)), [-2, -1]))
 
-
     for c_i in range(len(combinations)):
         b_i, p_i = combinations[c_i]
         mask = states[:, b_i, :-2].sum(dim=1) > 0
         state_tensors[c_i, mask] = torch.abs(states[mask, a_i, p_i] - states[mask, b_i, p_i])
-        state_tensors = math_utils.closdest_one_percent(state_tensors, 0.01)
+        state_tensors = math_utils.closest_one_percent(state_tensors, 0.01)
 
-
-    state_tensors = torch.cat((states[:,0:1,-2].permute(1,0), states[:, 0:1, -1].permute(1,0), state_tensors), dim=0)
+    state_tensors = torch.cat((states[:, 0:1, -2].permute(1, 0), states[:, 0:1, -1].permute(1, 0), state_tensors),
+                              dim=0)
     return state_tensors
 
 
@@ -380,20 +406,40 @@ def reason_o2o_states(args, states, actions, rewards, row_names):
     behavior_data = {'behavior_data': [], 'action_data': []}
     if len(states) > 0:
         if args.m == "Boxing":
+            game_st = []
             state_tensors = state2analysis_tensor_boxing(states)
         elif args.m == "Pong":
+            game_st = []
             state_tensors = state2analysis_tensor_pong(states)
         elif args.m == "fishing_derby":
+            game_st = []
             state_tensors = state2analysis_tensor_fishing_derby(states)
         elif args.m == "Kangaroo":
-            state_tensors = state2analysis_tensor_kangaroo(states)
+            game_st = []
+            for game_states in states:
+                state_tensors = state2analysis_tensor_kangaroo(game_states)
+                game_st.append(state_tensors)
         else:
             raise ValueError
 
-        visual_state_tensors(args, state_tensors)
+        visual_state_tensors(args, game_st[0])
         # for s_ in range(state_tensors.shape[1]):
         #     state_tensors[:, s_] = math_utils.smooth_action(state_tensors[:, s_])
-        key_frames = get_key_frame_batch(state_tensors.permute(1, 0))
+        intersect_frames = []
+        dist_min = torch.zeros((len(states), states[0].shape[1]))
+        dist_argmin = torch.zeros((len(states), states[0].shape[1]))
+
+        for g_i in range(len(states)):
+            for o_i in range(1, states[g_i].shape[1]):
+                dist_min[g_i, o_i], dist_argmin[g_i, o_i] = get_intersect_key_frames(states[g_i][:, [0, o_i]],
+                                                                                     rewards[g_i])
+
+            dists, obj_names = get_intersect_sequence(dist_min[g_i], dist_argmin[g_i], args.row_names)
+            # weather can be touch, using rewards
+
+            # weather
+
+        key_frames = get_gradient_change_key_frame_batch(game_st)
         stat_pf_data = stat_pf_behaviors(state_tensors, key_frames)
         # behavior_data['action_data'] = stat_act_data
         behavior_data['behavior_data'] += stat_pf_data
