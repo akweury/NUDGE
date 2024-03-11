@@ -61,13 +61,15 @@ class SmpReasoner(nn.Module):
         self.beh_weights = (self.beh_weights - self.beh_weights.min()) / (
                 self.beh_weights.max() - self.beh_weights.min())
 
-    def update(self, args, behaviors, o2o_data):
-        self.o2o_data = o2o_data
-
-        self.o2o_data_weights = torch.ones(len(o2o_data))
-        self.game_o2o_weights = []
-        self.previous_pred_mask = torch.zeros(len(self.o2o_data), dtype=torch.bool)
-        self.pwt = torch.zeros(len(self.o2o_data), len(self.o2o_data))
+    def update(self, args, behaviors, requirement):
+        self.requirement = requirement
+        self.aligning = False
+        # self.o2o_data = o2o_data[1:]
+        # self.o2o_achieved = torch.ones(len(self.o2o_data), dtype=torch.bool)
+        # self.o2o_data_weights = torch.ones(len(o2o_data))
+        # self.game_o2o_weights = []
+        # self.previous_pred_mask = torch.zeros(len(self.o2o_data), dtype=torch.bool)
+        # self.pwt = torch.zeros(len(self.o2o_data), len(self.o2o_data))
 
         if args is not None:
             self.args = args
@@ -190,6 +192,16 @@ class SmpReasoner(nn.Module):
             (batch_last2nd_states, batch_last_states, batch_current_states, batch_next_states.unsqueeze(1)), dim=1)
         return batch_state4
 
+    def get_next_states_kangaroo(self, x):
+        batch_size = len(self.args.action_names)
+        batch_current_state = torch.repeat_interleave(x, batch_size, 0).reshape(batch_size, -1)
+        batch_actions = torch.arange(batch_size).unsqueeze(1).to(x.device)
+
+        batch_next_states = self.state_estimator(batch_current_state, batch_actions).reshape(batch_size, x.shape[1],
+                                                                                             x.shape[2])
+
+        return batch_next_states
+
     def get_next_states_pong(self, x):
         # state4_by_actions = torch.zeros((len(self.args.action_names), 4, state3.shape[1], state3.shape[2])).to(
         #     state3.device)
@@ -250,23 +262,28 @@ class SmpReasoner(nn.Module):
         if previous_pred_mask.sum() > 0:
             self.previous_pred_mask = previous_pred_mask
 
-    def get_closest_action(self, x, state3, next_o2o_data):
-        if self.args.m == "Pong":
-            state4_by_actions = self.get_next_states_pong(x)
-        elif self.args.m == "Boxing":
-            state4_by_actions = self.get_next_states_boxing(x)
+    def get_closest_action(self, x, align_axis, target_pos):
+        # if self.args.m == "Kangaroo":
+        #     next_states = self.get_next_states_kangaroo(x)
+        # else:
+        #     raise ValueError
         dist_actions = torch.zeros(len(self.args.action_names))
-
         for a_i in range(len(self.args.action_names)):
-            if self.args.m == "Pong":
-                state_tensor = reason_utils.state2analysis_tensor(state4_by_actions[a_i], 0, 1)
-            elif self.args.m == "Boxing":
-                state_tensor = reason_utils.state2analysis_tensor_boxing(state4_by_actions[a_i], 0, 1)
-            dist_a_i, explain_a_i = reason_utils.text_from_tensor([next_o2o_data], state_tensor, self.args.prop_explain)
-            target_dist = torch.tensor(next_o2o_data[1])
-            beh_dists = (dist_a_i - target_dist).abs().sum()
-
-            dist_actions[a_i] = beh_dists
+            player_pos = x[align_axis].clone()
+            if align_axis == -2:
+                if "left" in self.args.action_names[a_i]:
+                    player_pos -= 0.01
+                if "right" in self.args.action_names[a_i]:
+                    player_pos += 0.01
+            elif align_axis == -1:
+                if "up" in self.args.action_names[a_i]:
+                    player_pos -= 0.01
+                if "down" in self.args.action_names[a_i]:
+                    player_pos += 0.00
+            else:
+                raise ValueError
+            dist = torch.abs(target_pos - player_pos).sum()
+            dist_actions[a_i] = dist
         best_action = torch.argmin(dist_actions)
         return best_action
 
@@ -276,7 +293,13 @@ class SmpReasoner(nn.Module):
         action_mask = torch.zeros(1, len(self.args.action_names), dtype=torch.bool)
         explains = {"behavior_index": [], "reward": [], 'state': x, "behavior_conf": [], "behavior_action": [],
                     "text": ""}
-        state3 = torch.cat((self.last2nd_state, self.last_state, x), dim=0)
+
+
+        align_axis = self.align_axis
+        target_obj = 1
+        action = self.get_closest_action(x[0, 0], align_axis, x[0,target_obj, align_axis])
+        action_prob[:, action] = 1
+        return action_prob, explains
 
         # use state3 check if satisfy any predicate
         if self.args.m == "Pong":

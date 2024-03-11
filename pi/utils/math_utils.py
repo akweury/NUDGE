@@ -359,7 +359,7 @@ def smooth_filter(data, window_size=5):
     # Define the moving average filter
     kernel = torch.ones(window_size) / window_size
     actions_smooth = F.conv1d(data.view(1, 1, -1),
-                              kernel.view(1, 1, -1),
+                              kernel.view(1, 1, -1).to(data.device),
                               padding=(window_size - 1) // 2)[0, 0, :]
     return actions_smooth
 

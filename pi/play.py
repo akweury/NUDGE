@@ -21,7 +21,7 @@ def main(render=True, m=None):
         pi.game_render.render_game(teacher_agent, args, save_buffer=True)
     # learn behaviors from data
     student_agent = create_agent(args, agent_type='smp')
-    student_agent.prop_indices = game_settings.get_idx(args)
+    # student_agent.prop_indices = game_settings.get_idx(args)
 
     if args.m == "getout":
         student_agent.load_buffer(game_utils.load_buffer(args))
@@ -33,8 +33,8 @@ def main(render=True, m=None):
     att_behaviors = None
     att_skill = None
     o2o_behaviors = None
-    o2o_data = student_agent.reasoning_o2o_behaviors()
-    student_agent.train_state_estimator()
+    student_agent.reasoning_o2o_behaviors()
+    # student_agent.train_state_estimator()
 
     # att_skill = agent.reasoning_att_skills()
     # att_behaviors = agent.reasoning_att_behaviors()
@@ -46,11 +46,11 @@ def main(render=True, m=None):
                                    skill_att_behavior=att_skill,
                                    o2o_behaviors=o2o_behaviors,
                                    args=args)
-    if args.analysis_play:
-        if not os.path.exists(args.o2o_weight_file):
-            # Test updated agent
-            teacher_agent = create_agent(args, agent_type=args.teacher_agent)
-            pi.game_render.train_atari_game(teacher_agent, student_agent, args, o2o_data)
+    # if args.analysis_play:
+    #     if not os.path.exists(args.o2o_weight_file):
+    #         # Test updated agent
+    #         teacher_agent = create_agent(args, agent_type=args.teacher_agent)
+    #         pi.game_render.train_atari_game(teacher_agent, student_agent, args, o2o_data)
     if render:
         # Test updated agent
         pi.game_render.render_game(student_agent, args)

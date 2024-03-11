@@ -47,11 +47,20 @@ def get_key_frame(data):
     local_max_indices = []
     local_min_indices = []
 
-    for i in range(1, len(data) - 1):
-        if data[i - 1] < data[i] > data[i + 1]:
+    if data[1] > data[0]:
+        local_min_indices.append(0)
+    elif data[1] < data[0]:
+        local_max_indices.append(0)
+
+    for i in range(2, len(data) - 2):
+        if data[i - 2] < data[i] > data[i + 2]:
             local_max_indices.append(i)
-        elif data[i - 1] > data[i] < data[i + 1]:
+        elif data[i - 2] > data[i] < data[i + 2]:
             local_min_indices.append(i)
+    if len(local_min_indices) > 0:
+        local_min_indices = find_non_successive_integers(torch.tensor(local_min_indices))
+    if len(local_max_indices) > 0:
+        local_max_indices = find_non_successive_integers(torch.tensor(local_max_indices))
 
     return torch.tensor(local_min_indices), torch.tensor(local_max_indices)
 
@@ -68,31 +77,113 @@ def get_gradient_change_key_frame_batch(data_batch):
     return key_frames
 
 
-def get_intersect_key_frames(data, rewards):
-    # Initial positions as tensors [x, y]
-    position_a = data[:, 0, -2:]
-    position_b = data[:, 1, -2:]
-    mask_a = data[:, 0, :-2].sum(dim=1) > 0
-    mask_b = data[:, 1, :-2].sum(dim=1) > 0
+def find_non_successive_integers(numbers):
+    non_successive_values = []
+    if len(numbers) == 1:
+        return numbers
+    for i in range(len(numbers) - 1):
+        if numbers[i] + 1 != numbers[i + 1]:
+            non_successive_values.append(numbers[i])
+
+    # Check the last element
+    try:
+        if len(numbers) > 0 and numbers[-1] != numbers[-2] + 1:
+            non_successive_values.append(numbers[-1])
+    except IndexError:
+        print('')
+
+    return torch.tensor(non_successive_values).to(numbers.device)
+
+
+def find_non_repeat_integers(numbers):
+    non_repeat_values = []
+    non_repeat_indices = []
+    if len(numbers) == 1:
+        return numbers, torch.tensor([0])
+    for i in range(len(numbers) - 1):
+        if numbers[i] != numbers[i + 1]:
+            non_repeat_values.append(numbers[i])
+            non_repeat_indices.append(i)
+    # Check the last element
+    if len(numbers) > 0 and numbers[-1] != numbers[-2]:
+        non_repeat_values.append(numbers[-1])
+        non_repeat_indices.append(len(numbers) - 1)
+    return torch.tensor(non_repeat_values).to(numbers.device), torch.tensor(non_repeat_indices).to(numbers.device)
+
+
+def get_intersect_key_frames(o_i, data, touchable, movable, score):
+    mask_a = data[:, 0, :-4].sum(dim=1) > 0
+    mask_b = data[:, 1, :-4].sum(dim=1) > 0
     mask = mask_a * mask_b
+    x_dist_close_data = torch.nan
+    y_dist_close_data = torch.nan
+
+    width_a = data[mask, 0, -4].mean()
+    height_a = data[mask, 0, -3].mean()
+    width_b = data[mask, 1, -4].mean()
+    height_b = data[mask, 1, -3].mean()
+
     if mask.sum() > 0:
-        dist_ab = torch.norm(position_a - position_b, dim=1, keepdim=True)
-        dist_min = dist_ab[mask].min()
+        x_dist_ab_min = min(width_a, width_b)
+        y_dist_ab_min = min(height_a, height_b)
+        x_dist_ab = torch.abs(data[:, 0, -2] - data[:, 1, -2])
+        y_dist_ab = torch.abs(data[:, 0, -1] - data[:, 1, -1])
+        mask_x_close = (x_dist_ab < x_dist_ab_min) * mask
+        mask_y_close = (y_dist_ab < y_dist_ab_min) * mask
 
-        dist_argmin = dist_ab[mask].argmin()
-    else:
-        dist_min = torch.nan
-        dist_argmin = torch.nan
-    return dist_min, dist_argmin
+        dist_close_moments_x = torch.arange((len(data))).to(mask.device)[mask_x_close]
+        dist_close_moments_y = torch.arange((len(data))).to(mask.device)[mask_y_close]
+        if len(dist_close_moments_x) > 0:
+            other_moments = find_non_successive_integers(dist_close_moments_x)
+            if len(other_moments) > 0:
+                x_dist_close_state_indices = torch.cat((dist_close_moments_x[0:1], other_moments), dim=0)
+                dist_value_x_other = torch.cat((x_dist_ab[dist_close_moments_x[0:1]], x_dist_ab[other_moments]), dim=0)
+                dist_value_y_other = torch.cat((y_dist_ab[dist_close_moments_x[0:1]], y_dist_ab[other_moments]), dim=0)
+            else:
+                x_dist_close_state_indices = dist_close_moments_x[0].reshape(-1)
+                dist_value_x_other = x_dist_ab[dist_close_moments_x[0]].reshape(-1)
+                dist_value_y_other = y_dist_ab[dist_close_moments_x[0]].reshape(-1)
+
+            fd_objs = torch.tensor([o_i] * len(x_dist_close_state_indices)).unsqueeze(1).to(data.device)
+            fd_states = x_dist_close_state_indices.unsqueeze(1)
+            fd_x_dists = dist_value_x_other.unsqueeze(1)
+
+            fd_y_dists = dist_value_y_other.unsqueeze(1)
+            x_dist_close_data = torch.cat((fd_objs, fd_states, fd_x_dists, fd_y_dists),
+                                          dim=1).reshape(-1, 4)
+        if len(dist_close_moments_y) > 0:
+            other_moments = find_non_successive_integers(dist_close_moments_y)
+            if len(other_moments) > 0:
+                y_dist_close_state_indices = torch.cat((dist_close_moments_y[0:1], other_moments), dim=0)
+                dist_value_x_other = torch.cat((x_dist_ab[dist_close_moments_y[0:1]], x_dist_ab[other_moments]), dim=0)
+                dist_value_y_other = torch.cat((y_dist_ab[dist_close_moments_y[0:1]], y_dist_ab[other_moments]), dim=0)
+            else:
+                y_dist_close_state_indices = dist_close_moments_y[0].reshape(-1)
+                dist_value_x_other = x_dist_ab[dist_close_moments_y[0]].reshape(-1)
+                dist_value_y_other = y_dist_ab[dist_close_moments_y[0]].reshape(-1)
+            fd_objs = torch.tensor([o_i] * len(y_dist_close_state_indices)).unsqueeze(1).to(data.device)
+            fd_states = y_dist_close_state_indices.unsqueeze(1)
+            fd_x_dists = dist_value_x_other.unsqueeze(1)
+            fd_y_dists = dist_value_y_other.unsqueeze(1)
+            y_dist_close_data = torch.cat((fd_objs, fd_states, fd_x_dists, fd_y_dists),
+                                          dim=1).reshape(-1, 4)
+
+    return x_dist_close_data, y_dist_close_data, width_b, height_b
 
 
-def get_intersect_sequence(dist_min, dist_argmin, obj_names):
-    dist_frames, indices = dist_argmin.sort()
-    obj_names_sorted = [obj_names[f_i] for f_i in indices]
-    dist_min_sorted = dist_min[indices]
-    for i in range(len(obj_names_sorted)):
-        print(f"obj: {obj_names_sorted[i]}, frame: {dist_frames[i]}, dist: {dist_min_sorted[i]}")
-    return dist_min_sorted, obj_names_sorted
+def get_intersect_sequence(dist_min_moments):
+    dist_frames, indices = dist_min_moments[:, 1].sort()
+
+    dist_min_moments_non_repeat, dnnbr_indices = find_non_repeat_integers(dist_min_moments[indices.reshape(-1), 1])
+
+    return dist_min_moments_non_repeat
+
+
+def get_obj_types(states, rewards):
+    obj_pos_var, _ = torch.var_mean(states[:, :, -2:].sum(dim=-1).permute(1, 0), dim=-1)
+    movable_obj = obj_pos_var > 0
+
+    return movable_obj
 
 
 def get_common_rows(data_a, data_b):
@@ -388,13 +479,13 @@ def game_explain(state, last_state, last2nd_state, o2o_data):
     return explain_text
 
 
-def visual_state_tensors(args, state_tensors, top_data=500):
-    row_names = []
+def visual_state_tensors(args, state_tensors):
+    row_names = ["reward"]
     for r_i in range(0, len(args.row_names)):
         row_names.append(f"{args.row_names[r_i]}_x")
         row_names.append(f"{args.row_names[r_i]}_y")
 
-    draw_utils.plot_compare_line_chart(state_tensors[:, :top_data].tolist(),
+    draw_utils.plot_compare_line_chart(state_tensors.tolist(),
                                        path=args.check_point_path / "o2o",
                                        name=f"st_{args.m}", figsize=(30, 100),
                                        pos_color="orange",
@@ -402,88 +493,88 @@ def visual_state_tensors(args, state_tensors, top_data=500):
                                        row_names=row_names)
 
 
+def find_direction_ranges(positions):
+    increase_indices = []
+    decrease_indices = []
+    for i in range(len(positions) - 1):
+        if positions[i + 1] > positions[i]:
+            increase_indices.append(i)
+        elif positions[i + 1] < positions[i]:
+            decrease_indices.append(i)
+    return increase_indices, decrease_indices
+
+
+def find_closest_obj_over_states(states, axis):
+    dist_vars = []
+    for obj_i in range(1, states.shape[1]):
+        dist = states[:, 0, axis] - states[:, obj_i, axis]
+        var, mean = torch.var_mean(dist)
+        dist_vars.append(var)
+    closest_index = torch.tensor(dist_vars).argmin()
+    return closest_index + 1
+
+
+def reason_shiftness(args, states):
+    x_posisions = states[:, 0, -2]
+    x_positions_smooth = math_utils.smooth_filter(x_posisions, window_size=50)
+    x_increase_indices, x_decrease_indices = find_direction_ranges(x_posisions)
+    states_x_increase = states[x_increase_indices]
+    states_x_decrease = states[x_decrease_indices]
+    dx_pos_index = find_closest_obj_over_states(states_x_increase, -1)
+    dx_neg_index = find_closest_obj_over_states(states_x_decrease, -1)
+
+    y_posisions = states[:, 0, -1]
+
+    y_positions_smooth = math_utils.smooth_filter(y_posisions, window_size=300)
+    draw_utils.plot_line_chart(y_positions_smooth.unsqueeze(0).to("cpu"), path=".",
+                               labels=["pos_y"], title="position_y")
+    y_increase_indices, y_decrease_indices = find_direction_ranges(y_positions_smooth)
+
+    states_y_increase = states[y_increase_indices]
+    states_y_decrease = states[y_decrease_indices]
+    dy_pos_index = find_closest_obj_over_states(states_y_increase, -2)
+    dy_neg_index = find_closest_obj_over_states(states_y_decrease, -2)
+
+    print(f"dx increase: {args.row_names[dx_pos_index]}, \n"
+          f"dx decrease: {args.row_names[dx_neg_index]}, \n"
+          f"dy increase: {args.row_names[dy_pos_index]}, \n"
+          f"dy decrease: {args.row_names[dy_neg_index]}. \n")
+    print("")
+
+
 def reason_o2o_states(args, states, actions, rewards, row_names):
-    behavior_data = {'behavior_data': [], 'action_data': []}
-    if len(states) > 0:
-        if args.m == "Boxing":
-            game_st = []
-            state_tensors = state2analysis_tensor_boxing(states)
-        elif args.m == "Pong":
-            game_st = []
-            state_tensors = state2analysis_tensor_pong(states)
-        elif args.m == "fishing_derby":
-            game_st = []
-            state_tensors = state2analysis_tensor_fishing_derby(states)
-        elif args.m == "Kangaroo":
-            game_st = []
-            for game_states in states:
-                state_tensors = state2analysis_tensor_kangaroo(game_states)
-                game_st.append(state_tensors)
-        else:
-            raise ValueError
+    g_i = 0
+    discount_rewards = discounted_rewards(rewards[g_i], gamma=0.95, alignment=0.01).to(states[g_i].device)
+    obj_width = []
+    obj_height = []
+    x_close_data = []
+    y_close_data = []
 
-        visual_state_tensors(args, game_st[0])
-        # for s_ in range(state_tensors.shape[1]):
-        #     state_tensors[:, s_] = math_utils.smooth_action(state_tensors[:, s_])
-        intersect_frames = []
-        dist_min = torch.zeros((len(states), states[0].shape[1]))
-        dist_argmin = torch.zeros((len(states), states[0].shape[1]))
+    for o_i in range(states[g_i].shape[1]):
+        touchable, movable, score = args.obj_data[o_i]
+        state_data = states[g_i][:, [0, o_i]]
+        x_close, y_close, width, height = get_intersect_key_frames(o_i, state_data, touchable, movable, score)
 
-        for g_i in range(len(states)):
-            for o_i in range(1, states[g_i].shape[1]):
-                dist_min[g_i, o_i], dist_argmin[g_i, o_i] = get_intersect_key_frames(states[g_i][:, [0, o_i]],
-                                                                                     rewards[g_i])
+        obj_width.append(width)
+        obj_height.append(height)
+        if x_close is not torch.nan:
+            o_position = torch.repeat_interleave(states[g_i][:, o_i, -2:].mean(dim=0).unsqueeze(0),
+                                                 x_close.shape[0], dim=0)
+            x_close = torch.cat((x_close, o_position), dim=1)
 
-            dists, obj_names = get_intersect_sequence(dist_min[g_i], dist_argmin[g_i], args.row_names)
-            # weather can be touch, using rewards
+            x_close_data.append(x_close)
+        if y_close is not torch.nan:
+            o_position = torch.repeat_interleave(states[g_i][:, o_i, -2:].mean(dim=0).unsqueeze(0),
+                                                 y_close.shape[0], dim=0)
+            y_close = torch.cat((y_close, o_position), dim=1)
+            y_close_data.append(y_close)
+    args.obj_wh = torch.cat((torch.tensor(obj_width).unsqueeze(0), torch.tensor(obj_height).unsqueeze(0)), dim=0)
+    x_close_data = torch.cat(x_close_data, dim=0)
+    x_close_data = torch.cat((x_close_data, torch.tensor([[-2]] * len(x_close_data)).to(args.device)), dim=1)
+    y_close_data = torch.cat(y_close_data, dim=0)
+    y_close_data = torch.cat((y_close_data, torch.tensor([[-1]] * len(y_close_data)).to(args.device)), dim=1)
 
-            # weather
+    close_data = torch.cat((x_close_data, y_close_data), dim=0)
+    close_data = close_data[close_data[:, 1].sort()[1]]
 
-        key_frames = get_gradient_change_key_frame_batch(game_st)
-        stat_pf_data = stat_pf_behaviors(state_tensors, key_frames)
-        # behavior_data['action_data'] = stat_act_data
-        behavior_data['behavior_data'] += stat_pf_data
-
-        # draw_utils.plot_heat_map(stat_pos_data.permute(1, 0)[:, :150], path=args.check_point_path / "o2o",
-        #                          name=f"win_states_{args.m}", figsize=(40, 3), key_col=75,
-        #                          row_names=['dx', 'dy', 'vdir', 'act', 'd_rew', 'rew'])
-        key_cols = []
-        neg_cols = []
-        pos_prop_values = [[] for i in range(len(args.state_tensor_properties))]
-        pos_prop_counts = [[] for i in range(len(args.state_tensor_properties))]
-        neg_prop_values = [[] for i in range(len(args.state_tensor_properties))]
-        neg_prop_counts = [[] for i in range(len(args.state_tensor_properties))]
-        for data in stat_pf_data:
-            if data[3] == 'local_min':
-                neg_cols += data[2]
-                for i in range(len(args.state_tensor_properties)):
-                    if i in data[0]:
-                        neg_prop_values[i] += data[1]
-                        neg_prop_counts[i] += [len(data[2])] * len(data[1])
-            else:
-                key_cols += data[2]
-                for i in range(len(args.state_tensor_properties)):
-                    if i in data[0]:
-                        pos_prop_values[i] += data[1]
-                        pos_prop_counts[i] += [len(data[2])] * len(data[1])
-
-        key_cols = sorted(list(set(key_cols)))
-        key_cols = [k for k in key_cols if k < 100]
-
-        neg_cols = sorted((list(set(neg_cols))))
-        neg_cols = [k for k in neg_cols if k < 100]
-
-        draw_utils.plot_compare_line_chart(state_tensors.permute(1, 0)[:, :100].tolist(),
-                                           path=args.check_point_path / "o2o",
-                                           name=f"win_states_{args.m}", figsize=(30, 20),
-                                           key_cols=key_cols,
-                                           key_rows=pos_prop_values,
-                                           neg_rows=neg_prop_values,
-                                           neg_cols=neg_cols,
-                                           key_name=pos_prop_counts,
-                                           neg_name=neg_prop_counts,
-                                           pos_color="orange",
-                                           neg_color="blue",
-                                           row_names=args.state_tensor_properties)
-    file_utils.save_json(args.o2o_data_file, behavior_data)
-    return behavior_data
+    return close_data

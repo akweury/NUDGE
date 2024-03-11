@@ -187,29 +187,23 @@ game_info_breakout = {
     "axis_x_col": 3,
     "axis_y_col": 4
 }
-obj_info_kangaroo = [('Player', 1),  # 0
-                     ('Child', 1),  # 1
-                     ('Fruit', 3),  # 2
-                     ('Bell', 1),  # 3
-                     ('Platform', 4),  # 4
-                     ('Ladder', 3),  # 5
-                     ('Monkey', 4),  # 6
-                     ('FallingCoconut', 3),  # 7
-                     ('ThrownCoconut', 3)  # 8
+# name, quantity, touchable, movable, score
+obj_info_kangaroo = [('Player', 1, True, True, False),  # 0 # 0,
+                     ('Child', 1, True, True, True),  # 1 # 1
+                     ('Fruit', 3, True, False, True),  # 2 # 2,3,4
+                     ('Bell', 1, True, False, True),  # 3 # 5
+                     ('Platform', 4, True, False, False),  # 4 # 6,7,8,9
+                     ('Ladder', 3, True, False, False),  # 5 # 10,11,12
+                     ('Monkey', 4, False, True, True),  # 6 # 13,14,15,16
+                     ('FallingCoconut', 3, False, True, False),  # 7 # 17,18,19
+                     ('ThrownCoconut', 3, False, True, False)  # 8 # 20,21,22
                      ]
-prop_info_kangaroo = {'axis_x_col': 9,
-                      'axis_y_col': 10}
 
 game_info_kangaroo = {
     "name": "Kangaroo",
     "obj_info": obj_info_kangaroo,
-    "prop_info": prop_info_kangaroo,
-
-    "state_row_num": sum([n for _, n in obj_info_kangaroo]),
-    "state_col_num": len(obj_info_kangaroo) + 2,
-
-    "axis_x_col": 9,
-    "axis_y_col": 10
+    "state_row_num": sum([n for _, n, _, _, _ in obj_info_kangaroo]),
+    "state_col_num": len(obj_info_kangaroo) + 4,
 }
 
 obj_info_frostbite = [('Player', 1),
@@ -355,8 +349,7 @@ prop_name_pong = ["Player", "Ball", "Enemy", "axis_x", "axis_y"]
 prop_name_boxing = ["Player", "Enemy", "axis_x", "axis_y"]
 prop_name_breakout = ["Player", "Ball", "BlockRow", "axis_x", "axis_y"]
 prop_name_freeway = ["Chicken", "Car", "axis_x", "axis_y"]
-prop_name_kangaroo = ['Player', 'Child', 'Fruit', 'Bell', 'Platform', 'Ladder',
-                      'Monkey', 'FallingCoconut', 'ThrownCoconut', "axis_x", "axis_y"]
+
 ########## language ########################
 
 func_pred_name = "func_pred"
@@ -371,8 +364,17 @@ obj_type_indices_getout_plus = {'agent': [0], 'key': [1], 'door': [2], 'enemy': 
 obj_type_indices_threefish = {'agent': [0], 'fish': [1, 2]}
 
 
-def get_row_names(obj_info):
+def get_obj_data(obj_info):
     row_names = []
-    for obj_name, obj_num in obj_info:
+    data_touchable = []
+    data_movable = []
+    data_scorable = []
+    for obj_name, obj_num, touchable, movable, score in obj_info:
         row_names += [obj_name] * obj_num
-    return row_names
+        data_touchable += [touchable] * obj_num
+        data_movable += [movable] * obj_num
+        data_scorable += [score] * obj_num
+    data = torch.cat((torch.tensor(data_touchable).unsqueeze(1),
+                      torch.tensor(data_movable).unsqueeze(1),
+                      torch.tensor(data_scorable).unsqueeze(1)), dim=1)
+    return row_names, data

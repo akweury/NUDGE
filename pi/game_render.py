@@ -25,10 +25,10 @@ def _render(args, agent, env_args, video_out, agent_type):
         f"act: {args.action_names[env_args.action]} re: {env_args.reward}")
 
     if env_args.frame_i % 100 == 0:
-        if agent.agent_type == "smp" and agent.model.pwt is not None:
-            analysis_data = agent.model.pwt
-        else:
-            analysis_data = torch.zeros(10, 10)
+    #     if agent.agent_type == "smp" and agent.model.pwt is not None:
+    #         analysis_data = agent.model.pwt
+    #     else:
+        analysis_data = torch.zeros(10, 10)
 
         env_args.analysis_plot = draw_utils.plot_heat_map(analysis_data,
                                                           args.output_folder, "o2o_weights", figsize=(5, 5))
@@ -38,11 +38,11 @@ def _render(args, agent, env_args, video_out, agent_type):
                                               screen_text)
 
 
-def _act(agent, env_args, env):
+def _act(args, agent, env_args, env):
     # agent predict an action
     if agent.agent_type == "smp":
 
-        if env_args.frame_i <= 20 or env_args.new_life:
+        if env_args.frame_i <= args.jump_frames or env_args.new_life:
             env_args.action = 1
             env_args.explaining = None
             env_args.new_life = False
@@ -58,10 +58,91 @@ def _act(agent, env_args, env):
     # env execute action
     env_args.last_obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(env_args.action)
     ram = env._env.unwrapped.ale.getRAM()
-    if agent.agent_type == "smp":
+    if env_args.frame_i > args.jump_frames and agent.agent_type == "smp":
         agent.model.last2nd_state = agent.model.last_state
         agent.model.last_state = torch.tensor(env_args.logic_state).unsqueeze(0)
+        # _update_behavior(args, agent, env_args)
     return info
+
+
+def _reason(args, agent, env_args):
+    if env_args.frame_i > args.jump_frames and agent.agent_type == "smp":
+        state = torch.tensor(env_args.logic_state).to(args.device)
+        target_obj = agent.model.requirement[0]
+        dx_now = torch.abs(state[0, -2] - state[target_obj, -2])
+        dy_now = torch.abs(state[0, -1] - state[target_obj, -1])
+        th = 0.04
+        if agent.model.aligning:
+
+            agent.model.align_frame_counter += 1
+            dist_now = state[0, agent.model.align_axis] - state[target_obj, agent.model.align_axis]
+            dist_delta = torch.abs(dist_now - agent.model.dist)
+            agent.model.move_history.append(state[0, agent.model.align_axis])
+
+            if len(agent.model.move_history) > 20:
+                move_dist = torch.abs(agent.model.move_history[-20] - agent.model.move_history[-1])
+                if move_dist < th:
+                    # if align with the target
+                    if dist_now < 0.02:
+                        agent.model.aligning = False
+                        print(f"axis {agent.model.align_axis} aligned.")
+                    # if it doesn't decrease, update the symbolic-state
+                    else:
+                        print(f"Current aligned object: {target_obj}, "
+                              f"Current aligned axis: {agent.model.align_axis}. ")
+
+                        # update aligned object
+
+                        a = 1
+
+
+
+        else:
+            agent.model.aligning = True
+            agent.model.align_frame_counter = 0
+            axis_is_aligned = [dx_now < 0.02, dy_now < 0.02]
+            if not axis_is_aligned[0]:
+                agent.model.align_axis = -2
+                agent.model.dist = dx_now
+            elif not axis_is_aligned[1]:
+                agent.model.align_axis = -1
+                agent.model.dist = dy_now
+            agent.model.move_history = []
+        # if it wants to align axis -1, after several iterations, its -1 axis has to be decreased
+        # if it keeps decrease, keep going
+        # if it doesn't decrease, update the symbolic-state
+
+
+def _update_behavior(args, agent, env_args):
+    # agent predict an action
+    state = agent.model.last_state.to(env_args.device)
+    done = False
+    while not done:
+        next_index = torch.nonzero(agent.model.o2o_achieved)[0]
+        next_obj_index, _, target_x_dist, target_y_dist, o_x, o_y, align_axis = agent.model.o2o_data[next_index][0]
+        align_axis = align_axis.to(torch.int)
+        next_obj_index = next_obj_index.to(torch.int)
+        target_pos = state[0, next_obj_index.to(torch.int), align_axis]
+        player_pos = state[0, 0, align_axis]
+        dist = torch.abs(target_pos - player_pos)
+        whs = args.obj_wh.to(args.device)
+        player_wh = whs[:, 0]
+        oppo_wh = whs[:, next_obj_index.to(torch.int)]
+        min_dist_ab = min(player_wh[align_axis], oppo_wh[align_axis])
+        if dist < min_dist_ab:
+            if align_axis == -2:
+                axis_name = "align x"
+            elif align_axis == -1:
+                axis_name = "align y"
+            else:
+                raise ValueError
+            print(
+                f"({axis_name}) Player ({state[0, 0, -2]:.2f}, {state[0, 0, -1]:.2f}) arrive at "
+                f"{args.row_names[next_obj_index]} ({o_x.tolist():.2f},{o_y.tolist():.2f}) "
+                f"MinDist: {min_dist_ab.tolist():.2f}")
+            agent.model.o2o_achieved[next_index] = False
+        else:
+            done = True
 
 
 def _update_weights(env_args, student_agent):
@@ -167,8 +248,8 @@ def render_atari_game(agent, args, save_buffer):
     obs, info = env.reset()
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     agent.position_norm_factor = obs.shape[0]
-    if agent.agent_type == "smp":
-        agent.model.pwt = torch.load(args.o2o_weight_file)
+    # if agent.agent_type == "smp":
+    #     agent.model.pwt = torch.load(args.o2o_weight_file)
 
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
@@ -187,18 +268,16 @@ def render_atari_game(agent, args, save_buffer):
                     time.sleep(sl)
                     continue
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
-
-            # agent predict an action
-            if env_args.frame_i == 250:
-                print("")
             env_args.logic_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
                                                                                    obs.shape[0])
             env_args.obs = env_args.last_obs
+            _reason(args, agent, env_args)
+            info = _act(args, agent, env_args, env)
 
-            info = _act(agent, env_args, env)
             game_patches.atari_frame_patches(args, env_args, info)
+
             if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
-                game_patches.atari_patches(args, env_args, info)
+                game_patches.atari_patches(args, agent, env_args, info)
                 env_args.frame_i = len(env_args.logic_states) - 1
                 env_args.update_lost_live(info["lives"])
                 if args.save_frame:
@@ -267,7 +346,7 @@ def train_atari_game(teacher_agent, student_agent, args, o2o_data):
 
             game_patches.atari_frame_patches(args, env_args, info)
             if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
-                game_patches.atari_patches(args, env_args, info)
+                game_patches.atari_patches(args, student_agent, env_args, info)
                 env_args.frame_i = len(env_args.logic_states) - 1
 
                 env_args.update_lost_live(info["lives"])

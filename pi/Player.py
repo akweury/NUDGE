@@ -194,7 +194,7 @@ class SymbolicMicroProgramPlayer:
             self.behaviors = self.pf_behaviors + self.def_behaviors + self.att_behaviors + self.skill_att_behaviors + self.o2o_behaviors
         except TypeError:
             print('Type Error (update behaviors)')
-        self.model.update(args, self.behaviors, o2o_data=self.o2o_data)
+        self.model.update(args, self.behaviors, self.requirement)
         #
         # weights = torch.zeros(len(self.behaviors)).to(self.args.device)
         # for beh_i, beh in enumerate(self.behaviors):
@@ -345,19 +345,17 @@ class SymbolicMicroProgramPlayer:
         return attack_behaviors
 
     def reasoning_o2o_behaviors(self):
-        if os.path.exists(self.args.o2o_data_file):
-            o2o_dict = file_utils.load_json(self.args.o2o_data_file)
-        else:
-            o2o_dict = reason_utils.reason_o2o_states(self.args, self.states, self.actions, self.rewards,
-                                                      self.row_names)
-        self.o2o_data = o2o_dict['behavior_data']
-        # self.action_delta = o2o_dict['action_data']
-        return self.o2o_data
+
+        # self.o2o_data = reason_utils.reason_o2o_states(self.args, self.states, self.actions, self.rewards,
+        #                                                self.row_names)
+        reason_utils.reason_shiftness(self.args, self.states[0][self.args.jump_frames:])
+        self.requirement = [1, 2, 3, 4, 5]
+        # return self.o2o_data
 
     def train_state_estimator(self):
-        current_states = self.states
-        next_states = self.next_states
-        actions = self.actions
+        current_states = self.states[0]
+        next_states = self.next_states[0]
+        actions = self.actions[0]
 
         self.model.state_estimator = nn_model.train_state_predictor(current_states, actions, next_states, self.args)
 
@@ -564,7 +562,8 @@ class SymbolicMicroProgramPlayer:
         return prediction, explains
 
     def asterix_actor(self, objs):
-        extracted_state, _ = oc_utils.extract_logic_state_atari(objs, self.args.game_info, self.position_norm_factor)
+        extracted_state, _ = oc_utils.extract_logic_state_atari(self.args, objs, self.args.game_info,
+                                                                self.position_norm_factor)
         predictions, explains = self.model(torch.tensor(extracted_state).unsqueeze(0).to(self.args.device))
         # predictions, explains = self.action_combine_assault(predictions, explains)
         prediction = torch.argmax(predictions).cpu().item()
