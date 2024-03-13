@@ -539,7 +539,7 @@ def plot_compare_line_chart(data, path, name, figsize, row_names=None, cla_leg=T
     if key_cols is not None:
         for ax in axs:
             for key_col in key_cols:
-                ax.axvline(x=key_col, color=pos_color, linestyle='--', linewidth=2)
+                ax.axvline(x=key_col, color=pos_color, linestyle='--', linewidth=1)
                 ax.text(key_col, 5, "", color=pos_color, fontsize=8, ha='center', va='center')
             for key_col in neg_cols:
                 ax.axvline(x=key_col, color=neg_color, linestyle='--', linewidth=1)
@@ -548,7 +548,7 @@ def plot_compare_line_chart(data, path, name, figsize, row_names=None, cla_leg=T
         for plot_i in range(len(key_rows)):
             pos_rows = key_rows[plot_i]
             for r_i, row in enumerate(pos_rows):
-                axs[plot_i].axhline(y=row, color=pos_color, linestyle='--', linewidth=2)
+                axs[plot_i].axhline(y=row, color=pos_color, linestyle='--', linewidth=1)
                 axs[plot_i].text(5, row, key_name[plot_i][r_i], color=pos_color, fontsize=10, ha='center', va='center')
             plot_neg_rows = neg_rows[plot_i]
             for r_i, row in enumerate(plot_neg_rows):

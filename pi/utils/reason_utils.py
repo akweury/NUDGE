@@ -505,12 +505,15 @@ def find_direction_ranges(positions):
 
 
 def find_closest_obj_over_states(states, axis):
-    dist_vars = []
+    dist_means = []
     for obj_i in range(1, states.shape[1]):
-        dist = states[:, 0, axis] - states[:, obj_i, axis]
+        mask_0 = states[:, 0, :-4].sum(axis=-1) > 0
+        mask_1 = states[:, obj_i, :-4].sum(axis=-1) > 0
+        mask = mask_0 * mask_1
+        dist = torch.abs(states[mask, 0, axis] - states[mask, obj_i, axis])
         var, mean = torch.var_mean(dist)
-        dist_vars.append(var)
-    closest_index = torch.tensor(dist_vars).argmin()
+        dist_means.append(mean)
+    _, closest_index = torch.tensor(dist_means).sort()
     return closest_index + 1
 
 
@@ -520,26 +523,29 @@ def reason_shiftness(args, states):
     x_increase_indices, x_decrease_indices = find_direction_ranges(x_posisions)
     states_x_increase = states[x_increase_indices]
     states_x_decrease = states[x_decrease_indices]
-    dx_pos_index = find_closest_obj_over_states(states_x_increase, -1)
-    dx_neg_index = find_closest_obj_over_states(states_x_decrease, -1)
+    dx_pos_indices = find_closest_obj_over_states(states_x_increase, -1)
+    dx_neg_indices = find_closest_obj_over_states(states_x_decrease, -1)
 
     y_posisions = states[:, 0, -1]
-
     y_positions_smooth = math_utils.smooth_filter(y_posisions, window_size=300)
     draw_utils.plot_line_chart(y_positions_smooth.unsqueeze(0).to("cpu"), path=".",
                                labels=["pos_y"], title="position_y")
     y_increase_indices, y_decrease_indices = find_direction_ranges(y_positions_smooth)
-
     states_y_increase = states[y_increase_indices]
     states_y_decrease = states[y_decrease_indices]
-    dy_pos_index = find_closest_obj_over_states(states_y_increase, -2)
-    dy_neg_index = find_closest_obj_over_states(states_y_decrease, -2)
+    dy_pos_indices = find_closest_obj_over_states(states_y_increase, -2)
+    dy_neg_indices = find_closest_obj_over_states(states_y_decrease, -2)
 
-    print(f"dx increase: {args.row_names[dx_pos_index]}, \n"
-          f"dx decrease: {args.row_names[dx_neg_index]}, \n"
-          f"dy increase: {args.row_names[dy_pos_index]}, \n"
-          f"dy decrease: {args.row_names[dy_neg_index]}. \n")
-    print("")
+    for i in range(len(dx_pos_indices)):
+        print(f"{i}: \n "
+              f"dx pos {args.row_names[dx_pos_indices[i]]}, \n"
+              f"dx neg {args.row_names[dx_neg_indices[i]]}, \n"
+              f"dy pos {args.row_names[dy_pos_indices[i]]}, \n"
+              f"dy neg {args.row_names[dy_pos_indices[i]]}. ")
+    rulers = {"decrease": {-2: dx_neg_indices, -1: dy_neg_indices},
+              "increase": {-2: dx_pos_indices, -1: dy_neg_indices}}
+
+    return rulers
 
 
 def reason_o2o_states(args, states, actions, rewards, row_names):
@@ -578,3 +584,192 @@ def reason_o2o_states(args, states, actions, rewards, row_names):
     close_data = close_data[close_data[:, 1].sort()[1]]
 
     return close_data
+
+
+def determine_next_sub_object(args, agent, state, dist_now):
+    if dist_now > 0:
+        rulers = agent.model.shift_rulers["decrease"][agent.model.align_axis]
+    elif dist_now < 0:
+        rulers = agent.model.shift_rulers["increase"][agent.model.align_axis]
+    else:
+        raise ValueError
+    if agent.model.align_axis == -1:
+        sub_align_axis = -2
+    elif agent.model.align_axis == -2:
+        sub_align_axis = -1
+    else:
+        raise ValueError
+
+    # update target object
+    sub_target_type = rulers[0]
+
+    # if target object has duplications, find the one closest with the target position
+    sub_same_others = args.same_others[sub_target_type]
+    dy_sub_same_others = state[0, agent.model.align_axis] - state[sub_same_others, agent.model.align_axis]
+    # Mask the tensor to get non-negative values
+    # Find the minimum non-negative value and its index
+    min_value, min_index = torch.min(dy_sub_same_others[dy_sub_same_others >= 0], dim=0)
+    # Find the original index in the complete tensor
+    try:
+        original_index = (dy_sub_same_others == min_value).nonzero()[0].item()
+    except RuntimeError:
+        print("")
+
+    sub_target = sub_same_others[original_index]
+
+    print(f"- Target Object: {args.row_names[agent.model.target_obj]}. \n"
+          f"- Failed to align axis: {agent.model.align_axis}. \n"
+          f"- Align Sub Object {args.row_names[sub_target]}. \n"
+          f"- Align Sub Axis {sub_align_axis}.\n")
+
+    return sub_target, sub_align_axis
+
+
+def get_obj_wh(states):
+    obj_num = states.shape[1]
+    obj_whs = torch.zeros((obj_num, 2))
+    for o_i in range(obj_num):
+        mask = states[:, o_i, :-4].sum(dim=-1) > 0
+        if mask.sum() == 0:
+            obj_whs[o_i] = obj_whs[o_i - 1]
+        else:
+            obj_whs[o_i, 0] = states[mask, o_i, -4].mean()
+            obj_whs[o_i, 1] = states[mask, o_i, -3].mean()
+
+    return obj_whs
+
+
+def reason_danger_distance(args, states, rewards):
+    args.obj_whs = get_obj_wh(states)
+    obj_names = args.row_names
+    danger_distance = torch.zeros((len(obj_names), 2)) - 1
+    player_wh = args.obj_whs[0]
+    for o_i, (touchable, movable, scorable) in enumerate(args.obj_data):
+        if not touchable:
+            danger_distance[o_i, 0] = (player_wh[0] + args.obj_whs[o_i, 0]) * 0.5
+            danger_distance[o_i, 1] = (player_wh[1] + args.obj_whs[o_i, 1]) * 0.5
+
+    return danger_distance
+
+
+def determine_surrounding_dangerous(state, agent, args):
+    # only one object and one axis can be determined
+
+    dist_to_all = torch.abs(state[0, -2:] - state[:, -2:])
+    dist_danger = agent.model.dangerous_rulers
+    save_all = torch.gt(dist_to_all, dist_danger)
+    danger_obj_x_indices = []
+    danger_obj_y_indices = []
+    for o_i in range(len(state)):
+        touchable = args.obj_data[o_i, 0]
+        if not touchable:
+            if not save_all[o_i, 0]:
+                print(f"- Danger {args.row_names[o_i]}, X dist: {dist_to_all[o_i, 0]:.2f}")
+                danger_obj_x_indices.append(o_i)
+            if not save_all[o_i, 1]:
+                print(f"- Danger {args.row_names[o_i]}, Y dist: {dist_to_all[o_i, 0]:.2f}")
+                danger_obj_y_indices.append(o_i)
+
+    print(f"- Danger Object {args.row_names[o_i]}, Y dist: {dist_to_all[o_i, 0]:.2f}")
+    raise NotImplementedError
+
+
+    return danger_obj_x_indices, danger_obj_y_indices
+
+
+def observe_unaligned(args, agent, state):
+    # keep observing
+    agent.model.unaligned_frame_counter += 1
+    min_move_dist = 0.04
+    observe_window = 15
+    dist_now = state[0, agent.model.unaligned_axis] - state[agent.model.next_target, agent.model.unaligned_axis]
+    agent.model.move_history.append(state[0, agent.model.align_axis])
+    if len(agent.model.move_history) > observe_window:
+        move_dist = torch.abs(agent.model.move_history[-observe_window] - agent.model.move_history[-1])
+        # if stop moving
+        if move_dist < min_move_dist:
+            # if aligning to the sub-object
+            if agent.model.align_to_sub_object:
+                agent.model.align_to_sub_object = False
+                # if align with the target
+                if dist_now < 0.02:
+                    print(f"- (Success) Align with {args.row_names[agent.model.next_target]} "
+                          f"at Axis {agent.model.align_axis}.\n"
+                          f"- Now try to find out next Align Target.")
+                # if it doesn't decrease, update the symbolic-state
+                else:
+                    # update aligned object
+                    agent.model.align_to_sub_object = True
+                    print(f"- Move distance over (param) 20 frames is {move_dist:.4f}, "
+                          f"less than threshold (param) {min_move_dist:.4f} \n"
+                          f"- Failed to align with {args.row_names[agent.model.next_target]} at axis "
+                          f"{agent.model.align_axis}")
+
+            # if unaligned to the target object
+            elif agent.model.unaligned:
+                agent.model.unaligned = False
+                if dist_now > 0.02:
+                    # successful unaligned with object at axis
+                    print(f"- (Success) Unaligned with {args.row_names[agent.model.next_target]} "
+                          f"at Axis {agent.model.align_axis}.\n"
+                          f"- Now try to find out next Align Target.")
+                else:
+                    # update aligned object
+                    agent.model.align_to_sub_object = True
+                    print(f"- Move distance over (param) 20 frames is {move_dist:.4f}, "
+                          f"less than threshold (param) {min_move_dist:.4f} \n"
+                          f"- Failed to unaligned with {args.row_names[agent.model.next_target]} at axis "
+                          f"{agent.model.unaligned_axis}")
+
+
+def align_to_other_obj(args, agent, state):
+    agent.model.aligning = True
+    agent.model.align_frame_counter = 0
+    agent.model.move_history = []
+
+    dx = torch.abs(state[0, -2] - state[agent.model.target_obj, -2])
+    dy = torch.abs(state[0, -1] - state[agent.model.target_obj, -1])
+    # determine next sub aligned object
+    if agent.model.align_axis == -2:
+        dist_now = dx
+    elif agent.model.align_axis == -1:
+        dist_now = dy
+    else:
+        raise ValueError
+    next_target, align_axis = determine_next_sub_object(args, agent, state, dist_now)
+
+    agent.model.align_axis = align_axis
+    agent.model.next_target = next_target
+    print(f"- New Align Target {args.row_names[agent.model.next_target]}, Axis: {agent.model.align_axis}.\n")
+
+
+def unaligned_axis(args, agent, state):
+    agent.model.next_target = agent.model.unaligned_target
+    dx = torch.abs(state[0, -2] - state[agent.model.unaligned_target, -2])
+    dy = torch.abs(state[0, -1] - state[agent.model.unaligned_target, -1])
+    axis_is_unaligned = [dx > 0.02, dy > 0.02]
+    if not axis_is_unaligned[0] and dx > dy:
+        agent.model.unaligned_axis = -2
+        agent.model.dist = dx
+    elif not axis_is_unaligned[1] and dy > dx:
+        agent.model.unaligned_axis = -1
+        agent.model.dist = dy
+    print(f"- New Unaligned Target {args.row_names[agent.model.next_target]}, Axis: {agent.model.unaligned_axis}.\n")
+
+
+def decide_deal_to_enemy(args, state, agent, danger_objs):
+    # avoid, kill, ignore
+    dx = torch.abs(state[0, -2] - state[agent.model.unaligned_target, -2])
+    dy = torch.abs(state[0, -1] - state[agent.model.unaligned_target, -1])
+
+    # if distance is still far, ignore
+    if agent.model.unaligned_axis == -2 and dy > 0.05:
+        decision = "ignore"
+    elif agent.model.unaligned_axis == -1 and dx > 0.05:
+        decision = "ignore"
+    elif args.obj_data[danger_objs][2]:
+        decision = "kill"
+    # otherwise, avoid
+    else:
+        decision = "avoid"
+    return decision

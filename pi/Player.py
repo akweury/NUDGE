@@ -348,7 +348,10 @@ class SymbolicMicroProgramPlayer:
 
         # self.o2o_data = reason_utils.reason_o2o_states(self.args, self.states, self.actions, self.rewards,
         #                                                self.row_names)
-        reason_utils.reason_shiftness(self.args, self.states[0][self.args.jump_frames:])
+        self.model.shift_rulers = reason_utils.reason_shiftness(self.args, self.states[0][self.args.jump_frames:])
+        self.model.dangerous_rulers = reason_utils.reason_danger_distance(self.args,
+                                                                          self.states[0][self.args.jump_frames:],
+                                                                          self.rewards[0][self.args.jump_frames:])
         self.requirement = [1, 2, 3, 4, 5]
         # return self.o2o_data
 

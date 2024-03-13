@@ -25,9 +25,9 @@ def _render(args, agent, env_args, video_out, agent_type):
         f"act: {args.action_names[env_args.action]} re: {env_args.reward}")
 
     if env_args.frame_i % 100 == 0:
-    #     if agent.agent_type == "smp" and agent.model.pwt is not None:
-    #         analysis_data = agent.model.pwt
-    #     else:
+        #     if agent.agent_type == "smp" and agent.model.pwt is not None:
+        #         analysis_data = agent.model.pwt
+        #     else:
         analysis_data = torch.zeros(10, 10)
 
         env_args.analysis_plot = draw_utils.plot_heat_map(analysis_data,
@@ -68,49 +68,107 @@ def _act(args, agent, env_args, env):
 def _reason(args, agent, env_args):
     if env_args.frame_i > args.jump_frames and agent.agent_type == "smp":
         state = torch.tensor(env_args.logic_state).to(args.device)
-        target_obj = agent.model.requirement[0]
+        # check dangerous
+        danger_x_objs, danger_y_objs = reason_utils.determine_surrounding_dangerous(state, agent, args)
+
+        if len(danger_x_objs) > 0 or len(danger_y_objs) > 0:
+            if len(danger_x_objs) > 0:
+                agent.model.unaligned_target = danger_x_objs[0]
+                agent.model.unaligned_axis = -2
+                strategy_to_enemy = reason_utils.decide_deal_to_enemy(args, state, agent, danger_x_objs[0])
+
+            elif len(danger_y_objs) > 0:
+                agent.model.unaligned_target = danger_y_objs[0]
+                agent.model.unaligned_axis = -1
+                strategy_to_enemy = reason_utils.decide_deal_to_enemy(args, state, agent, danger_y_objs[0])
+            else:
+                raise ValueError
+
+            # decide to kill/avoid/ignore
+            # if save for next n frames, go to the target object
+            if strategy_to_enemy == "avoid":
+                if agent.model.unaligned:
+                    reason_utils.observe_unaligned(args, agent, state)
+                else:
+                    agent.model.unaligned = True
+                    agent.model.unaligned_frame_counter = 0
+                    agent.model.move_history = []
+                    # check if it is fine to directly unaligned
+                    if agent.model.unaligned_align_to_sub_object:
+                        # align to other object
+                        reason_utils.align_to_other_obj(args, agent, state)
+                    else:
+                        # unaligned x
+                        reason_utils.unaligned_axis(args, agent, state)
+                return
+            elif strategy_to_enemy == "kill":
+                agent.model.next_target = agent.model.unaligned_target
+                agent.model.kill_enemy = True
+                pass
+            elif strategy_to_enemy == "ignore":
+                agent.model.unaligned_target = None
+                agent.model.unaligned_axis = None
+
+        # if save for next n frames, go to the target object
+        target_obj = agent.model.next_target
+
         dx_now = torch.abs(state[0, -2] - state[target_obj, -2])
         dy_now = torch.abs(state[0, -1] - state[target_obj, -1])
         th = 0.04
         if agent.model.aligning:
-
             agent.model.align_frame_counter += 1
             dist_now = state[0, agent.model.align_axis] - state[target_obj, agent.model.align_axis]
-            dist_delta = torch.abs(dist_now - agent.model.dist)
             agent.model.move_history.append(state[0, agent.model.align_axis])
-
             if len(agent.model.move_history) > 20:
                 move_dist = torch.abs(agent.model.move_history[-20] - agent.model.move_history[-1])
                 if move_dist < th:
+                    agent.model.aligning = False
+                    agent.model.align_to_sub_object = False
                     # if align with the target
                     if dist_now < 0.02:
-                        agent.model.aligning = False
-                        print(f"axis {agent.model.align_axis} aligned.")
+                        print(
+                            f"- (Success) Align with {args.row_names[agent.model.next_target]} at Axis {agent.model.align_axis}.\n"
+                            f"- Find Next Align Target.")
                     # if it doesn't decrease, update the symbolic-state
                     else:
-                        print(f"Current aligned object: {target_obj}, "
-                              f"Current aligned axis: {agent.model.align_axis}. ")
-
+                        print(f"- Move distance over (param) 20 frames is {move_dist:.4f}, "
+                              f"less than threshold (param) {th:.4f} \n"
+                              f"- Failed to align with {args.row_names[agent.model.next_target]} at axis "
+                              f"{agent.model.align_axis}")
                         # update aligned object
-
-                        a = 1
-
-
-
+                        agent.model.align_to_sub_object = True
         else:
             agent.model.aligning = True
             agent.model.align_frame_counter = 0
-            axis_is_aligned = [dx_now < 0.02, dy_now < 0.02]
-            if not axis_is_aligned[0]:
-                agent.model.align_axis = -2
-                agent.model.dist = dx_now
-            elif not axis_is_aligned[1]:
-                agent.model.align_axis = -1
-                agent.model.dist = dy_now
             agent.model.move_history = []
-        # if it wants to align axis -1, after several iterations, its -1 axis has to be decreased
-        # if it keeps decrease, keep going
-        # if it doesn't decrease, update the symbolic-state
+            # determine next sub aligned object
+            if agent.model.align_to_sub_object:
+                if agent.model.align_axis == -2:
+                    dist_now = dx_now
+                elif agent.model.align_axis == -1:
+                    dist_now = dy_now
+                else:
+                    raise ValueError
+                next_target, align_axis = reason_utils.determine_next_sub_object(args, agent, state, dist_now)
+
+                agent.model.align_axis = align_axis
+                agent.model.next_target = next_target
+
+            # determine the aligned axis of the target object
+            else:
+                agent.model.next_target = agent.model.target_obj
+                axis_is_aligned = [dx_now < 0.02, dy_now < 0.02]
+                if not axis_is_aligned[0]:
+                    agent.model.align_axis = -2
+                    agent.model.dist = dx_now
+                elif not axis_is_aligned[1]:
+                    agent.model.align_axis = -1
+                    agent.model.dist = dy_now
+            print(
+                f"- New Align Target {args.row_names[agent.model.next_target]}, Axis: {agent.model.align_axis}.\n")
+    # if it wants to align axis -1, after several iterations, its -1 axis has to be decreased
+    # if it keeps decrease, keep going
+    # if it doesn't decrease, update the symbolic-state
 
 
 def _update_behavior(args, agent, env_args):

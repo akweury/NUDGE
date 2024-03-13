@@ -314,6 +314,7 @@ def load_args(exp_args_path, m):
         args.game_info = config.game_info_kangaroo
         args.obj_info = args.game_info["obj_info"]
         args.row_names, args.obj_data = config.get_obj_data(args.obj_info)
+        args.same_others = config.get_same_others(args.row_names)
         args.state_tensor_properties = ["dx_01", "dy_01", "la0", "ra0", "va_dir", "vb_dir", "dir_ab"]
 
     elif args.m == "fishing_derby":

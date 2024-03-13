@@ -187,11 +187,11 @@ game_info_breakout = {
     "axis_x_col": 3,
     "axis_y_col": 4
 }
-# name, quantity, touchable, movable, score
+# name, quantity, touchable, movable, killable
 obj_info_kangaroo = [('Player', 1, True, True, False),  # 0 # 0,
-                     ('Child', 1, True, True, True),  # 1 # 1
-                     ('Fruit', 3, True, False, True),  # 2 # 2,3,4
-                     ('Bell', 1, True, False, True),  # 3 # 5
+                     ('Child', 1, True, True, False),  # 1 # 1
+                     ('Fruit', 3, True, False, False),  # 2 # 2,3,4
+                     ('Bell', 1, True, False, False),  # 3 # 5
                      ('Platform', 4, True, False, False),  # 4 # 6,7,8,9
                      ('Ladder', 3, True, False, False),  # 5 # 10,11,12
                      ('Monkey', 4, False, True, True),  # 6 # 13,14,15,16
@@ -206,22 +206,6 @@ game_info_kangaroo = {
     "state_col_num": len(obj_info_kangaroo) + 4,
 }
 
-obj_info_frostbite = [('Player', 1),
-                      ('Enemy', 1)]
-prop_info_frostbite = {'Player': 0,
-                       'left_arm_length': 2,
-                       'right_arm_length': 3,
-                       'axis_x_col': 4,
-                       'axis_y_col': 5
-                       }
-game_info_frostbite = {
-    'name': 'Frostbite',
-    "obj_info": obj_info_frostbite,
-    'prop_info': prop_info_frostbite,
-    "state_row_num": 2,
-    "state_col_num": 6,
-
-}
 
 action_name_18 = ["noop",  # 0
                   "fire",  # 1
@@ -378,3 +362,10 @@ def get_obj_data(obj_info):
                       torch.tensor(data_movable).unsqueeze(1),
                       torch.tensor(data_scorable).unsqueeze(1)), dim=1)
     return row_names, data
+
+
+def get_same_others(row_names):
+    same_others = []
+    for i in range(len(row_names)):
+        same_others.append([j for j in range(len(row_names)) if row_names[i] == row_names[j]])
+    return same_others

@@ -64,6 +64,14 @@ class SmpReasoner(nn.Module):
     def update(self, args, behaviors, requirement):
         self.requirement = requirement
         self.aligning = False
+        self.unaligned = False
+        self.kill_enemy = False
+        self.target_obj = 1
+        self.next_target = self.requirement[0]
+        self.unaligned_target = None
+        self.sub_align_axis = None
+        self.align_to_sub_object = False
+        self.unaligned_align_to_sub_object = False
         # self.o2o_data = o2o_data[1:]
         # self.o2o_achieved = torch.ones(len(self.o2o_data), dtype=torch.bool)
         # self.o2o_data_weights = torch.ones(len(o2o_data))
@@ -76,6 +84,30 @@ class SmpReasoner(nn.Module):
         if behaviors is not None and len(behaviors) > 0:
             self.behaviors = behaviors
             self.set_model()
+
+    def forward(self, x):
+        # game Getout: tensor with size 1 * 4 * 6
+        action_prob = torch.zeros(1, len(self.args.action_names))
+        action_mask = torch.zeros(1, len(self.args.action_names), dtype=torch.bool)
+        explains = {"behavior_index": [], "reward": [], 'state': x, "behavior_conf": [], "behavior_action": [],
+                    "text": ""}
+
+
+        if self.kill_enemy:
+            target_obj = self.model.unaligned_target
+            action = self.get_kill_action(x[0, 0], x[0, target_obj])
+        elif self.unaligned_target is not None:
+            target_obj = self.unaligned_target
+            avoid_axis = self.unaligned_axis
+            action = self.get_avoidance_action(x[0, 0], avoid_axis, x[0, target_obj, avoid_axis])
+
+        else:
+            # determine align object
+            target_obj = self.next_target
+            align_axis = self.align_axis
+            action = self.get_closest_action(x[0, 0], align_axis, x[0, target_obj, align_axis])
+        action_prob[:, action] = 1
+        return action_prob, explains
 
     def eval_behaviors(self, x):
 
@@ -287,208 +319,47 @@ class SmpReasoner(nn.Module):
         best_action = torch.argmin(dist_actions)
         return best_action
 
-    def forward(self, x):
-        # game Getout: tensor with size 1 * 4 * 6
-        action_prob = torch.zeros(1, len(self.args.action_names))
-        action_mask = torch.zeros(1, len(self.args.action_names), dtype=torch.bool)
-        explains = {"behavior_index": [], "reward": [], 'state': x, "behavior_conf": [], "behavior_action": [],
-                    "text": ""}
-
-
-        align_axis = self.align_axis
-        target_obj = 1
-        action = self.get_closest_action(x[0, 0], align_axis, x[0,target_obj, align_axis])
-        action_prob[:, action] = 1
-        return action_prob, explains
-
-        # use state3 check if satisfy any predicate
-        if self.args.m == "Pong":
-            state_tensor = reason_utils.state2analysis_tensor_pong(state3, 0, 1)
-        elif self.args.m == "Boxing":
-            state_tensor = reason_utils.state2analysis_tensor_boxing(state3, 0, 1)
-        dist_now, explain_now = reason_utils.text_from_tensor(self.o2o_data, state_tensor, self.args.prop_explain)
-
-        # find the best next predicate
-        if self.previous_pred_mask.sum() > 0:
-            max_position = self.pwt[self.previous_pred_mask].argmax(dim=1)
-            # find the action
-            try:
-                action = self.get_closest_action(x, state3, self.o2o_data[max_position[-1]])
-            except IndexError:
-                print("")
-            action_prob[:, action] = 1
-        previous_pred_mask = dist_now == 0
-        if previous_pred_mask.sum() > 0:
-            self.previous_pred_mask = previous_pred_mask
-
-        return action_prob, explains
-
-        on_pos_best_score = 0
-        on_pos_best_beh = None
-        on_pos_best_text = ""
-        pf_best_score = 0
-        pf_best_act = None
-        pf_best_text = ""
-
-        # choose the action
-        # on_pos = False
-        # on_pos_best_text = explain_text
-        # if len(onpos_sel_behs) > 0:
-        #     on_pos = True
-        #     best_beh_index = math_utils.indices_of_maximum(self.o2o_data_weights[onpos_sel_behs]).reshape(-1)
-        #     onpos_sel_beh_index = onpos_sel_behs[best_beh_index]
-
-        # on_pos_best_score = self.o2o_data_weights[onpos_sel_beh_index]
-        # on_pos_best_beh = onpos_sel_beh_index
-
-        # else using state4 go to next possible predicate
-
-        state4_by_actions = self.get_next_states_pong(x)
-        a_dists = []
-        behs = []
-        beh_texts = []
-        actions = []
-        all_dist_behs = []
-        action_scores = []
-        for a_i in range(len(self.action_delta)):
-            state_tensor = reason_utils.state2analysis_tensor(state4_by_actions[a_i], 0, 1)
-            next_explain_text, sel_behs, dist_behs, dist_to_o2o_behs2, next_possile_beh_explain_text2 = reason_utils.text_from_tensor(
-                self.o2o_data, state_tensor)
-            if len(dist_to_o2o_behs2) > 0:
-                closest_beh = torch.tensor(dist_to_o2o_behs2).abs().argmin()
-                beh_dists = torch.tensor(dist_to_o2o_behs2).abs()
-                # assert min(beh_dists) > 0
-                dist_inv = 1 - (torch.tensor(beh_dists))
-                weigths = dist_inv * self.o2o_data_weights
-                # action best behavior
-
-                act_sel_best_beh_index = math_utils.indices_of_maximum(weigths).reshape(-1)[0]
-
-                # act_sel_best_beh_index = 11
-                behs.append(act_sel_best_beh_index)
-                beh_texts.append(next_possile_beh_explain_text2[act_sel_best_beh_index])
-                action_scores.append(weigths[act_sel_best_beh_index].tolist())
+    def get_avoidance_action(self, x, avoid_axis, target_pos):
+        # if self.args.m == "Kangaroo":
+        #     next_states = self.get_next_states_kangaroo(x)
+        # else:
+        #     raise ValueError
+        dist_actions = torch.zeros(len(self.args.action_names))
+        for a_i in range(len(self.args.action_names)):
+            player_pos = x[avoid_axis].clone()
+            if avoid_axis == -2:
+                if "left" in self.args.action_names[a_i]:
+                    player_pos -= 0.01
+                if "right" in self.args.action_names[a_i]:
+                    player_pos += 0.01
+            elif avoid_axis == -1:
+                if "up" in self.args.action_names[a_i]:
+                    player_pos -= 0.01
+                if "down" in self.args.action_names[a_i]:
+                    player_pos += 0.00
             else:
                 raise ValueError
-                # action_scores.append(0)
-
-        # select closest action
-
-        best_sel_act = math_utils.indices_of_maximum(torch.tensor(action_scores)).reshape(-1, 1)[0]
-        # action_prob[0, best_sel_act] = 1
-        pf_best_act = best_sel_act
-        sel_beh_index = behs[best_sel_act]
-        # self.game_o2o_weights[sel_beh_index] += 0.1
-
-        pf_best_text = beh_texts[best_sel_act]
-        pf_best_score = action_scores[best_sel_act]
-        try:
-            if pf_best_score > on_pos_best_score:
-                action_prob[0, pf_best_act] = 1
-                explains['text'] = pf_best_text
-                # self.game_o2o_weights.append(sel_beh_index)
-        except TypeError:
-            print("")
-        if len(onpos_sel_behs) > 0:
-            action_prob[0, pf_best_act] = 1
-            self.game_o2o_weights += onpos_sel_behs
-            explains['text'] = on_pos_best_text
-
-        return action_prob, explains
-
-        action = self.eval_o2o_behavior(state_tensor[-1])
-        if action is not None:
-            action_prob[0, action.to(torch.int)] = 1
-            return action_prob, explains
-        else:
-            state_time3 = self.get_next_states_pong(x)
-            next_state_tensors = self.get_next_state_tensor(state_time3)
-
-            next_best_dist = 1e+20
-            best_action = 0
-            for a_i in range(len(self.action_delta)):
-                closest_beh, closest_beh_index, closest_beh_dist = self.get_closest_o2o_beh(next_state_tensors[a_i])
-                if closest_beh_dist < next_best_dist:
-                    best_action = a_i
-                    next_best_dist = closest_beh_dist
-            action_prob[0, best_action] = 1
-            return action_prob, explains
-            # find the optimal action
-
-        beh_conf = self.eval_behaviors(x) * self.weights
-        # mask_pos_beh, mask_neg_beh, mask_pos_att_beh, beh_confidence = self.get_beh_mask(x)
-
-        mask_neg_beh = self.mask_neg_beh * (beh_conf > 0)
-        mask_pos_beh = self.mask_pos_beh * (beh_conf > 0)
-        mask_pos_att_beh = self.mask_pos_att_beh * (beh_conf > 0)
-        # defense behavior
-        if mask_neg_beh.sum() > 0:
-            beh_neg_indices = torch.arange(len(self.behaviors))[mask_neg_beh]
-            for neg_index in beh_neg_indices:
-                if beh_conf[neg_index] > 0:
-                    beh = self.behaviors[neg_index]
-                    pred_action = beh.action
-                    action_mask[0, pred_action] = True
-                    explains["behavior_index"].append(neg_index)
-                    explains["behavior_action"].append(beh.action)
-                    explains["behavior_conf"].append(beh_conf[neg_index])
-        # skill behavior
-        has_skill_beh = False
-        if mask_pos_att_beh.sum() > 0:
-            beh_skill_pos_indices = torch.arange(len(self.behaviors))[mask_pos_att_beh]
-            for pos_skill_index in beh_skill_pos_indices:
-                beh = self.behaviors[pos_skill_index]
-                use_beh = False
-                if not action_mask[0, beh.action[beh.skill_stage]]:
-                    if beh_conf[pos_skill_index] > 0:
-                        if beh.beh_type == "skill_attack":
-                            action_prob[0, beh.action] = beh_conf[pos_skill_index]
-                            explains["behavior_index"].append(pos_skill_index)
-                            explains["behavior_conf"].append(beh_conf[pos_skill_index])
-                            explains["behavior_action"].append(beh.action[beh.skill_stage])
-                            has_skill_beh = True
-                            use_beh = True
-                if not use_beh:
-                    beh.skill_stage = 0
-        # attack behavior
-        has_att_beh = False
-        if not has_skill_beh and mask_pos_beh.sum() > 0:
-            beh_pos_indices = torch.arange(len(self.behaviors)).to(mask_pos_beh.device)[mask_pos_beh]
-            for pos_index in beh_pos_indices:
-                beh = self.behaviors[pos_index]
-                if not action_mask[0, beh.action]:
-                    if beh_conf[pos_index] > 0:
-                        if beh.beh_type == "attack":
-                            action_prob[0, beh.action] = beh_conf[pos_index]
-                            explains["behavior_index"].append(pos_index)
-                            explains["behavior_conf"].append(beh_conf[pos_index])
-                            explains["behavior_action"].append(beh.action)
-                            has_att_beh = True
-
-        # path finding behavior
-        if not has_att_beh and not has_skill_beh and mask_pos_beh.sum() > 0:
-            beh_pos_indices = torch.arange(len(self.behaviors)).to(mask_pos_beh.device)[mask_pos_beh]
-            for pos_index in beh_pos_indices:
-                beh = self.behaviors[pos_index]
-                if not action_mask[0, beh.action]:
-                    if beh_conf[pos_index] > 0.0:
-                        if beh.beh_type == "path_finding" or beh.beh_type == "o2o":
-                            action_prob[0, beh.action] = beh_conf[pos_index]
-                            explains["behavior_index"].append(pos_index)
-                            explains["behavior_conf"].append(beh_conf[pos_index])
-                            explains["behavior_action"].append(beh.action)
-
-        # update skill stage of a skill behavior
-        action_prob[action_mask] = 0
-        if len(explains["behavior_index"]) > 0:
-            optimal_action = action_prob.argmax()
-            for beh_i in explains["behavior_index"]:
-                beh = self.behaviors[beh_i]
-                if beh.skill_beh:
-                    if beh.action[beh.skill_stage] == optimal_action:
-                        beh.skill_stage += 1
-                        beh.skill_stage %= len(beh.action)
-                    else:
-                        beh.skill_stage = 0
-
-        return action_prob, explains
+            dist = torch.abs(target_pos - player_pos).sum()
+            dist_actions[a_i] = dist
+        best_action = torch.argmax(dist_actions)
+        return best_action
+    def get_kill_action(self, x, target_pos):
+        dist_actions = torch.zeros(len(self.args.action_names))
+        for a_i in range(len(self.args.action_names)):
+            player_pos = x.clone()
+            if avoid_axis == -2:
+                if "left" in self.args.action_names[a_i]:
+                    player_pos -= 0.01
+                if "right" in self.args.action_names[a_i]:
+                    player_pos += 0.01
+            elif avoid_axis == -1:
+                if "up" in self.args.action_names[a_i]:
+                    player_pos -= 0.01
+                if "down" in self.args.action_names[a_i]:
+                    player_pos += 0.00
+            else:
+                raise ValueError
+            dist = torch.abs(target_pos - player_pos).sum()
+            dist_actions[a_i] = dist
+        best_action = torch.argmax(dist_actions)
+        return best_action

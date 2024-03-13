@@ -255,9 +255,7 @@ def atari_patches(args, agent, env_args, info):
         if env_args.terminated or env_args.truncated:
             env_args.game_over = True
     if args.m == 'Kangaroo':
-        agent.model.o2o_achieved[agent.model.o2o_achieved == False] = True
-        if env_args.terminated or env_args.truncated:
-            env_args.game_over = True
+        env_args.game_over = True
     if args.m == "Breakout":
         if env_args.terminated or env_args.truncated:
             env_args.game_over = True
