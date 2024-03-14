@@ -69,20 +69,14 @@ def _reason(args, agent, env_args):
     if env_args.frame_i > args.jump_frames and agent.agent_type == "smp":
         state = torch.tensor(env_args.logic_state).to(args.device)
         # check dangerous
-        danger_x_objs, danger_y_objs = reason_utils.determine_surrounding_dangerous(state, agent, args)
+        agent.model.kill_enemy = False
+        danger_obj_index, danger_axis = reason_utils.determine_surrounding_dangerous(state, agent, args)
 
-        if len(danger_x_objs) > 0 or len(danger_y_objs) > 0:
-            if len(danger_x_objs) > 0:
-                agent.model.unaligned_target = danger_x_objs[0]
-                agent.model.unaligned_axis = -2
-                strategy_to_enemy = reason_utils.decide_deal_to_enemy(args, state, agent, danger_x_objs[0])
+        if danger_obj_index is not None:
 
-            elif len(danger_y_objs) > 0:
-                agent.model.unaligned_target = danger_y_objs[0]
-                agent.model.unaligned_axis = -1
-                strategy_to_enemy = reason_utils.decide_deal_to_enemy(args, state, agent, danger_y_objs[0])
-            else:
-                raise ValueError
+            agent.model.unaligned_target = danger_obj_index
+            agent.model.unaligned_axis = danger_axis
+            strategy_to_enemy = reason_utils.decide_deal_to_enemy(args, env_args, agent, danger_obj_index)
 
             # decide to kill/avoid/ignore
             # if save for next n frames, go to the target object
@@ -119,8 +113,8 @@ def _reason(args, agent, env_args):
             agent.model.align_frame_counter += 1
             dist_now = state[0, agent.model.align_axis] - state[target_obj, agent.model.align_axis]
             agent.model.move_history.append(state[0, agent.model.align_axis])
-            if len(agent.model.move_history) > 20:
-                move_dist = torch.abs(agent.model.move_history[-20] - agent.model.move_history[-1])
+            if len(agent.model.move_history) > 10:
+                move_dist = torch.abs(agent.model.move_history[-10] - agent.model.move_history[-1])
                 if move_dist < th:
                     agent.model.aligning = False
                     agent.model.align_to_sub_object = False
@@ -137,6 +131,8 @@ def _reason(args, agent, env_args):
                               f"{agent.model.align_axis}")
                         # update aligned object
                         agent.model.align_to_sub_object = True
+                else:
+                    print(f"Align to {args.row_names[agent.model.next_target]} at axis {agent.model.align_axis}")
         else:
             agent.model.aligning = True
             agent.model.align_frame_counter = 0
@@ -328,6 +324,7 @@ def render_atari_game(agent, args, save_buffer):
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
             env_args.logic_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
                                                                                    obs.shape[0])
+            env_args.past_states.append(env_args.logic_state)
             env_args.obs = env_args.last_obs
             _reason(args, agent, env_args)
             info = _act(args, agent, env_args, env)

@@ -92,10 +92,9 @@ class SmpReasoner(nn.Module):
         explains = {"behavior_index": [], "reward": [], 'state': x, "behavior_conf": [], "behavior_action": [],
                     "text": ""}
 
-
         if self.kill_enemy:
-            target_obj = self.model.unaligned_target
-            action = self.get_kill_action(x[0, 0], x[0, target_obj])
+            target_obj = self.unaligned_target
+            action = self.get_kill_action(x[0, 0, -2:], x[0, target_obj, -2:])
         elif self.unaligned_target is not None:
             target_obj = self.unaligned_target
             avoid_axis = self.unaligned_axis
@@ -343,23 +342,24 @@ class SmpReasoner(nn.Module):
             dist_actions[a_i] = dist
         best_action = torch.argmax(dist_actions)
         return best_action
-    def get_kill_action(self, x, target_pos):
-        dist_actions = torch.zeros(len(self.args.action_names))
+
+    def get_kill_action(self, player_pos, target_pos):
+        try:
+            pos_diff = target_pos - player_pos
+        except RuntimeError:
+            print("")
+        if pos_diff[0] > 0:
+            dir_x = "right"
+        else:
+            dir_x = "left"
+
+        if pos_diff[1] > 0:
+            dir_y = "down"
+        else:
+            dir_y = "up"
+
+        best_action = 1
         for a_i in range(len(self.args.action_names)):
-            player_pos = x.clone()
-            if avoid_axis == -2:
-                if "left" in self.args.action_names[a_i]:
-                    player_pos -= 0.01
-                if "right" in self.args.action_names[a_i]:
-                    player_pos += 0.01
-            elif avoid_axis == -1:
-                if "up" in self.args.action_names[a_i]:
-                    player_pos -= 0.01
-                if "down" in self.args.action_names[a_i]:
-                    player_pos += 0.00
-            else:
-                raise ValueError
-            dist = torch.abs(target_pos - player_pos).sum()
-            dist_actions[a_i] = dist
-        best_action = torch.argmax(dist_actions)
+            if dir_x in self.args.action_names[a_i] and dir_y in self.args.action_names[a_i]:
+                best_action = a_i
         return best_action

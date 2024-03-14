@@ -1,7 +1,7 @@
 # Created by jing at 09.02.24
 import torch
 import shutil
-
+from collections import deque
 
 class EnvArgs():
     """ generate one micro-program
@@ -30,6 +30,7 @@ class EnvArgs():
         self.last_frame_time = 0
         # record and statistical properties
         self.last_obs = torch.zeros((window_size[0], window_size[1], 3), dtype=torch.uint8).numpy()
+        self.past_states = deque(maxlen=20)
         self.action = None
         self.logic_state = None
         self.last_state = None

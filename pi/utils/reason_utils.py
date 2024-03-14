@@ -1,8 +1,10 @@
 # Created by jing at 01.03.24
 import torch
+import numpy as np
 from itertools import combinations
 from pi.utils import file_utils, math_utils, draw_utils
 from itertools import product
+from sklearn.linear_model import LinearRegression
 
 
 def discounted_rewards(rewards, gamma=0.2, alignment=None):
@@ -656,25 +658,28 @@ def determine_surrounding_dangerous(state, agent, args):
     # only one object and one axis can be determined
 
     dist_to_all = torch.abs(state[0, -2:] - state[:, -2:])
-    dist_danger = agent.model.dangerous_rulers
-    save_all = torch.gt(dist_to_all, dist_danger)
-    danger_obj_x_indices = []
-    danger_obj_y_indices = []
-    for o_i in range(len(state)):
-        touchable = args.obj_data[o_i, 0]
-        if not touchable:
-            if not save_all[o_i, 0]:
-                print(f"- Danger {args.row_names[o_i]}, X dist: {dist_to_all[o_i, 0]:.2f}")
-                danger_obj_x_indices.append(o_i)
-            if not save_all[o_i, 1]:
-                print(f"- Danger {args.row_names[o_i]}, Y dist: {dist_to_all[o_i, 0]:.2f}")
-                danger_obj_y_indices.append(o_i)
+    dist_danger = agent.model.dangerous_rulers.to(state.device)
+    untouchable = ~args.obj_data[:, 0]
 
-    print(f"- Danger Object {args.row_names[o_i]}, Y dist: {dist_to_all[o_i, 0]:.2f}")
-    raise NotImplementedError
-
-
-    return danger_obj_x_indices, danger_obj_y_indices
+    min_value, min_indices = torch.min(dist_to_all[untouchable].view(-1), dim=0)
+    min_position = torch.tensor(np.unravel_index(min_indices.item(), dist_to_all[untouchable].shape))
+    min_untouchable_obj_index = torch.arange(len(state))[untouchable][min_position[0]]
+    min_untouchable_obj_axis = min_position[1]
+    danger_obj_index, danger_axis = None, None
+    # object is in danger area
+    if dist_to_all[min_untouchable_obj_index, min_untouchable_obj_axis] < dist_danger[
+        min_untouchable_obj_index, min_untouchable_obj_axis]:
+        if min_untouchable_obj_axis == 0:
+            danger_axis_name = "X"
+            danger_axis = -2
+        else:
+            danger_axis_name = "Y"
+            danger_axis = -1
+        print(f"- Danger Object {args.row_names[min_untouchable_obj_index]}, "
+              f"- Danger Axis {danger_axis_name},"
+              f"- Danger Dist {dist_to_all[min_untouchable_obj_index, min_untouchable_obj_axis]:.2f}")
+        danger_obj_index = min_untouchable_obj_index
+    return danger_obj_index, danger_axis
 
 
 def observe_unaligned(args, agent, state):
@@ -757,19 +762,50 @@ def unaligned_axis(args, agent, state):
     print(f"- New Unaligned Target {args.row_names[agent.model.next_target]}, Axis: {agent.model.unaligned_axis}.\n")
 
 
-def decide_deal_to_enemy(args, state, agent, danger_objs):
-    # avoid, kill, ignore
-    dx = torch.abs(state[0, -2] - state[agent.model.unaligned_target, -2])
-    dy = torch.abs(state[0, -1] - state[agent.model.unaligned_target, -1])
+def predict_trajectory(trajectory):
+    # Convert trajectory data into feature and target arrays
+    X = np.array([point[0] for point in trajectory]).reshape(-1, 1)  # Features (x coordinates)
+    y = np.array([point[1] for point in trajectory]).reshape(-1, 1)  # Target (y coordinates)
 
+    # Create and train the linear regression model
+    model = LinearRegression()
+    model.fit(X, y)
+
+    # Predict the next positions for the following n moments
+    n = 3
+    next_positions = []
+    for i in range(1, n + 1):
+        next_x = X[-1][0] + i  # Incrementing x coordinate based on the last known position
+        next_y = model.predict([[next_x]])  # Predicting y coordinate using the model
+        next_positions.append(next_y[0])
+
+    print("Predicted next positions for the following", n, "moments:", next_positions)
+    return torch.tensor(np.array(next_positions))
+
+
+def decide_deal_to_enemy(args, env_args, agent, danger_obj):
+    # avoid, kill, ignore
+
+    past_states = torch.tensor(env_args.past_states)
+    past_trajectory = past_states[:, danger_obj, -2:].unique(dim=0)[-5:]
+    past_trajectory = torch.cat((torch.arange(len(past_trajectory)).unsqueeze(1), past_trajectory), dim=1)
     # if distance is still far, ignore
-    if agent.model.unaligned_axis == -2 and dy > 0.05:
+    next_trajectory_x = predict_trajectory(past_trajectory[:, [0, 1]])
+    next_trajectory_y = predict_trajectory(past_trajectory[:, [0, 2]])
+    next_trajectory = torch.cat((next_trajectory_x, next_trajectory_y), dim=-1)
+
+    dx = torch.abs(past_states[-1, 0, -2] - next_trajectory[-1, 0])
+    dy = torch.abs(past_states[-1, 0, -1] - next_trajectory[-1, 1])
+
+    # predict its trajectory is quite important
+    if agent.model.unaligned_axis == -2 and dy > 0.1:
         decision = "ignore"
-    elif agent.model.unaligned_axis == -1 and dx > 0.05:
+    elif agent.model.unaligned_axis == -1 and dx > 0.1:
         decision = "ignore"
-    elif args.obj_data[danger_objs][2]:
+    elif args.obj_data[danger_obj][2]:
         decision = "kill"
     # otherwise, avoid
     else:
         decision = "avoid"
+    print(f"- decision: {decision} enemy")
     return decision
