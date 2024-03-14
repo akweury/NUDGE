@@ -70,7 +70,7 @@ def _reason(args, agent, env_args):
         state = torch.tensor(env_args.logic_state).to(args.device)
         # check dangerous
         agent.model.kill_enemy = False
-        danger_obj_index, danger_axis = reason_utils.determine_surrounding_dangerous(state, agent, args)
+        danger_obj_index, danger_axis = reason_utils.determine_surrounding_dangerous(env_args, agent, args)
 
         if danger_obj_index is not None:
 
@@ -98,23 +98,21 @@ def _reason(args, agent, env_args):
             elif strategy_to_enemy == "kill":
                 agent.model.next_target = agent.model.unaligned_target
                 agent.model.kill_enemy = True
-                pass
+                return
             elif strategy_to_enemy == "ignore":
                 agent.model.unaligned_target = None
                 agent.model.unaligned_axis = None
-
         # if save for next n frames, go to the target object
         target_obj = agent.model.next_target
-
         dx_now = torch.abs(state[0, -2] - state[target_obj, -2])
         dy_now = torch.abs(state[0, -1] - state[target_obj, -1])
         th = 0.04
         if agent.model.aligning:
             agent.model.align_frame_counter += 1
-            dist_now = state[0, agent.model.align_axis] - state[target_obj, agent.model.align_axis]
+            dist_now = torch.abs(state[0, agent.model.align_axis] - state[target_obj, agent.model.align_axis])
             agent.model.move_history.append(state[0, agent.model.align_axis])
-            if len(agent.model.move_history) > 10:
-                move_dist = torch.abs(agent.model.move_history[-10] - agent.model.move_history[-1])
+            if len(agent.model.move_history) > 20:
+                move_dist = torch.abs(agent.model.move_history[-15] - agent.model.move_history[-1])
                 if move_dist < th:
                     agent.model.aligning = False
                     agent.model.align_to_sub_object = False
@@ -155,8 +153,8 @@ def _reason(args, agent, env_args):
                 agent.model.next_target = agent.model.target_obj
                 axis_is_aligned = [dx_now < 0.02, dy_now < 0.02]
                 if not axis_is_aligned[0]:
-                    agent.model.align_axis = -2
-                    agent.model.dist = dx_now
+                    agent.model.align_axis = -1
+                    agent.model.dist = dy_now
                 elif not axis_is_aligned[1]:
                     agent.model.align_axis = -1
                     agent.model.dist = dy_now

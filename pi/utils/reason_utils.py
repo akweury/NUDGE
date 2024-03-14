@@ -588,6 +588,18 @@ def reason_o2o_states(args, states, actions, rewards, row_names):
     return close_data
 
 
+def min_value_greater_than(tensor, threshold):
+    # Mask the tensor where values are greater than -0.05
+    masked_tensor = tensor[tensor > threshold]
+
+    # Get the minimum value and its index
+    min_value, min_index = torch.min(masked_tensor, dim=0)
+
+    # Adjust index to account for masking
+    original_index = (tensor > threshold).nonzero()[min_index][0].item()
+
+    return min_value.item(), original_index
+
 def determine_next_sub_object(args, agent, state, dist_now):
     if dist_now > 0:
         rulers = agent.model.shift_rulers["decrease"][agent.model.align_axis]
@@ -610,7 +622,14 @@ def determine_next_sub_object(args, agent, state, dist_now):
     dy_sub_same_others = state[0, agent.model.align_axis] - state[sub_same_others, agent.model.align_axis]
     # Mask the tensor to get non-negative values
     # Find the minimum non-negative value and its index
-    min_value, min_index = torch.min(dy_sub_same_others[dy_sub_same_others >= 0], dim=0)
+    try:
+        if dy_sub_same_others.max()<-0.05:
+            min_value, min_index = min_value_greater_than(dy_sub_same_others, -1)
+        else:
+            min_value, min_index = min_value_greater_than(dy_sub_same_others, -0.05)
+
+    except IndexError:
+        print("")
     # Find the original index in the complete tensor
     try:
         original_index = (dy_sub_same_others == min_value).nonzero()[0].item()
@@ -654,32 +673,49 @@ def reason_danger_distance(args, states, rewards):
     return danger_distance
 
 
-def determine_surrounding_dangerous(state, agent, args):
+def determine_surrounding_dangerous(env_args, agent, args):
     # only one object and one axis can be determined
+    # determine the first coming enemy, which might not be the closest one, it depends on its position and speed
 
-    dist_to_all = torch.abs(state[0, -2:] - state[:, -2:])
-    dist_danger = agent.model.dangerous_rulers.to(state.device)
+    past_states = torch.tensor(env_args.past_states)
     untouchable = ~args.obj_data[:, 0]
+    dist_danger = agent.model.dangerous_rulers
+    danger_data = []
+    collision_times = torch.zeros(past_states.shape[1]) + 1e+20
+    collision_axis = torch.zeros(past_states.shape[1]) + 1e+20
+    min_dist_obj, danger_axis = None, None
+    frame_eval_num = 15
+    for o_i in range(past_states.shape[1]):
+        # skip if it is touchable
+        if not untouchable[o_i]:
+            continue
+        # skip if it doesn't exist in last 5 frames
+        if past_states[:, o_i, :-4].sum(dim=-1)[-frame_eval_num:].sum() != frame_eval_num:
+            continue
 
-    min_value, min_indices = torch.min(dist_to_all[untouchable].view(-1), dim=0)
-    min_position = torch.tensor(np.unravel_index(min_indices.item(), dist_to_all[untouchable].shape))
-    min_untouchable_obj_index = torch.arange(len(state))[untouchable][min_position[0]]
-    min_untouchable_obj_axis = min_position[1]
-    danger_obj_index, danger_axis = None, None
-    # object is in danger area
-    if dist_to_all[min_untouchable_obj_index, min_untouchable_obj_axis] < dist_danger[
-        min_untouchable_obj_index, min_untouchable_obj_axis]:
-        if min_untouchable_obj_axis == 0:
-            danger_axis_name = "X"
-            danger_axis = -2
+        # get the positions
+        enemy_last_positions = past_states[-frame_eval_num:, o_i, -2:]
+        player_position = past_states[-1:, 0, -2:]
+        # check the closest dist between player and enemy within 5 next frames
+        enemy_next_positions, speed_axis = get_next_positions(enemy_last_positions)
+        collision, collision_moment = get_collide_moment(player_position, enemy_next_positions, dist_danger[o_i])
+
+        # if trajectory collide
+        if collision:
+            collision_times[o_i] = collision_moment
+            if speed_axis == 0:
+                collision_axis[o_i] = -1
+            else:
+                collision_axis[o_i] = -2
+
         else:
-            danger_axis_name = "Y"
-            danger_axis = -1
-        print(f"- Danger Object {args.row_names[min_untouchable_obj_index]}, "
-              f"- Danger Axis {danger_axis_name},"
-              f"- Danger Dist {dist_to_all[min_untouchable_obj_index, min_untouchable_obj_axis]:.2f}")
-        danger_obj_index = min_untouchable_obj_index
-    return danger_obj_index, danger_axis
+            continue
+    if collision_times.min() < 1e+20:
+        min_dist_obj = collision_times.argmin()
+        danger_axis = collision_axis[min_dist_obj].to(torch.int)
+        print(
+            f"- Collide with {args.row_names[min_dist_obj]} after {collision_times.min():.1f} frames at axis {danger_axis}")
+    return min_dist_obj, danger_axis
 
 
 def observe_unaligned(args, agent, state):
@@ -753,59 +789,73 @@ def unaligned_axis(args, agent, state):
     dx = torch.abs(state[0, -2] - state[agent.model.unaligned_target, -2])
     dy = torch.abs(state[0, -1] - state[agent.model.unaligned_target, -1])
     axis_is_unaligned = [dx > 0.02, dy > 0.02]
-    if not axis_is_unaligned[0] and dx > dy:
+    if not axis_is_unaligned[0] and dx < dy:
         agent.model.unaligned_axis = -2
         agent.model.dist = dx
-    elif not axis_is_unaligned[1] and dy > dx:
+    elif not axis_is_unaligned[1] and dy < dx:
         agent.model.unaligned_axis = -1
         agent.model.dist = dy
     print(f"- New Unaligned Target {args.row_names[agent.model.next_target]}, Axis: {agent.model.unaligned_axis}.\n")
 
 
-def predict_trajectory(trajectory):
-    # Convert trajectory data into feature and target arrays
-    X = np.array([point[0] for point in trajectory]).reshape(-1, 1)  # Features (x coordinates)
-    y = np.array([point[1] for point in trajectory]).reshape(-1, 1)  # Target (y coordinates)
+# Function to predict positions at future times
+def predict_positions(x0, y0, x4, y4, t):
+    # Calculate velocities
+    vx = (x4 - x0) / 4
+    vy = (y4 - y0) / 4
 
-    # Create and train the linear regression model
-    model = LinearRegression()
-    model.fit(X, y)
+    # Predict positions at future times
+    xt = x4 + vx * (t - 4)
+    yt = y4 + vy * (t - 4)
 
-    # Predict the next positions for the following n moments
-    n = 3
-    next_positions = []
-    for i in range(1, n + 1):
-        next_x = X[-1][0] + i  # Incrementing x coordinate based on the last known position
-        next_y = model.predict([[next_x]])  # Predicting y coordinate using the model
-        next_positions.append(next_y[0])
+    return xt, yt, vx, vy
 
-    print("Predicted next positions for the following", n, "moments:", next_positions)
-    return torch.tensor(np.array(next_positions))
+
+def get_next_positions(past_positions):
+    # Predict positions at times 5, 6, 7, 8, and 9 for both objects
+    next_positions = torch.zeros(15, 2)
+
+    # Calculate change in position
+    change_in_position = past_positions[-1] - past_positions[0]
+
+    current_position = past_positions[-1]
+    # Calculate speed
+    speed = change_in_position / len(past_positions)
+
+    for i in range(len(next_positions)):
+        next_positions[i] = current_position + speed * i
+    speed_axis = torch.abs(speed).argmax()
+    return next_positions, speed_axis
+
+
+def get_collide_moment(player_position, enemy_positions, save_dist):
+    save_dist_ = save_dist.max()
+    dist_e_to_p = torch.abs(enemy_positions - player_position).sum(dim=-1)
+    collide = (dist_e_to_p < save_dist_).sum().bool()
+    collide_frame = (dist_e_to_p < save_dist_).float().argmax()
+    return collide, collide_frame
 
 
 def decide_deal_to_enemy(args, env_args, agent, danger_obj):
     # avoid, kill, ignore
 
     past_states = torch.tensor(env_args.past_states)
-    past_trajectory = past_states[:, danger_obj, -2:].unique(dim=0)[-5:]
-    past_trajectory = torch.cat((torch.arange(len(past_trajectory)).unsqueeze(1), past_trajectory), dim=1)
-    # if distance is still far, ignore
-    next_trajectory_x = predict_trajectory(past_trajectory[:, [0, 1]])
-    next_trajectory_y = predict_trajectory(past_trajectory[:, [0, 2]])
-    next_trajectory = torch.cat((next_trajectory_x, next_trajectory_y), dim=-1)
+    dist_danger = agent.model.dangerous_rulers
 
-    dx = torch.abs(past_states[-1, 0, -2] - next_trajectory[-1, 0])
-    dy = torch.abs(past_states[-1, 0, -1] - next_trajectory[-1, 1])
+    # get the positions
+    decide_frame_num = 15
+    enemy_last_positions = past_states[-decide_frame_num:, danger_obj, -2:]
+    player_position = past_states[-1:, 0, -2:]
+    # check the closest dist between player and enemy within 5 next frames
+    enemy_next_positions, speed_axis = get_next_positions(enemy_last_positions)
+    collision, collision_moment = get_collide_moment(player_position, enemy_next_positions, dist_danger[danger_obj])
 
-    # predict its trajectory is quite important
-    if agent.model.unaligned_axis == -2 and dy > 0.1:
-        decision = "ignore"
-    elif agent.model.unaligned_axis == -1 and dx > 0.1:
-        decision = "ignore"
-    elif args.obj_data[danger_obj][2]:
-        decision = "kill"
-    # otherwise, avoid
+    if collision:
+        if args.obj_data[danger_obj][2]:
+            decision = "kill"
+        else:
+            decision = "avoid"
     else:
-        decision = "avoid"
-    print(f"- decision: {decision} enemy")
+        decision = "ignore"
+    print(f"- decision: {decision} {args.row_names[danger_obj]}")
     return decision

@@ -310,7 +310,7 @@ class SmpReasoner(nn.Module):
                 if "up" in self.args.action_names[a_i]:
                     player_pos -= 0.01
                 if "down" in self.args.action_names[a_i]:
-                    player_pos += 0.00
+                    player_pos += 0.01
             else:
                 raise ValueError
             dist = torch.abs(target_pos - player_pos).sum()
@@ -335,7 +335,7 @@ class SmpReasoner(nn.Module):
                 if "up" in self.args.action_names[a_i]:
                     player_pos -= 0.01
                 if "down" in self.args.action_names[a_i]:
-                    player_pos += 0.00
+                    player_pos += 0.01
             else:
                 raise ValueError
             dist = torch.abs(target_pos - player_pos).sum()
@@ -348,18 +348,15 @@ class SmpReasoner(nn.Module):
             pos_diff = target_pos - player_pos
         except RuntimeError:
             print("")
-        if pos_diff[0] > 0:
-            dir_x = "right"
+        if pos_diff[0] > 0.05:
+            action = "right"
+        elif pos_diff[0] < -0.05:
+            action = "left"
         else:
-            dir_x = "left"
-
-        if pos_diff[1] > 0:
-            dir_y = "down"
-        else:
-            dir_y = "up"
+            action = "fire"
 
         best_action = 1
         for a_i in range(len(self.args.action_names)):
-            if dir_x in self.args.action_names[a_i] and dir_y in self.args.action_names[a_i]:
+            if action == self.args.action_names[a_i]:
                 best_action = a_i
         return best_action

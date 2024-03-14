@@ -256,6 +256,17 @@ def atari_patches(args, agent, env_args, info):
             env_args.game_over = True
     if args.m == 'Kangaroo':
         env_args.game_over = True
+        agent.model.aligning = False
+        agent.model.unaligned = False
+        agent.model.kill_enemy = False
+        agent.model.target_obj = 1
+        agent.model.next_target = agent.model.requirement[0]
+        agent.model.unaligned_target = None
+        agent.model.sub_align_axis = None
+        agent.model.align_to_sub_object = False
+        agent.model.unaligned_align_to_sub_object = False
+
+
     if args.m == "Breakout":
         if env_args.terminated or env_args.truncated:
             env_args.game_over = True
