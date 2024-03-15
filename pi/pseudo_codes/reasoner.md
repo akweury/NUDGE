@@ -36,13 +36,25 @@ def find_target_object(next_obj, target_obj, sub_target_obj, player):
 
 
 # decision for the enemy: kill, avoid, or ignore
+
 def decision_maker(player, enemy, next_obj):
+    # check with enemy first (mask)
+    # invent predicate like : killable, exist, collide
+    # killable: player fired then it vanished 
+        
     if enemy is not None:
         if collide(player, enemy):
             if enemy.killable:
+                # if enemy exist, enemy killable, enemy collide => kill
+                # clause:    kill := exist(enemy), killable(enemy), collide(enemy, agent)
                 return "kill", enemy
             else:
+                # if enemy exist, enemy not killable, enemy collide => avoid
+                # clause:    avoid := exist(enemy), not_killable(enemy), collide(enemy, agent)
                 return "avoid", enemy
+    # if no enemy exist, align to target object
+    # clause:    align := not_exist(enemy), align(next_obj)
+    # clause:    align := exist(enemy), not_collide(enemy, agent).
     # ignore enemy and align to the target object 
     return "align", next_obj
 
