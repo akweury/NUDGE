@@ -573,7 +573,7 @@ def batch_calculate_overlap(boxes1, boxes2):
 
     # Calculate the width and height of the intersection rectangle for each pair of boxes
     width_inter = torch.maximum(torch.zeros_like(x1_inter), x2_inter - x1_inter)
-    height_inter = torch.maximum(torch.zeros_like(y1_inter), y2_inter - y1_inter)
+    height_inter = torch.maximum(torch.zeros_like(y1_inter), y1_inter - y2_inter)
 
     # Calculate the area of intersection rectangle for each pair of boxes
     area_inter = width_inter * height_inter
@@ -589,23 +589,32 @@ def batch_calculate_overlap(boxes1, boxes2):
     return overlap_areas, overlap_ratios
 
 
-def reason_o2o_states(args, states, actions, rewards):
+def get_collide_per_state(states):
     # two aries: collide frame, collide object
 
-    collide_areas = torch.zeros(states.shape[0], states.shape[1])
-    collide_ratios = torch.zeros(states.shape[0], states.shape[1])
+    collide_areas = torch.zeros(states.shape[0], states.shape[1]).to(states.device)
+    collide_ratios = torch.zeros(states.shape[0], states.shape[1]).to(states.device)
 
-    for o_i in range(states.shape[1]):
+    for o_i in range(1, states.shape[1]):
         mask_player = states[:, 0, :-6].sum(dim=-1) > 0
         mask_oi = states[:, o_i, :-6].sum(dim=-1) > 0
         mask = mask_player & mask_oi
         player_position = states[mask, 0, -6:-2]
         others_position = states[mask, o_i, -6:-2]
-        collide_areas[mask, o_i], collide_ratios[mask, o_i] = <batch_calculate_overlap(player_position, others_position)
+        collide_areas[mask, o_i], collide_ratios[mask, o_i] = batch_calculate_overlap(player_position, others_position)
 
-    collide_areas, collide_max = collide_areas.max(dim=1)
+    collide, collide_max = collide_areas.max(dim=1)
+    return collide_max
+
+
+def reason_o2o_states(args, states, actions, rewards):
+    collides = get_collide_per_state(states)
+    data = torch.cat((collides.unsqueeze(0), rewards.unsqueeze(0)), dim=0).to("cpu")
+
+    draw_utils.plot_compare_line_chart(data, args.output_folder, "collide_and_reward", figsize=(30, 10),
+                                       row_names=["collide", "reward"])
+
     print("")
-    return None
 
 
 def min_value_greater_than(tensor, threshold):
