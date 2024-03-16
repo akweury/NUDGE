@@ -203,9 +203,8 @@ game_info_kangaroo = {
     "name": "Kangaroo",
     "obj_info": obj_info_kangaroo,
     "state_row_num": sum([n for _, n, _, _, _ in obj_info_kangaroo]),
-    "state_col_num": len(obj_info_kangaroo) + 4,
+    "state_col_num": len(obj_info_kangaroo) + 6,
 }
-
 
 action_name_18 = ["noop",  # 0
                   "fire",  # 1

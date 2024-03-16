@@ -550,42 +550,62 @@ def reason_shiftness(args, states):
     return rulers
 
 
-def reason_o2o_states(args, states, actions, rewards, row_names):
-    g_i = 0
-    discount_rewards = discounted_rewards(rewards[g_i], gamma=0.95, alignment=0.01).to(states[g_i].device)
-    obj_width = []
-    obj_height = []
-    x_close_data = []
-    y_close_data = []
+def batch_calculate_overlap(boxes1, boxes2):
+    """
+    Calculate the overlap between multiple pairs of rectangle boxes in batch.
 
-    for o_i in range(states[g_i].shape[1]):
-        touchable, movable, score = args.obj_data[o_i]
-        state_data = states[g_i][:, [0, o_i]]
-        x_close, y_close, width, height = get_intersect_key_frames(o_i, state_data, touchable, movable, score)
+    Parameters:
+        boxes1 (torch.Tensor): Coordinates of the first set of rectangle boxes with shape (batch_size, 4).
+                               Each row represents a box in the format [x1, y1, x2, y2].
+        boxes2 (torch.Tensor): Coordinates of the second set of rectangle boxes with shape (batch_size, 4).
+                               Each row represents a box in the format [x1, y1, x2, y2].
 
-        obj_width.append(width)
-        obj_height.append(height)
-        if x_close is not torch.nan:
-            o_position = torch.repeat_interleave(states[g_i][:, o_i, -2:].mean(dim=0).unsqueeze(0),
-                                                 x_close.shape[0], dim=0)
-            x_close = torch.cat((x_close, o_position), dim=1)
+    Returns:
+        overlap_areas (torch.Tensor): The overlap areas between each pair of boxes in the batch.
+                                       If the boxes do not overlap, return 0.
+        overlap_ratios (torch.Tensor): The ratios of overlap areas to the areas of the smaller boxes in each pair.
+    """
+    # Calculate the coordinates of the intersection rectangle for each pair of boxes
+    x1_inter = torch.maximum(boxes1[:, 0], boxes2[:, 0])
+    y1_inter = torch.minimum(boxes1[:, 1], boxes2[:, 1])
+    x2_inter = torch.minimum(boxes1[:, 2], boxes2[:, 2])
+    y2_inter = torch.maximum(boxes1[:, 3], boxes2[:, 3])
 
-            x_close_data.append(x_close)
-        if y_close is not torch.nan:
-            o_position = torch.repeat_interleave(states[g_i][:, o_i, -2:].mean(dim=0).unsqueeze(0),
-                                                 y_close.shape[0], dim=0)
-            y_close = torch.cat((y_close, o_position), dim=1)
-            y_close_data.append(y_close)
-    args.obj_wh = torch.cat((torch.tensor(obj_width).unsqueeze(0), torch.tensor(obj_height).unsqueeze(0)), dim=0)
-    x_close_data = torch.cat(x_close_data, dim=0)
-    x_close_data = torch.cat((x_close_data, torch.tensor([[-2]] * len(x_close_data)).to(args.device)), dim=1)
-    y_close_data = torch.cat(y_close_data, dim=0)
-    y_close_data = torch.cat((y_close_data, torch.tensor([[-1]] * len(y_close_data)).to(args.device)), dim=1)
+    # Calculate the width and height of the intersection rectangle for each pair of boxes
+    width_inter = torch.maximum(torch.zeros_like(x1_inter), x2_inter - x1_inter)
+    height_inter = torch.maximum(torch.zeros_like(y1_inter), y2_inter - y1_inter)
 
-    close_data = torch.cat((x_close_data, y_close_data), dim=0)
-    close_data = close_data[close_data[:, 1].sort()[1]]
+    # Calculate the area of intersection rectangle for each pair of boxes
+    area_inter = width_inter * height_inter
 
-    return close_data
+    # Calculate the areas of the two input rectangles for each pair of boxes
+    area_box1 = (boxes1[:, 2] - boxes1[:, 0]) * (boxes1[:, 1] - boxes1[:, 3])
+    area_box2 = (boxes2[:, 2] - boxes2[:, 0]) * (boxes2[:, 1] - boxes2[:, 3])
+
+    # Calculate the overlap areas and overlap ratios for each pair of boxes
+    overlap_areas = area_inter
+    overlap_ratios = overlap_areas / torch.min(area_box1, area_box2)
+
+    return overlap_areas, overlap_ratios
+
+
+def reason_o2o_states(args, states, actions, rewards):
+    # two aries: collide frame, collide object
+
+    collide_areas = torch.zeros(states.shape[0], states.shape[1])
+    collide_ratios = torch.zeros(states.shape[0], states.shape[1])
+
+    for o_i in range(states.shape[1]):
+        mask_player = states[:, 0, :-6].sum(dim=-1) > 0
+        mask_oi = states[:, o_i, :-6].sum(dim=-1) > 0
+        mask = mask_player & mask_oi
+        player_position = states[mask, 0, -6:-2]
+        others_position = states[mask, o_i, -6:-2]
+        collide_areas[mask, o_i], collide_ratios[mask, o_i] = <batch_calculate_overlap(player_position, others_position)
+
+    collide_areas, collide_max = collide_areas.max(dim=1)
+    print("")
+    return None
 
 
 def min_value_greater_than(tensor, threshold):
@@ -599,6 +619,7 @@ def min_value_greater_than(tensor, threshold):
     original_index = (tensor > threshold).nonzero()[min_index][0].item()
 
     return min_value.item(), original_index
+
 
 def determine_next_sub_object(args, agent, state, dist_now):
     if dist_now > 0:
@@ -623,7 +644,7 @@ def determine_next_sub_object(args, agent, state, dist_now):
     # Mask the tensor to get non-negative values
     # Find the minimum non-negative value and its index
     try:
-        if dy_sub_same_others.max()<-0.05:
+        if dy_sub_same_others.max() < -0.05:
             min_value, min_index = min_value_greater_than(dy_sub_same_others, -1)
         else:
             min_value, min_index = min_value_greater_than(dy_sub_same_others, -0.05)
