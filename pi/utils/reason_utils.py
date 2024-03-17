@@ -578,22 +578,193 @@ def batch_calculate_overlap(boxes1, boxes2):
     # Calculate the area of intersection rectangle for each pair of boxes
     area_inter = width_inter * height_inter
 
-    # Calculate the areas of the two input rectangles for each pair of boxes
-    area_box1 = (boxes1[:, 2] - boxes1[:, 0]) * (boxes1[:, 1] - boxes1[:, 3])
-    area_box2 = (boxes2[:, 2] - boxes2[:, 0]) * (boxes2[:, 1] - boxes2[:, 3])
-
     # Calculate the overlap areas and overlap ratios for each pair of boxes
-    overlap_areas = area_inter
-    overlap_ratios = overlap_areas / torch.min(area_box1, area_box2)
-
-    return overlap_areas, overlap_ratios
+    overlap = area_inter > 0
+    return overlap
 
 
-def get_collide_per_state(states):
+def batch_calculate_left(boxes1, boxes2):
+    """
+    Determine if boxes1 are on the left side of boxes2 and their positions align on the y-axis.
+
+    Parameters:
+        boxes1 (torch.Tensor): Coordinates of the first set of rectangle boxes with shape (batch_size, 4).
+                               Each row represents a box in the format [x1, y1, x2, y2].
+        boxes2 (torch.Tensor): Coordinates of the second set of rectangle boxes with shape (batch_size, 4).
+                               Each row represents a box in the format [x1, y1, x2, y2].
+
+    Returns:
+        is_on_left (torch.Tensor): A boolean tensor indicating if boxes1 are on the left side of boxes2
+                                    and their positions align on the y-axis for each pair.
+    """
+    # Extract y-coordinates of the top and bottom edges of boxes1 and boxes2
+    bottom_edge_boxes1 = boxes1[:, 1]
+    bottom_edge_boxes2 = boxes2[:, 1]
+    top_edge_boxes1 = boxes1[:, 3]
+    top_edge_boxes2 = boxes2[:, 3]
+
+    align_y_axis = ((bottom_edge_boxes1 < bottom_edge_boxes2) & (bottom_edge_boxes1 > top_edge_boxes2)) | \
+                   ((bottom_edge_boxes2 < bottom_edge_boxes1) & (bottom_edge_boxes2 > top_edge_boxes1))
+
+    # Extract x-coordinate of the right edge of boxes1 and the left edge of boxes2
+    right_edge_boxes1 = boxes1[:, 2]
+    left_edge_boxes2 = boxes2[:, 0]
+
+    # Determine if boxes1 are on the left side of boxes2 and their positions align on the y-axis
+    is_on_left = align_y_axis & (right_edge_boxes1 < left_edge_boxes2)
+
+    return is_on_left
+
+
+def batch_calculate_right(boxes1, boxes2):
+    """
+    Determine if boxes1 are on the left side of boxes2 and their positions align on the y-axis.
+
+    Parameters:
+        boxes1 (torch.Tensor): Coordinates of the first set of rectangle boxes with shape (batch_size, 4).
+                               Each row represents a box in the format [x1, y1, x2, y2].
+        boxes2 (torch.Tensor): Coordinates of the second set of rectangle boxes with shape (batch_size, 4).
+                               Each row represents a box in the format [x1, y1, x2, y2].
+
+    Returns:
+        is_on_left (torch.Tensor): A boolean tensor indicating if boxes1 are on the left side of boxes2
+                                    and their positions align on the y-axis for each pair.
+    """
+    # Extract y-coordinates of the top and bottom edges of boxes1 and boxes2
+    top_edge_boxes1 = boxes1[:, 3]
+    top_edge_boxes2 = boxes2[:, 3]
+    bottom_edge_boxes1 = boxes1[:, 1]
+    bottom_edge_boxes2 = boxes2[:, 1]
+
+    # Determine if the positions align on the y-axis
+    align_y_axis = ((bottom_edge_boxes1 < bottom_edge_boxes2) & (bottom_edge_boxes1 > top_edge_boxes2)) | \
+                   ((bottom_edge_boxes2 < bottom_edge_boxes1) & (bottom_edge_boxes2 > top_edge_boxes1))
+
+    # Extract x-coordinate of the right edge of boxes1 and the left edge of boxes2
+    left_edge_boxes1 = boxes1[:, 0]
+    right_edge_boxes2 = boxes2[:, 2]
+
+    # Determine if boxes1 are on the left side of boxes2 and their positions align on the y-axis
+    is_on_left = align_y_axis & (left_edge_boxes1 > right_edge_boxes2)
+
+    return is_on_left
+
+
+def batch_calculate_above(boxes1, boxes2):
+    """
+    Determine if boxes1 are on the left side of boxes2 and their positions align on the y-axis.
+
+    Parameters:
+        boxes1 (torch.Tensor): Coordinates of the first set of rectangle boxes with shape (batch_size, 4).
+                               Each row represents a box in the format [x1, y1, x2, y2].
+        boxes2 (torch.Tensor): Coordinates of the second set of rectangle boxes with shape (batch_size, 4).
+                               Each row represents a box in the format [x1, y1, x2, y2].
+
+    Returns:
+        is_on_left (torch.Tensor): A boolean tensor indicating if boxes1 are on the left side of boxes2
+                                    and their positions align on the y-axis for each pair.
+    """
+    # Extract y-coordinates of the top and bottom edges of boxes1 and boxes2
+    right_edge_boxes1 = boxes1[:, 2]
+    right_edge_boxes2 = boxes2[:, 2]
+    left_edge_boxes1 = boxes1[:, 0]
+    left_edge_boxes2 = boxes2[:, 0]
+
+    # Determine if the positions align on the y-axis
+    align_x_axis = ((left_edge_boxes1 > left_edge_boxes2) & (left_edge_boxes1 < right_edge_boxes2)) | \
+                   ((left_edge_boxes2 > left_edge_boxes1) & (left_edge_boxes2 < right_edge_boxes1))
+
+    # Extract x-coordinate of the right edge of boxes1 and the left edge of boxes2
+    bottom_edge_boxes1 = boxes1[:, 1]
+    top_edge_boxes2 = boxes2[:, 3]
+
+    # Determine if boxes1 are on the left side of boxes2 and their positions align on the y-axis
+    is_above = align_x_axis & (bottom_edge_boxes1 < top_edge_boxes2)
+
+    return is_above
+
+
+def batch_calculate_below(boxes1, boxes2):
+    """
+    Determine if boxes1 are on the left side of boxes2 and their positions align on the y-axis.
+
+    Parameters:
+        boxes1 (torch.Tensor): Coordinates of the first set of rectangle boxes with shape (batch_size, 4).
+                               Each row represents a box in the format [x1, y1, x2, y2].
+        boxes2 (torch.Tensor): Coordinates of the second set of rectangle boxes with shape (batch_size, 4).
+                               Each row represents a box in the format [x1, y1, x2, y2].
+
+    Returns:
+        is_on_left (torch.Tensor): A boolean tensor indicating if boxes1 are on the left side of boxes2
+                                    and their positions align on the y-axis for each pair.
+    """
+    # Extract y-coordinates of the top and bottom edges of boxes1 and boxes2
+    right_edge_boxes1 = boxes1[:, 2]
+    right_edge_boxes2 = boxes2[:, 2]
+    left_edge_boxes1 = boxes1[:, 0]
+    left_edge_boxes2 = boxes2[:, 0]
+
+    # Determine if the positions align on the y-axis
+    align_x_axis = ((left_edge_boxes1 > left_edge_boxes2) & (left_edge_boxes1 < right_edge_boxes2)) | \
+                   ((left_edge_boxes2 > left_edge_boxes1) & (left_edge_boxes2 < right_edge_boxes1))
+
+    # Extract x-coordinate of the right edge of boxes1 and the left edge of boxes2
+    top_edge_boxes1 = boxes1[:, 1]
+    bottom_edge_boxes2 = boxes2[:, 3]
+
+    # Determine if boxes1 are on the left side of boxes2 and their positions align on the y-axis
+    is_below = align_x_axis & (top_edge_boxes1 > bottom_edge_boxes2)
+
+    return is_below
+
+
+def are_distances_aligned(boxes1, boxes2):
+    """
+    Check if the distances between the centers of two boxes align with x and y axes and are less than given thresholds.
+
+    Parameters:
+        boxes1 (torch.Tensor): Coordinates of the first set of rectangle boxes with shape (batch_size, 4).
+                               Each row represents a box in the format [x1, y1, x2, y2].
+        boxes2 (torch.Tensor): Coordinates of the second set of rectangle boxes with shape (batch_size, 4).
+                               Each row represents a box in the format [x1, y1, x2, y2].
+        th_x (float): Threshold for the x-axis distance between box centers.
+        th_y (float): Threshold for the y-axis distance between box centers.
+
+    Returns:
+        are_aligned (torch.Tensor): A boolean tensor indicating if the distances align with x and y axes
+                                     and are less than the given thresholds for each pair of boxes.
+    """
+    x1_mean = (boxes1[:, 2] - boxes1[:, 0]).mean()
+    x2_mean = (boxes2[:, 2] - boxes2[:, 0]).mean()
+    y1_mean = (boxes1[:, 1] - boxes1[:, 3]).mean()
+    y2_mean = (boxes2[:, 1] - boxes2[:, 3]).mean()
+
+    th_x, th_y = (x1_mean + x2_mean) / 2, (y1_mean + y2_mean) / 2
+
+    # Calculate the center coordinates of each box
+    center_x1 = (boxes1[:, 0] + boxes1[:, 2]) / 2
+    center_y1 = (boxes1[:, 1] + boxes1[:, 3]) / 2
+    center_x2 = (boxes2[:, 0] + boxes2[:, 2]) / 2
+    center_y2 = (boxes2[:, 1] + boxes2[:, 3]) / 2
+
+    # Calculate the distances between the centers of the boxes along x and y axes
+    dist_x = torch.abs(center_x1 - center_x2)
+    dist_y = torch.abs(center_y1 - center_y2)
+
+    # Check if the distances align with x and y axes and are less than the given thresholds
+    are_aligned = (dist_x <= th_x) & (dist_y <= th_y)
+
+    return are_aligned
+
+
+def get_state_symbolic_data(states):
     # two aries: collide frame, collide object
-
-    collide_areas = torch.zeros(states.shape[0], states.shape[1]).to(states.device)
-    collide_ratios = torch.zeros(states.shape[0], states.shape[1]).to(states.device)
+    player_is_overlap_with = torch.zeros(states.shape[0], states.shape[1], dtype=torch.bool).to(states.device)
+    player_is_left_of = torch.zeros(states.shape[0], states.shape[1], dtype=torch.bool).to(states.device)
+    player_is_right_of = torch.zeros(states.shape[0], states.shape[1], dtype=torch.bool).to(states.device)
+    player_is_above_of = torch.zeros(states.shape[0], states.shape[1], dtype=torch.bool).to(states.device)
+    player_is_below_of = torch.zeros(states.shape[0], states.shape[1], dtype=torch.bool).to(states.device)
+    player_is_close_to = torch.zeros(states.shape[0], states.shape[1], dtype=torch.bool).to(states.device)
 
     for o_i in range(1, states.shape[1]):
         mask_player = states[:, 0, :-6].sum(dim=-1) > 0
@@ -601,14 +772,27 @@ def get_collide_per_state(states):
         mask = mask_player & mask_oi
         player_position = states[mask, 0, -6:-2]
         others_position = states[mask, o_i, -6:-2]
-        collide_areas[mask, o_i], collide_ratios[mask, o_i] = batch_calculate_overlap(player_position, others_position)
+        player_is_overlap_with[mask, o_i] = batch_calculate_overlap(player_position, others_position)
+        player_is_left_of[mask, o_i] = batch_calculate_left(player_position, others_position)
+        player_is_right_of[mask, o_i] = batch_calculate_right(player_position, others_position)
+        player_is_above_of[mask, o_i] = batch_calculate_above(player_position, others_position)
+        player_is_below_of[mask, o_i] = batch_calculate_below(player_position, others_position)
+        player_is_close_to[mask, o_i] = are_distances_aligned(player_position, others_position)
 
-    collide, collide_max = collide_areas.max(dim=1)
-    return collide_max
+    player_data = torch.cat((
+        player_is_overlap_with.unsqueeze(2),
+        player_is_left_of.unsqueeze(2),
+        player_is_right_of.unsqueeze(2),
+        player_is_above_of.unsqueeze(2),
+        player_is_below_of.unsqueeze(2),
+        player_is_close_to.unsqueeze(2),
+    ), dim=2)
+    return player_data
 
 
 def reason_o2o_states(args, states, actions, rewards):
-    collides = get_collide_per_state(states)
+    player_data = get_state_symbolic_data(states)
+
     data = torch.cat((collides.unsqueeze(0), rewards.unsqueeze(0)), dim=0).to("cpu")
 
     draw_utils.plot_compare_line_chart(data, args.output_folder, "collide_and_reward", figsize=(30, 10),
