@@ -53,7 +53,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--hardness", type=int, default=0, help="Hardness of the game.")
     parser.add_argument("--teacher_game_nums", type=int, default=100, help="Number of the teacher game.")
     parser.add_argument("--student_game_nums", type=int, default=1000, help="Number of the student game.")
-    parser.add_argument("--train_epochs", type=int, default=100, help="Epochs for training the predicate weight.")
+    parser.add_argument("--train_epochs", type=int, default=5, help="Epochs for training the predicate weight.")
     parser.add_argument("--fact_conf", type=float, default=0.1,
                         help="Minimum confidence required to save a fact as a behavior.")
     args = parser.parse_args()

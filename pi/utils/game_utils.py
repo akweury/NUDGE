@@ -63,8 +63,9 @@ class RolloutBuffer:
         self.actions = [torch.tensor(state_info['actions'][i]) for i in range(len(state_info['actions']))]
         self.logic_states = [torch.tensor(state_info['logic_states'][i]) for i in
                              range(len(state_info['logic_states']))]
-        self.game_next_states = [torch.tensor(state_info['next_states'][i]) for i in
-                                 range(len(state_info['next_states']))]
+        if state_info['next_states'][0][0] is not None:
+            self.game_next_states = [torch.tensor(state_info['next_states'][i]) for i in
+                                     range(len(state_info['next_states']))]
         self.rewards = [torch.tensor(state_info['reward'][i]) for i in range(len(state_info['reward']))]
         self.row_names = state_info['row_names']
         if 'neural_states' in list(state_info.keys()):

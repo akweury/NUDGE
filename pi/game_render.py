@@ -65,6 +65,114 @@ def _act(args, agent, env_args, env):
     return info
 
 
+def _path_finding(args, agent, state):
+    # if save for next n frames, go to the target object
+    target_obj = agent.model.next_target
+    dx_now = torch.abs(state[0, -2] - state[target_obj, -2])
+    dy_now = torch.abs(state[0, -1] - state[target_obj, -1])
+    th = 0.04
+    if agent.model.aligning:
+        agent.model.align_frame_counter += 1
+        dist_now = torch.abs(state[0, agent.model.align_axis] - state[target_obj, agent.model.align_axis])
+        agent.model.move_history.append(state[0, agent.model.align_axis])
+        if len(agent.model.move_history) > 20:
+            move_dist = torch.abs(agent.model.move_history[-15] - agent.model.move_history[-1])
+            if move_dist < th:
+                agent.model.aligning = False
+                agent.model.align_to_sub_object = False
+                # if align with the target
+                if dist_now < 0.02:
+                    print(
+                        f"- (Success) Align with {args.row_names[agent.model.next_target]} at Axis {agent.model.align_axis}.\n"
+                        f"- Find Next Align Target.")
+                # if it doesn't decrease, update the symbolic-state
+                else:
+                    print(f"- Move distance over (param) 20 frames is {move_dist}, "
+                          f"less than threshold (param) {th:.4f} \n"
+                          f"- Failed to align with {args.row_names[agent.model.next_target]} at axis "
+                          f"{agent.model.align_axis}")
+                    # update aligned object
+                    agent.model.align_to_sub_object = True
+            else:
+                print(f"Align to {args.row_names[agent.model.next_target]} at axis {agent.model.align_axis}")
+    else:
+        agent.model.aligning = True
+        agent.unaligned_target = None
+        agent.model.align_frame_counter = 0
+        agent.model.move_history = []
+        # determine next sub aligned object
+        if agent.model.align_to_sub_object:
+            if -2 in agent.model.align_axis:
+                dist_now = dx_now
+            elif -1 in agent.model.align_axis:
+                dist_now = dy_now
+            else:
+                raise ValueError
+            next_target, align_axis = reason_utils.determine_next_sub_object(args, agent, state, dist_now)
+
+            agent.model.align_axis = align_axis
+            agent.model.next_target = next_target
+
+        # determine the aligned axis of the target object
+        else:
+            agent.model.next_target = agent.model.target_obj
+            axis_is_aligned = [dx_now < 0.02, dy_now < 0.02]
+            if not axis_is_aligned[0]:
+                agent.model.align_axis = [-1]
+                agent.model.dist = dy_now
+            elif not axis_is_aligned[1]:
+                agent.model.align_axis = [-1]
+                agent.model.dist = dy_now
+        print(
+            f"- New Align Target {args.row_names[agent.model.next_target]}, Axis: {agent.model.align_axis}.\n")
+
+
+def _learn(args, agent, env_args, test_neg_beh):
+    if env_args.frame_i > args.jump_frames and agent.agent_type == "smp":
+        state = torch.tensor(env_args.logic_state).to(args.device)
+        _path_finding(args, agent, state)
+
+        # check dangerous
+        agent.model.kill_enemy = False
+        danger_obj_index, danger_axis, strategy = reason_utils.learn_surrounding_dangerous(env_args, agent, args,
+                                                                                           test_neg_beh)
+
+        if danger_obj_index is None and not agent.model.danger_reset:
+            agent.model.next_target = agent.model.requirement[0]
+            agent.model.danger_reset = True
+        if danger_obj_index is not None:
+            agent.model.danger_reset = False
+            agent.model.unaligned_target = danger_obj_index
+            agent.model.unaligned_axis = danger_axis
+
+            # decide to kill/avoid/ignore
+            # if save for next n frames, go to the target object
+            if strategy == "avoid":
+                if agent.model.unaligned:
+                    reason_utils.observe_unaligned(args, agent, state)
+                else:
+                    agent.model.unaligned = True
+                    agent.model.unaligned_frame_counter = 0
+                    agent.model.move_history = []
+                    # check if it is fine to directly unaligned
+                    if agent.model.unaligned_align_to_sub_object:
+                        # align to other object
+                        reason_utils.align_to_other_obj(args, agent, state)
+                    else:
+                        # unaligned x
+                        reason_utils.unaligned_axis(args, agent, state)
+                return
+            elif strategy == "kill":
+                agent.model.next_target = agent.model.unaligned_target
+                agent.model.kill_enemy = True
+                return
+            elif strategy == "ignore":
+                agent.model.unaligned_target = None
+                agent.model.unaligned_axis = None
+        else:
+            agent.model.unaligned_target = None
+
+
 def _reason(args, agent, env_args):
     if env_args.frame_i > args.jump_frames and agent.agent_type == "smp":
         state = torch.tensor(env_args.logic_state).to(args.device)
@@ -364,14 +472,14 @@ def render_atari_game(agent, args, save_buffer):
         draw_utils.release_video(video_out)
 
 
-def train_atari_game(teacher_agent, student_agent, args, o2o_data):
+def train_atari_game(agent, args, test_neg_beh):
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
-    env_args = EnvArgs(agent=teacher_agent, args=args, window_size=obs.shape[:2], fps=60)
-    teacher_agent.position_norm_factor = obs.shape[0]
-    student_agent.position_norm_factor = obs.shape[0]
+    env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
+    agent.position_norm_factor = obs.shape[0]
     video_out = game_utils.get_game_viewer(env_args)
-    for game_i in tqdm(range(env_args.train_num), desc=f"Agent  {teacher_agent.agent_type}"):
+    game_frame_counter = []
+    for game_i in tqdm(range(env_args.train_num), desc=f"Agent  {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
@@ -385,42 +493,29 @@ def train_atari_game(teacher_agent, student_agent, args, o2o_data):
                     continue
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
-            env_args.logic_state, _ = extract_logic_state_atari(env.objects, args.game_info, obs.shape[0])
+            env_args.logic_state, _ = extract_logic_state_atari(args, env.objects, args.game_info, obs.shape[0])
+            env_args.past_states.append(env_args.logic_state)
             env_args.obs = env_args.last_obs
-            student_agent.now_state = torch.tensor(env_args.logic_state).to(args.device)
-            teacher_agent.now_state = torch.tensor(env_args.logic_state).to(args.device)
-            info = _act(teacher_agent, env_args, env)
-
-            next_state, _ = extract_logic_state_atari(env.objects, args.game_info, obs.shape[0])
-            student_agent.next_state = torch.tensor(next_state).to(args.device)
-
-            _update_weights(env_args, student_agent)
-            # update the weight of student agent
+            _learn(args, agent, env_args, test_neg_beh)
+            info = _act(args, agent, env_args, env)
 
             game_patches.atari_frame_patches(args, env_args, info)
-            if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
-                game_patches.atari_patches(args, student_agent, env_args, info)
-                env_args.frame_i = len(env_args.logic_states) - 1
 
+            if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
+                game_patches.atari_patches(args, agent, env_args, info)
+                env_args.frame_i = len(env_args.logic_states) - 1
                 env_args.update_lost_live(info["lives"])
-                # revise the game rules
-                if teacher_agent.agent_type == "smp" and len(
-                        env_args.logic_states) > 2 and game_i % args.reasoning_gap == 0 and args.revise:
-                    teacher_agent.revise_loss(args, env_args)
-                    if args.with_explain:
-                        game_utils.revise_loss_log(env_args, teacher_agent, video_out)
-                if args.save_frame:
-                    # move dead frame to some folder
-                    shutil.copy2(env_args.output_folder / "frames" / f"g_{env_args.game_i}_f_{env_args.frame_i}.png",
-                                 env_args.output_folder / "lost_frames" / f"g_{env_args.game_i}_f_{env_args.frame_i}.png")
+                game_frame_counter.append(env_args.frame_i)
+                print(f"game {env_args.game_i}: frames {env_args.frame_i}.")
+
             else:
                 # record game states
                 env_args.buffer_frame()
                 # render the game
                 if args.with_explain or args.save_frame:
-                    _render(args, student_agent, env_args, video_out, "dqn")
+                    _render(args, agent, env_args, video_out, "dqn")
 
-                    game_utils.frame_log(teacher_agent, env_args)
+                    game_utils.frame_log(agent, env_args)
             # update game args
             # if env_args.explain_text != '':
             #     print("")
@@ -428,14 +523,14 @@ def train_atari_game(teacher_agent, student_agent, args, o2o_data):
         env_args.buffer_game(args.zero_reward, args.save_frame)
 
         env_args.reset_buffer_game()
-        game_utils.game_over_log(args, teacher_agent, env_args)
+        # game_utils.game_over_log(args, agent, env_args)
         env_args.win_rate[game_i] = env_args.state_score  # update ep score
     env.close()
-    game_utils.finish_one_run(env_args, args, teacher_agent)
-
-    torch.save(student_agent.model.pwt, args.o2o_weight_file)
-
     draw_utils.release_video(video_out)
+    game_frame_counter = torch.tensor(game_frame_counter).float().mean()
+
+    game_utils.save_game_buffer(args, env_args)
+    return game_frame_counter
 
 
 def show_analysis_frame(frame_i, env_args, video_out, frame, pos, acc):

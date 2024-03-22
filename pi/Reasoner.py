@@ -61,8 +61,9 @@ class SmpReasoner(nn.Module):
         self.beh_weights = (self.beh_weights - self.beh_weights.min()) / (
                 self.beh_weights.max() - self.beh_weights.min())
 
-    def update(self, args, behaviors, requirement):
+    def update(self, args, requirement):
         self.requirement = requirement
+        self.danger_reset = True
         self.aligning = False
         self.unaligned = False
         self.kill_enemy = False
@@ -81,9 +82,6 @@ class SmpReasoner(nn.Module):
 
         if args is not None:
             self.args = args
-        if behaviors is not None and len(behaviors) > 0:
-            self.behaviors = behaviors
-            self.set_model()
 
     def forward(self, x):
         # game Getout: tensor with size 1 * 4 * 6
@@ -300,20 +298,20 @@ class SmpReasoner(nn.Module):
         #     raise ValueError
         dist_actions = torch.zeros(len(self.args.action_names))
         for a_i in range(len(self.args.action_names)):
-            player_pos = x[align_axis].clone()
-            if align_axis == -2:
+            player_pos = x[-2:].clone()
+            if -2 in align_axis:
                 if "left" in self.args.action_names[a_i]:
-                    player_pos -= 0.01
+                    player_pos[0] = max(0.11, player_pos[0] - 0.01)
                 if "right" in self.args.action_names[a_i]:
-                    player_pos += 0.01
-            elif align_axis == -1:
+                    player_pos[0] = min(0.65, player_pos[0] + 0.01)
+            elif -1 in align_axis:
                 if "up" in self.args.action_names[a_i]:
-                    player_pos -= 0.01
+                    player_pos[1] = max(player_pos[1] - 0.01, 0.14)
                 if "down" in self.args.action_names[a_i]:
-                    player_pos += 0.01
+                    player_pos[1] = min(0.83, player_pos[1] + 0.01)
             else:
                 raise ValueError
-            dist = torch.abs(target_pos - player_pos).sum()
+            dist = torch.abs(target_pos - player_pos[align_axis]).sum()
             dist_actions[a_i] = dist
         best_action = torch.argmin(dist_actions)
         return best_action
@@ -325,20 +323,24 @@ class SmpReasoner(nn.Module):
         #     raise ValueError
         dist_actions = torch.zeros(len(self.args.action_names))
         for a_i in range(len(self.args.action_names)):
-            player_pos = x[avoid_axis].clone()
-            if avoid_axis == -2:
-                if "left" in self.args.action_names[a_i]:
-                    player_pos -= 0.01
-                if "right" in self.args.action_names[a_i]:
-                    player_pos += 0.01
-            elif avoid_axis == -1:
-                if "up" in self.args.action_names[a_i]:
-                    player_pos -= 0.01
-                if "down" in self.args.action_names[a_i]:
-                    player_pos += 0.01
-            else:
-                raise ValueError
-            dist = torch.abs(target_pos - player_pos).sum()
+            player_pos = x[-2:].clone()
+            try:
+                if -2 in avoid_axis:
+                    if "left" in self.args.action_names[a_i]:
+                        player_pos[0] = max(0.11, player_pos[0] - 0.01)
+                    if "right" in self.args.action_names[a_i]:
+                        player_pos[0] = min(0.65, player_pos[0] + 0.01)
+                elif -1 in avoid_axis:
+                    if "up" in self.args.action_names[a_i]:
+                        player_pos[1] = max(player_pos[1] - 0.01, 0.14)
+                    if "down" in self.args.action_names[a_i]:
+                        player_pos[1] = min(0.83, player_pos[1] + 0.01)
+
+                else:
+                    raise ValueError
+            except TypeError:
+                print("")
+            dist = torch.abs(target_pos - player_pos[avoid_axis]).sum()
             dist_actions[a_i] = dist
         best_action = torch.argmax(dist_actions)
         return best_action

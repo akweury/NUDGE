@@ -3,6 +3,7 @@ import torch
 import shutil
 from collections import deque
 
+
 class EnvArgs():
     """ generate one micro-program
     """
@@ -109,8 +110,8 @@ class EnvArgs():
         self.dead_counter += 1
 
     def buffer_frame(self):
-        if self.frame_i<self.jump_frames:
-            return
+        # if self.frame_i < self.jump_frames:
+        #     return
         self.next_states.append(self.next_state)
         self.logic_states.append(self.logic_state)
         self.actions.append(self.action)

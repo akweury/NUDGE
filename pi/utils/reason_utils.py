@@ -544,8 +544,8 @@ def reason_shiftness(args, states):
               f"dx neg {args.row_names[dx_neg_indices[i]]}, \n"
               f"dy pos {args.row_names[dy_pos_indices[i]]}, \n"
               f"dy neg {args.row_names[dy_pos_indices[i]]}. ")
-    rulers = {"decrease": {-2: dx_neg_indices, -1: dy_neg_indices},
-              "increase": {-2: dx_pos_indices, -1: dy_neg_indices}}
+    rulers = {"decrease": {-2: dx_neg_indices.tolist(), -1: dy_neg_indices.tolist()},
+              "increase": {-2: dx_pos_indices.tolist(), -1: dy_neg_indices.tolist()}}
 
     return rulers
 
@@ -739,7 +739,7 @@ def are_distances_aligned(boxes1, boxes2):
     y1_mean = (boxes1[:, 1] - boxes1[:, 3]).mean()
     y2_mean = (boxes2[:, 1] - boxes2[:, 3]).mean()
 
-    th_x, th_y = (x1_mean + x2_mean) / 2, (y1_mean + y2_mean) / 2
+    th_x, th_y = (x1_mean + x2_mean), (y1_mean + y2_mean)
 
     # Calculate the center coordinates of each box
     center_x1 = (boxes1[:, 0] + boxes1[:, 2]) / 2
@@ -755,6 +755,56 @@ def are_distances_aligned(boxes1, boxes2):
     are_aligned = (dist_x <= th_x) & (dist_y <= th_y)
 
     return are_aligned
+
+
+def extract_positive_behaviors(args, states, rewards, actions):
+    positive_states = states[rewards > 0]
+    positive_actions = actions[rewards > 0]
+    positive_behaviors = []
+    p_texts = ["overlap", "left_of", "right_of", "above_of", "below_of", "close_to"]
+    used_relation_b = []
+    # print out
+    for state_i in range(len(positive_states)):
+        for o_i in range(len(positive_states[state_i])):
+            obj_a = f"{args.row_names[0]}_"
+            relation = ""
+            obj_b = f"{args.row_names[o_i]}"
+            for p_i in range(len(positive_states[state_i][o_i])):
+                if positive_states[state_i, o_i, p_i]:
+                    relation += p_texts[p_i] + "_"
+            if relation != "" and relation + obj_b not in used_relation_b:
+                used_relation_b.append(relation + obj_b)
+                positive_behaviors.append([o_i, relation[:-1], positive_actions[state_i], "kill"])
+                positive_behaviors.append([o_i, relation[:-1], positive_actions[state_i], "align"])
+                positive_behaviors.append([o_i, relation[:-1], positive_actions[state_i], "avoid"])
+                print(f"positive {state_i}: {obj_a + relation + obj_b}, act: {positive_actions[state_i]}")
+
+    return positive_behaviors
+
+
+def extract_negative_behaviors(args, states, rewards, actions):
+    negative_states = states[rewards < 0]
+    negative_actions = actions[rewards < 0]
+    negative_behaviors = []
+    p_texts = ["overlap", "left_of", "right_of", "above_of", "below_of", "close_to"]
+    used_relation_b = []
+
+    # print out
+    for state_i in range(len(negative_states)):
+        for o_i in range(len(negative_states[state_i])):
+            obj_a = f"{args.row_names[0]}_"
+            relation = ""
+            obj_b = f"{args.row_names[o_i]}"
+            for p_i in range(len(negative_states[state_i][o_i])):
+                if negative_states[state_i, o_i, p_i]:
+                    relation += p_texts[p_i] + "_"
+            if relation != "" and relation + obj_b not in used_relation_b:
+                used_relation_b.append(relation + obj_b)
+                negative_behaviors.append([o_i, relation[:-1], negative_actions[state_i], "kill"])
+                negative_behaviors.append([o_i, relation[:-1], negative_actions[state_i], "avoid"])
+                print(f"negative {state_i}: {obj_a + relation + obj_b}, act: {negative_actions[state_i]}")
+
+    return negative_behaviors
 
 
 def get_state_symbolic_data(states):
@@ -790,15 +840,15 @@ def get_state_symbolic_data(states):
     return player_data
 
 
-def reason_o2o_states(args, states, actions, rewards):
+def reason_o2o_states(args, states, actions):
+    rewards = torch.zeros(len(states))
+    rewards[[0]] = 100
+    rewards[[629]] = -100
     player_data = get_state_symbolic_data(states)
+    positive_behaviors = extract_positive_behaviors(args, player_data, rewards, actions)
+    negative_behaviors = extract_negative_behaviors(args, player_data, rewards, actions)
 
-    data = torch.cat((collides.unsqueeze(0), rewards.unsqueeze(0)), dim=0).to("cpu")
-
-    draw_utils.plot_compare_line_chart(data, args.output_folder, "collide_and_reward", figsize=(30, 10),
-                                       row_names=["collide", "reward"])
-
-    print("")
+    return positive_behaviors, negative_behaviors
 
 
 def min_value_greater_than(tensor, threshold):
@@ -816,15 +866,15 @@ def min_value_greater_than(tensor, threshold):
 
 def determine_next_sub_object(args, agent, state, dist_now):
     if dist_now > 0:
-        rulers = agent.model.shift_rulers["decrease"][agent.model.align_axis]
+        rulers = agent.model.shift_rulers["decrease"][str(agent.model.align_axis[0])]
     elif dist_now < 0:
-        rulers = agent.model.shift_rulers["increase"][agent.model.align_axis]
+        rulers = agent.model.shift_rulers["increase"][str(agent.model.align_axis[0])]
     else:
         raise ValueError
-    if agent.model.align_axis == -1:
-        sub_align_axis = -2
-    elif agent.model.align_axis == -2:
-        sub_align_axis = -1
+    if -1 in agent.model.align_axis:
+        sub_align_axis = [-2]
+    elif -2 in agent.model.align_axis:
+        sub_align_axis = [-1]
     else:
         raise ValueError
 
@@ -887,6 +937,61 @@ def reason_danger_distance(args, states, rewards):
     return danger_distance
 
 
+def learn_surrounding_dangerous(env_args, agent, args, test_neg_beh):
+    # only one object and one axis can be determined
+    # determine the first coming enemy, which might not be the closest one, it depends on its position and speed
+    frame_eval_num = 15
+    if test_neg_beh is None:
+        neg_behs = agent.negative_behaviors
+    else:
+        neg_behs = agent.negative_behaviors + [test_neg_beh]
+
+    time_lefts = []
+    min_objs = []
+    danger_axis_list = []
+    strategy_list = []
+    for neg_beh in neg_behs:
+        min_dist_obj, danger_axis = None, None
+        enemy_id, danger_relation, danger_action, strategy = neg_beh
+
+        past_states = torch.tensor(env_args.past_states)
+
+        # get the positions
+        enemy_ids = args.same_others[enemy_id]
+        for id in enemy_ids:
+            enemy_last_positions = past_states[-frame_eval_num:, id, -6:-2]
+            player_position = past_states[-1:, 0, -6:-2]
+            player_position = torch.repeat_interleave(player_position, frame_eval_num, dim=0)
+
+            # check the closest dist between player and enemy within 5 next frames
+            enemy_next_positions_l, speed_axis_l = get_next_positions(enemy_last_positions[:, :2])
+            enemy_next_positions_r, speed_axis_r = get_next_positions(enemy_last_positions[:, 2:])
+            enemy_next_positions = torch.cat((enemy_next_positions_l, enemy_next_positions_r), dim=1)
+
+            satisfaction = get_satisfy_moment(player_position, enemy_next_positions, danger_relation)
+            if satisfaction.float().sum() > 0:
+                time_left = satisfaction.float().argmax()
+            else:
+                time_left = 1000
+            time_lefts.append(time_left)
+            if satisfaction.sum() > 0:
+                min_dist_obj = id
+                danger_axis = get_danger_axis(danger_relation)
+                print(f"-(might danger) "
+                      f"{danger_relation} {args.row_names[min_dist_obj]} "
+                      f"after {satisfaction.float().argmax()} frames.")
+                aasss = 1
+            min_objs.append(min_dist_obj)
+            danger_axis_list.append(danger_axis)
+            strategy_list.append(strategy)
+    best_id = torch.tensor(time_lefts).argmin()
+
+    min_dist_obj = min_objs[best_id]
+    danger_axis = danger_axis_list[best_id]
+    strategy = strategy_list[best_id]
+    return min_dist_obj, danger_axis, strategy
+
+
 def determine_surrounding_dangerous(env_args, agent, args):
     # only one object and one axis can be determined
     # determine the first coming enemy, which might not be the closest one, it depends on its position and speed
@@ -946,8 +1051,9 @@ def observe_unaligned(args, agent, state):
             # if aligning to the sub-object
             if agent.model.align_to_sub_object:
                 agent.model.align_to_sub_object = False
+
                 # if align with the target
-                if dist_now < 0.02:
+                if dist_now.sum() < 0.02:
                     print(f"- (Success) Align with {args.row_names[agent.model.next_target]} "
                           f"at Axis {agent.model.align_axis}.\n"
                           f"- Now try to find out next Align Target.")
@@ -955,7 +1061,7 @@ def observe_unaligned(args, agent, state):
                 else:
                     # update aligned object
                     agent.model.align_to_sub_object = True
-                    print(f"- Move distance over (param) 20 frames is {move_dist:.4f}, "
+                    print(f"- Move distance over (param) 20 frames is {move_dist}, "
                           f"less than threshold (param) {min_move_dist:.4f} \n"
                           f"- Failed to align with {args.row_names[agent.model.next_target]} at axis "
                           f"{agent.model.align_axis}")
@@ -963,7 +1069,7 @@ def observe_unaligned(args, agent, state):
             # if unaligned to the target object
             elif agent.model.unaligned:
                 agent.model.unaligned = False
-                if dist_now > 0.02:
+                if dist_now.sum() > 0.02:
                     # successful unaligned with object at axis
                     print(f"- (Success) Unaligned with {args.row_names[agent.model.next_target]} "
                           f"at Axis {agent.model.align_axis}.\n"
@@ -971,7 +1077,7 @@ def observe_unaligned(args, agent, state):
                 else:
                     # update aligned object
                     agent.model.align_to_sub_object = True
-                    print(f"- Move distance over (param) 20 frames is {move_dist:.4f}, "
+                    print(f"- Move distance over (param) 20 frames is {move_dist}, "
                           f"less than threshold (param) {min_move_dist:.4f} \n"
                           f"- Failed to unaligned with {args.row_names[agent.model.next_target]} at axis "
                           f"{agent.model.unaligned_axis}")
@@ -1004,10 +1110,10 @@ def unaligned_axis(args, agent, state):
     dy = torch.abs(state[0, -1] - state[agent.model.unaligned_target, -1])
     axis_is_unaligned = [dx > 0.02, dy > 0.02]
     if not axis_is_unaligned[0] and dx < dy:
-        agent.model.unaligned_axis = -2
+        agent.model.unaligned_axis = [-2]
         agent.model.dist = dx
     elif not axis_is_unaligned[1] and dy < dx:
-        agent.model.unaligned_axis = -1
+        agent.model.unaligned_axis = [-1]
         agent.model.dist = dy
     print(f"- New Unaligned Target {args.row_names[agent.model.next_target]}, Axis: {agent.model.unaligned_axis}.\n")
 
@@ -1048,6 +1154,44 @@ def get_collide_moment(player_position, enemy_positions, save_dist):
     collide = (dist_e_to_p < save_dist_).sum().bool()
     collide_frame = (dist_e_to_p < save_dist_).float().argmax()
     return collide, collide_frame
+
+
+def get_danger_axis(relation):
+    danger_axis = []
+    if "left_of" in relation:
+        danger_axis.append(-1)
+    if "right_of" in relation:
+        danger_axis.append(-1)
+    if "below_of" in relation:
+        danger_axis.append(-2)
+    if "above_of" in relation:
+        danger_axis.append(-2)
+    if "close_to" in relation:
+        danger_axis.append(-1)
+        danger_axis.append(-2)
+    if "overlap" in relation:
+        danger_axis.append(-1)
+        danger_axis.append(-2)
+    danger_axis = torch.tensor(danger_axis).unique()
+    return danger_axis
+
+
+def get_satisfy_moment(player_position, enemy_positions, danger_relation):
+    satisfaction = torch.ones(len(player_position), dtype=torch.bool)
+    if "overlap" in danger_relation:
+        satisfaction &= batch_calculate_overlap(player_position, enemy_positions)
+    if "left_of" in danger_relation:
+        satisfaction &= batch_calculate_left(player_position, enemy_positions)
+    if "right_of" in danger_relation:
+        satisfaction &= batch_calculate_right(player_position, enemy_positions)
+    if "below_of" in danger_relation:
+        satisfaction &= batch_calculate_below(player_position, enemy_positions)
+    if "above_of" in danger_relation:
+        satisfaction &= batch_calculate_above(player_position, enemy_positions)
+    if "close_to" in danger_relation:
+        satisfaction &= are_distances_aligned(player_position, enemy_positions)
+
+    return satisfaction
 
 
 def decide_deal_to_enemy(args, env_args, agent, danger_obj):

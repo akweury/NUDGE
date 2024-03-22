@@ -96,7 +96,7 @@ class SymbolicMicroProgramPlayer:
             self.states = data["states"]
             self.actions = data["actions"]
             self.rewards = data["rewards"]
-            self.next_states = data["next_states"]
+            # self.next_states = data["next_states"]
             self.row_names = data["row_names"]
         else:
             buffer = game_utils.load_buffer(args)
@@ -113,12 +113,12 @@ class SymbolicMicroProgramPlayer:
                 self.actions.append(buffer.actions[g_i].to(self.args.device))
                 self.rewards.append(buffer.rewards[g_i].to(self.args.device))
                 self.states.append(buffer.logic_states[g_i].to(self.args.device))
-                self.next_states.append(buffer.game_next_states[g_i].to(self.args.device))
+                # self.next_states.append(buffer.game_next_states[g_i].to(self.args.device))
 
             train_data = {"states": self.states,
                           "actions": self.actions,
                           "rewards": self.rewards,
-                          "next_states": self.next_states,
+                          # "next_states": self.next_states,
                           "row_names": self.row_names}
             torch.save(train_data, args.buffer_tensor_filename)
 
@@ -166,35 +166,14 @@ class SymbolicMicroProgramPlayer:
             self.lost_actions = torch.cat((self.lost_actions, new_lost_actions), 0)
             self.lost_rewards = torch.cat((self.lost_rewards, new_lost_rewards), 0)
 
-    def update_behaviors(self, pf_behaviors, def_behaviors, att_behaviors, skill_att_behavior, o2o_behaviors,
-                         args=None):
+    def update_behaviors(self, args=None):
         if args is not None:
             self.args = args
-        if skill_att_behavior is not None:
-            self.skill_att_behavior = skill_att_behavior
-        if o2o_behaviors is not None:
-            self.o2o_behaviors = o2o_behaviors
-        if pf_behaviors is not None:
-            self.pf_behaviors = pf_behaviors
-        if def_behaviors is not None:
-            self.def_behaviors = def_behaviors
-        if att_behaviors is not None:
-            self.att_behaviors = att_behaviors
-        if self.pf_behaviors is None:
-            self.pf_behaviors = []
-        if self.def_behaviors is None:
-            self.def_behaviors = []
-        if self.att_behaviors is None:
-            self.att_behaviors = []
-        if self.skill_att_behaviors is None:
-            self.skill_att_behavior = []
-        if self.o2o_behaviors is None:
-            self.o2o_behaviors = []
-        try:
-            self.behaviors = self.pf_behaviors + self.def_behaviors + self.att_behaviors + self.skill_att_behaviors + self.o2o_behaviors
-        except TypeError:
-            print('Type Error (update behaviors)')
-        self.model.update(args, self.behaviors, self.requirement)
+        self.requirement = [1, 2, 3, 4, 5]
+        self.model.update(args, self.requirement)
+        self.model.shift_rulers = file_utils.load_json(self.args.output_folder/"shift_rulers.json")
+        self.model.dangerous_rulers = torch.load(self.args.output_folder/"dangerous_rulers.pt")
+
         #
         # weights = torch.zeros(len(self.behaviors)).to(self.args.device)
         # for beh_i, beh in enumerate(self.behaviors):
@@ -346,13 +325,15 @@ class SymbolicMicroProgramPlayer:
 
     def reasoning_o2o_behaviors(self):
 
-        self.o2o_data = reason_utils.reason_o2o_states(self.args, self.states[0], self.actions[0], self.rewards[0])
+        positive_behaviors, negative_behaviors = reason_utils.reason_o2o_states(self.args,
+                                                                                          self.states[0],
+                                                                                          self.actions[0])
         self.model.shift_rulers = reason_utils.reason_shiftness(self.args, self.states[0][self.args.jump_frames:])
+
         self.model.dangerous_rulers = reason_utils.reason_danger_distance(self.args,
                                                                           self.states[0][self.args.jump_frames:],
                                                                           self.rewards[0][self.args.jump_frames:])
-        self.requirement = [1, 2, 3, 4, 5]
-        # return self.o2o_data
+        return positive_behaviors, negative_behaviors
 
     def train_state_estimator(self):
         current_states = self.states[0]
