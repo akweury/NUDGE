@@ -127,10 +127,7 @@ game_info_assault = {
     "axis_y_col": 6
 }
 
-obj_info_pong = [('Player', 1),
-                 ('Ball', 1),
-                 ('Enemy', 1)
-                 ]
+
 action_name_pong = ["noop",  # 0
                     "fire",  # 1
                     "right",  # 2
@@ -141,12 +138,17 @@ action_name_pong = ["noop",  # 0
 
 prop_info_pong = {'axis_x_col': 3,
                   'axis_y_col': 4}
+
+obj_info_pong = [('Player', 1),  # 0 # 0,
+                 ('Ball', 1),  # 1 # 1
+                 ('Enemy', 1),  # 2 # 2
+                 ]
+
 game_info_pong = {
     'name': 'Pong',
     "obj_info": obj_info_pong,
-    'prop_info': prop_info_pong,
-    "state_row_num": 3,
-    "state_col_num": 5
+    'state_row_num': sum([n for _, n in obj_info_pong]),
+    "state_col_num": len(obj_info_pong) + 6,
 }
 
 obj_info_asterix = [('Player', 1),
@@ -165,11 +167,10 @@ action_name_asterix = ["noop",  # 0
                        ]
 
 game_info_asterix = {
+    'name': 'Asterix',
     "obj_info": obj_info_asterix,
-    "state_row_num": 17,
-    "state_col_num": 5,
-    "axis_x_col": 3,
-    "axis_y_col": 4
+    'state_row_num': sum([n for _, n in obj_info_asterix]),
+    "state_col_num": len(obj_info_asterix) + 6,
 }
 obj_info_breakout = [('Player', 1),
                      ('Ball', 1),
@@ -352,11 +353,9 @@ def get_obj_data(obj_info):
     data_touchable = []
     data_movable = []
     data_scorable = []
-    for obj_name, obj_num, touchable, movable, score in obj_info:
+    for obj_name, obj_num in obj_info:
         row_names += [obj_name] * obj_num
-        data_touchable += [touchable] * obj_num
-        data_movable += [movable] * obj_num
-        data_scorable += [score] * obj_num
+
     data = torch.cat((torch.tensor(data_touchable).unsqueeze(1),
                       torch.tensor(data_movable).unsqueeze(1),
                       torch.tensor(data_scorable).unsqueeze(1)), dim=1)

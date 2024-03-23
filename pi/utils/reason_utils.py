@@ -1217,3 +1217,62 @@ def decide_deal_to_enemy(args, env_args, agent, danger_obj):
         decision = "ignore"
     print(f"- decision: {decision} {args.row_names[danger_obj]}")
     return decision
+
+
+def reason_pong(args, states, actions):
+    states = torch.cat(states, dim=0)
+    actions = torch.cat(actions, dim=0)
+    mask_player = states[:, 0, :-6].sum(dim=-1) > 0
+    for obj_i in range(1, states.shape[1]):
+        mask_obj_i = states[:, obj_i, :-6].sum(dim=-1) > 0
+        mask = mask_player & mask_obj_i
+        op_res = states[mask, 0, -2:] - states[mask, obj_i, -2:]
+        x_ticks = torch.arange(-0.1, 0.8, 0.1)
+        y_ticks = torch.arange(-0.7, 0.8, 0.1)
+        x_ticks_2decimal = ["{:.1f}".format(num) for num in x_ticks]
+        y_ticks_2decimal = ["{:.1f}".format(num) for num in y_ticks]
+        heat_data = torch.zeros((len(actions.unique()), len(y_ticks), len(x_ticks)))
+        for a_i, action in enumerate(actions.unique()):
+            action_mask = (actions == action) & mask
+            op_res = math_utils.closest_one_percent(op_res, unit=0.1)
+            values, value_counts = op_res[action_mask].unique(dim=0, return_counts=True)
+            for v_i in range(len(values)):
+                x_i = torch.where(values[v_i, 0] == x_ticks)[0].to(torch.int)
+                y_i = torch.where(values[v_i, 1] == y_ticks)[0].to(torch.int)
+
+                heat_data[a_i, y_i, x_i] = value_counts[v_i].to(torch.float)
+
+        action_heat_data = heat_data.argmax(dim=0)
+        draw_utils.plot_heat_map(data=action_heat_data, path=args.output_folder, name=f"{args.row_names[obj_i]}",
+                                 figsize=(10, 5), row_names=y_ticks_2decimal, col_names=x_ticks_2decimal)
+    return None
+
+
+def reason_asterix(args, states, actions):
+    states = torch.cat(states, dim=0)
+    actions = torch.cat(actions, dim=0)
+    mask_player = states[:, 0, :-6].sum(dim=-1) > 0
+    for obj_i in range(1, states.shape[1]):
+        mask_obj_i = states[:, obj_i, :-6].sum(dim=-1) > 0
+        mask = mask_player & mask_obj_i
+        op_res = states[mask, 0, -2:] - states[mask, obj_i, -2:]
+        x_ticks = torch.arange(-0.1, 0.8, 0.1)
+        y_ticks = torch.arange(-0.7, 0.8, 0.1)
+        x_ticks_2decimal = ["{:.1f}".format(num) for num in x_ticks]
+        y_ticks_2decimal = ["{:.1f}".format(num) for num in y_ticks]
+        heat_data = torch.zeros((len(actions.unique()), len(y_ticks), len(x_ticks)))
+        for a_i, action in enumerate(actions.unique()):
+            action_mask = (actions == action) & mask
+            op_res = math_utils.closest_one_percent(op_res, unit=0.1)
+            values, value_counts = op_res[action_mask].unique(dim=0, return_counts=True)
+            for v_i in range(len(values)):
+                x_i = torch.where(values[v_i, 0] == x_ticks)[0].to(torch.int)
+                y_i = torch.where(values[v_i, 1] == y_ticks)[0].to(torch.int)
+
+                heat_data[a_i, y_i, x_i] = value_counts[v_i].to(torch.float)
+
+        action_heat_data = heat_data.argmax(dim=0)
+        draw_utils.plot_heat_map(data=action_heat_data, path=args.output_folder,
+                                 name=f"{args.m}_{args.row_names[obj_i]}",
+                                 figsize=(10, 5), row_names=y_ticks_2decimal, col_names=x_ticks_2decimal)
+    return None

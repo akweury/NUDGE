@@ -113,11 +113,27 @@ def extract_obj_state_boxing(obj, obj_id, objt_len, prop_info, norm_factor):
     return obj_state
 
 
-def extract_obj_state_pong(obj, obj_id, objt_len, prop_info, norm_factor):
+def extract_obj_state_pong(obj, obj_id, objt_len, norm_factor):
     obj_state = torch.zeros(objt_len)
     obj_state[obj_id] = 1
-    obj_state[prop_info['axis_x_col']] = obj.center[0] / norm_factor
-    obj_state[prop_info['axis_y_col']] = obj.center[1] / norm_factor
+    obj_state[-6] = obj.center[0] / norm_factor - 0.5 * obj.wh[0] / norm_factor  # x1
+    obj_state[-5] = obj.center[1] / norm_factor + 0.5 * obj.wh[1] / norm_factor  # y1
+    obj_state[-4] = obj.center[0] / norm_factor + 0.5 * obj.wh[0] / norm_factor  # x2
+    obj_state[-3] = obj.center[1] / norm_factor - 0.5 * obj.wh[1] / norm_factor  # y2
+    obj_state[-2] = obj.center[0] / norm_factor
+    obj_state[-1] = obj.center[1] / norm_factor
+    return obj_state
+
+
+def extract_obj_state_asterix(obj, obj_id, objt_len, norm_factor):
+    obj_state = torch.zeros(objt_len)
+    obj_state[obj_id] = 1
+    obj_state[-6] = obj.center[0] / norm_factor - 0.5 * obj.wh[0] / norm_factor  # x1
+    obj_state[-5] = obj.center[1] / norm_factor + 0.5 * obj.wh[1] / norm_factor  # y1
+    obj_state[-4] = obj.center[0] / norm_factor + 0.5 * obj.wh[0] / norm_factor  # x2
+    obj_state[-3] = obj.center[1] / norm_factor - 0.5 * obj.wh[1] / norm_factor  # y2
+    obj_state[-2] = obj.center[0] / norm_factor
+    obj_state[-1] = obj.center[1] / norm_factor
     return obj_state
 
 
@@ -167,7 +183,7 @@ def extract_logic_state_atari(args, objects, game_info, norm_factor, noise=False
     args.row_names = []
 
     # print(objects)
-    for o_i, (obj_name, obj_num, _, _, _) in enumerate(game_info["obj_info"]):
+    for o_i, (obj_name, obj_num) in enumerate(game_info["obj_info"]):
         obj_count = 0
         for obj in objects:
             if obj.category == obj_name:
@@ -178,7 +194,10 @@ def extract_logic_state_atari(args, objects, game_info, norm_factor, noise=False
                                                                              game_info['prop_info'], norm_factor)
                 elif game_info['name'] == 'Pong':
                     states[row_start + obj_count] = extract_obj_state_pong(obj, o_i, game_info["state_col_num"],
-                                                                           game_info['prop_info'], norm_factor)
+                                                                           norm_factor)
+                elif game_info['name'] == 'Asterix':
+                    states[row_start + obj_count] = extract_obj_state_asterix(obj, o_i, game_info["state_col_num"],
+                                                                              norm_factor)
                 elif game_info['name'] == 'Kangaroo':
                     states[row_start + obj_count] = extract_obj_state_kangaroo(obj, o_i, game_info["state_col_num"],
                                                                                norm_factor)

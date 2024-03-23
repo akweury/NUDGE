@@ -246,8 +246,10 @@ def atari_frame_patches(args, env_args, info):
 
 def atari_patches(args, agent, env_args, info):
     if args.m == "Asterix":
-        env_args.logic_states, env_args.actions, env_args.rewards, env_args.game_over = patch_asterix(
-            args.game_info, env_args.logic_states, env_args.actions, env_args.rewards, info['lives'])
+        env_args.game_over = True
+        env_args.new_life = True
+        # env_args.logic_states, env_args.actions, env_args.rewards, env_args.game_over = patch_asterix(
+        #     args.game_info, env_args.logic_states, env_args.actions, env_args.rewards, info['lives'])
     if args.m == 'Boxing':
         reward_tensor = torch.tensor(env_args.rewards)
         reward_tensor[reward_tensor > 0].sum()

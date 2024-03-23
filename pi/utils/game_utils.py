@@ -445,5 +445,9 @@ def get_ocname(m):
         return "Kangaroo"
     elif m=="fishing_derby":
         return "FishingDerby"
+    elif m=="Pong":
+        return "Pong"
+    elif m=="Asterix":
+        return "Asterix"
     else:
         raise ValueError

@@ -402,15 +402,57 @@ def render_getout(agent, args, save_buffer):
         draw_utils.release_video(video_out)
 
 
+def collect_full_data(agent, args, save_buffer):
+    oc_name = game_utils.get_ocname(args.m)
+    env = OCAtari(oc_name, mode="revised", hud=True, render_mode='rgb_array')
+    obs, info = env.reset()
+    env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
+    agent.position_norm_factor = obs.shape[0]
+    for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
+        env_args.obs, info = env.reset()
+        env_args.reset_args(game_i)
+        env_args.reset_buffer_game()
+        while not env_args.game_over:
+            env_args.logic_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
+                                                                                   obs.shape[0])
+            env_args.past_states.append(env_args.logic_state)
+            env_args.obs = env_args.last_obs
+            _reason(args, agent, env_args)
+            info = _act(args, agent, env_args, env)
+
+            game_patches.atari_frame_patches(args, env_args, info)
+
+            if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
+                game_patches.atari_patches(args, agent, env_args, info)
+                env_args.frame_i = len(env_args.logic_states) - 1
+                env_args.update_lost_live(info["lives"])
+            else:
+                # record game states
+                env_args.next_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
+                                                                                      obs.shape[0])
+                env_args.buffer_frame()
+            # update game args
+            env_args.update_args()
+        env_args.buffer_game(args.zero_reward, args.save_frame)
+
+        env_args.reset_buffer_game()
+        game_utils.game_over_log(args, agent, env_args)
+
+        env_args.win_rate[game_i] = env_args.state_score  # update ep score
+
+    env.close()
+    game_utils.finish_one_run(env_args, args, agent)
+    if save_buffer:
+        game_utils.save_game_buffer(args, env_args)
+
+
+
 def render_atari_game(agent, args, save_buffer):
     oc_name = game_utils.get_ocname(args.m)
     env = OCAtari(oc_name, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     agent.position_norm_factor = obs.shape[0]
-    # if agent.agent_type == "smp":
-    #     agent.model.pwt = torch.load(args.o2o_weight_file)
-
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
     for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):

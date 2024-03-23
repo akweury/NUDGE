@@ -171,8 +171,8 @@ class SymbolicMicroProgramPlayer:
             self.args = args
         self.requirement = [1, 2, 3, 4, 5]
         self.model.update(args, self.requirement)
-        self.model.shift_rulers = file_utils.load_json(self.args.output_folder/"shift_rulers.json")
-        self.model.dangerous_rulers = torch.load(self.args.output_folder/"dangerous_rulers.pt")
+        self.model.shift_rulers = file_utils.load_json(self.args.output_folder / "shift_rulers.json")
+        self.model.dangerous_rulers = torch.load(self.args.output_folder / "dangerous_rulers.pt")
 
         #
         # weights = torch.zeros(len(self.behaviors)).to(self.args.device)
@@ -326,14 +326,19 @@ class SymbolicMicroProgramPlayer:
     def reasoning_o2o_behaviors(self):
 
         positive_behaviors, negative_behaviors = reason_utils.reason_o2o_states(self.args,
-                                                                                          self.states[0],
-                                                                                          self.actions[0])
+                                                                                self.states[0],
+                                                                                self.actions[0])
         self.model.shift_rulers = reason_utils.reason_shiftness(self.args, self.states[0][self.args.jump_frames:])
 
         self.model.dangerous_rulers = reason_utils.reason_danger_distance(self.args,
                                                                           self.states[0][self.args.jump_frames:],
                                                                           self.rewards[0][self.args.jump_frames:])
         return positive_behaviors, negative_behaviors
+
+    def pong_reasoner(self):
+        reason_utils.reason_pong(self.args, self.states, self.actions)
+    def asterix_reasoner(self):
+        reason_utils.reason_asterix(self.args, self.states, self.actions)
 
     def train_state_estimator(self):
         current_states = self.states[0]
