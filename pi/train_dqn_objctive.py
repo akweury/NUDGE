@@ -17,8 +17,7 @@ from pi.utils import args_utils
 from src import config
 from pi.utils.atari import game_patches
 
-# Define constants
-ENV_NAME = 'Asterix'
+
 BATCH_SIZE = 32
 MEMORY_SIZE = 1000000
 GAMMA = 0.99
@@ -144,7 +143,7 @@ class DQNAgent:
 args = args_utils.load_args(config.path_exps, None)
 
 # Initialize environment
-env = OCAtari(ENV_NAME, mode="revised", hud=True, render_mode='rgb_array')
+env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
 obs, info = env.reset()
 num_actions = env.action_space.n
 input_shape = env.observation_space.shape
@@ -208,9 +207,6 @@ for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
         # update game args
         env_args.update_args()
 
-
-
-
         env_args.rewards.append(env_args.reward)
         env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
         next_state = env.dqn_obs.to(args.device) if not env_args.terminated else None
@@ -228,7 +224,6 @@ for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
             EPSILON *= EPSILON_DECAY
             EPSILON = max(EPSILON_MIN, EPSILON)
 
-
     # env_args.buffer_game(args.zero_reward, args.save_frame)
     env_args.win_rate[game_i] = sum(env_args.rewards[:-1])  # update ep score
     env_args.reset_buffer_game()
@@ -237,7 +232,7 @@ for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
         # print(f"win_score_sum_past_5_games: {env_args.learn_performance[game_i]}")
     if game_i % 50 == 10:
         draw_utils.plot_line_chart(env_args.learn_performance.unsqueeze(0), path=args.output_folder,
-                                   labels=["sum_past_5"], title=f"{args.m}_sum_past_5_{game_i}", figure_size=(30,5))
+                                   labels=["sum_past_5"], title=f"{args.m}_sum_past_5_{game_i}", figure_size=(30, 5))
     # game_utils.game_over_log(args, agent, env_args)
 
 env.close()

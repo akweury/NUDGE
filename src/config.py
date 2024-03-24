@@ -189,21 +189,21 @@ game_info_breakout = {
     "axis_y_col": 4
 }
 # name, quantity, touchable, movable, killable
-obj_info_kangaroo = [('Player', 1, True, True, False),  # 0 # 0,
-                     ('Child', 1, True, True, False),  # 1 # 1
-                     ('Fruit', 3, True, False, False),  # 2 # 2,3,4
-                     ('Bell', 1, True, False, False),  # 3 # 5
-                     ('Platform', 4, True, False, False),  # 4 # 6,7,8,9
-                     ('Ladder', 3, True, False, False),  # 5 # 10,11,12
-                     ('Monkey', 4, False, True, True),  # 6 # 13,14,15,16
-                     ('FallingCoconut', 3, False, True, False),  # 7 # 17,18,19
-                     ('ThrownCoconut', 3, False, True, False)  # 8 # 20,21,22
+obj_info_kangaroo = [('Player', 1),  # 0 # 0,
+                     ('Child', 1),  # 1 # 1
+                     ('Fruit', 3),  # 2 # 2,3,4
+                     ('Bell', 1),  # 3 # 5
+                     ('Platform', 4),  # 4 # 6,7,8,9
+                     ('Ladder', 3),  # 5 # 10,11,12
+                     ('Monkey', 4),  # 6 # 13,14,15,16
+                     ('FallingCoconut', 3),  # 7 # 17,18,19
+                     ('ThrownCoconut', 3)  # 8 # 20,21,22
                      ]
 
 game_info_kangaroo = {
     "name": "Kangaroo",
     "obj_info": obj_info_kangaroo,
-    "state_row_num": sum([n for _, n, _, _, _ in obj_info_kangaroo]),
+    "state_row_num": sum([n for _, n in obj_info_kangaroo]),
     "state_col_num": len(obj_info_kangaroo) + 6,
 }
 

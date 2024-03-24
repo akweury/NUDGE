@@ -107,6 +107,7 @@ class EnvArgs():
     def update_lost_live(self, current_live):
         self.current_lives = current_live
         self.score_update = True
+        self.reward = self.reward_lost_one_live
         self.rewards[-1] += self.reward_lost_one_live
         self.dead_counter += 1
 
