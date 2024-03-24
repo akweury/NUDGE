@@ -11,11 +11,12 @@ import random
 from collections import namedtuple, deque
 from ocatari.core import OCAtari
 
-from pi.utils import game_utils, draw_utils
+from pi.utils import game_utils, draw_utils, math_utils, reason_utils
 from pi.utils.EnvArgs import EnvArgs
 from pi.utils import args_utils
 from src import config
 from pi.utils.atari import game_patches
+from pi.utils.oc_utils import extract_logic_state_atari
 
 
 BATCH_SIZE = 32
@@ -124,7 +125,7 @@ class DQNAgent:
         action_batch = torch.cat(batch.action)
         reward_batch = torch.cat(batch.reward)
 
-        state_action_values = self.policy_net(state_batch).gather(1, action_batch)
+        state_action_values = self.policy_net(state_batch).gather(1, action_batch.unsqueeze(1))
 
         next_state_values = torch.zeros(BATCH_SIZE).to(non_final_next_states.device)
         next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
@@ -140,12 +141,32 @@ class DQNAgent:
         self.optimizer.step()
 
 
+import os.path
+from pi.utils.game_utils import create_agent
+from pi.game_render import collect_full_data
+
 args = args_utils.load_args(config.path_exps, None)
+
+
+# learn behaviors from data
+student_agent = create_agent(args, agent_type='smp')
+# collect game buffer from neural agent
+if not os.path.exists(args.buffer_filename):
+    teacher_agent = create_agent(args, agent_type=args.teacher_agent)
+    collect_full_data(teacher_agent, args, save_buffer=True)
+student_agent.load_atari_buffer(args)
+
+if args.m == "Pong:":
+    student_agent.pong_reasoner().to(args.device)
+if args.m == "Asterix":
+    obj_data = student_agent.asterix_reasoner().to(args.device)
+
+
 
 # Initialize environment
 env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
 obs, info = env.reset()
-num_actions = env.action_space.n
+num_actions = 17
 input_shape = env.observation_space.shape
 
 # Initialize agent
@@ -169,7 +190,11 @@ for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
                 continue
             env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
-        action = agent.select_action(env.dqn_obs.to(env_args.device))
+        obj_id = agent.select_action(env.dqn_obs.to(env_args.device))
+        logic_state, _ = extract_logic_state_atari(args, env.objects, args.game_info, obs.shape[0])
+        action = reason_utils.pred_asterix_action(logic_state, obj_id, obj_data).to(torch.int64).reshape(1)
+
+
         state = env.dqn_obs.to(args.device)
         env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
 

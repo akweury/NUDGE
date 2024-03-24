@@ -338,7 +338,8 @@ class SymbolicMicroProgramPlayer:
     def pong_reasoner(self):
         reason_utils.reason_pong(self.args, self.states, self.actions)
     def asterix_reasoner(self):
-        reason_utils.reason_asterix(self.args, self.states, self.actions)
+        obj_data = reason_utils.reason_asterix(self.args, self.states, self.actions)
+        return obj_data
 
     def train_state_estimator(self):
         current_states = self.states[0]

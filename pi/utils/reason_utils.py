@@ -1248,19 +1248,42 @@ def reason_pong(args, states, actions):
     return None
 
 
+def pred_asterix_action(logic_state, obj_id, obj_data):
+    obj_id = obj_id.reshape(-1)
+    logic_state = torch.tensor(logic_state).to(obj_id.device)
+    op_res = logic_state[0, -2:] - logic_state[obj_id, -2:]
+    op_res = math_utils.closest_one_percent(op_res, unit=0.1).reshape(-1)
+    x_ticks = torch.arange(-0.9, 0.9, 0.1).to(obj_id.device)
+    y_ticks = torch.arange(-0.9, 0.9, 0.1).to(obj_id.device)
+
+    x_id = torch.nonzero(torch.abs(x_ticks - op_res[0]) < 1e-6).reshape(-1)
+    y_id = torch.nonzero(torch.abs(y_ticks - op_res[1]) < 1e-6).reshape(-1)
+
+    try:
+        action = obj_data[obj_id[0], y_id[0], x_id[0]]
+    except IndexError:
+        print("ssdsdf")
+        action = 0
+    return action
+
+
 def reason_asterix(args, states, actions):
     states = torch.cat(states, dim=0)
     actions = torch.cat(actions, dim=0)
     mask_player = states[:, 0, :-6].sum(dim=-1) > 0
+
+    x_ticks = torch.arange(-0.9, 0.9, 0.1).to(args.device)
+    y_ticks = torch.arange(-0.9, 0.9, 0.1).to(args.device)
+    x_ticks_2decimal = ["{:.1f}".format(num) for num in x_ticks]
+    y_ticks_2decimal = ["{:.1f}".format(num) for num in y_ticks]
+
+    obj_data = torch.zeros((states.shape[1], len(y_ticks), len(x_ticks)))
+
     for obj_i in range(1, states.shape[1]):
         mask_obj_i = states[:, obj_i, :-6].sum(dim=-1) > 0
         mask = mask_player & mask_obj_i
         op_res = states[:, 0, -2:] - states[:, obj_i, -2:]
         op_res = math_utils.closest_one_percent(op_res, unit=0.1)
-        x_ticks = torch.arange(-0.6, 0.6, 0.1).to(args.device)
-        y_ticks = torch.arange(-0.5, 0.5, 0.1).to(args.device)
-        x_ticks_2decimal = ["{:.1f}".format(num) for num in x_ticks]
-        y_ticks_2decimal = ["{:.1f}".format(num) for num in y_ticks]
         heat_data = torch.zeros((len(actions.unique()), len(y_ticks), len(x_ticks)))
         for a_i, action in enumerate(actions.unique()):
             action_mask = (actions == action) & mask
@@ -1273,7 +1296,8 @@ def reason_asterix(args, states, actions):
                 heat_data[a_i, y_i, x_i] = value_counts[v_i].to(torch.float)
 
         action_heat_data = heat_data.argmax(dim=0)
-        draw_utils.plot_heat_map(data=action_heat_data, path=args.output_folder,
-                                 name=f"{args.m}_{args.row_names[obj_i]}_{obj_i}",
-                                 figsize=(10, 5), row_names=y_ticks_2decimal, col_names=x_ticks_2decimal)
-    return None
+        obj_data[obj_i] = action_heat_data
+        # draw_utils.plot_heat_map(data=action_heat_data, path=args.output_folder,
+        #                          name=f"{args.m}_{args.row_names[obj_i]}_{obj_i}",
+        #                          figsize=(10, 5), row_names=y_ticks_2decimal, col_names=x_ticks_2decimal)
+    return obj_data
