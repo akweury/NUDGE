@@ -337,9 +337,16 @@ class SymbolicMicroProgramPlayer:
 
     def pong_reasoner(self):
         reason_utils.reason_pong(self.args, self.states, self.actions)
+
     def asterix_reasoner(self):
-        obj_data = reason_utils.reason_asterix(self.args, self.states, self.actions)
-        return obj_data
+        reason_utils.reason_asterix(self.args, self.states, self.actions)
+        pos_data = []
+        states = torch.cat(self.states, dim=0)
+        enemy_pos_data = states[:, 0:1, -2:] - states[:, 1:9, -2:]
+        consumable_pos_data = states[:, 0:1, -2:] - states[:, 9:, -2:]
+        pos_data = [enemy_pos_data, consumable_pos_data]
+        actions = torch.cat(self.actions, dim=0)
+        return pos_data, actions
 
     def train_state_estimator(self):
         current_states = self.states[0]

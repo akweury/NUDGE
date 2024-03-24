@@ -3,6 +3,9 @@
 from tqdm import tqdm
 import numpy as np
 import time
+import torch
+import torch.nn as nn
+import torch.optim as optim
 
 import torch
 import torch.nn as nn
@@ -17,7 +20,6 @@ from pi.utils import args_utils
 from src import config
 from pi.utils.atari import game_patches
 from pi.utils.oc_utils import extract_logic_state_atari
-
 
 BATCH_SIZE = 32
 MEMORY_SIZE = 1000000
@@ -102,6 +104,7 @@ class DQNAgent:
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=LEARNING_RATE)
         self.memory = ReplayMemory(MEMORY_SIZE)
         self.steps_done = 0
+        self.num_actions = num_actions
 
     def select_action(self, state):
         sample = random.random()
@@ -112,7 +115,7 @@ class DQNAgent:
             with torch.no_grad():
                 return self.policy_net(state).max(1)[1].view(1, 1)
         else:
-            return torch.tensor([[random.randrange(num_actions)]], dtype=torch.long).to(state.device)
+            return torch.tensor([[random.randrange( self.num_actions)]], dtype=torch.long).to(state.device)
 
     def optimize_model(self):
         if len(self.memory) < BATCH_SIZE:
@@ -125,7 +128,7 @@ class DQNAgent:
         action_batch = torch.cat(batch.action)
         reward_batch = torch.cat(batch.reward)
 
-        state_action_values = self.policy_net(state_batch).gather(1, action_batch.unsqueeze(1))
+        state_action_values = self.policy_net(state_batch).gather(1, action_batch)
 
         next_state_values = torch.zeros(BATCH_SIZE).to(non_final_next_states.device)
         next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
@@ -141,12 +144,58 @@ class DQNAgent:
         self.optimizer.step()
 
 
+def train_nn(num_actions, input_tensor, target_tensor):
+    # Define your neural network architecture
+    class Classifier(nn.Module):
+        def __init__(self, num_actions):
+            super(Classifier, self).__init__()
+            self.fc1 = nn.Linear(16, 64)
+            self.fc2 = nn.Linear(64, 32)
+            self.fc3 = nn.Linear(32, num_actions)  # Output size is 8 for 8 classes
+
+        def forward(self, x):
+            x = torch.relu(self.fc1(x))
+            x = torch.relu(self.fc2(x))
+            x = self.fc3(x)
+            return x
+
+    # Instantiate the model
+    model = Classifier(num_actions).to(input_tensor.device)
+
+    # Define your loss function (cross-entropy for classification)
+    criterion = nn.CrossEntropyLoss()
+
+    # Define your optimizer (e.g., SGD, Adam, etc.)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+    # Example data - you should replace this with your actual data
+    # Input tensor shape: [batch_size, 16]
+    # Target tensor shape: [batch_size]
+    # Training loop
+    num_epochs = 5000
+    for epoch in range(num_epochs):
+        # Forward pass
+        outputs = model(input_tensor)
+
+        # Compute loss
+        loss = criterion(outputs, target_tensor)
+
+        # Zero gradients, backward pass, and optimize
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # Print loss for monitoring
+        print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
+
+    return model
+
+
 import os.path
 from pi.utils.game_utils import create_agent
 from pi.game_render import collect_full_data
 
 args = args_utils.load_args(config.path_exps, None)
-
 
 # learn behaviors from data
 student_agent = create_agent(args, agent_type='smp')
@@ -159,24 +208,32 @@ student_agent.load_atari_buffer(args)
 if args.m == "Pong:":
     student_agent.pong_reasoner().to(args.device)
 if args.m == "Asterix":
-    obj_data = student_agent.asterix_reasoner().to(args.device)
-
-
+    pos_data, actions = student_agent.asterix_reasoner()
 
 # Initialize environment
 env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
 obs, info = env.reset()
-num_actions = 17
+num_actions = env.action_space.n
 input_shape = env.observation_space.shape
 
+obj_type_models = []
+for obj_type in range(len(pos_data)):
+    input_tensor = pos_data[obj_type].to(args.device)
+    input_tensor = input_tensor.view(input_tensor.size(0), -1)
+    target_tensor = actions.to(args.device)
+    action_pred_model = train_nn(num_actions, input_tensor, target_tensor)
+    obj_type_models.append(action_pred_model)
+
+num_obj_types = 2
 # Initialize agent
-agent = DQNAgent(args, input_shape, num_actions)
+agent = DQNAgent(args, input_shape, num_obj_types)
 agent.agent_type = "pretrained"
 env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
-
+env_args.win_rate = torch.zeros(3000)
+env_args.learn_performance = torch.zeros(3000)
 if args.with_explain:
     video_out = game_utils.get_game_viewer(env_args)
-for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
+for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):
     env_args.obs, info = env.reset()
     env_args.reset_args(game_i)
     env_args.reset_buffer_game()
@@ -192,8 +249,8 @@ for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
 
         obj_id = agent.select_action(env.dqn_obs.to(env_args.device))
         logic_state, _ = extract_logic_state_atari(args, env.objects, args.game_info, obs.shape[0])
-        action = reason_utils.pred_asterix_action(logic_state, obj_id, obj_data).to(torch.int64).reshape(1)
-
+        action = reason_utils.pred_asterix_action(logic_state, obj_id, obj_type_models[obj_id]).to(torch.int64).reshape(
+            1)
 
         state = env.dqn_obs.to(args.device)
         env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
@@ -237,7 +294,7 @@ for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
         next_state = env.dqn_obs.to(args.device) if not env_args.terminated else None
 
         # Store the transition in memory
-        agent.memory.push(state, action, next_state, env_args.reward, env_args.terminated)
+        agent.memory.push(state, obj_id, next_state, env_args.reward, env_args.terminated)
         # Perform one step of optimization (on the target network)
         agent.optimize_model()
         # Update the target network, copying all weights and biases in DQN
