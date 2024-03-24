@@ -56,6 +56,7 @@ class EnvArgs():
             raise ValueError
         self.train_num = args.train_epochs
         self.win_rate = torch.zeros(self.game_num)
+        self.learn_performance = torch.zeros(self.game_num)
         self.win_2 = ""
         self.has_win_2 = False
         self.win_3 = ""
