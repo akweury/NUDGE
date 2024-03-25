@@ -391,7 +391,14 @@ def render_getout(agent, args, save_buffer):
         else:
             env_args.win_rate[game_i] = env_args.win_rate[game_i - 1]
         env_args.state_score = env_args.win_rate[game_i - 1]
-        env_args.buffer_game(args.zero_reward, args.save_frame)
+        if args.m == "Pong":
+            if sum(env_args.rewards) > 0:
+                env_args.buffer_game(args.zero_reward, args.save_frame)
+        elif args.m == "Asterix":
+            env_args.buffer_game(args.zero_reward, args.save_frame)
+        else:
+            raise ValueError
+
         env_args.reset_buffer_game()
         game_utils.game_over_log(args, agent, env_args)
 
