@@ -44,6 +44,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--num_workers", type=int, default=4,
                         help="Number of Workers simultaneously putting data into RAM")
     parser.add_argument("--resume", type=bool, default=False, help="Resume training from previous work")
+    parser.add_argument("--print_freq", type=int, default=100, help="Frequency of printing")
     parser.add_argument("--eval_loss_best", type=float, default=1e+20, help="Best up-to-date evaluation loss")
     parser.add_argument("--rectify_num", type=int, default=5, help="Repeat times of smp rectification.")
     parser.add_argument("--teacher_agent", type=str, default="pretrained", help="Type of the teacher agent.")

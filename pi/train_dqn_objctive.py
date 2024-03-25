@@ -30,7 +30,7 @@ EPSILON_DECAY = 0.995
 LEARNING_RATE = 0.00025
 TARGET_UPDATE_FREQ = 5
 EPISODES = 1000
-print_freq = 100
+
 # Define experience replay memory
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward', 'done'))
 
@@ -149,7 +149,7 @@ def train_nn(num_actions, input_tensor, target_tensor, obj_type):
     class Classifier(nn.Module):
         def __init__(self, num_actions):
             super(Classifier, self).__init__()
-            self.fc1 = nn.Linear(16, 64)
+            self.fc1 = nn.Linear(input_tensor.shape[1], 64)
             self.fc2 = nn.Linear(64, 32)
             self.fc3 = nn.Linear(32, num_actions)  # Output size is 8 for 8 classes
 
@@ -184,6 +184,7 @@ def train_nn(num_actions, input_tensor, target_tensor, obj_type):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        print(f"loss {loss}")
     return model
 
 
@@ -201,11 +202,12 @@ if not os.path.exists(args.buffer_filename):
     collect_full_data(teacher_agent, args, save_buffer=True)
 student_agent.load_atari_buffer(args)
 
-if args.m == "Pong:":
-    student_agent.pong_reasoner().to(args.device)
+if args.m == "Pong":
+    pos_data, actions = student_agent.pong_reasoner()
+    num_obj_types = 2
 if args.m == "Asterix":
     pos_data, actions = student_agent.asterix_reasoner()
-
+    num_obj_types = 2
 # Initialize environment
 env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
 obs, info = env.reset()
@@ -220,7 +222,6 @@ for obj_type in range(len(pos_data)):
     action_pred_model = train_nn(num_actions, input_tensor, target_tensor, obj_type)
     obj_type_models.append(action_pred_model)
 
-num_obj_types = 2
 # Initialize agent
 agent = DQNAgent(args, input_shape, num_obj_types)
 agent.agent_type = "pretrained"
@@ -245,27 +246,35 @@ for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):
 
         obj_id = agent.select_action(env.dqn_obs.to(env_args.device))
         logic_state, _ = extract_logic_state_atari(args, env.objects, args.game_info, obs.shape[0])
-        action = reason_utils.pred_asterix_action(logic_state, obj_id, obj_type_models[obj_id]).to(torch.int64).reshape(
-            1)
+        if args.m == "Asterix":
+            action = reason_utils.pred_asterix_action(logic_state, obj_id, obj_type_models[obj_id]).to(
+                torch.int64).reshape(1)
+        elif args.m == "Pong":
+            action = reason_utils.pred_pong_action(logic_state, obj_id, obj_type_models[obj_id]).to(
+                torch.int64).reshape(1)
+        else:
+            raise ValueError
 
         state = env.dqn_obs.to(args.device)
         env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
-
+        game_patches.atari_frame_patches(args, env_args, info)
         if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
             game_patches.atari_patches(args, agent, env_args, info)
             env_args.frame_i = len(env_args.logic_states) - 1
-            env_args.update_lost_live(info["lives"])
+            env_args.update_lost_live(args.m, info["lives"])
+            if sum(env_args.rewards) > 0:
+                print('')
         if args.with_explain:
             screen_text = (
-                f"{agent.agent_type} ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
-                f"act: {args.action_names[action]} re: {env_args.reward}")
+                f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
+                f"obj: {args.row_names[obj_id + 1]}, act: {args.action_names[action]} re: {env_args.reward}")
             # Red
             env_args.obs[:10, :10] = 0
             env_args.obs[:10, :10, 0] = 255
             # Blue
             env_args.obs[:10, 10:20] = 0
             env_args.obs[:10, 10:20, 2] = 255
-            draw_utils.addCustomText(env_args.obs, agent.agent_type,
+            draw_utils.addCustomText(env_args.obs, f"dqn_obj",
                                      color=(255, 255, 255), thickness=1, font_size=0.3, pos=[1, 5])
             game_plot = draw_utils.rgb_to_bgr(env_args.obs)
             screen_plot = draw_utils.image_resize(game_plot,
@@ -273,46 +282,37 @@ for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):
                                                   int(game_plot.shape[1] * env_args.zoom_in))
             draw_utils.addText(screen_plot, screen_text,
                                color=(255, 228, 181), thickness=2, font_size=0.6, pos="upper_right")
-
-            # explain_plot_four_channel = draw_utils.three_to_four_channel(explain_plot)
-
             video_out = draw_utils.write_video_frame(video_out, screen_plot)
-            if env_args.save_frame:
-                draw_utils.save_np_as_img(screen_plot,
-                                          env_args.output_folder / "frames" / f"g_{env_args.game_i}_f_{env_args.frame_i}.png")
-
-            # game_utils.frame_log(agent, env_args)
         # update game args
         env_args.update_args()
-
         env_args.rewards.append(env_args.reward)
         env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
         next_state = env.dqn_obs.to(args.device) if not env_args.terminated else None
-
         # Store the transition in memory
         agent.memory.push(state, obj_id, next_state, env_args.reward, env_args.terminated)
         # Perform one step of optimization (on the target network)
         agent.optimize_model()
-        # Update the target network, copying all weights and biases in DQN
-        if game_i % TARGET_UPDATE_FREQ == 0:
-            agent.target_net.load_state_dict(agent.policy_net.state_dict())
+    # Update the target network, copying all weights and biases in DQN
+    if game_i % TARGET_UPDATE_FREQ == 0:
+        agent.target_net.load_state_dict(agent.policy_net.state_dict())
 
-        # Decay epsilon
-        if EPSILON > EPSILON_MIN:
-            EPSILON *= EPSILON_DECAY
-            EPSILON = max(EPSILON_MIN, EPSILON)
+    # Decay epsilon
+    if EPSILON > EPSILON_MIN:
+        EPSILON *= EPSILON_DECAY
+        EPSILON = max(EPSILON_MIN, EPSILON)
 
     # env_args.buffer_game(args.zero_reward, args.save_frame)
     env_args.win_rate[game_i] = sum(env_args.rewards[:-1])  # update ep score
     env_args.reset_buffer_game()
-    if game_i > print_freq and game_i % print_freq == 1:
-        env_args.learn_performance.append(sum(env_args.win_rate[game_i - print_freq:game_i]))
+    if game_i > args.print_freq and game_i % args.print_freq == 1:
+        env_args.learn_performance.append(sum(env_args.win_rate[game_i - args.print_freq:game_i]))
 
         line_chart_data = torch.tensor(env_args.learn_performance)
         draw_utils.plot_line_chart(line_chart_data.unsqueeze(0), path=args.output_folder,
-                                   labels=["sum_past_5"], title=f"{args.m}_sum_past_{print_freq}", figure_size=(30, 5))
+                                   labels=["sum_past_5"], title=f"{args.m}_sum_past_{args.print_freq}",
+                                   figure_size=(30, 5))
         # save model
-        last_epoch_save_path = args.output_folder / f'{args.m}_obj_pred_dqn_{game_i + 1 - print_freq}.pkl'
+        last_epoch_save_path = args.output_folder / f'{args.m}_obj_pred_dqn_{game_i + 1 - args.print_freq}.pkl'
         save_path = args.output_folder / f'{args.m}_obj_pred_dqn_{game_i + 1}.pkl'
         if os.path.exists(last_epoch_save_path):
             os.remove(last_epoch_save_path)

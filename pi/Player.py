@@ -336,7 +336,23 @@ class SymbolicMicroProgramPlayer:
         return positive_behaviors, negative_behaviors
 
     def pong_reasoner(self):
-        reason_utils.reason_pong(self.args, self.states, self.actions)
+        # reason_utils.reason_pong(self.args, self.states, self.actions)
+
+        states = torch.cat(self.states, dim=0)
+        ball_pos_data = states[:, 0:1, -2:] - states[:, 1:2, -2:]
+        enemy_pos_data = states[:, 0:1, -2:] - states[:, 2:3, -2:]
+        # get velo
+        velo = reason_utils.get_state_velo(states)
+        ball_pos_data = states[:, 0:1, -2:] - states[:, 1:2, -2:]
+        ball_velo_data = velo[:, 1:2]
+        ball_data = torch.cat((ball_pos_data, ball_velo_data), dim=2)
+        enemy_pos_data = states[:, 0:1, -2:] - states[:, 2:3, -2:]
+        enemy_velo_data = velo[:, 2:3]
+        enemy_data = torch.cat((enemy_pos_data, enemy_velo_data), dim=2)
+
+        pos_data = [ball_data, enemy_data]
+        actions = torch.cat(self.actions, dim=0)
+        return pos_data, actions
 
     def asterix_reasoner(self):
         reason_utils.reason_asterix(self.args, self.states, self.actions)

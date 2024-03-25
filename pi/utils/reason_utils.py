@@ -1269,6 +1269,25 @@ def pred_asterix_action(logic_state, obj_id, obj_type_model):
     return action
 
 
+def pred_pong_action(logic_state, obj_id, obj_type_model):
+    obj_id = obj_id.reshape(-1)
+    logic_state = torch.tensor(logic_state).to(obj_id.device)
+    velo = get_state_velo(logic_state.unsqueeze(0)).to(obj_id.device)
+    if obj_id == 0:
+        pos_data = logic_state[0:1, -2:] - logic_state[1:2, -2:]
+        velo_data = velo[0, 1:2]
+        data = torch.cat((pos_data, velo_data), dim=-1)
+    elif obj_id == 1:
+        pos_data = logic_state[0:1, -2:] - logic_state[2:3, -2:]
+        velo_data = velo[0, 2:3]
+        data = torch.cat((pos_data, velo_data), dim=-1)
+    else:
+        raise ValueError
+    action = obj_type_model(data.reshape(-1).unsqueeze(0))
+    action = action.argmax()
+    return action
+
+
 def reason_asterix(args, states, actions):
     states = torch.cat(states, dim=0)
     actions = torch.cat(actions, dim=0)
