@@ -1258,9 +1258,9 @@ def pred_asterix_action(logic_state, obj_id, obj_type_model):
 
     x_id = torch.nonzero(torch.abs(x_ticks - op_res[0]) < 1e-6).reshape(-1)
     y_id = torch.nonzero(torch.abs(y_ticks - op_res[1]) < 1e-6).reshape(-1)
-    if obj_id == 0:
+    if obj_id == 1:
         pos_data = logic_state[0:1, -2:] - logic_state[1:9, -2:]
-    elif obj_id == 1:
+    elif obj_id == 2:
         pos_data = logic_state[0:1, -2:] - logic_state[9:, -2:]
     else:
         raise ValueError
@@ -1272,17 +1272,58 @@ def pred_asterix_action(logic_state, obj_id, obj_type_model):
 def pred_pong_action(logic_state, obj_id, obj_type_model):
     obj_id = obj_id.reshape(-1)
     logic_state = torch.tensor(logic_state).to(obj_id.device)
-    velo = get_state_velo(logic_state.unsqueeze(0)).to(obj_id.device)
-    if obj_id == 0:
-        pos_data = logic_state[0:1, -2:] - logic_state[1:2, -2:]
-        velo_data = velo[0, 1:2]
-        data = torch.cat((pos_data, velo_data), dim=-1)
-    elif obj_id == 1:
-        pos_data = logic_state[0:1, -2:] - logic_state[2:3, -2:]
-        velo_data = velo[0, 2:3]
-        data = torch.cat((pos_data, velo_data), dim=-1)
+    velo = get_state_velo(logic_state).to(obj_id.device)
+    if obj_id == 1:
+        i_l = 1
+        i_r = 2
+    elif obj_id == 2:
+        i_l = 2
+        i_r = 3
     else:
         raise ValueError
+    pos_data = logic_state[-1, 0:1, -2:] - logic_state[-1, i_l:i_r, -2:]
+    velo_data = velo[-1, i_l:i_r]
+    data = torch.cat((pos_data, velo_data), dim=-1)
+
+    action = obj_type_model(data.reshape(-1).unsqueeze(0))
+    action = action.argmax()
+    return action
+
+
+def pred_kangaroo_action(logic_state, obj_id, obj_type_model):
+    obj_id = obj_id.reshape(-1)
+    logic_state = torch.tensor(logic_state).to(obj_id.device)
+    velo = get_state_velo(logic_state).to(obj_id.device)
+    if obj_id == 1:
+        i_l = 1
+        i_r = 2
+    elif obj_id == 2:
+        i_l = 2
+        i_r = 5
+    elif obj_id == 3:
+        i_l = 5
+        i_r = 6
+    elif obj_id == 4:
+        i_l = 6
+        i_r = 10
+    elif obj_id == 5:
+        i_l = 10
+        i_r = 13
+    elif obj_id == 6:
+        i_l = 13
+        i_r = 17
+    elif obj_id == 7:
+        i_l = 17
+        i_r = 20
+    elif obj_id == 8:
+        i_l = 20
+        i_r = 23
+    else:
+        raise ValueError
+
+    pos_data = logic_state[-1, 0:1, -2:] - logic_state[-1, i_l:i_r, -2:]
+    velo_data = velo[-1, i_l:i_r]
+    data = torch.cat((pos_data, velo_data), dim=-1)
     action = obj_type_model(data.reshape(-1).unsqueeze(0))
     action = action.argmax()
     return action

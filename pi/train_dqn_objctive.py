@@ -184,7 +184,7 @@ def train_nn(num_actions, input_tensor, target_tensor, obj_type):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        print(f"loss {loss}")
+        # print(f"loss {loss}")
     return model
 
 
@@ -249,11 +249,15 @@ for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):
 
         obj_id = agent.select_action(env.dqn_obs.to(env_args.device))
         logic_state, _ = extract_logic_state_atari(args, env.objects, args.game_info, obs.shape[0])
+        env_args.past_states.append(logic_state)
         if args.m == "Asterix":
-            action = reason_utils.pred_asterix_action(logic_state, obj_id, obj_type_models[obj_id]).to(
+            action = reason_utils.pred_asterix_action(env_args.past_states, obj_id + 1, obj_type_models[obj_id]).to(
                 torch.int64).reshape(1)
         elif args.m == "Pong":
-            action = reason_utils.pred_pong_action(logic_state, obj_id, obj_type_models[obj_id]).to(
+            action = reason_utils.pred_pong_action(env_args.past_states, obj_id + 1, obj_type_models[obj_id]).to(
+                torch.int64).reshape(1)
+        elif args.m == "Kangaroo":
+            action = reason_utils.pred_kangaroo_action(env_args.past_states, obj_id + 1, obj_type_models[obj_id]).to(
                 torch.int64).reshape(1)
         else:
             raise ValueError
@@ -312,7 +316,8 @@ for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):
 
         line_chart_data = torch.tensor(env_args.learn_performance)
         draw_utils.plot_line_chart(line_chart_data.unsqueeze(0), path=args.output_folder,
-                                   labels=["sum_past_5"], title=f"{args.m}_sum_past_{args.print_freq}",
+                                   labels=[f"total_score_every_{args.print_freq}"],
+                                   title=f"{args.m}_sum_past_{args.print_freq}",
                                    figure_size=(30, 5))
         # save model
         last_epoch_save_path = args.output_folder / f'{args.m}_obj_pred_dqn_{game_i + 1 - args.print_freq}.pkl'
