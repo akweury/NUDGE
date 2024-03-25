@@ -376,25 +376,41 @@ class SymbolicMicroProgramPlayer:
         actions = torch.cat(self.actions, dim=0)
         return pos_data, actions
 
+    def get_symbolic_state(self, states, velo, velo_dir, indices):
+        data_pos = (states[:, 0:1, -2:] - states[:, indices, -2:]).view(states.size(0), -1)
+        data_pos_dirs = []
+        for index in indices:
+            pos_dir = math_utils.closest_multiple_of_45(reason_utils.get_ab_dir(states, 0, index)).view(-1, 1)
+            data_pos_dirs.append(pos_dir)
+        data_pos_dirs = torch.cat(data_pos_dirs, dim=1)
+        data_velo = velo[:, indices].view(velo.size(0), -1)
+        data_velo_dir = velo_dir[:, indices]
+        data = torch.cat((data_pos, data_pos_dirs, data_velo, data_velo_dir), dim=1)
+        return data
+
     def kangaroo_reasoner(self):
         states = torch.cat(self.states, dim=0)
-        child_pos_data = states[:, 0:1, -2:] - states[:, 1:2, -2:]
-        fruit_pos_data = states[:, 0:1, -2:] - states[:, 2:5, -2:]
-        bell_pos_data = states[:, 0:1, -2:] - states[:, 5:6, -2:]
-        platform_pos_data = states[:, 0:1, -2:] - states[:, 6:10, -2:]
-        ladder_pos_data = states[:, 0:1, -2:] - states[:, 10:13, -2:]
-        monkey_pos_data = states[:, 0:1, -2:] - states[:, 13:17, -2:]
-        falling_coconut_pos_data = states[:, 0:1, -2:] - states[:, 17:20, -2:]
-        thrown_coconut_pos_data = states[:, 0:1, -2:] - states[:, 20:23, -2:]
+        # get velo
+        velo = reason_utils.get_state_velo(states)
+        velo[velo > 0.2] = 0
+        velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(velo), 0.01)
+        child_data = self.get_symbolic_state(states, velo, velo_dir, [1])
+        fruit_data = self.get_symbolic_state(states, velo, velo_dir, [2, 3, 4])
+        bell_data = self.get_symbolic_state(states, velo, velo_dir, [5])
+        platform_data = self.get_symbolic_state(states, velo, velo_dir, [6, 7, 8, 9])
+        ladder_data = self.get_symbolic_state(states, velo, velo_dir, [10, 11, 12])
+        monkey_data = self.get_symbolic_state(states, velo, velo_dir, [13, 14, 15, 16])
+        falling_coconut_data = self.get_symbolic_state(states, velo, velo_dir, [17, 18, 19])
+        thrown_coconut_data = self.get_symbolic_state(states, velo, velo_dir, [20, 21, 22])
 
-        pos_data = [child_pos_data,
-                    fruit_pos_data,
-                    bell_pos_data,
-                    platform_pos_data,
-                    ladder_pos_data,
-                    monkey_pos_data,
-                    falling_coconut_pos_data,
-                    thrown_coconut_pos_data]
+        pos_data = [child_data,
+                    fruit_data,
+                    bell_data,
+                    platform_data,
+                    ladder_data,
+                    monkey_data,
+                    falling_coconut_data,
+                    thrown_coconut_data]
         actions = torch.cat(self.actions, dim=0)
         return pos_data, actions
 
