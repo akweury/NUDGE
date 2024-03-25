@@ -11,7 +11,7 @@ import random
 from collections import namedtuple, deque
 from ocatari.core import OCAtari
 
-from pi.utils import game_utils, draw_utils, math_utils, reason_utils
+from pi.utils import game_utils, draw_utils, math_utils, reason_utils, file_utils
 from pi.utils.EnvArgs import EnvArgs
 from pi.utils import args_utils
 from src import config
@@ -140,21 +140,22 @@ class DQNAgent:
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
+class Classifier(nn.Module):
+    def __init__(self, num_actions):
+        super(Classifier, self).__init__()
+        self.fc1 = nn.Linear(input_tensor.shape[1], 64)
+        self.fc2 = nn.Linear(64, 32)
+        self.fc3 = nn.Linear(32, num_actions)  # Output size is 8 for 8 classes
+
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
 
 def train_nn(num_actions, input_tensor, target_tensor, obj_type):
     # Define your neural network architecture
-    class Classifier(nn.Module):
-        def __init__(self, num_actions):
-            super(Classifier, self).__init__()
-            self.fc1 = nn.Linear(input_tensor.shape[1], 64)
-            self.fc2 = nn.Linear(64, 32)
-            self.fc3 = nn.Linear(32, num_actions)  # Output size is 8 for 8 classes
 
-        def forward(self, x):
-            x = torch.relu(self.fc1(x))
-            x = torch.relu(self.fc2(x))
-            x = self.fc3(x)
-            return x
 
     # Instantiate the model
     model = Classifier(num_actions).to(input_tensor.device)
@@ -186,7 +187,7 @@ def train_nn(num_actions, input_tensor, target_tensor, obj_type):
         # print(f"loss {loss}")
 
     draw_utils.plot_line_chart(losses, path=args.output_folder, labels=["loss"], title=f"{obj_type}",
-                               figure_size=(30,5))
+                               figure_size=(30, 5))
     return model
 
 
@@ -224,7 +225,14 @@ for obj_type in range(len(pos_data)):
     input_tensor = pos_data[obj_type].to(args.device)
     input_tensor = input_tensor.view(input_tensor.size(0), -1)
     target_tensor = actions.to(args.device)
-    action_pred_model = train_nn(num_actions, input_tensor, target_tensor, obj_type)
+    act_pred_model_file = args.output_folder / f"{args.m}_{obj_type}.pth.tar"
+
+    if not os.path.exists(act_pred_model_file):
+        action_pred_model = train_nn(num_actions, input_tensor, target_tensor, obj_type)
+        state = {'model': action_pred_model}
+        torch.save(state, act_pred_model_file)
+    else:
+        action_pred_model = torch.load(act_pred_model_file)["model"]
     obj_type_models.append(action_pred_model)
 
 # Initialize agent
