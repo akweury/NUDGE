@@ -446,6 +446,8 @@ def collect_full_data(agent, args, save_buffer):
                 env_args.buffer_game(args.zero_reward, args.save_frame)
         elif args.m == "Asterix":
             env_args.buffer_game(args.zero_reward, args.save_frame)
+        elif args.m == "Kangaroo":
+            env_args.buffer_game(args.zero_reward, args.save_frame)
         else:
             raise ValueError
 
