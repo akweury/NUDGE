@@ -208,6 +208,9 @@ if args.m == "Pong":
 if args.m == "Asterix":
     pos_data, actions = student_agent.asterix_reasoner()
     num_obj_types = 2
+if args.m == "Kangaroo":
+    pos_data, actions = student_agent.kangaroo_reasoner()
+    num_obj_types = 8
 # Initialize environment
 env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
 obs, info = env.reset()

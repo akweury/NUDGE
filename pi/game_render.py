@@ -425,7 +425,7 @@ def collect_full_data(agent, args, save_buffer):
             if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
                 game_patches.atari_patches(args, agent, env_args, info)
                 env_args.frame_i = len(env_args.logic_states) - 1
-                env_args.update_lost_live(info["lives"])
+                env_args.update_lost_live(args.m, info["lives"])
             else:
                 # record game states
                 env_args.next_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
@@ -444,7 +444,6 @@ def collect_full_data(agent, args, save_buffer):
     game_utils.finish_one_run(env_args, args, agent)
     if save_buffer:
         game_utils.save_game_buffer(args, env_args)
-
 
 
 def render_atari_game(agent, args, save_buffer):
