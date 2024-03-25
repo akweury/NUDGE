@@ -1269,7 +1269,9 @@ def pred_asterix_action(logic_state, obj_id, obj_type_model):
     return action
 
 
-def pred_pong_action(logic_state, obj_id, obj_type_model):
+def pred_pong_action(args, env_args, logic_state, obj_id, obj_type_model):
+    if env_args.frame_i <= args.jump_frames:
+        return torch.tensor(0)
     obj_id = obj_id.reshape(-1)
     logic_state = torch.tensor(logic_state).to(obj_id.device)
     velo = get_state_velo(logic_state).to(obj_id.device)
@@ -1282,9 +1284,19 @@ def pred_pong_action(logic_state, obj_id, obj_type_model):
     else:
         raise ValueError
     pos_data = logic_state[-1, 0:1, -2:] - logic_state[-1, i_l:i_r, -2:]
-    velo_data = velo[-1, i_l:i_r]
-    data = torch.cat((pos_data, velo_data), dim=-1)
+    pos_dir = math_utils.closest_multiple_of_45(get_ab_dir(logic_state, 0, i_l))[-1]
 
+    velo_data = velo[-1, i_l:i_r]
+    velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(velo), 0.01)
+    velo_dir_data = velo_dir[-1, i_l:i_r]
+    try:
+        data = torch.cat((pos_data,
+                          pos_dir.reshape(1, -1),
+                          velo_data,
+                          velo_dir_data.unsqueeze(1),
+                          ), dim=1)
+    except RuntimeError:
+        print("")
     action = obj_type_model(data.reshape(-1).unsqueeze(0))
     action = action.argmax()
     return action

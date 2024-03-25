@@ -8,7 +8,7 @@ from torch.distributions import Categorical
 from src.agents.neural_agent import ActorCritic, NeuralPPO
 from src.agents.utils_getout import extract_neural_state_getout
 from pi import Reasoner
-from pi.utils import smp_utils, beh_utils, file_utils, oc_utils, reason_utils
+from pi.utils import smp_utils, beh_utils, file_utils, oc_utils, reason_utils, math_utils
 from pi.utils import game_utils, draw_utils
 from pi.utils import nn_model
 
@@ -341,14 +341,28 @@ class SymbolicMicroProgramPlayer:
         states = torch.cat(self.states, dim=0)
         # get velo
         velo = reason_utils.get_state_velo(states)
+        velo[velo > 0.2] = 0
+        velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(velo), 0.01)
+        ball_pos_dir = math_utils.closest_multiple_of_45(reason_utils.get_ab_dir(states, 0, 1)).reshape(-1)
         ball_pos_data = states[:, 0:1, -2:] - states[:, 1:2, -2:]
         ball_velo_data = velo[:, 1:2]
-        ball_data = torch.cat((ball_pos_data, ball_velo_data), dim=2)
+        ball_velo_dir_data = velo_dir[:, 1:2]
+        ball_data = torch.cat((ball_pos_data,
+                               ball_pos_dir.unsqueeze(1).unsqueeze(1),
+                               ball_velo_data,
+                               ball_velo_dir_data.unsqueeze(2),
+                               ), dim=2)
         enemy_pos_data = states[:, 0:1, -2:] - states[:, 2:3, -2:]
+        enemy_pos_dir = math_utils.closest_multiple_of_45(reason_utils.get_ab_dir(states, 0, 2)).reshape(-1)
+        enemy_velo_dir_data = velo_dir[:, 2:3]
         enemy_velo_data = velo[:, 2:3]
-        enemy_data = torch.cat((enemy_pos_data, enemy_velo_data), dim=2)
-
-        pos_data = [ball_data, enemy_data]
+        enemy_data = torch.cat((enemy_pos_data,
+                                enemy_pos_dir.unsqueeze(1).unsqueeze(1),
+                                enemy_velo_data,
+                                enemy_velo_dir_data.unsqueeze(2),
+                                ), dim=2)
+        pos_data = [ball_data,
+                    enemy_data]
         actions = torch.cat(self.actions, dim=0)
         return pos_data, actions
 

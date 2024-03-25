@@ -169,8 +169,8 @@ def train_nn(num_actions, input_tensor, target_tensor, obj_type):
     # Input tensor shape: [batch_size, 16]
     # Target tensor shape: [batch_size]
     # Training loop
-    num_epochs = 5000
-
+    num_epochs = 100000
+    losses = torch.zeros(1, num_epochs)
     for epoch in tqdm(range(num_epochs), desc=f"obj type {obj_type}"):
         # Forward pass
         outputs = model(input_tensor)
@@ -182,7 +182,11 @@ def train_nn(num_actions, input_tensor, target_tensor, obj_type):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        losses[0, epoch] = loss.detach()
         # print(f"loss {loss}")
+
+    draw_utils.plot_line_chart(losses, path=args.output_folder, labels=["loss"], title=f"{obj_type}",
+                               figure_size=(30,5))
     return model
 
 
@@ -252,8 +256,8 @@ for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):
             action = reason_utils.pred_asterix_action(env_args.past_states, obj_id + 1, obj_type_models[obj_id]).to(
                 torch.int64).reshape(1)
         elif args.m == "Pong":
-            action = reason_utils.pred_pong_action(env_args.past_states, obj_id + 1, obj_type_models[obj_id]).to(
-                torch.int64).reshape(1)
+            action = reason_utils.pred_pong_action(args, env_args, env_args.past_states, obj_id + 1,
+                                                   obj_type_models[obj_id]).to(torch.int64).reshape(1)
         elif args.m == "Kangaroo":
             action = reason_utils.pred_kangaroo_action(env_args.past_states, obj_id + 1, obj_type_models[obj_id]).to(
                 torch.int64).reshape(1)
