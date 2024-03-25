@@ -339,8 +339,6 @@ class SymbolicMicroProgramPlayer:
         # reason_utils.reason_pong(self.args, self.states, self.actions)
 
         states = torch.cat(self.states, dim=0)
-        ball_pos_data = states[:, 0:1, -2:] - states[:, 1:2, -2:]
-        enemy_pos_data = states[:, 0:1, -2:] - states[:, 2:3, -2:]
         # get velo
         velo = reason_utils.get_state_velo(states)
         ball_pos_data = states[:, 0:1, -2:] - states[:, 1:2, -2:]

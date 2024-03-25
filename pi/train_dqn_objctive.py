@@ -170,6 +170,7 @@ def train_nn(num_actions, input_tensor, target_tensor, obj_type):
     # Target tensor shape: [batch_size]
     # Training loop
     num_epochs = 5000
+
     for epoch in tqdm(range(num_epochs), desc=f"obj type {obj_type}"):
         # Forward pass
         outputs = model(input_tensor)

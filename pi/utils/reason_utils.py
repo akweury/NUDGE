@@ -1323,8 +1323,8 @@ def pred_kangaroo_action(logic_state, obj_id, obj_type_model):
 
     pos_data = logic_state[-1, 0:1, -2:] - logic_state[-1, i_l:i_r, -2:]
     velo_data = velo[-1, i_l:i_r]
-    data = torch.cat((pos_data, velo_data), dim=-1)
-    action = obj_type_model(data.reshape(-1).unsqueeze(0))
+    # data = torch.cat((pos_data, velo_data), dim=-1)
+    action = obj_type_model(pos_data.reshape(-1).unsqueeze(0))
     action = action.argmax()
     return action
 

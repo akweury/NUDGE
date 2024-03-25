@@ -107,6 +107,10 @@ class EnvArgs():
     def update_lost_live(self,game_name, current_live):
         self.current_lives = current_live
         self.score_update = True
+        if game_name == "Kangaroo":
+            self.reward = self.reward_lost_one_live
+            self.rewards[-1] += self.reward_lost_one_live
+            self.dead_counter += 1
         if game_name =="Asterix":
             self.reward = self.reward_lost_one_live
             self.rewards[-1] += self.reward_lost_one_live
