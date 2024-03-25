@@ -440,7 +440,14 @@ def collect_full_data(agent, args, save_buffer):
                 env_args.buffer_frame()
             # update game args
             env_args.update_args()
-        env_args.buffer_game(args.zero_reward, args.save_frame)
+
+        if args.m == "Pong":
+            if sum(env_args.rewards) > 0:
+                env_args.buffer_game(args.zero_reward, args.save_frame)
+        elif args.m == "Asterix":
+            env_args.buffer_game(args.zero_reward, args.save_frame)
+        else:
+            raise ValueError
 
         env_args.reset_buffer_game()
         game_utils.game_over_log(args, agent, env_args)
