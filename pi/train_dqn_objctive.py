@@ -30,7 +30,7 @@ EPSILON_DECAY = 0.995
 LEARNING_RATE = 0.00025
 TARGET_UPDATE_FREQ = 5
 EPISODES = 1000
-
+print_freq = 100
 # Define experience replay memory
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward', 'done'))
 
@@ -115,7 +115,7 @@ class DQNAgent:
             with torch.no_grad():
                 return self.policy_net(state).max(1)[1].view(1, 1)
         else:
-            return torch.tensor([[random.randrange( self.num_actions)]], dtype=torch.long).to(state.device)
+            return torch.tensor([[random.randrange(self.num_actions)]], dtype=torch.long).to(state.device)
 
     def optimize_model(self):
         if len(self.memory) < BATCH_SIZE:
@@ -144,7 +144,7 @@ class DQNAgent:
         self.optimizer.step()
 
 
-def train_nn(num_actions, input_tensor, target_tensor):
+def train_nn(num_actions, input_tensor, target_tensor, obj_type):
     # Define your neural network architecture
     class Classifier(nn.Module):
         def __init__(self, num_actions):
@@ -173,7 +173,7 @@ def train_nn(num_actions, input_tensor, target_tensor):
     # Target tensor shape: [batch_size]
     # Training loop
     num_epochs = 5000
-    for epoch in range(num_epochs):
+    for epoch in tqdm(range(num_epochs), desc=f"obj type {obj_type}"):
         # Forward pass
         outputs = model(input_tensor)
 
@@ -184,10 +184,6 @@ def train_nn(num_actions, input_tensor, target_tensor):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-        # Print loss for monitoring
-        print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
-
     return model
 
 
@@ -221,7 +217,7 @@ for obj_type in range(len(pos_data)):
     input_tensor = pos_data[obj_type].to(args.device)
     input_tensor = input_tensor.view(input_tensor.size(0), -1)
     target_tensor = actions.to(args.device)
-    action_pred_model = train_nn(num_actions, input_tensor, target_tensor)
+    action_pred_model = train_nn(num_actions, input_tensor, target_tensor, obj_type)
     obj_type_models.append(action_pred_model)
 
 num_obj_types = 2
@@ -230,7 +226,7 @@ agent = DQNAgent(args, input_shape, num_obj_types)
 agent.agent_type = "pretrained"
 env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
 env_args.win_rate = torch.zeros(3000)
-env_args.learn_performance = torch.zeros(3000)
+env_args.learn_performance = []
 if args.with_explain:
     video_out = game_utils.get_game_viewer(env_args)
 for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):
@@ -309,13 +305,20 @@ for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):
     # env_args.buffer_game(args.zero_reward, args.save_frame)
     env_args.win_rate[game_i] = sum(env_args.rewards[:-1])  # update ep score
     env_args.reset_buffer_game()
-    if game_i > 5:
-        env_args.learn_performance[game_i] = sum(env_args.win_rate[game_i - 5:game_i])
-        # print(f"win_score_sum_past_5_games: {env_args.learn_performance[game_i]}")
-    if game_i % 50 == 10:
-        draw_utils.plot_line_chart(env_args.learn_performance.unsqueeze(0), path=args.output_folder,
-                                   labels=["sum_past_5"], title=f"{args.m}_sum_past_5_{game_i}", figure_size=(30, 5))
-    # game_utils.game_over_log(args, agent, env_args)
+    if game_i > print_freq and game_i % print_freq == 1:
+        env_args.learn_performance.append(sum(env_args.win_rate[game_i - print_freq:game_i]))
+
+        line_chart_data = torch.tensor(env_args.learn_performance)
+        draw_utils.plot_line_chart(line_chart_data.unsqueeze(0), path=args.output_folder,
+                                   labels=["sum_past_5"], title=f"{args.m}_sum_past_{print_freq}", figure_size=(30, 5))
+        # save model
+        last_epoch_save_path = args.output_folder / f'{args.m}_obj_pred_dqn_{game_i + 1 - print_freq}.pkl'
+        save_path = args.output_folder / f'{args.m}_obj_pred_dqn_{game_i + 1}.pkl'
+        if os.path.exists(last_epoch_save_path):
+            os.remove(last_epoch_save_path)
+        from pi.utils import file_utils
+
+        file_utils.save_pkl(save_path, agent)
 
 env.close()
 game_utils.finish_one_run(env_args, args, agent)

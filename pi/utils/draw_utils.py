@@ -57,6 +57,15 @@ def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scal
     if log_y:
         plt.yscale('log')
 
+
+    # Calculate standard deviation for confidence intervals
+    std_dev = torch.tensor(np.std(y.numpy()))
+    # Plot confidence intervals
+    lower_bound = y - 1.96 * std_dev
+    upper_bound = y + 1.96 * std_dev
+    plt.fill_between(np.arange(len(y)), lower_bound, upper_bound,
+                     color='gray', alpha=0.3, label='95% Confidence Interval')
+
     plt.legend()
     plt.grid(True)
 
