@@ -1248,23 +1248,23 @@ def reason_pong(args, states, actions):
     return None
 
 
-def pred_asterix_action(logic_state, obj_id, obj_type_model):
+def pred_asterix_action(args, env_args, logic_state, obj_id, obj_type_model):
+    if env_args.frame_i <= args.jump_frames:
+        return torch.tensor(0)
     obj_id = obj_id.reshape(-1)
-    logic_state = torch.tensor(logic_state).to(obj_id.device)
-    op_res = logic_state[0, -2:] - logic_state[obj_id, -2:]
-    op_res = math_utils.closest_one_percent(op_res, unit=0.1).reshape(-1)
-    x_ticks = torch.arange(-0.9, 0.9, 0.1).to(obj_id.device)
-    y_ticks = torch.arange(-0.9, 0.9, 0.1).to(obj_id.device)
-
-    x_id = torch.nonzero(torch.abs(x_ticks - op_res[0]) < 1e-6).reshape(-1)
-    y_id = torch.nonzero(torch.abs(y_ticks - op_res[1]) < 1e-6).reshape(-1)
     if obj_id == 1:
-        pos_data = logic_state[0:1, -2:] - logic_state[1:9, -2:]
+        indices = [1, 2, 3, 4, 5, 6, 7, 8]
     elif obj_id == 2:
-        pos_data = logic_state[0:1, -2:] - logic_state[9:, -2:]
+        indices = [9, 10, 11, 12, 13, 14, 15, 16]
     else:
         raise ValueError
-    action = obj_type_model(pos_data.reshape(-1).unsqueeze(0))
+
+    logic_state = torch.tensor(logic_state).to(obj_id.device)
+    velo = get_state_velo(logic_state).to(obj_id.device)
+    velo[velo > 0.2] = 0
+    velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(velo), 0.01)
+    obj_data = get_symbolic_state(logic_state, velo, velo_dir, indices)
+    action = obj_type_model(obj_data)[-1]
     action = action.argmax()
     return action
 
@@ -1356,9 +1356,6 @@ def reason_asterix(args, states, actions):
 
     x_ticks = torch.arange(-0.9, 0.9, 0.1).to(args.device)
     y_ticks = torch.arange(-0.9, 0.9, 0.1).to(args.device)
-    x_ticks_2decimal = ["{:.1f}".format(num) for num in x_ticks]
-    y_ticks_2decimal = ["{:.1f}".format(num) for num in y_ticks]
-
     obj_data = torch.zeros((states.shape[1], len(y_ticks), len(x_ticks)))
 
     pos_data = torch.zeros((states.shape[0], 2))
@@ -1382,7 +1379,5 @@ def reason_asterix(args, states, actions):
 
         action_heat_data = heat_data.argmax(dim=0)
         obj_data[obj_i] = action_heat_data
-        # draw_utils.plot_heat_map(data=action_heat_data, path=args.output_folder,
-        #                          name=f"{args.m}_{args.row_names[obj_i]}_{obj_i}",
-        #                          figsize=(10, 5), row_names=y_ticks_2decimal, col_names=x_ticks_2decimal)
+
     return

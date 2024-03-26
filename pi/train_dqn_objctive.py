@@ -171,7 +171,7 @@ def train_nn(num_actions, input_tensor, target_tensor, obj_type):
     # Input tensor shape: [batch_size, 16]
     # Target tensor shape: [batch_size]
     # Training loop
-    num_epochs = 1000
+    num_epochs = 100000
     losses = torch.zeros(1, num_epochs)
     for epoch in tqdm(range(num_epochs), desc=f"obj type {obj_type}"):
         # Forward pass
@@ -262,8 +262,8 @@ for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):
         logic_state, _ = extract_logic_state_atari(args, env.objects, args.game_info, obs.shape[0])
         env_args.past_states.append(logic_state)
         if args.m == "Asterix":
-            action = reason_utils.pred_asterix_action(env_args.past_states, obj_id + 1, obj_type_models[obj_id]).to(
-                torch.int64).reshape(1)
+            action = reason_utils.pred_asterix_action(args, env_args, env_args.past_states, obj_id + 1,
+                                                      obj_type_models[obj_id]).to(torch.int64).reshape(1)
         elif args.m == "Pong":
             action = reason_utils.pred_pong_action(args, env_args, env_args.past_states, obj_id + 1,
                                                    obj_type_models[obj_id]).to(torch.int64).reshape(1)

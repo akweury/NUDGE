@@ -367,12 +367,14 @@ class SymbolicMicroProgramPlayer:
         return pos_data, actions
 
     def asterix_reasoner(self):
-        reason_utils.reason_asterix(self.args, self.states, self.actions)
-        pos_data = []
         states = torch.cat(self.states, dim=0)
-        enemy_pos_data = states[:, 0:1, -2:] - states[:, 1:9, -2:]
-        consumable_pos_data = states[:, 0:1, -2:] - states[:, 9:, -2:]
-        pos_data = [enemy_pos_data, consumable_pos_data]
+        velo = reason_utils.get_state_velo(states)
+        velo[velo > 0.2] = 0
+        velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(velo), 0.01)
+        enemy_data = self.get_symbolic_state(states, velo, velo_dir, [1, 2, 3, 4, 5, 6, 7, 8])
+        consumable_data = self.get_symbolic_state(states, velo, velo_dir, [9, 10, 11, 12, 13, 14, 15, 16])
+        pos_data = [enemy_data,
+                    consumable_data]
         actions = torch.cat(self.actions, dim=0)
         return pos_data, actions
 
