@@ -52,6 +52,8 @@ class EnvArgs():
             self.game_num = args.student_game_nums
         elif agent.agent_type == "pretrained" or agent.agent_type == "ppo":
             self.game_num = args.teacher_game_nums
+        elif agent.agent_type == "DQN-T":
+            self.game_num = args.episode_num
         else:
             raise ValueError
         self.train_num = args.train_epochs
@@ -104,18 +106,17 @@ class EnvArgs():
         else:
             self.score_update = False
 
-    def update_lost_live(self,game_name, current_live):
+    def update_lost_live(self, game_name, current_live):
         self.current_lives = current_live
         self.score_update = True
         if game_name == "Kangaroo":
             self.reward = self.reward_lost_one_live
             self.rewards[-1] += self.reward_lost_one_live
             self.dead_counter += 1
-        if game_name =="Asterix":
+        if game_name == "Asterix":
             self.reward = self.reward_lost_one_live
             self.rewards[-1] += self.reward_lost_one_live
             self.dead_counter += 1
-
 
     def buffer_frame(self):
         # if self.frame_i < self.jump_frames:
