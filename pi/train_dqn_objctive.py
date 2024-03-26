@@ -331,13 +331,13 @@ for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):
                                    title=f"{args.m}_sum_past_{args.print_freq}",
                                    figure_size=(30, 5))
         # save model
-        last_epoch_save_path = args.output_folder / f'{args.m}_obj_pred_dqn_{game_i + 1 - args.print_freq}.pkl'
-        save_path = args.output_folder / f'{args.m}_obj_pred_dqn_{game_i + 1}.pkl'
+        last_epoch_save_path = args.output_folder / f'{args.m}_obj_pred_dqn_{game_i + 1 - args.print_freq}.pth'
+        save_path = args.output_folder / f'{args.m}_obj_pred_dqn_{game_i + 1}.pth'
         if os.path.exists(last_epoch_save_path):
             os.remove(last_epoch_save_path)
         from pi.utils import file_utils
 
-        file_utils.save_pkl(save_path, agent)
+        file_utils.save_agent(save_path, agent)
 
 env.close()
 game_utils.finish_one_run(env_args, args, agent)

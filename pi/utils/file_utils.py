@@ -35,3 +35,7 @@ def all_file_in_folder(path_frames):
      os.path.isfile(os.path.join(path_frames, filename))]
     sorted_paths = sorted(paths, key=lambda f: os.stat(f).st_ctime)
     return sorted_paths
+
+
+def save_agent(save_path, agent):
+    torch.save(agent.policy_net.state_dict(), save_path)
