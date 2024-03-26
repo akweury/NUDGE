@@ -74,6 +74,8 @@ def load_args(exp_args_path, m):
     make_deterministic(args.seed)
     # output folder
     args.output_folder = config.path_check_point / f"{args.m}"
+    args.trained_model_folder = config.path_check_point / f"{args.m}" / "trained_models"
+
     args.check_point_path = config.path_check_point / f"{args.m}"
     args.game_buffer_path = config.path_check_point / f"{args.m}" / "game_buffer"
     args.path_bs_data = config.path_bs_data / args.m
@@ -98,6 +100,8 @@ def load_args(exp_args_path, m):
         os.mkdir(str(args.check_point_path / "o2o"))
     if not os.path.exists(str(args.output_folder)):
         os.mkdir(str(args.output_folder))
+    if not os.path.exists(str(args.trained_model_folder)):
+        os.mkdir(str(args.trained_model_folder))
     if not os.path.exists(str(args.game_buffer_path)):
         os.mkdir(str(args.game_buffer_path))
     if not os.path.exists(str(args.path_bs_data)):
