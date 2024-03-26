@@ -17,7 +17,7 @@ python -m pi.train_dqn_objctive -m Pong --teacher_game_nums 1000 --device 6
 python -m pi.train_dqn_objctive -m Kangaroo --teacher_game_nums 1000 --device 7
 
 
-python -m pi.train_dqn_objctive -m Asterix --teacher_game_nums 1000 --device 12
+python -m pi.train_dqn_objctive -m Asterix --teacher_game_nums 1000 --device 8
 python -m pi.play -m Asterix --teacher_game_nums 1000 --device 12
 python -m pi.play --teacher_agent pretrained -m Boxing --with_explain --device 10 --teacher_game_nums 100
 ```

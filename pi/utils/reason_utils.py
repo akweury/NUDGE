@@ -1302,43 +1302,51 @@ def pred_pong_action(args, env_args, logic_state, obj_id, obj_type_model):
     return action
 
 
-def pred_kangaroo_action(logic_state, obj_id, obj_type_model):
+def pred_kangaroo_action(args, env_args, logic_state, obj_id, obj_type_model):
+    if env_args.frame_i <= args.jump_frames:
+        return torch.tensor(0)
     obj_id = obj_id.reshape(-1)
-    logic_state = torch.tensor(logic_state).to(obj_id.device)
-    velo = get_state_velo(logic_state).to(obj_id.device)
     if obj_id == 1:
-        i_l = 1
-        i_r = 2
+        indices = [1]
     elif obj_id == 2:
-        i_l = 2
-        i_r = 5
+        indices = [2, 3, 4]
     elif obj_id == 3:
-        i_l = 5
-        i_r = 6
+        indices = [5]
+
     elif obj_id == 4:
-        i_l = 6
-        i_r = 10
+        indices = [6, 7, 8, 9]
     elif obj_id == 5:
-        i_l = 10
-        i_r = 13
+        indices = [10, 11, 12]
     elif obj_id == 6:
-        i_l = 13
-        i_r = 17
+        indices = [13, 14, 15, 16]
     elif obj_id == 7:
-        i_l = 17
-        i_r = 20
+        indices = [17, 18, 19]
     elif obj_id == 8:
-        i_l = 20
-        i_r = 23
+        indices = [20, 21, 22]
     else:
         raise ValueError
 
-    pos_data = logic_state[-1, 0:1, -2:] - logic_state[-1, i_l:i_r, -2:]
-    velo_data = velo[-1, i_l:i_r]
-    # data = torch.cat((pos_data, velo_data), dim=-1)
-    action = obj_type_model(pos_data.reshape(-1).unsqueeze(0))
+    logic_state = torch.tensor(logic_state).to(obj_id.device)
+    velo = get_state_velo(logic_state).to(obj_id.device)
+    velo[velo > 0.2] = 0
+    velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(velo), 0.01)
+    obj_data = get_symbolic_state(logic_state, velo, velo_dir, indices)
+    action = obj_type_model(obj_data)[-1]
     action = action.argmax()
     return action
+
+
+def get_symbolic_state(states, velo, velo_dir, indices):
+    data_pos = (states[:, 0:1, -2:] - states[:, indices, -2:]).view(states.size(0), -1)
+    data_pos_dirs = []
+    for index in indices:
+        pos_dir = math_utils.closest_multiple_of_45(get_ab_dir(states, 0, index)).view(-1, 1)
+        data_pos_dirs.append(pos_dir)
+    data_pos_dirs = torch.cat(data_pos_dirs, dim=1)
+    data_velo = velo[:, indices].view(velo.size(0), -1)
+    data_velo_dir = velo_dir[:, indices]
+    data = torch.cat((data_pos, data_pos_dirs, data_velo, data_velo_dir), dim=1)
+    return data
 
 
 def reason_asterix(args, states, actions):

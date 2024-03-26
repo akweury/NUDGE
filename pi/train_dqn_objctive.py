@@ -140,6 +140,7 @@ class DQNAgent:
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
+
 class Classifier(nn.Module):
     def __init__(self, num_actions):
         super(Classifier, self).__init__()
@@ -153,9 +154,9 @@ class Classifier(nn.Module):
         x = self.fc3(x)
         return x
 
+
 def train_nn(num_actions, input_tensor, target_tensor, obj_type):
     # Define your neural network architecture
-
 
     # Instantiate the model
     model = Classifier(num_actions).to(input_tensor.device)
@@ -170,7 +171,7 @@ def train_nn(num_actions, input_tensor, target_tensor, obj_type):
     # Input tensor shape: [batch_size, 16]
     # Target tensor shape: [batch_size]
     # Training loop
-    num_epochs = 100000
+    num_epochs = 1000
     losses = torch.zeros(1, num_epochs)
     for epoch in tqdm(range(num_epochs), desc=f"obj type {obj_type}"):
         # Forward pass
@@ -267,8 +268,8 @@ for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):
             action = reason_utils.pred_pong_action(args, env_args, env_args.past_states, obj_id + 1,
                                                    obj_type_models[obj_id]).to(torch.int64).reshape(1)
         elif args.m == "Kangaroo":
-            action = reason_utils.pred_kangaroo_action(env_args.past_states, obj_id + 1, obj_type_models[obj_id]).to(
-                torch.int64).reshape(1)
+            action = reason_utils.pred_kangaroo_action(args, env_args, env_args.past_states, obj_id + 1,
+                                                       obj_type_models[obj_id]).to(torch.int64).reshape(1)
         else:
             raise ValueError
 
