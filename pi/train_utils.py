@@ -168,7 +168,7 @@ def train_nn(args, num_actions, input_tensor, target_tensor, text):
     # Training loop
     num_epochs = args.train_epochs
     losses = torch.zeros(1, num_epochs)
-    for epoch in tqdm(range(num_epochs), desc=f"{text}"):
+    for epoch in tqdm(range(num_epochs), desc=f"Train MLP agent {text}"):
         # Forward pass
         outputs = model(input_tensor)
 

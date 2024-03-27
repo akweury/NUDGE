@@ -20,7 +20,7 @@ def main(render=True, m=None):
     # collect game buffer from neural agent
     if not os.path.exists(args.buffer_filename):
         teacher_agent = create_agent(args, agent_type=args.teacher_agent)
-        pi.game_render.collect_full_data(teacher_agent, args, save_buffer=True)
+        pi.game_render.collect_data_dqn_a(teacher_agent, args, save_buffer=True)
     if args.m == "getout":
         student_agent.load_buffer(game_utils.load_buffer(args))
     else:

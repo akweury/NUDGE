@@ -77,7 +77,7 @@ def train_dqn_t():
             agent.target_net.eval()
     else:
         start_game_i = 0
-    for game_i in tqdm(range(start_game_i, args.episode_num), desc=f"Agent  {agent.agent_type}"):
+    for game_i in tqdm(range(start_game_i, args.episode_num), desc=f"Training agent  {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()

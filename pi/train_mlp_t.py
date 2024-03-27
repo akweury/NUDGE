@@ -26,7 +26,7 @@ def collect_data_dqn_t(agent, args, buffer_filename, save_buffer):
     obs, info = env.reset()
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     agent.position_norm_factor = obs.shape[0]
-    for game_i in tqdm(range(env_args.game_num), desc=f"Agent  {agent.agent_type}"):
+    for game_i in tqdm(range(env_args.game_num), desc=f"Collecting GameBuffer by {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
@@ -99,7 +99,7 @@ def train_mlp_t():
     obj_type_num = len(args.game_info["obj_info"]) - 1
     student_agent = create_agent(args, agent_type='smp')
     # collect game buffer from neural agent
-    buffer_filename = config.path_check_point / args.m / f"z_buffer_dqn_t_{args.teacher_game_nums}.json"
+    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_t_{args.teacher_game_nums}.json"
     if not os.path.exists(buffer_filename):
         dqn_t_agent = train_utils.DQNAgent(args, dqn_t_input_shape, obj_type_num)
         dqn_t_agent.agent_type = "DQN-T"

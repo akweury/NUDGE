@@ -18,6 +18,6 @@ python -m pi.train -m Kangaroo --train_epochs 100000 --episode_num 1000 --resume
 
 
 python -m pi.train_dqn_objctive -m Asterix --teacher_game_nums 1000 --device 8
-python -m pi.play -m Asterix --teacher_game_nums 1000 --device 12
+python -m pi.play -m Asterix --episode_num 1000 --train_epochs 100000 --device 12
 python -m pi.play --teacher_agent pretrained -m Boxing --with_explain --device 10 --teacher_game_nums 100
 ```

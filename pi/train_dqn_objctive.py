@@ -194,7 +194,7 @@ def train_nn(num_actions, input_tensor, target_tensor, obj_type):
 
 import os.path
 from pi.utils.game_utils import create_agent
-from pi.game_render import collect_full_data
+from pi.game_render import collect_data_dqn_a
 
 args = args_utils.load_args(config.path_exps, None)
 
@@ -203,7 +203,7 @@ student_agent = create_agent(args, agent_type='smp')
 # collect game buffer from neural agent
 if not os.path.exists(args.buffer_filename):
     teacher_agent = create_agent(args, agent_type=args.teacher_agent)
-    collect_full_data(teacher_agent, args, save_buffer=True)
+    collect_data_dqn_a(teacher_agent, args, save_buffer=True)
 student_agent.load_atari_buffer(args)
 
 if args.m == "Pong":

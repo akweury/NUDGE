@@ -409,7 +409,7 @@ def render_getout(agent, args, save_buffer):
         draw_utils.release_video(video_out)
 
 
-def collect_full_data(agent, args, save_buffer):
+def collect_data_dqn_a(agent, args, save_buffer):
     oc_name = game_utils.get_ocname(args.m)
     env = OCAtari(oc_name, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()

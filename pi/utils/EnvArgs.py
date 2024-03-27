@@ -56,8 +56,9 @@ class EnvArgs():
             self.game_num = args.student_game_nums
         elif agent.agent_type == "pretrained" or agent.agent_type == "ppo":
             self.game_num = args.teacher_game_nums
-        elif agent.agent_type == "DQN-T":
+        elif agent.agent_type in ["DQN-T", "DQN-A", "DQN-R"]:
             self.game_num = args.episode_num
+
         else:
             raise ValueError
         self.train_num = args.train_epochs
