@@ -56,10 +56,28 @@ def train_dqn_t():
     agent = train_utils.DQNAgent(args, input_shape, num_obj_types)
     agent.agent_type = "DQN-T"
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
-    env_args.learn_performance = []
+    agent.learn_performance = []
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
-    for game_i in tqdm(range(args.episode_num), desc=f"Agent  {agent.agent_type}"):
+
+    if args.resume:
+        files = os.listdir(args.trained_model_folder)
+        dqn_model_files = [file for file in files if f'dqn_t' in file]
+        if len(dqn_model_files) == 0:
+            start_game_i = 0
+        else:
+            dqn_model_file = dqn_model_files[0]
+            start_game_i = int(dqn_model_file.split("dqn_t_")[1].split(".")[0]) + 1
+            file_dict = torch.load(args.trained_model_folder / dqn_model_file)
+            state_dict = file_dict["state_dict"]
+            agent.learn_performance = file_dict["learn_performance"]
+
+            agent.policy_net.load_state_dict(state_dict)
+            agent.target_net.load_state_dict(agent.policy_net.state_dict())
+            agent.target_net.eval()
+    else:
+        start_game_i = 0
+    for game_i in tqdm(range(start_game_i, args.episode_num), desc=f"Agent  {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
@@ -138,9 +156,9 @@ def train_dqn_t():
         env_args.win_rate[game_i] = sum(env_args.rewards[:-1])  # update ep score
         env_args.reset_buffer_game()
         if game_i > args.print_freq and game_i % args.print_freq == 1:
-            env_args.learn_performance.append(sum(env_args.win_rate[game_i - args.print_freq:game_i]))
+            agent.learn_performance.append(sum(env_args.win_rate[game_i - args.print_freq:game_i]))
 
-            line_chart_data = torch.tensor(env_args.learn_performance)
+            line_chart_data = torch.tensor(agent.learn_performance)
             draw_utils.plot_line_chart(line_chart_data.unsqueeze(0), path=args.trained_model_folder,
                                        labels=[f"total_score_every_{args.print_freq}"],
                                        title=f"{args.m}_sum_past_{args.print_freq}",
@@ -151,7 +169,6 @@ def train_dqn_t():
             if os.path.exists(last_epoch_save_path):
                 os.remove(last_epoch_save_path)
             from pi.utils import file_utils
-
             file_utils.save_agent(save_path, agent)
 
     env.close()

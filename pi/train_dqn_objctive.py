@@ -241,7 +241,7 @@ agent = DQNAgent(args, input_shape, num_obj_types)
 agent.agent_type = "pretrained"
 env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
 env_args.win_rate = torch.zeros(3000)
-env_args.learn_performance = []
+agent.learn_performance = []
 if args.with_explain:
     video_out = game_utils.get_game_viewer(env_args)
 for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):

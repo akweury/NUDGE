@@ -38,4 +38,6 @@ def all_file_in_folder(path_frames):
 
 
 def save_agent(save_path, agent):
-    torch.save(agent.policy_net.state_dict(), save_path)
+    save_dict = {"state_dict": agent.policy_net.state_dict(),
+                 "learn_performance": agent.learn_performance}
+    torch.save(save_dict, save_path)
