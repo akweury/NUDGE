@@ -1,6 +1,6 @@
 # Created by shaji at 26/03/2024
 
-
+import os
 from tqdm import tqdm
 import numpy as np
 import time
@@ -185,3 +185,13 @@ def train_nn(args, num_actions, input_tensor, target_tensor, text):
     draw_utils.plot_line_chart(losses, path=args.trained_model_folder, labels=["loss"], title=f"{text}",
                                figure_size=(10, 5))
     return model
+
+
+def load_mlp_a(model_folder,obj_num, game_name):
+    # load MLP-A
+    mlp_a = []
+    for obj_i in range(obj_num):
+        mlp_a_i_file = model_folder / f"{game_name}_mlp_a_{obj_i}.pth.tar"
+        mlp_a_i = torch.load(mlp_a_i_file)["model"]
+        mlp_a.append(mlp_a_i)
+    return mlp_a

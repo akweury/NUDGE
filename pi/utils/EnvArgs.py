@@ -33,6 +33,8 @@ class EnvArgs():
         self.last_obs = torch.zeros((window_size[0], window_size[1], 3), dtype=torch.uint8).numpy()
         self.past_states = deque(maxlen=20)
         self.action = None
+        self.obj_type=  None
+        self.relation = None
         self.logic_state = None
         self.last_state = None
         self.last2nd_state = None
@@ -43,6 +45,8 @@ class EnvArgs():
         self.game_states = []
         self.game_actions = []
         self.game_rewards = []
+        self.game_obj_types = []
+        self.game_relations = []
         self.game_i = 0
         self.win_count = 0
         self.dead_counter = 0
@@ -118,13 +122,20 @@ class EnvArgs():
             self.rewards[-1] += self.reward_lost_one_live
             self.dead_counter += 1
 
-    def buffer_frame(self):
-        # if self.frame_i < self.jump_frames:
-        #     return
+    def buffer_frame(self, buffer_type):
+        if self.frame_i < self.jump_frames:
+            return
         self.next_states.append(self.next_state)
         self.logic_states.append(self.logic_state)
-        self.actions.append(self.action)
         self.rewards.append(self.reward)
+        if buffer_type == "dqn_a":
+            self.actions.append(self.action)
+        elif buffer_type == "dqn_t":
+            self.actions.append(self.obj_type)
+        elif buffer_type == "dqn_l":
+            self.actions.append(self.relation)
+        else:
+            raise ValueError
 
     def buffer_game(self, zero_reward, save_frame):
         states = []

@@ -19,7 +19,8 @@ def train_mlp_a():
     if not os.path.exists(args.buffer_filename):
         teacher_agent = create_agent(args, agent_type=args.teacher_agent)
         collect_full_data(teacher_agent, args, save_buffer=True)
-    student_agent.load_atari_buffer(args)
+    buffer_filename = args.buffer_filename
+    student_agent.load_atari_buffer(args, buffer_filename)
 
     if args.m == "Pong":
         pos_data, actions = student_agent.pong_reasoner()
@@ -38,7 +39,7 @@ def train_mlp_a():
         input_tensor = input_tensor.view(input_tensor.size(0), -1)
         target_tensor = actions.to(args.device)
 
-        act_pred_model_file = args.trained_model_folder / f"{args.m}_{obj_type}.pth.tar"
+        act_pred_model_file = args.trained_model_folder / f"{args.m}_mlp_a_{obj_type}.pth.tar"
 
         if not os.path.exists(act_pred_model_file):
             action_pred_model = train_utils.train_nn(args, num_actions, input_tensor, target_tensor,

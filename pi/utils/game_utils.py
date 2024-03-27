@@ -55,9 +55,9 @@ class RolloutBuffer:
         del self.game_number[:]
 
     def load_buffer(self, args):
-        with open(args.buffer_filename, 'r') as f:
+        with open(self.filename, 'r') as f:
             state_info = json.load(f)
-        print(f"==> Loaded game buffer file: {args.buffer_filename}")
+        print(f"==> Loaded game buffer file: {self.filename}")
 
         self.win_rates = torch.tensor(state_info['win_rates'])
         self.actions = [torch.tensor(state_info['actions'][i]) for i in range(len(state_info['actions']))]
@@ -100,7 +100,7 @@ class RolloutBuffer:
                 'predictions': self.predictions,
                 "reason_source": self.reason_source,
                 'game_number': self.game_number,
-                'row_names':self.row_names,
+                'row_names': self.row_names,
                 'win_rates': self.win_rates
                 }
 
@@ -109,8 +109,8 @@ class RolloutBuffer:
         print(f'data saved in file {self.filename}')
 
 
-def load_buffer(args):
-    buffer = RolloutBuffer(args.buffer_filename)
+def load_buffer(args, buffer_filename):
+    buffer = RolloutBuffer(buffer_filename)
     buffer.load_buffer(args)
     return buffer
 
@@ -344,7 +344,7 @@ def create_agent(args, agent_type):
         agent = 'human'
     elif agent_type == "ppo":
         agent = PpoPlayer(args)
-    elif agent_type == 'pretrained':
+    elif agent_type in ['pretrained', 'DQN-A', 'DQN-T', 'DQN-R']:
         # game/seed/model
         game_name = args.m.lower()
         ckpt = _load_checkpoint(args.model_path)
@@ -421,8 +421,8 @@ def revise_loss_log(env_args, agent, video_out):
     screen_shot(env_args, video_out, env_args.obs, None, mt_plot, [], env_args.dead_counter, screen_text)
 
 
-def save_game_buffer(args, env_args):
-    buffer = RolloutBuffer(args.buffer_filename)
+def save_game_buffer(args, env_args, buffer_filename):
+    buffer = RolloutBuffer(buffer_filename)
     buffer.game_next_states = env_args.game_next_states
     buffer.logic_states = env_args.game_states
     buffer.actions = env_args.game_actions
@@ -441,13 +441,13 @@ def finish_one_run(env_args, args, agent):
 def get_ocname(m):
     if m == "montezuma_revenge":
         return "MontezumaRevenge"
-    elif m =="Kangaroo":
+    elif m == "Kangaroo":
         return "Kangaroo"
-    elif m=="fishing_derby":
+    elif m == "fishing_derby":
         return "FishingDerby"
-    elif m=="Pong":
+    elif m == "Pong":
         return "Pong"
-    elif m=="Asterix":
+    elif m == "Asterix":
         return "Asterix"
     else:
         raise ValueError
