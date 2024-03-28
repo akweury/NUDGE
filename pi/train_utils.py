@@ -2,16 +2,18 @@
 
 import os
 from tqdm import tqdm
-import numpy as np
-import time
-
-import torch
-import torch.nn as nn
 import torch.optim as optim
 import random
 from collections import namedtuple, deque
-from ocatari.core import OCAtari
+from functools import partial
+from gzip import GzipFile
+from pathlib import Path
+import torch
 
+import numpy as np
+from torch import nn
+
+from pi.ale_env import ALEModern
 from pi.utils import draw_utils
 
 BATCH_SIZE = 32
@@ -221,3 +223,39 @@ def load_dqn_c(agent, model_folder):
         agent.target_net.load_state_dict(agent.policy_net.state_dict())
         agent.target_net.eval()
         return True, start_game_i
+
+
+def _load_checkpoint(fpath, device="cpu"):
+    fpath = Path(fpath)
+    with fpath.open("rb") as file:
+        with GzipFile(fileobj=file) as inflated:
+            return torch.load(inflated, map_location=device)
+
+
+def _epsilon_greedy(obs, model, eps=0.001):
+    if torch.rand((1,)).item() < eps:
+        return torch.randint(model.action_no, (1,)).item(), None
+    q_val, argmax_a = model(obs).max(1)
+    return argmax_a.item(), q_val
+
+
+def load_dqn_a(args, model_file):
+    ckpt = _load_checkpoint(model_file)
+    # set env
+    env = ALEModern(
+        args.m,
+        torch.randint(100_000, (1,)).item(),
+        sdl=False,
+        device=args.device,
+        clip_rewards_val=False,
+        record_dir=None,
+    )
+
+    # init model
+    model = AtariNet(env.action_space.n, distributional="C51_" in str(args.model_path))
+    model.load_state_dict(ckpt["estimator_state"])
+    model = model.to(args.device)
+    # configure policy
+    policy = partial(_epsilon_greedy, model=model, eps=0.001)
+    agent = policy
+    return agent

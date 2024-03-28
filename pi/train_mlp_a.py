@@ -32,7 +32,7 @@ def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
             env_args.obs = env_args.last_obs
 
             state = env.dqn_obs.to(args.device)
-            env_args.action = agent.select_action(env.dqn_obs.to(env_args.device))
+            env_args.action, _ = agent(env.dqn_obs.to(env_args.device))
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(env_args.action)
 
             game_patches.atari_frame_patches(args, env_args, info)
@@ -45,7 +45,6 @@ def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
                 # record game states
                 env_args.next_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
                                                                                       obs.shape[0])
-                env_args.action = env_args.action.reshape(-1).item()
                 env_args.buffer_frame("dqn_a")
             # update game args
             env_args.update_args()
@@ -87,7 +86,7 @@ def train_mlp_a():
     buffer_filename = args.game_buffer_path / f"z_buffer_dqn_a_{args.teacher_game_nums}.json"
 
     if not os.path.exists(buffer_filename):
-        dqn_a_agent = train_utils.DQNAgent(args, dqn_a_input_shape, action_num)
+        dqn_a_agent = train_utils.load_dqn_a(args, args.model_path)
         dqn_a_agent.agent_type = "DQN-A"
         collect_data_dqn_a(dqn_a_agent, args, buffer_filename, save_buffer=True)
 
