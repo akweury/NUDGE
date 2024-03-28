@@ -9,8 +9,8 @@ RUN ln -snf /usr/share/zoneinfo/Etc/UTC /etc/localtime
 RUN pip install opencv-python==4.8.0.74
 # Add qt5
 RUN apt-get install qt5-default -y
-ADD .ssh/ /root/.ssh/
 WORKDIR  /NUDGE/
+ADD .ssh/ /root/.ssh/
 RUN git clone https://github.com/k4ntz/OC_Atari
 RUN pip install -e ./OC_Atari
 RUN git clone git@github.com:akweury/NUDGE.git
