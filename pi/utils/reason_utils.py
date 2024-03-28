@@ -1248,6 +1248,19 @@ def reason_pong(args, states, actions):
     return None
 
 
+def extract_asterix_kinematics(args, env_args, logic_state):
+    logic_state = torch.tensor(logic_state).to(args.device)
+    velo = get_state_velo(logic_state).to(args.device)
+    velo[velo > 0.2] = 0
+    velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(velo), 0.01)
+    indices = torch.arange(logic_state.shape[1])
+    obj_datas = []
+    for o_i in range(logic_state.shape[1]):
+        obj_datas.append(get_symbolic_state(logic_state, velo, velo_dir, [o_i]).unsqueeze(1))
+    obj_datas = torch.cat(obj_datas, dim=1)
+    return obj_datas
+
+
 def pred_asterix_action(args, env_args, logic_state, obj_id, obj_type_model):
     if env_args.frame_i <= args.jump_frames:
         return torch.tensor(0)
@@ -1381,3 +1394,23 @@ def reason_asterix(args, states, actions):
         obj_data[obj_i] = action_heat_data
 
     return
+
+
+def extract_direction_obj_data(state_kinematic, relation):
+    relation_degrees = relation.reshape(-1).item() * 45
+    relation_dir = math_utils.closest_multiple_of_45(torch.tensor([relation_degrees]).to(torch.float)).to(
+        state_kinematic.device)
+    state_dirs = state_kinematic[:, 2]
+    related_obj_indices = state_dirs == relation_dir
+    return related_obj_indices
+
+
+def asterix_obj_to_collective(obj_id):
+    enemy_indices = [1, 2, 3, 4, 5, 6, 7, 8]
+    consumable_indices = [9, 10, 11, 12, 13, 14, 15, 16]
+    if obj_id in enemy_indices:
+        return enemy_indices, 0
+    elif obj_id in consumable_indices:
+        return consumable_indices, 1
+    else:
+        return None, None

@@ -59,8 +59,8 @@ def collect_data_dqn_t(agent, args, buffer_filename, save_buffer):
                 env_args.next_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
                                                                                       obs.shape[0])
                 env_args.action = action
-                env_args.obj_type = obj_type.reshape(-1).item()
-                env_args.buffer_frame("dqn_t")
+                env_args.collective = obj_type.reshape(-1).item()
+                env_args.buffer_frame("dqn_c")
             env_args.frame_i += 1
 
             env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
@@ -88,7 +88,7 @@ def collect_data_dqn_t(agent, args, buffer_filename, save_buffer):
         game_utils.save_game_buffer(args, env_args, buffer_filename)
 
 
-def train_mlp_t():
+def train_mlp_c():
     # game buffer
     args = args_utils.load_args(config.path_exps, None)
     # train mlp-t
@@ -99,10 +99,12 @@ def train_mlp_t():
     obj_type_num = len(args.game_info["obj_info"]) - 1
     student_agent = create_agent(args, agent_type='smp')
     # collect game buffer from neural agent
-    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_t_{args.teacher_game_nums}.json"
+    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_c_{args.teacher_game_nums}.json"
     if not os.path.exists(buffer_filename):
+        # load dqn-t agent
         dqn_t_agent = train_utils.DQNAgent(args, dqn_t_input_shape, obj_type_num)
-        dqn_t_agent.agent_type = "DQN-T"
+        dqn_t_agent.agent_type = "DQN-C"
+        train_utils.load_dqn_c(dqn_t_agent, args.trained_model_folder)
         collect_data_dqn_t(dqn_t_agent, args, buffer_filename, save_buffer=True)
     student_agent.load_atari_buffer(args, buffer_filename)
     if args.m == "Pong":
@@ -116,11 +118,11 @@ def train_mlp_t():
     input_tensor = input_tensor.view(input_tensor.size(0), -1)
     target_tensor = actions.to(args.device)
 
-    act_pred_model_file = args.trained_model_folder / f"{args.m}_mlp_t.pth.tar"
+    act_pred_model_file = args.trained_model_folder / f"{args.m}_mlp_c.pth.tar"
 
     if not os.path.exists(act_pred_model_file):
         target_pred_model = train_utils.train_nn(args, num_actions, input_tensor, target_tensor,
-                                                 f"mlp_t")
+                                                 f"mlp_c")
         state = {'model': target_pred_model}
         torch.save(state, act_pred_model_file)
     else:
@@ -129,4 +131,4 @@ def train_mlp_t():
 
 
 if __name__ == "__main__":
-    train_mlp_t()
+    train_mlp_c()

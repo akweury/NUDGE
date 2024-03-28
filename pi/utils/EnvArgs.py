@@ -33,8 +33,8 @@ class EnvArgs():
         self.last_obs = torch.zeros((window_size[0], window_size[1], 3), dtype=torch.uint8).numpy()
         self.past_states = deque(maxlen=20)
         self.action = None
-        self.obj_type=  None
-        self.relation = None
+        self.collective=  None
+        self.target = None
         self.logic_state = None
         self.last_state = None
         self.last2nd_state = None
@@ -56,7 +56,7 @@ class EnvArgs():
             self.game_num = args.student_game_nums
         elif agent.agent_type == "pretrained" or agent.agent_type == "ppo":
             self.game_num = args.teacher_game_nums
-        elif agent.agent_type in ["DQN-T", "DQN-A", "DQN-R"]:
+        elif agent.agent_type in ["DQN-T", "DQN-A", "DQN-C"]:
             self.game_num = args.episode_num
 
         else:
@@ -131,10 +131,10 @@ class EnvArgs():
         self.rewards.append(self.reward)
         if buffer_type == "dqn_a":
             self.actions.append(self.action)
+        elif buffer_type == "dqn_c":
+            self.actions.append(self.collective)
         elif buffer_type == "dqn_t":
-            self.actions.append(self.obj_type)
-        elif buffer_type == "dqn_l":
-            self.actions.append(self.relation)
+            self.actions.append(self.target)
         else:
             raise ValueError
 

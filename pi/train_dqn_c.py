@@ -1,6 +1,4 @@
-# Created by shaji at 27/03/2024
-
-
+# Created by shaji at 26/03/2024
 from tqdm import tqdm
 import os
 import time
@@ -16,37 +14,7 @@ from pi.utils.oc_utils import extract_logic_state_atari
 from pi import train_utils
 
 
-def _reason_action(args, agent, env, env_args, mlp_a, mlp_c):
-    obj_id = agent.select_action(env.dqn_obs.to(env_args.device))
-    if obj_id is None:
-        print("")
-    # determine relation related objects
-    state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args, env_args.past_states)
-    collective_indices, collective_id_dqn = reason_utils.asterix_obj_to_collective(obj_id)
-
-    if collective_indices is None:
-        return torch.tensor([[0]]).to(args.device), torch.tensor([[0]]).to(args.device)
-    # determin object types
-    input_c_tensor = state_kinematic[-1, 1:].reshape(1, -1)
-    collective_id_mlp_conf = mlp_c(input_c_tensor)
-    collective_id_mlp = collective_id_mlp_conf.argmax()
-    if collective_id_mlp != collective_id_dqn:
-        return torch.tensor([[0]]).to(args.device), torch.tensor([[0]]).to(args.device)
-
-    # select mlp_a
-    mlp_a_i = mlp_a[collective_id_mlp]
-    collective_kinematic = state_kinematic[-1, collective_indices].unsqueeze(0)
-
-    obj_mask = torch.zeros(state_kinematic.shape[1], dtype=torch.bool)
-    obj_mask[obj_id] = True
-    collective_mask = obj_mask[collective_indices]
-    collective_kinematic[:, ~collective_mask] = 0
-    # determine action
-    action = mlp_a_i(collective_kinematic.view(1, -1)).argmax()
-    return action, obj_id
-
-
-def train_dqn_t():
+def train_dqn_c():
     BATCH_SIZE = 32
     MEMORY_SIZE = 1000000
     GAMMA = 0.99
@@ -58,23 +26,45 @@ def train_dqn_t():
     EPISODES = 1000
 
     args = args_utils.load_args(config.path_exps, None)
-    num_relation_types = 8
-
-    # load MLP-A
-    obj_type_num = len(args.game_info["obj_info"]) - 1
-    mlp_a = train_utils.load_mlp_a(args.trained_model_folder, obj_type_num, args.m)
-
-    # load MLP-C
-    mlp_c = train_utils.load_mlp_c(args.trained_model_folder, args.m)
 
     # Initialize environment
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
+    num_actions = env.action_space.n
     input_shape = env.observation_space.shape
 
+    if args.m == "Pong":
+        # pos_data, actions = student_agent.pong_reasoner()
+        num_obj_types = 2
+    elif args.m == "Asterix":
+        # pos_data, actions = student_agent.asterix_reasoner()
+        num_obj_types = 2
+    elif args.m == "Kangaroo":
+        # pos_data, actions = student_agent.kangaroo_reasoner()
+        num_obj_types = 8
+    else:
+        raise ValueError
+
+    # check if dqn-t has been trained
+    agent = train_utils.DQNAgent(args, input_shape, num_obj_types)
+    agent.agent_type = "DQN-C"
+    agent.learn_performance = []
+    is_trained, _ = train_utils.load_dqn_c(agent, args.trained_model_folder)
+    if is_trained:
+        return
+
+    env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
+
+    # load MLP-A
+    mlp_a = []
+    for obj_i in range(num_obj_types):
+        mlp_a_i_file = args.trained_model_folder / f"{args.m}_mlp_a_{obj_i}.pth.tar"
+        mlp_a_i = torch.load(mlp_a_i_file)["model"]
+        mlp_a.append(mlp_a_i)
+
     # Initialize agent
-    agent = train_utils.DQNAgent(args, input_shape, num_relation_types)
-    agent.agent_type = "DQN-T"
+    agent = train_utils.DQNAgent(args, input_shape, num_obj_types)
+    agent.agent_type = "DQN-C"
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     agent.learn_performance = []
     if args.with_explain:
@@ -82,12 +72,12 @@ def train_dqn_t():
 
     if args.resume:
         files = os.listdir(args.trained_model_folder)
-        dqn_model_files = [file for file in files if f'dqn_t' in file]
+        dqn_model_files = [file for file in files if f'dqn_c' in file]
         if len(dqn_model_files) == 0:
             start_game_i = 0
         else:
             dqn_model_file = dqn_model_files[0]
-            start_game_i = int(dqn_model_file.split("dqn_t_")[1].split(".")[0]) + 1
+            start_game_i = int(dqn_model_file.split("dqn_c_")[1].split(".")[0]) + 1
             file_dict = torch.load(args.trained_model_folder / dqn_model_file)
             state_dict = file_dict["state_dict"]
             agent.learn_performance = file_dict["learn_performance"]
@@ -111,15 +101,20 @@ def train_dqn_t():
                     continue
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
+            obj_id = agent.select_action(env.dqn_obs.to(env_args.device))
             logic_state, _ = extract_logic_state_atari(args, env.objects, args.game_info, obs.shape[0])
             env_args.past_states.append(logic_state)
-            if env_args.frame_i <= args.jump_frames:
-                action = torch.tensor([[0]]).to(args.device)
-                obj_id = torch.tensor([[0]]).to(args.device)
-                if obj_id is None:
-                    print("")
+            if args.m == "Asterix":
+                action = reason_utils.pred_asterix_action(args, env_args, env_args.past_states, obj_id + 1,
+                                                          mlp_a[obj_id]).to(torch.int64).reshape(1)
+            elif args.m == "Pong":
+                action = reason_utils.pred_pong_action(args, env_args, env_args.past_states, obj_id + 1,
+                                                       mlp_a[obj_id]).to(torch.int64).reshape(1)
+            elif args.m == "Kangaroo":
+                action = reason_utils.pred_kangaroo_action(args, env_args, env_args.past_states, obj_id + 1,
+                                                           mlp_a[obj_id]).to(torch.int64).reshape(1)
             else:
-                action, obj_id = _reason_action(args, agent, env, env_args, mlp_a, mlp_c)
+                raise ValueError
 
             state = env.dqn_obs.to(args.device)
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
@@ -128,6 +123,8 @@ def train_dqn_t():
                 game_patches.atari_patches(args, agent, env_args, info)
                 env_args.frame_i = len(env_args.logic_states) - 1
                 env_args.update_lost_live(args.m, info["lives"])
+                if sum(env_args.rewards) > 0:
+                    print('')
             if args.with_explain:
                 screen_text = (
                     f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
@@ -138,7 +135,7 @@ def train_dqn_t():
                 # Blue
                 env_args.obs[:10, 10:20] = 0
                 env_args.obs[:10, 10:20, 2] = 255
-                draw_utils.addCustomText(env_args.obs, f"DQN-T",
+                draw_utils.addCustomText(env_args.obs, f"dqn_obj",
                                          color=(255, 255, 255), thickness=1, font_size=0.3, pos=[1, 5])
                 game_plot = draw_utils.rgb_to_bgr(env_args.obs)
                 screen_plot = draw_utils.image_resize(game_plot,
@@ -174,11 +171,11 @@ def train_dqn_t():
             line_chart_data = torch.tensor(agent.learn_performance)
             draw_utils.plot_line_chart(line_chart_data.unsqueeze(0), path=args.trained_model_folder,
                                        labels=[f"total_score_every_{args.print_freq}"],
-                                       title=f"{args.m}_dqn_t_sum_past_{args.print_freq}",
+                                       title=f"{args.m}_dqn_c_sum_past_{args.print_freq}",
                                        figure_size=(30, 5))
             # save model
-            last_epoch_save_path = args.trained_model_folder / f'dqn_t_{game_i + 1 - args.print_freq}.pth'
-            save_path = args.trained_model_folder / f'dqn_t_{game_i + 1}.pth'
+            last_epoch_save_path = args.trained_model_folder / f'dqn_c_{game_i + 1 - args.print_freq}.pth'
+            save_path = args.trained_model_folder / f'dqn_c_{game_i + 1}.pth'
             if os.path.exists(last_epoch_save_path):
                 os.remove(last_epoch_save_path)
             from pi.utils import file_utils
@@ -186,11 +183,11 @@ def train_dqn_t():
 
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
-    buffer_filename = args.game_buffer_path / f"learn_buffer_dqn_t_{args.teacher_game_nums}.json"
+    buffer_filename = args.game_buffer_path / f"learn_buffer_dqn_c_{args.teacher_game_nums}.json"
     game_utils.save_game_buffer(args, env_args, buffer_filename)
     if args.with_explain:
         draw_utils.release_video(video_out)
 
 
 if __name__ == "__main__":
-    train_dqn_t()
+    train_dqn_c()

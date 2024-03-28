@@ -117,7 +117,10 @@ class DQNAgent:
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool)
         non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
         state_batch = torch.cat(batch.state)
-        action_batch = torch.cat(batch.action)
+        try:
+            action_batch = torch.cat(batch.action)
+        except TypeError:
+            print("")
         reward_batch = torch.cat(batch.reward)
 
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
@@ -187,7 +190,7 @@ def train_nn(args, num_actions, input_tensor, target_tensor, text):
     return model
 
 
-def load_mlp_a(model_folder,obj_num, game_name):
+def load_mlp_a(model_folder, obj_num, game_name):
     # load MLP-A
     mlp_a = []
     for obj_i in range(obj_num):
@@ -195,3 +198,26 @@ def load_mlp_a(model_folder,obj_num, game_name):
         mlp_a_i = torch.load(mlp_a_i_file)["model"]
         mlp_a.append(mlp_a_i)
     return mlp_a
+
+
+def load_mlp_c(model_folder, game_name):
+    mlp_t_file = model_folder / f"{game_name}_mlp_c.pth.tar"
+    mlp_t = torch.load(mlp_t_file)["model"]
+    return mlp_t
+
+
+def load_dqn_c(agent, model_folder):
+    files = os.listdir(model_folder)
+    dqn_model_files = [file for file in files if f'dqn_c' in file]
+    if len(dqn_model_files) == 0:
+        return False, 0
+    else:
+        dqn_model_file = dqn_model_files[0]
+        start_game_i = int(dqn_model_file.split("dqn_c_")[1].split(".")[0]) + 1
+        file_dict = torch.load(model_folder / dqn_model_file)
+        state_dict = file_dict["state_dict"]
+        agent.learn_performance = file_dict["learn_performance"]
+        agent.policy_net.load_state_dict(state_dict)
+        agent.target_net.load_state_dict(agent.policy_net.state_dict())
+        agent.target_net.eval()
+        return True, start_game_i
