@@ -243,7 +243,7 @@ def load_dqn_a(args, model_file):
     ckpt = _load_checkpoint(model_file)
     # set env
     env = ALEModern(
-        args.m,
+        args.m.lower(),
         torch.randint(100_000, (1,)).item(),
         sdl=False,
         device=args.device,
