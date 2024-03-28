@@ -20,7 +20,7 @@ def collect_data_dqn_t(agent, args, buffer_filename, save_buffer):
     oc_name = game_utils.get_ocname(args.m)
     # load mlp_a
     obj_type_num = len(args.game_info["obj_info"]) - 1
-    mlp_a = train_utils.load_mlp_a(args.trained_model_folder, obj_type_num, args.m)
+    mlp_a = train_utils.load_mlp_a(args, args.trained_model_folder, obj_type_num, args.m)
 
     env = OCAtari(oc_name, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()

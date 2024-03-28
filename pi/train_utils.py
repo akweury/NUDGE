@@ -190,19 +190,19 @@ def train_nn(args, num_actions, input_tensor, target_tensor, text):
     return model
 
 
-def load_mlp_a(model_folder, obj_num, game_name):
+def load_mlp_a(args, model_folder, obj_num, game_name):
     # load MLP-A
     mlp_a = []
     for obj_i in range(obj_num):
         mlp_a_i_file = model_folder / f"{game_name}_mlp_a_{obj_i}.pth.tar"
-        mlp_a_i = torch.load(mlp_a_i_file)["model"]
+        mlp_a_i = torch.load(mlp_a_i_file)["model"].to(args.device)
         mlp_a.append(mlp_a_i)
     return mlp_a
 
 
 def load_mlp_c(model_folder, game_name):
     mlp_t_file = model_folder / f"{game_name}_mlp_c.pth.tar"
-    mlp_t = torch.load(mlp_t_file)["model"]
+    mlp_t = torch.load(mlp_t_file)["model"].to(args.device)
     return mlp_t
 
 

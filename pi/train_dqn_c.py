@@ -59,7 +59,7 @@ def train_dqn_c():
     mlp_a = []
     for obj_i in range(num_obj_types):
         mlp_a_i_file = args.trained_model_folder / f"{args.m}_mlp_a_{obj_i}.pth.tar"
-        mlp_a_i = torch.load(mlp_a_i_file)["model"]
+        mlp_a_i = torch.load(mlp_a_i_file)["model"].to(args.device)
         mlp_a.append(mlp_a_i)
 
     # Initialize agent

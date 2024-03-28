@@ -62,7 +62,7 @@ def train_dqn_t():
 
     # load MLP-A
     obj_type_num = len(args.game_info["obj_info"]) - 1
-    mlp_a = train_utils.load_mlp_a(args.trained_model_folder, obj_type_num, args.m)
+    mlp_a = train_utils.load_mlp_a(args, args.trained_model_folder, obj_type_num, args.m)
 
     # load MLP-C
     mlp_c = train_utils.load_mlp_c(args.trained_model_folder, args.m)
