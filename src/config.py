@@ -207,6 +207,20 @@ game_info_kangaroo = {
     "state_col_num": len(obj_info_kangaroo) + 6,
 }
 
+obj_info_freeway = [('Chicken', 1),
+                    ('Car', 12)]
+game_info_freeway = {
+    "name": "Freeway",
+    "obj_info": obj_info_freeway,
+    "state_row_num": sum([n for _, n in obj_info_freeway]),
+    "state_col_num": len(obj_info_freeway) + 6
+}
+
+action_name_freeway = ["noop",  # 0
+                       "up",  # 1
+                       "down",  # 2
+                       ]
+
 action_name_18 = ["noop",  # 0
                   "fire",  # 1
                   "up",  # 2
@@ -299,21 +313,6 @@ action_name_boxing = ["noop",  # 0
                       "downrightfire",  # 16
                       "downleftfire",  # 17
                       ]
-
-obj_info_freeway = [('Chicken', 1),
-                    ('Car', 12)]
-game_info_freeway = {
-    "obj_info": obj_info_freeway,
-    "state_row_num": 13,
-    "state_col_num": 4,
-    "axis_x_col": 2,
-    "axis_y_col": 3
-}
-
-action_name_freeway = ["noop",  # 0
-                       "up",  # 1
-                       "down",  # 2
-                       ]
 
 ########### action info ############################
 

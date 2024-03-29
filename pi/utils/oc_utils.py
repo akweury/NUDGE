@@ -135,7 +135,16 @@ def extract_obj_state_asterix(obj, obj_id, objt_len, norm_factor):
     obj_state[-2] = obj.center[0] / norm_factor
     obj_state[-1] = obj.center[1] / norm_factor
     return obj_state
-
+def extract_obj_state_freeway(obj, obj_id, objt_len, norm_factor):
+    obj_state = torch.zeros(objt_len)
+    obj_state[obj_id] = 1
+    obj_state[-6] = obj.center[0] / norm_factor - 0.5 * obj.wh[0] / norm_factor  # x1
+    obj_state[-5] = obj.center[1] / norm_factor + 0.5 * obj.wh[1] / norm_factor  # y1
+    obj_state[-4] = obj.center[0] / norm_factor + 0.5 * obj.wh[0] / norm_factor  # x2
+    obj_state[-3] = obj.center[1] / norm_factor - 0.5 * obj.wh[1] / norm_factor  # y2
+    obj_state[-2] = obj.center[0] / norm_factor
+    obj_state[-1] = obj.center[1] / norm_factor
+    return obj_state
 
 def extract_obj_state_kangaroo(obj, obj_id, objt_len, norm_factor):
     obj_state = torch.zeros(objt_len)
@@ -197,6 +206,9 @@ def extract_logic_state_atari(args, objects, game_info, norm_factor, noise=False
                                                                            norm_factor)
                 elif game_info['name'] == 'Asterix':
                     states[row_start + obj_count] = extract_obj_state_asterix(obj, o_i, game_info["state_col_num"],
+                                                                              norm_factor)
+                elif game_info['name'] == 'Freeway':
+                    states[row_start + obj_count] = extract_obj_state_freeway(obj, o_i, game_info["state_col_num"],
                                                                               norm_factor)
                 elif game_info['name'] == 'Kangaroo':
                     states[row_start + obj_count] = extract_obj_state_kangaroo(obj, o_i, game_info["state_col_num"],

@@ -21,7 +21,7 @@ def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
     obs, info = env.reset()
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     agent.position_norm_factor = obs.shape[0]
-    for game_i in tqdm(range(args.teacher_game_nums), desc=f"Collecting GameBuffer by {agent.agent_type}"):
+    for game_i in tqdm(range(args.dqn_a_episode_num), desc=f"Collecting GameBuffer by {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
@@ -55,6 +55,10 @@ def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
         elif args.m == "Asterix":
             env_args.buffer_game(args.zero_reward, args.save_frame)
         elif args.m == "Kangaroo":
+            env_args.buffer_game(args.zero_reward, args.save_frame)
+        elif args.m == "Freeway":
+            env_args.buffer_game(args.zero_reward, args.save_frame)
+        elif args.m == "Boxing":
             env_args.buffer_game(args.zero_reward, args.save_frame)
         else:
             raise ValueError
@@ -99,12 +103,50 @@ def train_mlp_a():
         ]
         args.dqn_a_avg_score = torch.sum(student_agent.buffer_win_rates > 0) / len(student_agent.buffer_win_rates)
 
-    if args.m == "Asterix":
-        pos_data, actions = student_agent.asterix_reasoner()
+    elif args.m == "Asterix":
+        actions = torch.cat(student_agent.actions, dim=0)
+        states = torch.cat(student_agent.states, dim=0)
+        kinematic_data = reason_utils.extract_asterix_kinematics(args, states)
+        pos_data = [
+            kinematic_data[:, 1:2],
+            kinematic_data[:, 2:]
+        ]
+        args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
+    elif args.m == "Boxing":
+        actions = torch.cat(student_agent.actions, dim=0)
+        states = torch.cat(student_agent.states, dim=0)
+        kinematic_data = reason_utils.extract_boxing_kinematics(args, states)
+        pos_data = [
+            kinematic_data[:, 1:2]
+        ]
+        args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
+    elif args.m == "Freeway":
+        actions = torch.cat(student_agent.actions, dim=0)
+        states = torch.cat(student_agent.states, dim=0)
+        kinematic_data = reason_utils.extract_freeway_kinematics(args, states)
+        pos_data = [
+            kinematic_data[:, 1:2],
+            kinematic_data[:, 2:]
+        ]
         args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
 
-    if args.m == "Kangaroo":
-        pos_data, actions = student_agent.kangaroo_reasoner()
+    elif args.m == "Kangaroo":
+        actions = torch.cat(student_agent.actions, dim=0)
+        states = torch.cat(student_agent.states, dim=0)
+        kinematic_data = reason_utils.extract_kangaroo_kinematics(args, states)
+        pos_data = [
+            kinematic_data[:, 1:2],
+            kinematic_data[:, 2:5],
+            kinematic_data[:, 5:6],
+            kinematic_data[:, 6:10],
+            kinematic_data[:, 10:13],
+            kinematic_data[:, 13:17],
+            kinematic_data[:, 17:20],
+            kinematic_data[:, 20:23],
+        ]
+        args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
+    else:
+        raise ValueError
 
     # train MLP-A
     obj_type_models = []

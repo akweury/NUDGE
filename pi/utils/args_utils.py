@@ -299,7 +299,7 @@ def load_args(exp_args_path, m):
         args.reward_score_one_enemy = 10
         args.game_info = config.game_info_freeway
         args.obj_info = args.game_info["obj_info"]
-        args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
+        args.row_names, args.obj_data = config.get_obj_data(args.obj_info)
         args.var_th = 0.4
         args.reasoning_gap = 1
         args.step_dist = [0.01, -0.03]

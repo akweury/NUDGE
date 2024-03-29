@@ -398,6 +398,12 @@ def game_over_log(args, agent, env_args):
         print(
             f"- Ep: {env_args.game_i}, Win:  {env_args.win_rate[env_args.game_i]} "
             f"Ep Score: {sum(game_score)} Ep Loss: {env_args.state_loss}")
+    elif args.m in ["Freeway", "Boxing"]:
+        game_score = env_args.game_rewards[-1]
+        env_args.win_rate[env_args.game_i] = sum(game_score)
+        print(
+            f"- Ep: {env_args.game_i}, Win:  {env_args.win_rate[env_args.game_i]} "
+            f"Ep Score: {sum(game_score)} Ep Loss: {env_args.state_loss}")
     else:
         raise ValueError
 
@@ -466,5 +472,9 @@ def get_ocname(m):
         return "Pong"
     elif m == "Asterix":
         return "Asterix"
+    elif m=="Freeway":
+        return "Freeway"
+    elif m=="Boxing":
+        return "Boxing"
     else:
         raise ValueError

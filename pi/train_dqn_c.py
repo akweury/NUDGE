@@ -29,6 +29,16 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
         # determin object types
         input_c_tensor = state_kinematic[-1, indices].reshape(1, -1)
         action = mlp_a_i(input_c_tensor).argmax()
+    elif args.m == "Boxing":
+        state_kinematic = reason_utils.extract_boxing_kinematics(args, env_args.past_states)
+        mlp_a_i = mlp_a[collective_pred - 1]
+        if collective_pred == 1:
+            indices = [1]
+        else:
+            raise ValueError
+        # determin object types
+        input_c_tensor = state_kinematic[-1, indices].reshape(1, -1)
+        action = mlp_a_i(input_c_tensor).argmax()
     elif args.m == "Pong":
         state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
         ball_indices = [1]
@@ -95,6 +105,9 @@ def train_dqn_c():
     if args.m == "Pong":
         # pos_data, actions = student_agent.pong_reasoner()
         num_obj_types = 2
+    elif args.m == "Boxing":
+        # pos_data, actions = student_agent.pong_reasoner()
+        num_obj_types = 1
     elif args.m == "Asterix":
         # pos_data, actions = student_agent.asterix_reasoner()
         num_obj_types = 2
