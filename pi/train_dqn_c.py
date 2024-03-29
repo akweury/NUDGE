@@ -14,6 +14,34 @@ from pi.utils.oc_utils import extract_logic_state_atari
 from pi import train_utils
 
 
+def _reason_action(args, env_args, collective_pred, mlp_a):
+    # dqn-c predict a collective i
+    # mlp-a-i predict an action
+    if args.m == "Asterix":
+        action = reason_utils.pred_asterix_action(args, env_args, env_args.past_states, obj_id + 1,
+                                                  mlp_a[obj_id]).to(torch.int64).reshape(1)
+    elif args.m == "Pong":
+        state_kinematic = reason_utils.extract_pong_kinematics(args, env_args, env_args.past_states)
+        ball_indices = [1]
+        enemy_indices = [2]
+        mlp_a_i = mlp_a[collective_pred - 1]
+        if collective_pred == 1:
+            indices = ball_indices
+        elif collective_pred == 2:
+            indices = enemy_indices
+        else:
+            raise ValueError
+        # determin object types
+        input_c_tensor = state_kinematic[-1, indices].reshape(1, -1)
+        action = mlp_a_i(input_c_tensor).argmax()
+    elif args.m == "Kangaroo":
+        action = reason_utils.pred_kangaroo_action(args, env_args, env_args.past_states, obj_id + 1,
+                                                   mlp_a[obj_id]).to(torch.int64).reshape(1)
+    else:
+        raise ValueError
+    return action
+
+
 def train_dqn_c():
     BATCH_SIZE = 32
     MEMORY_SIZE = 1000000
@@ -101,20 +129,15 @@ def train_dqn_c():
                     continue
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
-            obj_id = agent.select_action(env.dqn_obs.to(env_args.device))
+            collective_pred = agent.select_action(env.dqn_obs.to(env_args.device))
             logic_state, _ = extract_logic_state_atari(args, env.objects, args.game_info, obs.shape[0])
             env_args.past_states.append(logic_state)
-            if args.m == "Asterix":
-                action = reason_utils.pred_asterix_action(args, env_args, env_args.past_states, obj_id + 1,
-                                                          mlp_a[obj_id]).to(torch.int64).reshape(1)
-            elif args.m == "Pong":
-                action = reason_utils.pred_pong_action(args, env_args, env_args.past_states, obj_id + 1,
-                                                       mlp_a[obj_id]).to(torch.int64).reshape(1)
-            elif args.m == "Kangaroo":
-                action = reason_utils.pred_kangaroo_action(args, env_args, env_args.past_states, obj_id + 1,
-                                                           mlp_a[obj_id]).to(torch.int64).reshape(1)
+
+            if env_args.frame_i <= args.jump_frames:
+                action = torch.tensor([[0]]).to(args.device)
+                collective_pred = torch.tensor([[0]]).to(args.device)
             else:
-                raise ValueError
+                action = _reason_action(args, env_args, collective_pred + 1, mlp_a)
 
             state = env.dqn_obs.to(args.device)
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
@@ -128,7 +151,7 @@ def train_dqn_c():
             if args.with_explain:
                 screen_text = (
                     f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
-                    f"obj: {args.row_names[obj_id + 1]}, act: {args.action_names[action]} re: {env_args.reward}")
+                    f"obj: {args.row_names[collective_pred + 1]}, act: {args.action_names[action]} re: {env_args.reward}")
                 # Red
                 env_args.obs[:10, :10] = 0
                 env_args.obs[:10, :10, 0] = 255
@@ -150,7 +173,7 @@ def train_dqn_c():
             env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
             next_state = env.dqn_obs.to(args.device) if not env_args.terminated else None
             # Store the transition in memory
-            agent.memory.push(state, obj_id, next_state, env_args.reward, env_args.terminated)
+            agent.memory.push(state, collective_pred, next_state, env_args.reward, env_args.terminated)
             # Perform one step of optimization (on the target network)
             agent.optimize_model()
         # Update the target network, copying all weights and biases in DQN

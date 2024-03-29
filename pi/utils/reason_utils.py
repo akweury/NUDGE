@@ -1261,6 +1261,19 @@ def extract_asterix_kinematics(args, env_args, logic_state):
     return obj_datas
 
 
+def extract_pong_kinematics(args, env_args, logic_state):
+    logic_state = torch.tensor(logic_state).to(args.device)
+    velo = get_state_velo(logic_state).to(args.device)
+    velo[velo > 0.2] = 0
+
+
+    obj_datas = []
+    for o_i in range(logic_state.shape[1]):
+        obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
+    obj_datas = torch.cat(obj_datas, dim=1)
+    return obj_datas
+
+
 def pred_asterix_action(args, env_args, logic_state, obj_id, obj_type_model):
     if env_args.frame_i <= args.jump_frames:
         return torch.tensor(0)
@@ -1349,16 +1362,16 @@ def pred_kangaroo_action(args, env_args, logic_state, obj_id, obj_type_model):
     return action
 
 
-def get_symbolic_state(states, velo, velo_dir, indices):
-    data_pos = (states[:, 0:1, -2:] - states[:, indices, -2:]).view(states.size(0), -1)
+def get_symbolic_state(states, velo, indices):
+    data_pos = (states[:, indices, -2:] - states[:, 0:1, -2:]).view(states.size(0), -1)
     data_pos_dirs = []
     for index in indices:
         pos_dir = math_utils.closest_multiple_of_45(get_ab_dir(states, 0, index)).view(-1, 1)
         data_pos_dirs.append(pos_dir)
     data_pos_dirs = torch.cat(data_pos_dirs, dim=1)
-    data_velo = velo[:, indices].view(velo.size(0), -1)
-    data_velo_dir = velo_dir[:, indices]
-    data = torch.cat((data_pos, data_pos_dirs, data_velo, data_velo_dir), dim=1)
+    data_velo = (velo[:, 0:1] - velo[:, indices]).view(velo.size(0), -1)
+    velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(data_velo.unsqueeze(1)), 0.01)
+    data = torch.cat((data_pos, data_pos_dirs, data_velo, velo_dir), dim=1)
     return data
 
 

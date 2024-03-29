@@ -21,8 +21,14 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c):
     if obj_id is None:
         print("")
     # determine relation related objects
-    state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args, env_args.past_states)
-    collective_indices, collective_id_dqn = reason_utils.asterix_obj_to_collective(obj_id)
+    if args.m == "Asterix":
+        state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args, env_args.past_states)
+        collective_indices, collective_id_dqn = reason_utils.asterix_obj_to_collective(obj_id)
+    elif args.m == "Pong":
+        state_kinematic = reason_utils.extract_pong_kinematics(args, env_args, env_args.past_states)
+        collective_indices, collective_id_dqn = reason_utils.asterix_obj_to_collective(obj_id)
+    else:
+        raise ValueError
 
     if collective_indices is None:
         return torch.tensor([[0]]).to(args.device), torch.tensor([[0]]).to(args.device)

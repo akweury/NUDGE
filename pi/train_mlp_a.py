@@ -89,14 +89,16 @@ def train_mlp_a():
         collect_data_dqn_a(dqn_a_agent, args, buffer_filename, save_buffer=True)
 
     student_agent.load_atari_buffer(args, buffer_filename)
-    args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
     if args.m == "Pong":
         pos_data, actions = student_agent.pong_reasoner()
+        args.dqn_a_avg_score = torch.sum(student_agent.buffer_win_rates > 0) / len(student_agent.buffer_win_rates)
+
     if args.m == "Asterix":
         pos_data, actions = student_agent.asterix_reasoner()
+        args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
+
     if args.m == "Kangaroo":
         pos_data, actions = student_agent.kangaroo_reasoner()
-
 
     # train MLP-A
     obj_type_models = []
@@ -117,5 +119,7 @@ def train_mlp_a():
         obj_type_models.append(action_pred_model)
 
     return args.dqn_a_avg_score
+
+
 if __name__ == "__main__":
     dqn_a_avg_score = train_mlp_a()

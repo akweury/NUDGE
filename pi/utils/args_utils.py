@@ -171,10 +171,8 @@ def load_args(exp_args_path, m):
         args.o2o_weight_file = args.check_point_path / "o2o" / f"predicate_weights.pkl"
         args.state_tensor_properties = ["dx_01", "dy_01", "va_dir", "vb_dir", "dir_ab"]
         args.prop_explain = {0: 'dx', 1: 'dy', 2: "va_dir", 3: "vb_dir", 4: 'dir_ab'}
-        args.jump_frames = 20
         args.reward_gamma = 0.9
         args.reward_alignment = 0.01
-        args.train_nn_epochs = 2000
         args.zero_reward = 0.0
         args.fact_conf = 0.5
         args.action_names = config.action_name_pong
