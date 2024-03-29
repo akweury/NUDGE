@@ -47,6 +47,7 @@ path_log = path_output / "logs"
 if not os.path.exists(path_log):
     os.mkdir(path_log)
 
+path_args = root / ".." / "pi" / "args"
 path_check_point = path_output / "check_point"
 if not os.path.exists(path_check_point):
     os.mkdir(path_check_point)
@@ -126,7 +127,6 @@ game_info_assault = {
     "axis_x_col": 5,
     "axis_y_col": 6
 }
-
 
 action_name_pong = ["noop",  # 0
                     "fire",  # 1

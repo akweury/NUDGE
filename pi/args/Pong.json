@@ -1,0 +1,6 @@
+{
+  "dqn_a_episode_num": 20,
+  "dqn_c_episode_num": 100,
+  "dqn_t_episode_num": 100,
+  "print_freq": 100
+}

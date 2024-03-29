@@ -49,6 +49,10 @@ def load_args(exp_args_path, m):
     parser.add_argument("--rectify_num", type=int, default=5, help="Repeat times of smp rectification.")
     parser.add_argument("--teacher_agent", type=str, default="pretrained", help="Type of the teacher agent.")
     parser.add_argument("--episode_num", type=int, default=5, help="Number of episodes to update the agent.")
+    parser.add_argument("--dqn_a_episode_num", type=int, default=10000, help="Number of episodes to update the agent.")
+    parser.add_argument("--dqn_c_episode_num", type=int, default=10000, help="Number of episodes to update the agent.")
+    parser.add_argument("--dqn_t_episode_num", type=int, default=10000, help="Number of episodes to update the agent.")
+
     parser.add_argument("--zoom_in", type=int, default=2.5, help="Zoom in percentage of the game window.")
     parser.add_argument("--train_state_num", type=int, default=100000, help="Zoom in percentage of the game window.")
     parser.add_argument("--hardness", type=int, default=0, help="Hardness of the game.")
@@ -64,7 +68,7 @@ def load_args(exp_args_path, m):
     if args.device != "cpu":
         args.device = int(args.device)
     # load args from json file
-    args_file = exp_args_path / f"{args.exp}.json"
+    args_file = config.path_args / f"{args.m}.json"
     load_args_from_file(str(args_file), args)
 
     if args.device != "cpu":

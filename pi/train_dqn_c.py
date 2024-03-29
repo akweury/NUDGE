@@ -87,7 +87,7 @@ def train_dqn_c():
             agent.target_net.eval()
     else:
         start_game_i = 0
-    for game_i in tqdm(range(start_game_i, args.episode_num), desc=f"Training agent  {agent.agent_type}"):
+    for game_i in tqdm(range(start_game_i, args.dqn_c_episode_num), desc=f"Training agent  {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
@@ -174,7 +174,7 @@ def train_dqn_c():
             draw_utils.plot_line_chart(line_chart_data.unsqueeze(0), path=args.trained_model_folder,
                                        labels=[f"total_score_every_{args.print_freq}"],
                                        title=f"{args.m}_dqn_c_sum_past_{args.print_freq}",
-                                       figure_size=(30, 5))
+                                       figure_size=(10, 10))
             # save model
             last_epoch_save_path = args.trained_model_folder / f'dqn_c_{game_i + 1 - args.print_freq}.pth'
             save_path = args.trained_model_folder / f'dqn_c_{game_i + 1}.pth'
@@ -185,7 +185,7 @@ def train_dqn_c():
 
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
-    buffer_filename = args.game_buffer_path / f"learn_buffer_dqn_c_{args.teacher_game_nums}.json"
+    buffer_filename = args.game_buffer_path / f"learn_buffer_dqn_c_{args.dqn_c_episode_num}.json"
     game_utils.save_game_buffer(args, env_args, buffer_filename)
     if args.with_explain:
         draw_utils.release_video(video_out)

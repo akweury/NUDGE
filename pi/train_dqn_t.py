@@ -173,7 +173,7 @@ def train_dqn_t():
             draw_utils.plot_line_chart(line_chart_data.unsqueeze(0), path=args.trained_model_folder,
                                        labels=[f"total_score_every_{args.print_freq}"],
                                        title=f"{args.m}_learn_dqn_t_sum_past_{args.print_freq}",
-                                       figure_size=(30, 5))
+                                       figure_size=(10, 10))
             # save model
             last_epoch_save_path = args.trained_model_folder / f'dqn_t_{game_i + 1 - args.print_freq}.pth'
             save_path = args.trained_model_folder / f'dqn_t_{game_i + 1}.pth'
