@@ -18,8 +18,17 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
     # dqn-c predict a collective i
     # mlp-a-i predict an action
     if args.m == "Asterix":
-        action = reason_utils.pred_asterix_action(args, env_args, env_args.past_states, obj_id + 1,
-                                                  mlp_a[obj_id]).to(torch.int64).reshape(1)
+        state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args.past_states)
+        mlp_a_i = mlp_a[collective_pred - 1]
+        if collective_pred == 1:
+            indices = [1, 2, 3, 4, 5, 6, 7, 8]
+        elif collective_pred == 2:
+            indices = [9, 10, 11, 12, 13, 14, 15, 16]
+        else:
+            raise ValueError
+        # determin object types
+        input_c_tensor = state_kinematic[-1, indices].reshape(1, -1)
+        action = mlp_a_i(input_c_tensor).argmax()
     elif args.m == "Pong":
         state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
         ball_indices = [1]
@@ -35,8 +44,30 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
         input_c_tensor = state_kinematic[-1, indices].reshape(1, -1)
         action = mlp_a_i(input_c_tensor).argmax()
     elif args.m == "Kangaroo":
-        action = reason_utils.pred_kangaroo_action(args, env_args, env_args.past_states, obj_id + 1,
-                                                   mlp_a[obj_id]).to(torch.int64).reshape(1)
+        state_kinematic = reason_utils.extract_kangaroo_kinematics(args, env_args.past_states)
+        mlp_a_i = mlp_a[collective_pred - 1]
+        if collective_pred == 1:
+            indices = [1]
+        elif collective_pred == 2:
+            indices = [2, 3, 4]
+        elif collective_pred == 3:
+            indices = [5]
+
+        elif collective_pred == 4:
+            indices = [6, 7, 8, 9]
+        elif collective_pred == 5:
+            indices = [10, 11, 12]
+        elif collective_pred == 6:
+            indices = [13, 14, 15, 16]
+        elif collective_pred == 7:
+            indices = [17, 18, 19]
+        elif collective_pred == 8:
+            indices = [20, 21, 22]
+        else:
+            raise ValueError
+        # determin object types
+        input_c_tensor = state_kinematic[-1, indices].reshape(1, -1)
+        action = mlp_a_i(input_c_tensor).argmax()
     else:
         raise ValueError
     return action

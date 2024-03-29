@@ -1248,7 +1248,7 @@ def reason_pong(args, states, actions):
     return None
 
 
-def extract_asterix_kinematics(args, env_args, logic_state):
+def extract_asterix_kinematics(args, logic_state):
     logic_state = torch.tensor(logic_state).to(args.device)
     velo = get_state_velo(logic_state).to(args.device)
     velo[velo > 0.2] = 0
@@ -1256,7 +1256,7 @@ def extract_asterix_kinematics(args, env_args, logic_state):
     indices = torch.arange(logic_state.shape[1])
     obj_datas = []
     for o_i in range(logic_state.shape[1]):
-        obj_datas.append(get_symbolic_state(logic_state, velo, velo_dir, [o_i]).unsqueeze(1))
+        obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
     obj_datas = torch.cat(obj_datas, dim=1)
     return obj_datas
 
@@ -1265,14 +1265,21 @@ def extract_pong_kinematics(args, logic_state):
     logic_state = torch.tensor(logic_state).to(args.device)
     velo = get_state_velo(logic_state).to(args.device)
     velo[velo > 0.2] = 0
-
-
     obj_datas = []
     for o_i in range(logic_state.shape[1]):
         obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
     obj_datas = torch.cat(obj_datas, dim=1)
     return obj_datas
 
+def extract_kangaroo_kinematics(args, logic_state):
+    logic_state = torch.tensor(logic_state).to(args.device)
+    velo = get_state_velo(logic_state).to(args.device)
+    velo[velo > 0.2] = 0
+    obj_datas = []
+    for o_i in range(logic_state.shape[1]):
+        obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
+    obj_datas = torch.cat(obj_datas, dim=1)
+    return obj_datas
 
 def pred_asterix_action(args, env_args, logic_state, obj_id, obj_type_model):
     if env_args.frame_i <= args.jump_frames:
@@ -1289,7 +1296,7 @@ def pred_asterix_action(args, env_args, logic_state, obj_id, obj_type_model):
     velo = get_state_velo(logic_state).to(obj_id.device)
     velo[velo > 0.2] = 0
     velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(velo), 0.01)
-    obj_data = get_symbolic_state(logic_state, velo, velo_dir, indices)
+    obj_data = get_symbolic_state(logic_state, velo, indices)
     action = obj_type_model(obj_data)[-1]
     action = action.argmax()
     return action
@@ -1356,7 +1363,7 @@ def pred_kangaroo_action(args, env_args, logic_state, obj_id, obj_type_model):
     velo = get_state_velo(logic_state).to(obj_id.device)
     velo[velo > 0.2] = 0
     velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(velo), 0.01)
-    obj_data = get_symbolic_state(logic_state, velo, velo_dir, indices)
+    obj_data = get_symbolic_state(logic_state, velo, indices)
     action = obj_type_model(obj_data)[-1]
     action = action.argmax()
     return action
