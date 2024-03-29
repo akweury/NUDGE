@@ -21,7 +21,7 @@ def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
     obs, info = env.reset()
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     agent.position_norm_factor = obs.shape[0]
-    for game_i in tqdm(range(args.dqn_a_episode_num), desc=f"Collecting GameBuffer by {agent.agent_type}"):
+    for game_i in tqdm(range(args.teacher_game_nums), desc=f"Collecting GameBuffer by {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
