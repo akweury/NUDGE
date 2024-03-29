@@ -23,7 +23,7 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
     elif args.m == "Pong":
         state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
         ball_indices = [1]
-        enemy_indices = [1]
+        enemy_indices = [2]
         mlp_a_i = mlp_a[collective_pred - 1]
         if collective_pred == 1:
             indices = ball_indices

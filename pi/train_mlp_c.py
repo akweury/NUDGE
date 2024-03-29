@@ -101,7 +101,7 @@ def train_mlp_c():
     obj_type_num = len(args.game_info["obj_info"]) - 1
     student_agent = create_agent(args, agent_type='smp')
     # collect game buffer from neural agent
-    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_c_{args.episode_num}.json"
+    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_c_{args.teacher_game_nums}.json"
     if not os.path.exists(buffer_filename):
         # load dqn-t agent
         dqn_c_agent = train_utils.DQNAgent(args, dqn_t_input_shape, obj_type_num)
