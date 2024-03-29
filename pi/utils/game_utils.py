@@ -383,6 +383,9 @@ def game_over_log(args, agent, env_args):
     if args.m == "Asterix":
         game_score = env_args.game_rewards[-1]
         env_args.win_rate[env_args.game_i] = sum(game_score)
+    elif args.m == "Pong":
+        game_score = env_args.game_rewards[-1]
+        env_args.win_rate[env_args.game_i] = sum(game_score)
     else:
         raise ValueError
     print(

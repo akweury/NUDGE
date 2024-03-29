@@ -58,6 +58,8 @@ def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
             env_args.buffer_game(args.zero_reward, args.save_frame)
         else:
             raise ValueError
+        env_args.game_rewards.append(env_args.rewards)
+
         game_utils.game_over_log(args, agent, env_args)
         env_args.reset_buffer_game()
 
@@ -82,8 +84,8 @@ def train_mlp_a():
     # collect game buffer from neural agent
     dqn_a_input_shape = env.observation_space.shape
     action_num = len(args.action_names)
-
-    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_a_{args.episode_num}.json"
+    args.dqn_a_episode_num = 50
+    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_a_{args.dqn_a_episode_num}.json"
 
     if not os.path.exists(buffer_filename):
         dqn_a_agent = train_utils.load_dqn_a(args, args.model_path)

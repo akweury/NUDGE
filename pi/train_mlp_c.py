@@ -71,14 +71,18 @@ def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
         if args.m == "Pong":
             if sum(env_args.rewards) > 0:
                 env_args.buffer_game(args.zero_reward, args.save_frame)
+                game_utils.game_over_log(args, agent, env_args)
         elif args.m == "Asterix":
             env_args.buffer_game(args.zero_reward, args.save_frame)
+            game_utils.game_over_log(args, agent, env_args)
         elif args.m == "Kangaroo":
             env_args.buffer_game(args.zero_reward, args.save_frame)
+            game_utils.game_over_log(args, agent, env_args)
         else:
             raise ValueError
+
         env_args.reset_buffer_game()
-        game_utils.game_over_log(args, agent, env_args)
+
 
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
@@ -97,7 +101,7 @@ def train_mlp_c():
     obj_type_num = len(args.game_info["obj_info"]) - 1
     student_agent = create_agent(args, agent_type='smp')
     # collect game buffer from neural agent
-    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_c_{args.teacher_game_nums}.json"
+    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_c_{args.episode_num}.json"
     if not os.path.exists(buffer_filename):
         # load dqn-t agent
         dqn_c_agent = train_utils.DQNAgent(args, dqn_t_input_shape, obj_type_num)
