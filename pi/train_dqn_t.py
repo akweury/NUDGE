@@ -58,7 +58,6 @@ def train_dqn_t():
     EPISODES = 1000
 
     args = args_utils.load_args(config.path_exps, None)
-    num_relation_types = 8
 
     # load MLP-A
     obj_type_num = len(args.game_info["obj_info"]) - 1
@@ -73,7 +72,8 @@ def train_dqn_t():
     input_shape = env.observation_space.shape
 
     # Initialize agent
-    agent = train_utils.DQNAgent(args, input_shape, num_relation_types)
+    num_objects = args.game_info["state_row_num"]
+    agent = train_utils.DQNAgent(args, input_shape, num_objects)
     agent.agent_type = "DQN-T"
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     agent.learn_performance = []
@@ -82,13 +82,13 @@ def train_dqn_t():
 
     if args.resume:
         files = os.listdir(args.trained_model_folder)
-        dqn_model_files = [file for file in files if f'dqn_t' in file]
+        dqn_model_files = [file for file in files if f'dqn_t' in file and ".pth" in file]
         if len(dqn_model_files) == 0:
             start_game_i = 0
         else:
             dqn_model_file = dqn_model_files[0]
             start_game_i = int(dqn_model_file.split("dqn_t_")[1].split(".")[0]) + 1
-            file_dict = torch.load(args.trained_model_folder / dqn_model_file)
+            file_dict = torch.load(args.trained_model_folder / dqn_model_file, map_location=torch.device(args.device))
             state_dict = file_dict["state_dict"]
             agent.learn_performance = file_dict["learn_performance"]
 
