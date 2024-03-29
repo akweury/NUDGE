@@ -92,7 +92,11 @@ def train_mlp_a():
     if args.m == "Pong":
         actions = torch.cat(student_agent.actions, dim=0)
         states = torch.cat(student_agent.states, dim=0)
-        pos_data = reason_utils.extract_pong_kinematics(args, states)
+        kinematic_data = reason_utils.extract_pong_kinematics(args, states)
+        pos_data = [
+            kinematic_data[:, 1:2],
+            kinematic_data[:, 2:]
+        ]
         args.dqn_a_avg_score = torch.sum(student_agent.buffer_win_rates > 0) / len(student_agent.buffer_win_rates)
 
     if args.m == "Asterix":
