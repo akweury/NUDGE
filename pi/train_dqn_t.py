@@ -65,7 +65,7 @@ def train_dqn_t():
     mlp_a = train_utils.load_mlp_a(args, args.trained_model_folder, obj_type_num, args.m)
 
     # load MLP-C
-    mlp_c = train_utils.load_mlp_c(args.trained_model_folder, args.m)
+    mlp_c = train_utils.load_mlp_c(args)
 
     # Initialize environment
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')

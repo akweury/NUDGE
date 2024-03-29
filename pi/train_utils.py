@@ -202,8 +202,8 @@ def load_mlp_a(args, model_folder, obj_num, game_name):
     return mlp_a
 
 
-def load_mlp_c(model_folder, game_name):
-    mlp_t_file = model_folder / f"{game_name}_mlp_c.pth.tar"
+def load_mlp_c(args):
+    mlp_t_file = args.trained_model_folder / f"{args.m}_mlp_c.pth.tar"
     mlp_t = torch.load(mlp_t_file)["model"].to(args.device)
     return mlp_t
 
