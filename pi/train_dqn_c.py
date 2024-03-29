@@ -23,7 +23,7 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
     elif args.m == "Pong":
         state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
         ball_indices = [1]
-        enemy_indices = [2]
+        enemy_indices = [1]
         mlp_a_i = mlp_a[collective_pred - 1]
         if collective_pred == 1:
             indices = ball_indices
@@ -197,7 +197,7 @@ def train_dqn_c():
             draw_utils.plot_line_chart(line_chart_data.unsqueeze(0), path=args.trained_model_folder,
                                        labels=[f"total_score_every_{args.print_freq}"],
                                        title=f"{args.m}_dqn_c_sum_past_{args.print_freq}",
-                                       figure_size=(10, 10))
+                                       figure_size=(15, 5))
             # save model
             last_epoch_save_path = args.trained_model_folder / f'dqn_c_{game_i + 1 - args.print_freq}.pth'
             save_path = args.trained_model_folder / f'dqn_c_{game_i + 1}.pth'
