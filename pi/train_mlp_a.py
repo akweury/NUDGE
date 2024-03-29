@@ -94,12 +94,17 @@ def train_mlp_a():
 
     student_agent.load_atari_buffer(args, buffer_filename)
     if args.m == "Pong":
-        actions = torch.cat(student_agent.actions, dim=0)
+        actions = torch.cat(student_agent.actions, dim=0)[5:]
         states = torch.cat(student_agent.states, dim=0)
         kinematic_data = reason_utils.extract_pong_kinematics(args, states)
+        kinematic_series_data = torch.cat((kinematic_data[1:-4],
+                                           kinematic_data[2:-3],
+                                           kinematic_data[3:-2],
+                                           kinematic_data[4:-1],
+                                           kinematic_data[5:]), dim=2)
         pos_data = [
-            kinematic_data[:, 1:2],
-            kinematic_data[:, 2:]
+            kinematic_series_data[:, 1:2],
+            kinematic_series_data[:, 2:]
         ]
         args.dqn_a_avg_score = torch.sum(student_agent.buffer_win_rates > 0) / len(student_agent.buffer_win_rates)
 
