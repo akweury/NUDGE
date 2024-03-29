@@ -16,7 +16,7 @@ train_dqn_c.train_dqn_c()
 # collect game buffer by dqn-t
 # train mlp-t from dqn-t's buffer
 dqn_c_avg_score = train_mlp_c.train_mlp_c()
-print(f"- DQN-C_avg_score: {dqn_a_avg_score}")
+print(f"- DQN-C_avg_score: {dqn_c_avg_score}")
 
 # train dqn-r with using mlp-t, mlp-a
 train_dqn_t.train_dqn_t()
