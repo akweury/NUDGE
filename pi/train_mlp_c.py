@@ -16,7 +16,7 @@ from pi.utils.oc_utils import extract_logic_state_atari
 from pi.utils.atari import game_patches
 
 
-def collect_data_dqn_t(agent, args, buffer_filename, save_buffer):
+def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
     oc_name = game_utils.get_ocname(args.m)
     # load mlp_a
     obj_type_num = len(args.game_info["obj_info"]) - 1
@@ -80,8 +80,6 @@ def collect_data_dqn_t(agent, args, buffer_filename, save_buffer):
         env_args.reset_buffer_game()
         game_utils.game_over_log(args, agent, env_args)
 
-        env_args.win_rate[game_i] = env_args.state_score  # update ep score
-
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
     if save_buffer:
@@ -102,11 +100,13 @@ def train_mlp_c():
     buffer_filename = args.game_buffer_path / f"z_buffer_dqn_c_{args.teacher_game_nums}.json"
     if not os.path.exists(buffer_filename):
         # load dqn-t agent
-        dqn_t_agent = train_utils.DQNAgent(args, dqn_t_input_shape, obj_type_num)
-        dqn_t_agent.agent_type = "DQN-C"
-        train_utils.load_dqn_c(dqn_t_agent, args.trained_model_folder)
-        collect_data_dqn_t(dqn_t_agent, args, buffer_filename, save_buffer=True)
+        dqn_c_agent = train_utils.DQNAgent(args, dqn_t_input_shape, obj_type_num)
+        dqn_c_agent.agent_type = "DQN-C"
+        train_utils.load_dqn_c(dqn_c_agent, args.trained_model_folder)
+        collect_data_dqn_c(dqn_c_agent, args, buffer_filename, save_buffer=True)
     student_agent.load_atari_buffer(args, buffer_filename)
+    args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
+
     if args.m == "Pong":
         pos_data, actions = student_agent.pong_reasoner()
     if args.m == "Asterix":
@@ -127,7 +127,9 @@ def train_mlp_c():
         torch.save(state, act_pred_model_file)
     else:
         target_pred_model = torch.load(act_pred_model_file)["model"]
-    return target_pred_model
+
+
+    return args.dqn_a_avg_score
 
 
 if __name__ == "__main__":

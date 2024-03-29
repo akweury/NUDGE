@@ -49,9 +49,9 @@ def train_dqn_c():
     agent = train_utils.DQNAgent(args, input_shape, num_obj_types)
     agent.agent_type = "DQN-C"
     agent.learn_performance = []
-    is_trained, _ = train_utils.load_dqn_c(agent, args.trained_model_folder)
+    is_trained, _, dqn_c_avg_score = train_utils.load_dqn_c(agent, args.trained_model_folder)
     if is_trained:
-        return
+        return dqn_c_avg_score
 
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
 
@@ -72,7 +72,7 @@ def train_dqn_c():
 
     if args.resume:
         files = os.listdir(args.trained_model_folder)
-        dqn_model_files = [file for file in files if f'dqn_c' in file]
+        dqn_model_files = [file for file in files if f'dqn_c' in file and ".pth" in file]
         if len(dqn_model_files) == 0:
             start_game_i = 0
         else:
@@ -163,7 +163,9 @@ def train_dqn_c():
             EPSILON = max(EPSILON_MIN, EPSILON)
 
         # env_args.buffer_game(args.zero_reward, args.save_frame)
-        env_args.win_rate[game_i] = sum(env_args.rewards[:-1])  # update ep score
+        env_args.game_rewards.append(env_args.rewards)
+        game_utils.game_over_log(args, agent, env_args)
+
         env_args.reset_buffer_game()
         if game_i > args.print_freq and game_i % args.print_freq == 1:
             agent.learn_performance.append(sum(env_args.win_rate[game_i - args.print_freq:game_i]))
@@ -179,7 +181,7 @@ def train_dqn_c():
             if os.path.exists(last_epoch_save_path):
                 os.remove(last_epoch_save_path)
             from pi.utils import file_utils
-            file_utils.save_agent(save_path, agent)
+            file_utils.save_agent(save_path, agent, env_args)
 
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
@@ -187,7 +189,9 @@ def train_dqn_c():
     game_utils.save_game_buffer(args, env_args, buffer_filename)
     if args.with_explain:
         draw_utils.release_video(video_out)
+    dqn_c_avg_score = torch.mean(env_args.win_rate)
+    return dqn_c_avg_score
 
 
 if __name__ == "__main__":
-    train_dqn_c()
+    dqn_c_avg_score = train_dqn_c()

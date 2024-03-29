@@ -380,9 +380,14 @@ def screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_count
 
 
 def game_over_log(args, agent, env_args):
+    if args.m == "Asterix":
+        game_score = env_args.game_rewards[-1]
+        env_args.win_rate[env_args.game_i] = sum(game_score)
+    else:
+        raise ValueError
     print(
-        f"- Ep: {env_args.game_i}, Win: {env_args.win_rate[env_args.win_rate > 0].sum()}/{env_args.game_i} "
-        f"Ep Score: {env_args.state_score} Ep Loss: {env_args.state_loss}")
+        f"- Ep: {env_args.game_i}, Win: {env_args.win_rate[env_args.game_i]} "
+        f"Ep Score: {sum(game_score)} Ep Loss: {env_args.state_loss}")
 
     if agent.agent_type == "pretrained" or agent.agent_type == "ppo":
         draw_utils.plot_line_chart(env_args.win_rate.unsqueeze(0)[:, :env_args.game_i], args.check_point_path,

@@ -116,8 +116,6 @@ def train_dqn_t():
             if env_args.frame_i <= args.jump_frames:
                 action = torch.tensor([[0]]).to(args.device)
                 obj_id = torch.tensor([[0]]).to(args.device)
-                if obj_id is None:
-                    print("")
             else:
                 action, obj_id = _reason_action(args, agent, env, env_args, mlp_a, mlp_c)
 
@@ -174,7 +172,7 @@ def train_dqn_t():
             line_chart_data = torch.tensor(agent.learn_performance)
             draw_utils.plot_line_chart(line_chart_data.unsqueeze(0), path=args.trained_model_folder,
                                        labels=[f"total_score_every_{args.print_freq}"],
-                                       title=f"{args.m}_dqn_t_sum_past_{args.print_freq}",
+                                       title=f"{args.m}_learn_dqn_t_sum_past_{args.print_freq}",
                                        figure_size=(30, 5))
             # save model
             last_epoch_save_path = args.trained_model_folder / f'dqn_t_{game_i + 1 - args.print_freq}.pth'
@@ -182,7 +180,7 @@ def train_dqn_t():
             if os.path.exists(last_epoch_save_path):
                 os.remove(last_epoch_save_path)
             from pi.utils import file_utils
-            file_utils.save_agent(save_path, agent)
+            file_utils.save_agent(save_path, agent, env_args)
 
     env.close()
     game_utils.finish_one_run(env_args, args, agent)

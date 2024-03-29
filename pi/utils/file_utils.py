@@ -37,7 +37,8 @@ def all_file_in_folder(path_frames):
     return sorted_paths
 
 
-def save_agent(save_path, agent):
+def save_agent(save_path, agent, env_args):
     save_dict = {"state_dict": agent.policy_net.state_dict(),
-                 "learn_performance": agent.learn_performance}
+                 "learn_performance": agent.learn_performance,
+                 "avg_score": torch.mean(env_args.win_rate)}
     torch.save(save_dict, save_path)

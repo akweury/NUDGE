@@ -337,7 +337,7 @@ for game_i in tqdm(range(3000), desc=f"Agent  {agent.agent_type}"):
             os.remove(last_epoch_save_path)
         from pi.utils import file_utils
 
-        file_utils.save_agent(save_path, agent)
+        file_utils.save_agent(save_path, agent, env_args)
 
 env.close()
 game_utils.finish_one_run(env_args, args, agent)

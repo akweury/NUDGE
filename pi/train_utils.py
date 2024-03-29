@@ -212,17 +212,18 @@ def load_dqn_c(agent, model_folder):
     files = os.listdir(model_folder)
     dqn_model_files = [file for file in files if f'dqn_c' in file and ".pth" in file]
     if len(dqn_model_files) == 0:
-        return False, 0
+        return False, 0, 0
     else:
         dqn_model_file = dqn_model_files[0]
         start_game_i = int(dqn_model_file.split("dqn_c_")[1].split(".")[0]) + 1
         file_dict = torch.load(model_folder / dqn_model_file)
         state_dict = file_dict["state_dict"]
         agent.learn_performance = file_dict["learn_performance"]
+        avg_score = file_dict["avg_score"]
         agent.policy_net.load_state_dict(state_dict)
         agent.target_net.load_state_dict(agent.policy_net.state_dict())
         agent.target_net.eval()
-        return True, start_game_i
+        return True, start_game_i, avg_score
 
 
 def _load_checkpoint(fpath, device="cpu"):

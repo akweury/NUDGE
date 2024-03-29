@@ -58,11 +58,11 @@ def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
             env_args.buffer_game(args.zero_reward, args.save_frame)
         else:
             raise ValueError
-
-        env_args.reset_buffer_game()
         game_utils.game_over_log(args, agent, env_args)
+        env_args.reset_buffer_game()
 
-        env_args.win_rate[game_i] = env_args.state_score  # update ep score
+
+
 
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
@@ -83,7 +83,7 @@ def train_mlp_a():
     dqn_a_input_shape = env.observation_space.shape
     action_num = len(args.action_names)
 
-    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_a_{args.teacher_game_nums}.json"
+    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_a_{args.episode_num}.json"
 
     if not os.path.exists(buffer_filename):
         dqn_a_agent = train_utils.load_dqn_a(args, args.model_path)
@@ -91,7 +91,7 @@ def train_mlp_a():
         collect_data_dqn_a(dqn_a_agent, args, buffer_filename, save_buffer=True)
 
     student_agent.load_atari_buffer(args, buffer_filename)
-
+    args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
     if args.m == "Pong":
         pos_data, actions = student_agent.pong_reasoner()
     if args.m == "Asterix":
@@ -116,6 +116,6 @@ def train_mlp_a():
             action_pred_model = torch.load(act_pred_model_file)["model"]
         obj_type_models.append(action_pred_model)
 
-
+    return args.dqn_a_avg_score
 if __name__ == "__main__":
-    train_mlp_a()
+    dqn_a_avg_score = train_mlp_a()
