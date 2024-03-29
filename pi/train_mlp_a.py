@@ -84,7 +84,7 @@ def train_mlp_a():
     # collect game buffer from neural agent
     dqn_a_input_shape = env.observation_space.shape
     action_num = len(args.action_names)
-    args.dqn_a_episode_num = 50
+    args.dqn_a_episode_num = 10000
     buffer_filename = args.game_buffer_path / f"z_buffer_dqn_a_{args.dqn_a_episode_num}.json"
 
     if not os.path.exists(buffer_filename):
