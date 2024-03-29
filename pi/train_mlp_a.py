@@ -9,7 +9,7 @@ from src import config
 from pi import train_utils
 from pi.utils.game_utils import create_agent
 
-from pi.utils import game_utils
+from pi.utils import game_utils, reason_utils
 from pi.utils.EnvArgs import EnvArgs
 from pi.utils.oc_utils import extract_logic_state_atari
 from pi.utils.atari import game_patches
@@ -90,7 +90,9 @@ def train_mlp_a():
 
     student_agent.load_atari_buffer(args, buffer_filename)
     if args.m == "Pong":
-        pos_data, actions = student_agent.pong_reasoner()
+        actions = torch.cat(student_agent.actions, dim=0)
+        states = torch.cat(student_agent.states, dim=0)
+        pos_data = reason_utils.extract_pong_kinematics(args, states)
         args.dqn_a_avg_score = torch.sum(student_agent.buffer_win_rates > 0) / len(student_agent.buffer_win_rates)
 
     if args.m == "Asterix":
@@ -115,7 +117,7 @@ def train_mlp_a():
             state = {'model': action_pred_model}
             torch.save(state, act_pred_model_file)
         else:
-            action_pred_model = torch.load(act_pred_model_file)["model"]
+            action_pred_model = torch.load(act_pred_model_file, map_location=torch.device(args.device))["model"]
         obj_type_models.append(action_pred_model)
 
     return args.dqn_a_avg_score

@@ -21,7 +21,7 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
         action = reason_utils.pred_asterix_action(args, env_args, env_args.past_states, obj_id + 1,
                                                   mlp_a[obj_id]).to(torch.int64).reshape(1)
     elif args.m == "Pong":
-        state_kinematic = reason_utils.extract_pong_kinematics(args, env_args, env_args.past_states)
+        state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
         ball_indices = [1]
         enemy_indices = [2]
         mlp_a_i = mlp_a[collective_pred - 1]
@@ -87,7 +87,7 @@ def train_dqn_c():
     mlp_a = []
     for obj_i in range(num_obj_types):
         mlp_a_i_file = args.trained_model_folder / f"{args.m}_mlp_a_{obj_i}.pth.tar"
-        mlp_a_i = torch.load(mlp_a_i_file)["model"].to(args.device)
+        mlp_a_i = torch.load(mlp_a_i_file, map_location=torch.device(args.device))["model"].to(args.device)
         mlp_a.append(mlp_a_i)
 
     # Initialize agent

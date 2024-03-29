@@ -1261,7 +1261,7 @@ def extract_asterix_kinematics(args, env_args, logic_state):
     return obj_datas
 
 
-def extract_pong_kinematics(args, env_args, logic_state):
+def extract_pong_kinematics(args, logic_state):
     logic_state = torch.tensor(logic_state).to(args.device)
     velo = get_state_velo(logic_state).to(args.device)
     velo[velo > 0.2] = 0
