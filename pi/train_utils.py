@@ -210,7 +210,7 @@ def load_mlp_c(model_folder, game_name):
 
 def load_dqn_c(agent, model_folder):
     files = os.listdir(model_folder)
-    dqn_model_files = [file for file in files if f'dqn_c' in file]
+    dqn_model_files = [file for file in files if f'dqn_c' in file and ".pth" in file]
     if len(dqn_model_files) == 0:
         return False, 0
     else:
