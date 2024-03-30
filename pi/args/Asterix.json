@@ -1,5 +1,5 @@
 {
-  "dqn_a_episode_num": 50,
+  "dqn_a_episode_num": 1000,
   "dqn_c_episode_num": 2000,
   "dqn_t_episode_num": 2000,
   "teacher_game_nums": 1000,
