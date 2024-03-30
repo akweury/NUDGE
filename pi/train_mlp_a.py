@@ -85,7 +85,7 @@ def train_mlp_a():
     dqn_a_input_shape = env.observation_space.shape
     action_num = len(args.action_names)
 
-    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_a_{args.dqn_a_episode_num}.json"
+    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_a_{args.teacher_game_nums}.json"
 
     if not os.path.exists(buffer_filename):
         dqn_a_agent = train_utils.load_dqn_a(args, args.model_path)
