@@ -14,7 +14,55 @@ from pi.utils import game_utils, reason_utils
 from pi.utils.EnvArgs import EnvArgs
 from pi.utils.oc_utils import extract_logic_state_atari
 from pi.utils.atari import game_patches
+from pi import train_dqn_c
 
+
+
+def _prepare_mlp_training_data(args, student_agent):
+    if args.m == "Pong":
+        actions = torch.cat(student_agent.actions, dim=0)[args.stack_num - 1:]
+        states = torch.cat(student_agent.states, dim=0)
+        kinematic_data = reason_utils.extract_pong_kinematics(args, states)
+        kinematic_series_data = train_utils.get_stack_buffer(kinematic_data, args.stack_num)
+
+        args.dqn_a_avg_score = torch.sum(student_agent.buffer_win_rates > 0) / len(student_agent.buffer_win_rates)
+
+    elif args.m == "Asterix":
+
+        actions = torch.cat(student_agent.actions, dim=0)[args.stack_num - 1:]
+        states = torch.cat(student_agent.states, dim=0)
+        kinematic_data = reason_utils.extract_asterix_kinematics(args, states)
+        kinematic_series_data = train_utils.get_stack_buffer(kinematic_data, args.stack_num)
+
+        args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
+    elif args.m == "Boxing":
+        actions = torch.cat(student_agent.actions, dim=0)[args.stack_num - 1:]
+        states = torch.cat(student_agent.states, dim=0)
+        kinematic_data = reason_utils.extract_boxing_kinematics(args, states)
+        kinematic_series_data = train_utils.get_stack_buffer(kinematic_data, args.stack_num)
+
+        args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
+    elif args.m == "Freeway":
+        actions = torch.cat(student_agent.actions, dim=0)
+        states = torch.cat(student_agent.states, dim=0)
+        kinematic_data = reason_utils.extract_freeway_kinematics(args, states)
+        pos_data = [
+            kinematic_data[:, 1:2],
+            kinematic_data[:, 2:]
+        ]
+        args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
+
+    elif args.m == "Kangaroo":
+
+        actions = torch.cat(student_agent.actions, dim=0)[args.stack_num - 1:]
+        states = torch.cat(student_agent.states, dim=0)
+        kinematic_data = reason_utils.extract_kangaroo_kinematics(args, states)
+        kinematic_series_data = train_utils.get_stack_buffer(kinematic_data, args.stack_num)
+
+        args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
+    else:
+        raise ValueError
+    return kinematic_series_data, actions
 
 def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
     oc_name = game_utils.get_ocname(args.m)
@@ -32,20 +80,28 @@ def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
         env_args.reset_buffer_game()
         while not env_args.game_over:
             # predict object type
-            obj_type = agent.select_action(env.dqn_obs.to(env_args.device))
+            collective_pred = agent.select_action(env.dqn_obs.to(env_args.device))
             env_args.logic_state, _ = extract_logic_state_atari(args, env.objects, args.game_info, obs.shape[0])
             env_args.past_states.append(env_args.logic_state)
-            if args.m == "Asterix":
-                action = reason_utils.pred_asterix_action(args, env_args, env_args.past_states, obj_type + 1,
-                                                          mlp_a[obj_type]).to(torch.int64).reshape(1)
-            elif args.m == "Pong":
-                action = reason_utils.pred_pong_action(args, env_args, env_args.past_states, obj_type + 1,
-                                                       mlp_a[obj_type]).to(torch.int64).reshape(1)
-            elif args.m == "Kangaroo":
-                action = reason_utils.pred_kangaroo_action(args, env_args, env_args.past_states, obj_type + 1,
-                                                           mlp_a[obj_type]).to(torch.int64).reshape(1)
+
+
+            if env_args.frame_i <= args.jump_frames:
+                action = torch.tensor([[0]]).to(args.device)
+                collective_pred = torch.tensor([[0]]).to(args.device)
             else:
-                raise ValueError
+                action = train_dqn_c._reason_action(args, env_args, collective_pred + 1, mlp_a)
+
+            # if args.m == "Asterix":
+            #     action = reason_utils.pred_asterix_action(args, env_args, env_args.past_states, collective_pred + 1,
+            #                                               mlp_a[collective_pred]).to(torch.int64).reshape(1)
+            # elif args.m == "Pong":
+            #     action = reason_utils.pred_pong_action(args, env_args, env_args.past_states, collective_pred + 1,
+            #                                            mlp_a[collective_pred]).to(torch.int64).reshape(1)
+            # elif args.m == "Kangaroo":
+            #     action = reason_utils.pred_kangaroo_action(args, env_args, env_args.past_states, collective_pred + 1,
+            #                                                mlp_a[collective_pred]).to(torch.int64).reshape(1)
+            # else:
+            #     raise ValueError
 
             state = env.dqn_obs.to(args.device)
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
@@ -59,14 +115,14 @@ def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
                 env_args.next_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
                                                                                       obs.shape[0])
                 env_args.action = action
-                env_args.collective = obj_type.reshape(-1).item()
+                env_args.collective = collective_pred.reshape(-1).item()
                 env_args.buffer_frame("dqn_c")
             env_args.frame_i += 1
 
             env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
             next_state = env.dqn_obs.to(args.device) if not env_args.terminated else None
             # Store the transition in memory
-            agent.memory.push(state, obj_type, next_state, env_args.reward, env_args.terminated)
+            agent.memory.push(state, collective_pred, next_state, env_args.reward, env_args.terminated)
 
         if args.m == "Pong":
             if sum(env_args.rewards) > 0:
@@ -108,6 +164,9 @@ def train_mlp_c():
         train_utils.load_dqn_c(args, dqn_c_agent, args.trained_model_folder)
         collect_data_dqn_c(dqn_c_agent, args, buffer_filename, save_buffer=True)
     student_agent.load_atari_buffer(args, buffer_filename)
+
+    pos_data, actions = _prepare_mlp_training_data(args, student_agent)
+
     args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
 
     if args.m == "Pong":

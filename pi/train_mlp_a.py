@@ -72,30 +72,7 @@ def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
         game_utils.save_game_buffer(args, env_args, buffer_filename)
 
 
-def train_mlp_a():
-    args = args_utils.load_args(config.path_exps, None)
-    # Initialize environment
-    env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
-    obs, info = env.reset()
-    num_actions = env.action_space.n
-
-    # learn behaviors from data
-    student_agent = create_agent(args, agent_type='smp')
-    # collect game buffer from neural agent
-    dqn_a_input_shape = env.observation_space.shape
-    action_num = len(args.action_names)
-
-    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_a_{args.teacher_game_nums}.json"
-
-    if not os.path.exists(buffer_filename):
-        dqn_a_agent = train_utils.load_dqn_a(args, args.model_path)
-        dqn_a_agent.agent_type = "DQN-A"
-        collect_data_dqn_a(dqn_a_agent, args, buffer_filename, save_buffer=True)
-
-    if os.path.exists(args.trained_model_folder / f"{args.m}_mlp_a_0.pth.tar"):
-        return 0
-
-    student_agent.load_atari_buffer(args, buffer_filename)
+def _prepare_mlp_training_data(args, student_agent):
     if args.m == "Pong":
         actions = torch.cat(student_agent.actions, dim=0)[args.stack_num - 1:]
         states = torch.cat(student_agent.states, dim=0)
@@ -157,7 +134,34 @@ def train_mlp_a():
         args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
     else:
         raise ValueError
+    return pos_data, actions
 
+
+def train_mlp_a():
+    args = args_utils.load_args(config.path_exps, None)
+    # Initialize environment
+    env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
+    obs, info = env.reset()
+    num_actions = env.action_space.n
+
+    # learn behaviors from data
+    student_agent = create_agent(args, agent_type='smp')
+    # collect game buffer from neural agent
+    dqn_a_input_shape = env.observation_space.shape
+    action_num = len(args.action_names)
+
+    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_a_{args.teacher_game_nums}.json"
+
+    if not os.path.exists(buffer_filename):
+        dqn_a_agent = train_utils.load_dqn_a(args, args.model_path)
+        dqn_a_agent.agent_type = "DQN-A"
+        collect_data_dqn_a(dqn_a_agent, args, buffer_filename, save_buffer=True)
+
+    if os.path.exists(args.trained_model_folder / f"{args.m}_mlp_a_0.pth.tar"):
+        return 0
+
+    student_agent.load_atari_buffer(args, buffer_filename)
+    pos_data, actions = _prepare_mlp_training_data(args, student_agent)
     # train MLP-A
     obj_type_models = []
     for obj_type in range(len(pos_data)):
