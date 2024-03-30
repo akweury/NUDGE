@@ -15,7 +15,7 @@ python -m atari_py.import_roms /NUDGE/storage/ROMS
 ``` 
 python -m pi.train_dqn_objctive -m Pong --teacher_game_nums 1000 --device 6
 python -m pi.train -m Kangaroo --train_epochs 100000 --resume --device 6
-python -m pi.train -m Asterix --train_epochs 100000 --episode_num 1000 --resume --device 7
+python -m pi.train -m Asterix --train_epochs 50000 --resume --device 7
 python -m pi.train -m Pong --train_epochs 100000 --episode_num 1000 --resume --device 7
 
 python -m pi.train_dqn_objctive -m Asterix --teacher_game_nums 1000 --device 8
