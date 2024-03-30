@@ -141,18 +141,25 @@ def train_mlp_a():
         args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
 
     elif args.m == "Kangaroo":
-        actions = torch.cat(student_agent.actions, dim=0)
+        stack_num = 10
+        actions = torch.cat(student_agent.actions, dim=0)[stack_num:]
         states = torch.cat(student_agent.states, dim=0)
         kinematic_data = reason_utils.extract_kangaroo_kinematics(args, states)
+
+        stack_buffer = []
+        for s_i in range(stack_num):
+            stack_buffer.append(kinematic_data[s_i:s_i - stack_num + 1])
+
+        kinematic_series_data = torch.cat(stack_buffer, dim=2)
         pos_data = [
-            kinematic_data[:, 1:2],
-            kinematic_data[:, 2:5],
-            kinematic_data[:, 5:6],
-            kinematic_data[:, 6:10],
-            kinematic_data[:, 10:13],
-            kinematic_data[:, 13:17],
-            kinematic_data[:, 17:20],
-            kinematic_data[:, 20:23],
+            kinematic_series_data[:, 1:2],
+            kinematic_series_data[:, 2:5],
+            kinematic_series_data[:, 5:6],
+            kinematic_series_data[:, 6:10],
+            kinematic_series_data[:, 10:13],
+            kinematic_series_data[:, 13:17],
+            kinematic_series_data[:, 17:20],
+            kinematic_series_data[:, 20:23],
         ]
         args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
     else:
