@@ -27,7 +27,7 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
         else:
             raise ValueError
         # determin object types
-        input_c_tensor = state_kinematic[-1, indices].reshape(1, -1)
+        input_c_tensor = state_kinematic[-5:, indices].reshape(1, -1)
         action = mlp_a_i(input_c_tensor).argmax()
     elif args.m == "Boxing":
         state_kinematic = reason_utils.extract_boxing_kinematics(args, env_args.past_states)
