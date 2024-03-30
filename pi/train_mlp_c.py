@@ -83,7 +83,6 @@ def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
 
         env_args.reset_buffer_game()
 
-
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
     if save_buffer:
@@ -106,7 +105,7 @@ def train_mlp_c():
         # load dqn-t agent
         dqn_c_agent = train_utils.DQNAgent(args, dqn_t_input_shape, obj_type_num)
         dqn_c_agent.agent_type = "DQN-C"
-        train_utils.load_dqn_c(dqn_c_agent, args.trained_model_folder)
+        train_utils.load_dqn_c(args, dqn_c_agent, args.trained_model_folder)
         collect_data_dqn_c(dqn_c_agent, args, buffer_filename, save_buffer=True)
     student_agent.load_atari_buffer(args, buffer_filename)
     args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
@@ -131,7 +130,6 @@ def train_mlp_c():
         torch.save(state, act_pred_model_file)
     else:
         target_pred_model = torch.load(act_pred_model_file)["model"]
-
 
     return args.dqn_a_avg_score
 

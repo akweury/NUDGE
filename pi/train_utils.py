@@ -197,18 +197,18 @@ def load_mlp_a(args, model_folder, obj_num, game_name):
     mlp_a = []
     for obj_i in range(obj_num):
         mlp_a_i_file = model_folder / f"{game_name}_mlp_a_{obj_i}.pth.tar"
-        mlp_a_i = torch.load(mlp_a_i_file)["model"].to(args.device)
+        mlp_a_i = torch.load(mlp_a_i_file, map_location=torch.device(args.device))["model"].to(args.device)
         mlp_a.append(mlp_a_i)
     return mlp_a
 
 
 def load_mlp_c(args):
     mlp_t_file = args.trained_model_folder / f"{args.m}_mlp_c.pth.tar"
-    mlp_t = torch.load(mlp_t_file)["model"].to(args.device)
+    mlp_t = torch.load(mlp_t_file, map_location=torch.device(args.device))["model"].to(args.device)
     return mlp_t
 
 
-def load_dqn_c(agent, model_folder):
+def load_dqn_c(args, agent, model_folder):
     files = os.listdir(model_folder)
     dqn_model_files = [file for file in files if f'dqn_c' in file and ".pth" in file]
     if len(dqn_model_files) == 0:
@@ -216,7 +216,7 @@ def load_dqn_c(agent, model_folder):
     else:
         dqn_model_file = dqn_model_files[0]
         start_game_i = int(dqn_model_file.split("dqn_c_")[1].split(".")[0]) + 1
-        file_dict = torch.load(model_folder / dqn_model_file)
+        file_dict = torch.load(model_folder / dqn_model_file, torch.device(args.device))
         state_dict = file_dict["state_dict"]
         agent.learn_performance = file_dict["learn_performance"]
         avg_score = file_dict["avg_score"]

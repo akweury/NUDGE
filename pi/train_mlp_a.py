@@ -113,8 +113,8 @@ def train_mlp_a():
         states = torch.cat(student_agent.states, dim=0)
         kinematic_data = reason_utils.extract_asterix_kinematics(args, states)
         pos_data = [
-            kinematic_data[:, 1:2],
-            kinematic_data[:, 2:]
+            kinematic_data[:, 1:9],
+            kinematic_data[:, 9:]
         ]
         args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
     elif args.m == "Boxing":

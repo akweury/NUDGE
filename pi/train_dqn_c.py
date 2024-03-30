@@ -121,7 +121,7 @@ def train_dqn_c():
     agent = train_utils.DQNAgent(args, input_shape, num_obj_types)
     agent.agent_type = "DQN-C"
     agent.learn_performance = []
-    is_trained, _, dqn_c_avg_score = train_utils.load_dqn_c(agent, args.trained_model_folder)
+    is_trained, _, dqn_c_avg_score = train_utils.load_dqn_c(args, agent, args.trained_model_folder)
     if is_trained:
         return dqn_c_avg_score
 
