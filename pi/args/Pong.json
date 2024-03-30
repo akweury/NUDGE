@@ -1,5 +1,5 @@
 {
-  "jump_frames": 5000,
+  "jump_frames": 25,
   "dqn_a_episode_num": 2000,
   "dqn_c_episode_num": 2000,
   "dqn_t_episode_num": 2000,
