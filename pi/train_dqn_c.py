@@ -117,13 +117,11 @@ def train_dqn_c():
     else:
         raise ValueError
 
-    # check if dqn-t has been trained
+    # check if dqn-c has been trained
     agent = train_utils.DQNAgent(args, input_shape, num_obj_types)
     agent.agent_type = "DQN-C"
     agent.learn_performance = []
-    is_trained, _, dqn_c_avg_score = train_utils.load_dqn_c(args, agent, args.trained_model_folder)
-    if is_trained:
-        return dqn_c_avg_score
+    is_trained, trained_epoch, dqn_c_avg_score = train_utils.load_dqn_c(args, agent, args.trained_model_folder)
 
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
 
@@ -150,7 +148,7 @@ def train_dqn_c():
         else:
             dqn_model_file = dqn_model_files[0]
             start_game_i = int(dqn_model_file.split("dqn_c_")[1].split(".")[0]) + 1
-            file_dict = torch.load(args.trained_model_folder / dqn_model_file)
+            file_dict = torch.load(args.trained_model_folder / dqn_model_file, map_location=torch.device(args.device))
             state_dict = file_dict["state_dict"]
             agent.learn_performance = file_dict["learn_performance"]
 
