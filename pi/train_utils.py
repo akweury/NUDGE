@@ -260,3 +260,15 @@ def load_dqn_a(args, model_file):
     policy = partial(_epsilon_greedy, model=model, eps=0.001)
     agent = policy
     return agent
+
+
+def get_stack_buffer(kinematic_data, stack_num):
+    stack_buffer = []
+    for s_i in range(stack_num):
+        if s_i == stack_num - 1:
+            stack_buffer.append(kinematic_data[s_i:])
+        else:
+            stack_buffer.append(kinematic_data[s_i:s_i - stack_num + 1])
+
+    kinematic_series_data = torch.cat(stack_buffer, dim=2)
+    return kinematic_series_data

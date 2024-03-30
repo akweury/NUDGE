@@ -52,6 +52,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--dqn_a_episode_num", type=int, default=10000, help="Number of episodes to update the agent.")
     parser.add_argument("--dqn_c_episode_num", type=int, default=10000, help="Number of episodes to update the agent.")
     parser.add_argument("--dqn_t_episode_num", type=int, default=10000, help="Number of episodes to update the agent.")
+    parser.add_argument("--stack_num", type=int, default=10, help="Zoom in percentage of the game window.")
 
     parser.add_argument("--zoom_in", type=int, default=2.5, help="Zoom in percentage of the game window.")
     parser.add_argument("--train_state_num", type=int, default=100000, help="Zoom in percentage of the game window.")
