@@ -92,6 +92,9 @@ def train_mlp_a():
         dqn_a_agent.agent_type = "DQN-A"
         collect_data_dqn_a(dqn_a_agent, args, buffer_filename, save_buffer=True)
 
+    if os.path.exists(args.trained_model_folder / f"{args.m}_mlp_a_0.pth.tar"):
+        return 0
+
     student_agent.load_atari_buffer(args, buffer_filename)
     if args.m == "Pong":
         actions = torch.cat(student_agent.actions, dim=0)[5:]
@@ -142,7 +145,7 @@ def train_mlp_a():
 
     elif args.m == "Kangaroo":
         stack_num = 10
-        actions = torch.cat(student_agent.actions, dim=0)[stack_num:]
+        actions = torch.cat(student_agent.actions, dim=0)[stack_num - 1:]
         states = torch.cat(student_agent.states, dim=0)
         kinematic_data = reason_utils.extract_kangaroo_kinematics(args, states)
 
