@@ -148,7 +148,10 @@ def train_mlp_a():
 
         stack_buffer = []
         for s_i in range(stack_num):
-            stack_buffer.append(kinematic_data[s_i:s_i - stack_num + 1])
+            if s_i == stack_num - 1:
+                stack_buffer.append(kinematic_data[s_i:])
+            else:
+                stack_buffer.append(kinematic_data[s_i:s_i - stack_num + 1])
 
         kinematic_series_data = torch.cat(stack_buffer, dim=2)
         pos_data = [
