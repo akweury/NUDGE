@@ -2,6 +2,6 @@
   "dqn_a_episode_num": 1000,
   "dqn_c_episode_num": 1402,
   "dqn_t_episode_num": 2000,
-  "teacher_game_nums": 1000,
+  "teacher_game_nums": 500,
   "print_freq": 100
 }
