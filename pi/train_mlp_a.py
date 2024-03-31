@@ -30,9 +30,11 @@ def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
                                                                                    obs.shape[0])
             env_args.past_states.append(env_args.logic_state)
             env_args.obs = env_args.last_obs
-
             state = env.dqn_obs.to(args.device)
-            env_args.action, _ = agent(env.dqn_obs.to(env_args.device))
+            if env_args.frame_i <= args.jump_frames:
+                env_args.action = 0
+            else:
+                env_args.action, _ = agent(env.dqn_obs.to(env_args.device))
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(env_args.action)
 
             game_patches.atari_frame_patches(args, env_args, info)
@@ -96,25 +98,19 @@ def _prepare_mlp_training_data(args, student_agent):
         ]
         args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
     elif args.m == "Boxing":
-        actions = torch.cat(student_agent.actions, dim=0)[args.stack_num - 1:]
+        actions = torch.cat(student_agent.actions, dim=0)
         states = torch.cat(student_agent.states, dim=0)
         kinematic_data = reason_utils.extract_boxing_kinematics(args, states)
         kinematic_series_data = train_utils.get_stack_buffer(kinematic_data, args.stack_num)
+        action_series_data = train_utils.get_stack_buffer(actions.unsqueeze(1).unsqueeze(1), args.stack_num)
+        action_series_data = torch.repeat_interleave(action_series_data, 2, dim=1)
 
+        # kinematic_action_series_data = torch.cat((kinematic_series_data, action_series_data), dim=2)
+        actions = actions[args.stack_num - 1:]
         pos_data = [
             kinematic_series_data[:, 1:2]
         ]
         args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
-    elif args.m == "Freeway":
-        actions = torch.cat(student_agent.actions, dim=0)
-        states = torch.cat(student_agent.states, dim=0)
-        kinematic_data = reason_utils.extract_freeway_kinematics(args, states)
-        pos_data = [
-            kinematic_data[:, 1:2],
-            kinematic_data[:, 2:]
-        ]
-        args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
-
     elif args.m == "Kangaroo":
 
         actions = torch.cat(student_agent.actions, dim=0)[args.stack_num - 1:]

@@ -39,7 +39,10 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
         else:
             raise ValueError
         # determin object types
-        input_c_tensor = state_kinematic[-1, indices].reshape(1, -1)
+        input_c_tensor = state_kinematic[-args.stack_num:, indices].reshape(1, -1)
+        action_tensors = torch.tensor(env_args.past_actions).to(input_c_tensor.device)
+        # input_c_tensor = torch.cat((input_c_tensor, action_tensors.view(1, -1)), dim=1)
+
         action = mlp_a_i(input_c_tensor).argmax()
     elif args.m == "Pong":
         state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
@@ -184,6 +187,7 @@ def train_dqn_c():
             else:
                 action = _reason_action(args, env_args, collective_pred + 1, mlp_a)
 
+            env_args.past_actions.append(action)
             state = env.dqn_obs.to(args.device)
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
             game_patches.atari_frame_patches(args, env_args, info)

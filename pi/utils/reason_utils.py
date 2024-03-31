@@ -1256,7 +1256,8 @@ def extract_asterix_kinematics(args, logic_state):
     indices = torch.arange(logic_state.shape[1])
     obj_datas = []
     for o_i in range(logic_state.shape[1]):
-        obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
+        symbolic_state = get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1)
+        obj_datas.append(symbolic_state)
     obj_datas = torch.cat(obj_datas, dim=1)
     return obj_datas
 
@@ -1264,10 +1265,16 @@ def extract_asterix_kinematics(args, logic_state):
 def extract_boxing_kinematics(args, logic_state):
     logic_state = torch.tensor(logic_state).to(args.device)
     velo = get_state_velo(logic_state).to(args.device)
-    velo[velo > 0.2] = 0
     obj_datas = []
     for o_i in range(logic_state.shape[1]):
-        obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
+        symbolic_state = get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1)
+        symbolic_state = torch.cat((
+            symbolic_state,
+            logic_state[:, 0:1, 2:4],
+            logic_state[:, 1:2, 2:4],
+
+        ),dim=-1)
+        obj_datas.append(symbolic_state)
     obj_datas = torch.cat(obj_datas, dim=1)
     return obj_datas
 

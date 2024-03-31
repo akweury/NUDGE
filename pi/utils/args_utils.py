@@ -351,7 +351,6 @@ def load_args(exp_args_path, m):
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
 
     elif args.m == "Boxing":
-        args.jump_frames = 3
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
