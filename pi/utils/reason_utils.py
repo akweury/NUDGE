@@ -1273,7 +1273,7 @@ def extract_boxing_kinematics(args, logic_state):
             logic_state[:, 0:1, 2:4],
             logic_state[:, 1:2, 2:4],
 
-        ),dim=-1)
+        ), dim=-1)
         obj_datas.append(symbolic_state)
     obj_datas = torch.cat(obj_datas, dim=1)
     return obj_datas
@@ -1465,5 +1465,26 @@ def asterix_obj_to_collective(obj_id):
         return enemy_indices, 0
     elif obj_id in consumable_indices:
         return consumable_indices, 1
+    else:
+        return None, None
+
+
+def kangaroo_obj_to_collective(obj_id):
+    if obj_id == 1:
+        return [1], 1
+    elif obj_id in [2, 3, 4]:
+        return [2, 3, 4], 2
+    elif obj_id in [5]:
+        return [5], 3
+    elif obj_id in [6, 7, 8, 9]:
+        return [6, 7, 8, 9], 4
+    elif obj_id in [10, 11, 12]:
+        return [10, 11, 12], 5
+    elif obj_id in [13, 14, 15, 16]:
+        return [13, 14, 15, 16], 6
+    elif obj_id in [17, 18, 19]:
+        return [17, 18, 19], 7
+    elif obj_id in [20, 21, 22]:
+        return [20, 21, 22], 8
     else:
         return None, None

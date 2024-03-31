@@ -29,7 +29,7 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c):
         collective_indices, collective_id_dqn = reason_utils.asterix_obj_to_collective(obj_id)
     elif args.m == "Kangaroo":
         state_kinematic = reason_utils.extract_kangaroo_kinematics(args, env_args.past_states)
-        collective_indices, collective_id_dqn = reason_utils.asterix_obj_to_collective(obj_id)
+        collective_indices, collective_id_dqn = reason_utils.kangaroo_obj_to_collective(obj_id)
     else:
         raise ValueError
 
