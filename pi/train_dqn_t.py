@@ -22,7 +22,7 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c):
         print("")
     # determine relation related objects
     if args.m == "Asterix":
-        state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args, env_args.past_states)
+        state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args.past_states)
         collective_indices, collective_id_dqn = reason_utils.asterix_obj_to_collective(obj_id)
     elif args.m == "Pong":
         state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
