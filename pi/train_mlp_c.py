@@ -221,7 +221,7 @@ def train_mlp_c():
         state = {'model': target_pred_model}
         torch.save(state, act_pred_model_file)
     else:
-        target_pred_model = torch.load(act_pred_model_file)["model"]
+        target_pred_model = torch.load(act_pred_model_file, map_location=torch.device(args.device))["model"]
 
     return args.dqn_a_avg_score
 
