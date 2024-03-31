@@ -1,7 +1,7 @@
 {
-  "dqn_a_episode_num": 1000,
-  "dqn_c_episode_num": 1402,
-  "dqn_t_episode_num": 2000,
+  "dqn_a_episode_num": 10,
+  "dqn_c_episode_num": 10,
+  "dqn_t_episode_num": 10,
   "teacher_game_nums": 300,
-  "print_freq": 100
+  "print_freq": 2
 }
