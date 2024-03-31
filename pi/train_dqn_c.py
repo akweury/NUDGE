@@ -196,14 +196,14 @@ def train_dqn_c():
             if args.with_explain:
                 screen_text = (
                     f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
-                    f"obj: {args.row_names[collective_pred + 1]}, act: {args.action_names[action]} re: {env_args.reward}")
+                    f"group id: {collective_pred.item()}, act: {args.action_names[action]} re: {env_args.reward}")
                 # Red
                 env_args.obs[:10, :10] = 0
                 env_args.obs[:10, :10, 0] = 255
                 # Blue
                 env_args.obs[:10, 10:20] = 0
                 env_args.obs[:10, 10:20, 2] = 255
-                draw_utils.addCustomText(env_args.obs, f"dqn_obj",
+                draw_utils.addCustomText(env_args.obs, f"DQN-C",
                                          color=(255, 255, 255), thickness=1, font_size=0.3, pos=[1, 5])
                 game_plot = draw_utils.rgb_to_bgr(env_args.obs)
                 screen_plot = draw_utils.image_resize(game_plot,

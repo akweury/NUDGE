@@ -3,7 +3,7 @@
   "dqn_c_episode_num": 1000,
   "dqn_t_episode_num": 1000,
   "teacher_game_nums": 300,
-  "jump_frames": 10,
-  "stack_num": 5,
-  "print_freq": 50
+  "jump_frames": 20,
+  "stack_num": 20,
+  "print_freq": 100
 }
