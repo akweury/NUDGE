@@ -167,17 +167,17 @@ def train_mlp_c():
 
     pos_data, actions = _prepare_mlp_training_data(args, student_agent)
 
-    args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
+    # args.dqn_a_avg_score = torch.mean(student_agent.buffer_win_rates)
 
-    if args.m == "Pong":
-        pos_data, actions = student_agent.pong_reasoner()
-    if args.m == "Asterix":
-        pos_data, actions = student_agent.asterix_reasoner()
-    if args.m == "Kangaroo":
-        pos_data, actions = student_agent.kangaroo_reasoner()
+    # if args.m == "Pong":
+    #     pos_data, actions = student_agent.pong_reasoner()
+    # if args.m == "Asterix":
+    #     pos_data, actions = student_agent.asterix_reasoner()
+    # if args.m == "Kangaroo":
+    #     pos_data, actions = student_agent.kangaroo_reasoner()
     # convert to symbolic input
-    input_tensor = torch.cat(pos_data, dim=1).to(args.device)
-    input_tensor = input_tensor.view(input_tensor.size(0), -1)
+    # input_tensor = torch.cat(pos_data, dim=1).to(args.device)
+    input_tensor = pos_data.view(pos_data.size(0), -1)
     target_tensor = actions.to(args.device)
 
     act_pred_model_file = args.trained_model_folder / f"{args.m}_mlp_c.pth.tar"
