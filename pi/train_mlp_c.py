@@ -4,13 +4,13 @@ import os.path
 import torch
 from ocatari.core import OCAtari
 from tqdm import tqdm
-
+import time
 from pi.utils import args_utils
 from src import config
 from pi import train_utils
 from pi.utils.game_utils import create_agent
 
-from pi.utils import game_utils, reason_utils
+from pi.utils import game_utils, reason_utils, draw_utils
 from pi.utils.EnvArgs import EnvArgs
 from pi.utils.oc_utils import extract_logic_state_atari
 from pi.utils.atari import game_patches
@@ -74,11 +74,25 @@ def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
     obs, info = env.reset()
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     agent.position_norm_factor = obs.shape[0]
+
+    if args.with_explain:
+        video_out = game_utils.get_game_viewer(env_args)
+
+
     for game_i in tqdm(range(args.teacher_game_nums), desc=f"Collecting GameBuffer by {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
         while not env_args.game_over:
+            if args.with_explain:
+                current_frame_time = time.time()
+                if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
+                    sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
+                    time.sleep(sl)
+                    continue
+                env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
+
+
             # predict object type
             collective_pred = agent.select_action(env.dqn_obs.to(env_args.device))
             env_args.logic_state, _ = extract_logic_state_atari(args, env.objects, args.game_info, obs.shape[0])
@@ -118,6 +132,26 @@ def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
                 env_args.collective = collective_pred.reshape(-1).item()
                 env_args.buffer_frame("dqn_c")
             env_args.frame_i += 1
+            if args.with_explain:
+                screen_text = (
+                    f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
+                    f"obj: {args.row_names[collective_pred + 1]}, act: {args.action_names[action]} re: {env_args.reward}")
+                # Red
+                env_args.obs[:10, :10] = 0
+                env_args.obs[:10, :10, 0] = 255
+                # Blue
+                env_args.obs[:10, 10:20] = 0
+                env_args.obs[:10, 10:20, 2] = 255
+                draw_utils.addCustomText(env_args.obs, f"dqn_obj",
+                                         color=(255, 255, 255), thickness=1, font_size=0.3, pos=[1, 5])
+                game_plot = draw_utils.rgb_to_bgr(env_args.obs)
+                screen_plot = draw_utils.image_resize(game_plot,
+                                                      int(game_plot.shape[0] * env_args.zoom_in),
+                                                      int(game_plot.shape[1] * env_args.zoom_in))
+                draw_utils.addText(screen_plot, screen_text,
+                                   color=(255, 228, 181), thickness=2, font_size=0.6, pos="upper_right")
+                video_out = draw_utils.write_video_frame(video_out, screen_plot)
+
 
             env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
             next_state = env.dqn_obs.to(args.device) if not env_args.terminated else None
@@ -141,6 +175,8 @@ def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
 
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
+    if args.with_explain:
+        draw_utils.release_video(video_out)
     if save_buffer:
         game_utils.save_game_buffer(args, env_args, buffer_filename)
 
@@ -157,6 +193,7 @@ def train_mlp_c():
     student_agent = create_agent(args, agent_type='smp')
     # collect game buffer from neural agent
     buffer_filename = args.game_buffer_path / f"z_buffer_dqn_c_{args.teacher_game_nums}.json"
+
     if not os.path.exists(buffer_filename):
         # load dqn-t agent
         dqn_c_agent = train_utils.DQNAgent(args, dqn_t_input_shape, obj_type_num)

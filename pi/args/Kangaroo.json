@@ -1,6 +1,7 @@
 {
+  "jump_frames": 60,
   "dqn_c_episode_num": 1902,
   "dqn_t_episode_num": 2000,
-  "teacher_game_nums": 200,
+  "teacher_game_nums": 10,
   "print_freq": 100
 }

@@ -24,7 +24,7 @@ def get_state_velo(states):
         velocity = torch.zeros(1, states.shape[1], 2)
     else:
         state_2 = torch.cat((states[:-1, :, -2:].unsqueeze(0), states[1:, :, -2:].unsqueeze(0)), dim=0)
-        velocity = math_utils.calculate_velocity_2d(state_2[:, :, :, 0], state_2[:, :, :, 1]).permute(1, 2, 0)
+        velocity = math_utils.calculate_velocity_2d(state_2[:, :, :, 0], state_2[:, :, :, 1]).permute(1, 2, 0) * 10
         velocity = math_utils.closest_one_percent(velocity, 0.01)
         velocity = torch.cat((torch.zeros(1, velocity.shape[1], velocity.shape[2]).to(velocity.device), velocity),
                              dim=0)
@@ -1297,7 +1297,7 @@ def extract_pong_kinematics(args, logic_state):
 def extract_kangaroo_kinematics(args, logic_state):
     logic_state = torch.tensor(logic_state).to(args.device)
     velo = get_state_velo(logic_state).to(args.device)
-    velo[velo > 0.2] = 0
+    # velo[velo > 0.2] = 0
     obj_datas = []
     for o_i in range(logic_state.shape[1]):
         obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
@@ -1394,15 +1394,17 @@ def pred_kangaroo_action(args, env_args, logic_state, obj_id, obj_type_model):
 
 
 def get_symbolic_state(states, velo, indices):
-    data_pos = (states[:, indices, -2:] - states[:, 0:1, -2:]).view(states.size(0), -1)
-    data_pos_dirs = []
+    player_pos = states[:, 0, -2:]
+    relative_pos = (states[:, indices, -2:] - states[:, 0:1, -2:]).view(states.size(0), -1)
+    relative_dir = []
     for index in indices:
         pos_dir = math_utils.closest_multiple_of_45(get_ab_dir(states, 0, index)).view(-1, 1)
-        data_pos_dirs.append(pos_dir)
-    data_pos_dirs = torch.cat(data_pos_dirs, dim=1)
-    data_velo = (velo[:, 0:1] - velo[:, indices]).view(velo.size(0), -1)
-    velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(data_velo.unsqueeze(1)), 0.01)
-    data = torch.cat((data_pos, data_pos_dirs, data_velo, velo_dir), dim=1)
+        relative_dir.append(pos_dir)
+    relative_dir = torch.cat(relative_dir, dim=1)
+    relative_velo = (velo[:, 0:1] - velo[:, indices]).view(velo.size(0), -1)
+    relative_velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(relative_velo.unsqueeze(1)), 0.01)
+    data = torch.cat((player_pos, relative_pos, relative_dir, relative_velo, relative_velo_dir), dim=1)
+    data[torch.isnan(data)] = 0
     return data
 
 
