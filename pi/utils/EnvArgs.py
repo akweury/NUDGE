@@ -119,12 +119,12 @@ class EnvArgs():
         self.score_update = True
         if game_name == "Kangaroo":
             self.reward = self.reward_lost_one_live
-            self.rewards[-1] += self.reward_lost_one_live
-            self.dead_counter += 1
-        if game_name == "Asterix":
-            self.reward = self.reward_lost_one_live
-            self.rewards[-1] += self.reward_lost_one_live
-            self.dead_counter += 1
+        #     self.rewards[-1] += self.reward_lost_one_live
+        #     self.dead_counter += 1
+        # if game_name == "Asterix":
+        #     self.reward = self.reward_lost_one_live
+        #     self.rewards[-1] += self.reward_lost_one_live
+        #     self.dead_counter += 1
 
     def buffer_frame(self, buffer_type):
         if self.frame_i < self.jump_frames:

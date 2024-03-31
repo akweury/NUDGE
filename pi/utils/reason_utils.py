@@ -1398,11 +1398,11 @@ def get_symbolic_state(states, velo, indices):
     relative_pos = (states[:, indices, -2:] - states[:, 0:1, -2:]).view(states.size(0), -1)
     relative_dir = []
     for index in indices:
-        pos_dir = math_utils.closest_multiple_of_45(get_ab_dir(states, 0, index)).view(-1, 1)
+        pos_dir = get_ab_dir(states, 0, index).view(-1, 1) / 360
         relative_dir.append(pos_dir)
     relative_dir = torch.cat(relative_dir, dim=1)
     relative_velo = (velo[:, 0:1] - velo[:, indices]).view(velo.size(0), -1)
-    relative_velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(relative_velo.unsqueeze(1)), 0.01)
+    relative_velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(relative_velo.unsqueeze(1)), 0.001)
     data = torch.cat((player_pos, relative_pos, relative_dir, relative_velo, relative_velo_dir), dim=1)
     data[torch.isnan(data)] = 0
     return data

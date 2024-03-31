@@ -232,6 +232,7 @@ def train_dqn_c():
 
         # env_args.buffer_game(args.zero_reward, args.save_frame)
         env_args.game_rewards.append(env_args.rewards)
+
         game_utils.game_over_log(args, agent, env_args)
 
         env_args.reset_buffer_game()
