@@ -14,7 +14,7 @@ from pi.utils import game_utils, reason_utils, draw_utils
 from pi.utils.EnvArgs import EnvArgs
 from pi.utils.oc_utils import extract_logic_state_atari
 from pi.utils.atari import game_patches
-from pi import train_dqn_c
+from pi import train_dqn_t
 
 
 def _prepare_mlp_training_data(args, student_agent):
@@ -64,11 +64,13 @@ def _prepare_mlp_training_data(args, student_agent):
     return kinematic_series_data, actions
 
 
-def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
+def collect_data_dqn_t(agent, args, buffer_filename, save_buffer):
     oc_name = game_utils.get_ocname(args.m)
     # load mlp_a
     obj_type_num = len(args.game_info["obj_info"]) - 1
     mlp_a = train_utils.load_mlp_a(args, args.trained_model_folder, obj_type_num, args.m)
+    # load MLP-C
+    mlp_c = train_utils.load_mlp_c(args)
 
     env = OCAtari(oc_name, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
@@ -91,28 +93,16 @@ def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
                     continue
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
-            # predict object type
-            collective_pred = agent.select_action(env.dqn_obs.to(env_args.device))
+            # predict object id
+
             env_args.logic_state, _ = extract_logic_state_atari(args, env.objects, args.game_info, obs.shape[0])
             env_args.past_states.append(env_args.logic_state)
 
             if env_args.frame_i <= args.jump_frames:
                 action = torch.tensor([[0]]).to(args.device)
-                collective_pred = torch.tensor([[0]]).to(args.device)
+                obj_pred = torch.tensor([[0]]).to(args.device)
             else:
-                action = train_dqn_c._reason_action(args, env_args, collective_pred + 1, mlp_a)
-
-            # if args.m == "Asterix":
-            #     action = reason_utils.pred_asterix_action(args, env_args, env_args.past_states, collective_pred + 1,
-            #                                               mlp_a[collective_pred]).to(torch.int64).reshape(1)
-            # elif args.m == "Pong":
-            #     action = reason_utils.pred_pong_action(args, env_args, env_args.past_states, collective_pred + 1,
-            #                                            mlp_a[collective_pred]).to(torch.int64).reshape(1)
-            # elif args.m == "Kangaroo":
-            #     action = reason_utils.pred_kangaroo_action(args, env_args, env_args.past_states, collective_pred + 1,
-            #                                                mlp_a[collective_pred]).to(torch.int64).reshape(1)
-            # else:
-            #     raise ValueError
+                action, obj_pred = train_dqn_t._reason_action(args, agent, env, env_args, mlp_a, mlp_c)
 
             state = env.dqn_obs.to(args.device)
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
@@ -125,21 +115,21 @@ def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
                 # record game states
                 env_args.next_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
                                                                                       obs.shape[0])
-                env_args.action = action
-                env_args.collective = collective_pred.reshape(-1).item()
-                env_args.buffer_frame("dqn_c")
+                env_args.target = action.item()
+                env_args.obj_pred = obj_pred.reshape(-1).item()
+                env_args.buffer_frame("dqn_t")
             env_args.frame_i += 1
             if args.with_explain:
                 screen_text = (
                     f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
-                    f"obj: {args.row_names[collective_pred + 1]}, act: {args.action_names[action]} re: {env_args.reward}")
+                    f"obj: {args.row_names[obj_pred + 1]}, act: {args.action_names[action]} re: {env_args.reward}")
                 # Red
                 env_args.obs[:10, :10] = 0
                 env_args.obs[:10, :10, 0] = 255
                 # Blue
                 env_args.obs[:10, 10:20] = 0
                 env_args.obs[:10, 10:20, 2] = 255
-                draw_utils.addCustomText(env_args.obs, f"dqn_obj",
+                draw_utils.addCustomText(env_args.obs, f"dqn_t",
                                          color=(255, 255, 255), thickness=1, font_size=0.3, pos=[1, 5])
                 game_plot = draw_utils.rgb_to_bgr(env_args.obs)
                 screen_plot = draw_utils.image_resize(game_plot,
@@ -152,7 +142,7 @@ def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
             env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
             next_state = env.dqn_obs.to(args.device) if not env_args.terminated else None
             # Store the transition in memory
-            agent.memory.push(state, collective_pred, next_state, env_args.reward, env_args.terminated)
+            agent.memory.push(state, obj_pred, next_state, env_args.reward, env_args.terminated)
 
         if args.m == "Pong":
             if sum(env_args.rewards) > 0:
@@ -177,7 +167,7 @@ def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
         game_utils.save_game_buffer(args, env_args, buffer_filename)
 
 
-def train_mlp_c():
+def train_mlp_t():
     # game buffer
     args = args_utils.load_args(config.path_exps, None)
     # train mlp-t
@@ -185,17 +175,17 @@ def train_mlp_c():
     obs, info = env.reset()
     num_actions = env.action_space.n
     dqn_t_input_shape = env.observation_space.shape
-    obj_type_num = len(args.game_info["obj_info"]) - 1
+    obj_type_num = args.game_info["state_row_num"] - 1
     student_agent = create_agent(args, agent_type='smp')
     # collect game buffer from neural agent
-    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_c_{args.teacher_game_nums}.json"
+    buffer_filename = args.game_buffer_path / f"z_buffer_dqn_t_{args.teacher_game_nums}.json"
 
     if not os.path.exists(buffer_filename):
         # load dqn-t agent
-        dqn_c_agent = train_utils.DQNAgent(args, dqn_t_input_shape, obj_type_num)
-        dqn_c_agent.agent_type = "DQN-C"
-        train_utils.load_dqn_c(args, dqn_c_agent, args.trained_model_folder)
-        collect_data_dqn_c(dqn_c_agent, args, buffer_filename, save_buffer=True)
+        dqn_t_agent = train_utils.DQNAgent(args, dqn_t_input_shape, obj_type_num)
+        dqn_t_agent.agent_type = "DQN-T"
+        train_utils.load_dqn_t(args, dqn_t_agent, args.trained_model_folder)
+        collect_data_dqn_t(dqn_t_agent, args, buffer_filename, save_buffer=True)
     student_agent.load_atari_buffer(args, buffer_filename)
 
     pos_data, actions = _prepare_mlp_training_data(args, student_agent)
@@ -227,4 +217,4 @@ def train_mlp_c():
 
 
 if __name__ == "__main__":
-    train_mlp_c()
+    train_mlp_t()

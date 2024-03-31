@@ -1,7 +1,9 @@
 {
-  "dqn_a_episode_num": 10,
-  "dqn_c_episode_num": 10,
-  "dqn_t_episode_num": 10,
-  "teacher_game_nums": 300,
+  "dqn_a_episode_num": 5,
+  "dqn_c_episode_num": 5,
+  "dqn_t_episode_num": 5,
+  "teacher_game_nums": 5,
+  "jump_frames": 10,
+  "stack_num": 5,
   "print_freq": 2
 }

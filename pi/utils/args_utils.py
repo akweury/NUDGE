@@ -246,7 +246,7 @@ def load_args(exp_args_path, m):
         args.step_dist = [0.01, -0.01]
         args.mile_stone_scores = [5, 10, 20, 40]
     elif args.m == "Asterix" or args.m == "asterix":
-        args.jump_frames = 5
+
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"

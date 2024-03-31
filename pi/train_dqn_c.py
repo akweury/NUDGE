@@ -19,6 +19,8 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
     # mlp-a-i predict an action
     if args.m == "Asterix":
         state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args.past_states)
+        kinematic_series_data = train_utils.get_stack_buffer(state_kinematic, args.stack_num)
+
         mlp_a_i = mlp_a[collective_pred - 1]
         if collective_pred == 1:
             indices = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -27,7 +29,7 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
         else:
             raise ValueError
         # determin object types
-        input_c_tensor = state_kinematic[-5:, indices].reshape(1, -1)
+        input_c_tensor = kinematic_series_data[-1, indices].reshape(1, -1)
         action = mlp_a_i(input_c_tensor).argmax()
     elif args.m == "Boxing":
         state_kinematic = reason_utils.extract_boxing_kinematics(args, env_args.past_states)

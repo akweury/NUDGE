@@ -33,7 +33,8 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c):
     if collective_indices is None:
         return torch.tensor([[0]]).to(args.device), torch.tensor([[0]]).to(args.device)
     # determin object types
-    input_c_tensor = state_kinematic[-1, 1:].reshape(1, -1)
+    kinematic_series_data = train_utils.get_stack_buffer(state_kinematic, args.stack_num)
+    input_c_tensor = kinematic_series_data[-1, 1:].reshape(1, -1)
     collective_id_mlp_conf = mlp_c(input_c_tensor)
     collective_id_mlp = collective_id_mlp_conf.argmax()
     if collective_id_mlp != collective_id_dqn:
@@ -41,7 +42,7 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c):
 
     # select mlp_a
     mlp_a_i = mlp_a[collective_id_mlp]
-    collective_kinematic = state_kinematic[-1, collective_indices].unsqueeze(0)
+    collective_kinematic = kinematic_series_data[-1, collective_indices].unsqueeze(0)
 
     obj_mask = torch.zeros(state_kinematic.shape[1], dtype=torch.bool)
     obj_mask[obj_id] = True
@@ -78,7 +79,7 @@ def train_dqn_t():
     input_shape = env.observation_space.shape
 
     # Initialize agent
-    num_objects = args.game_info["state_row_num"]
+    num_objects = args.game_info["state_row_num"] - 1
     agent = train_utils.DQNAgent(args, input_shape, num_objects)
     agent.agent_type = "DQN-T"
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)

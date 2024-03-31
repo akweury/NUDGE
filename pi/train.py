@@ -4,7 +4,7 @@ import os
 
 import torch
 
-from pi import train_mlp_a, train_dqn_c, train_mlp_c, train_dqn_t
+from pi import train_mlp_a, train_dqn_c, train_mlp_c, train_dqn_t, train_mlp_t
 
 # collect game buffer by dqn-a
 # train mlp-a from dqn-a's buffer
@@ -20,3 +20,6 @@ print(f"- DQN-C_avg_score: {dqn_c_avg_score}")
 
 # train dqn-r with using mlp-t, mlp-a
 train_dqn_t.train_dqn_t()
+
+dqn_t_avg_score = train_mlp_t.train_mlp_t()
+print(f"- DQN-T_avg_score: {dqn_t_avg_score}")
