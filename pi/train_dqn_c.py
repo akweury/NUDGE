@@ -78,7 +78,7 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
         else:
             raise ValueError
         # determin object types
-        input_c_tensor = state_kinematic[-10:, indices].reshape(1, -1)
+        input_c_tensor = state_kinematic[-args.stack_num:, indices].reshape(1, -1)
         action = mlp_a_i(input_c_tensor).argmax()
     else:
         raise ValueError
@@ -159,7 +159,8 @@ def train_dqn_c():
             agent.target_net.eval()
     else:
         start_game_i = 0
-    for game_i in tqdm(range(start_game_i, args.dqn_c_episode_num), desc=f"Training agent  {agent.agent_type}"):
+    for game_i in tqdm(range(start_game_i, args.dqn_c_episode_num),
+                       desc=f"{args.m} Training agent  {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
