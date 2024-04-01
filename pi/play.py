@@ -46,7 +46,7 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c, mlp_t):
     input_c_tensor = kinematic_series_data[-1, 1:].reshape(1, -1)
     collective_id_mlp_conf = mlp_c(input_c_tensor)
     collective_id_mlp = collective_id_mlp_conf.argmax()
-
+    # collective_id_mlp = 0
     # select mlp_a
     mlp_a_i = mlp_a[collective_id_mlp]
     collective_kinematic = kinematic_series_data[-1, collective_id_mlp].unsqueeze(0)
@@ -66,7 +66,7 @@ def main(render=True, m=None):
     mlp_a = train_utils.load_mlp_a(args, args.trained_model_folder, obj_type_num, args.m)
     # load MLP-C
     mlp_c = train_utils.load_mlp_c(args)
-
+    # mlp_c = None
     mlp_t = train_utils.load_mlp_t(args)
     # Initialize environment
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
