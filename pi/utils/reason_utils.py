@@ -1471,20 +1471,20 @@ def asterix_obj_to_collective(obj_id):
 
 def kangaroo_obj_to_collective(obj_id):
     if obj_id == 1:
-        return [1], 1
+        return [1], 0
     elif obj_id in [2, 3, 4]:
-        return [2, 3, 4], 2
+        return [2, 3, 4], 1
     elif obj_id in [5]:
-        return [5], 3
+        return [5], 2
     elif obj_id in [6, 7, 8, 9]:
-        return [6, 7, 8, 9], 4
+        return [6, 7, 8, 9], 3
     elif obj_id in [10, 11, 12]:
-        return [10, 11, 12], 5
+        return [10, 11, 12], 4
     elif obj_id in [13, 14, 15, 16]:
-        return [13, 14, 15, 16], 6
+        return [13, 14, 15, 16], 5
     elif obj_id in [17, 18, 19]:
-        return [17, 18, 19], 7
+        return [17, 18, 19], 6
     elif obj_id in [20, 21, 22]:
-        return [20, 21, 22], 8
+        return [20, 21, 22], 7
     else:
-        return None, None
+        raise ValueError

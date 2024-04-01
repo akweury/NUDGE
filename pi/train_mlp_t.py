@@ -115,7 +115,7 @@ def collect_data_dqn_t(agent, args, buffer_filename, save_buffer):
                 # record game states
                 env_args.next_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
                                                                                       obs.shape[0])
-                env_args.target = action.item()
+                env_args.target = obj_pred.item()
                 env_args.obj_pred = obj_pred.reshape(-1).item()
                 env_args.buffer_frame("dqn_t")
             env_args.frame_i += 1
@@ -206,7 +206,7 @@ def train_mlp_t():
     act_pred_model_file = args.trained_model_folder / f"{args.m}_mlp_c.pth.tar"
 
     if not os.path.exists(act_pred_model_file):
-        target_pred_model = train_utils.train_nn(args, num_actions, input_tensor, target_tensor,
+        target_pred_model = train_utils.train_nn(args, args.game_info["state_row_num"] - 1, input_tensor, target_tensor,
                                                  f"mlp_c")
         state = {'model': target_pred_model}
         torch.save(state, act_pred_model_file)
