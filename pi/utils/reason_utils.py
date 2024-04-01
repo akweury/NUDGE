@@ -1301,6 +1301,11 @@ def extract_pong_kinematics(args, logic_state):
     return obj_datas
 
 
+def extract_pong_symbolic(args, obj_datas):
+    series_symbolic = math_utils.closest_one_percent(obj_datas)
+    return series_symbolic
+
+
 def extract_kangaroo_kinematics(args, logic_state):
     logic_state = torch.tensor(logic_state).to(args.device)
     velo = get_state_velo(logic_state).to(args.device)
@@ -1488,3 +1493,18 @@ def kangaroo_obj_to_collective(obj_id):
         return [20, 21, 22], 7
     else:
         raise ValueError
+
+
+def get_rule_data(state_symbolic, c_id, action, args):
+    symbolic_collective = state_symbolic[-1, c_id]
+    rule_data = torch.cat((action.view(1), c_id.view(1), symbolic_collective))
+
+    return rule_data
+
+
+def reason_rules(env_args):
+    rule_buffer = env_args.rule_data_buffer
+
+    rules = []
+
+    return rules

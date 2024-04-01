@@ -49,6 +49,7 @@ class EnvArgs():
         self.game_rewards = []
         self.game_obj_types = []
         self.game_relations = []
+        self.rule_data_buffer = []
         self.game_i = 0
         self.win_count = 0
         self.dead_counter = 0
@@ -165,3 +166,4 @@ class EnvArgs():
         self.logic_states = []
         self.actions = []
         self.rewards = []
+

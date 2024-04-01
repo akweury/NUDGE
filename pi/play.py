@@ -33,6 +33,7 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c, mlp_t):
     elif args.m == "Pong":
         with_target = False
         state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
+        state_symbolic = reason_utils.extract_pong_symbolic(args, state_kinematic)
     elif args.m == "Kangaroo":
         with_target = True
         obj_id = agent.select_action(env.dqn_obs.to(env_args.device))
@@ -42,6 +43,7 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c, mlp_t):
         raise ValueError
 
     # determin object types
+
     kinematic_series_data = train_utils.get_stack_buffer(state_kinematic, args.stack_num)
     input_c_tensor = kinematic_series_data[-1, 1:].reshape(1, -1)
     collective_id_mlp_conf = mlp_c(input_c_tensor)
@@ -49,11 +51,11 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c, mlp_t):
     # collective_id_mlp = 0
     # select mlp_a
     mlp_a_i = mlp_a[collective_id_mlp]
-    collective_kinematic = kinematic_series_data[-1, collective_id_mlp].unsqueeze(0)
+    collective_kinematic = kinematic_series_data[-1, collective_id_mlp + 1].unsqueeze(0)
     # determine action
     action = mlp_a_i(collective_kinematic.view(1, -1)).argmax()
-
-    return action, collective_id_mlp
+    rule_data = reason_utils.get_rule_data(state_symbolic, collective_id_mlp + 1, action, args)
+    return action, collective_id_mlp, rule_data
 
 
 def main(render=True, m=None):
@@ -97,8 +99,9 @@ def main(render=True, m=None):
             if env_args.frame_i <= args.jump_frames:
                 action = torch.tensor([[0]]).to(args.device)
                 obj_id = torch.tensor([[0]]).to(args.device)
+                rule_data = None
             else:
-                action, obj_id = _reason_action(args, student_agent, env, env_args, mlp_a, mlp_c, mlp_t)
+                action, obj_id, rule_data = _reason_action(args, student_agent, env, env_args, mlp_a, mlp_c, mlp_t)
 
             state = env.dqn_obs.to(args.device)
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
@@ -129,9 +132,12 @@ def main(render=True, m=None):
             # update game args
             env_args.update_args()
             env_args.rewards.append(env_args.reward)
+            if rule_data is not None:
+                env_args.rule_data_buffer.append(rule_data)
             env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
 
         # env_args.buffer_game(args.zero_reward, args.save_frame)
+        reason_utils.reason_rules(env_args)
         env_args.win_rate[game_i] = sum(env_args.rewards[:-1])  # update ep score
         env_args.reset_buffer_game()
     env.close()
