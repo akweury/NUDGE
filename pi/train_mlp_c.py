@@ -78,7 +78,7 @@ def collect_data_dqn_c(agent, args, buffer_filename, save_buffer):
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
 
-    for game_i in tqdm(range(args.dqn_c_episode_num), desc=f"Collecting GameBuffer by {agent.agent_type}"):
+    for game_i in tqdm(range(args.teacher_game_nums), desc=f"Collecting GameBuffer by {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
