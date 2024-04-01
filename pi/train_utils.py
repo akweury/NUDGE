@@ -208,6 +208,15 @@ def load_mlp_c(args):
     return mlp_t
 
 
+def load_mlp_t(args):
+    if args.m in ["Kangaroo", "Asterix"]:
+        mlp_t_file = args.trained_model_folder / f"{args.m}_mlp_c.pth.tar"
+        mlp_t = torch.load(mlp_t_file, map_location=torch.device(args.device))["model"].to(args.device)
+        return mlp_t
+    else:
+        return None
+
+
 def load_dqn_c(args, agent, model_folder):
     files = os.listdir(model_folder)
     dqn_model_files = [file for file in files if f'dqn_c' in file and ".pth" in file]
@@ -225,6 +234,7 @@ def load_dqn_c(args, agent, model_folder):
         agent.target_net.eval()
         return True, start_game_i, avg_score
 
+
 def load_dqn_t(args, agent, model_folder):
     files = os.listdir(model_folder)
     dqn_model_files = [file for file in files if f'dqn_t' in file and ".pth" in file]
@@ -241,6 +251,7 @@ def load_dqn_t(args, agent, model_folder):
         agent.target_net.load_state_dict(agent.policy_net.state_dict())
         agent.target_net.eval()
         return True, start_game_i, avg_score
+
 
 def _load_checkpoint(fpath, device="cpu"):
     fpath = Path(fpath)
