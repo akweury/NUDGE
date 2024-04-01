@@ -1,6 +1,6 @@
 {
   "dqn_a_episode_num": 300,
-  "dqn_c_episode_num": 1000,
+  "dqn_c_episode_num": 502,
   "dqn_t_episode_num": 1000,
   "teacher_game_nums": 300,
   "jump_frames": 20,
