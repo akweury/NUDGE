@@ -52,10 +52,7 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c):
     collective_mask = obj_mask[collective_indices]
     collective_kinematic[:, ~collective_mask] = 0
     # determine action
-    try:
-        action = mlp_a_i(collective_kinematic.view(1, -1)).argmax()
-    except RuntimeError:
-        print("")
+    action = mlp_a_i(collective_kinematic.view(1, -1)).argmax()
 
     return action, obj_id
 
