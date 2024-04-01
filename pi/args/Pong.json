@@ -5,5 +5,5 @@
   "dqn_t_episode_num": 2000,
   "teacher_game_nums": 5000,
   "print_freq": 100,
-  "stack_num": 10
+  "stack_num": 20
 }
