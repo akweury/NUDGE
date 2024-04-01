@@ -69,7 +69,8 @@ def train_dqn_t():
     EPISODES = 1000
 
     args = args_utils.load_args(config.path_exps, None)
-
+    if args.m not in ["Kangaroo", "Asterix"]:
+        return
     # load MLP-A
     obj_type_num = len(args.game_info["obj_info"]) - 1
     mlp_a = train_utils.load_mlp_a(args, args.trained_model_folder, obj_type_num, args.m)

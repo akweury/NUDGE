@@ -50,15 +50,10 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c, mlp_t):
     # select mlp_a
     mlp_a_i = mlp_a[collective_id_mlp]
     collective_kinematic = kinematic_series_data[-1, collective_id_mlp].unsqueeze(0)
-
-    obj_mask = torch.zeros(state_kinematic.shape[1], dtype=torch.bool)
-    obj_mask[obj_id] = True
-    collective_mask = obj_mask[collective_indices]
-    collective_kinematic[:, ~collective_mask] = 0
     # determine action
     action = mlp_a_i(collective_kinematic.view(1, -1)).argmax()
 
-    return action, obj_id
+    return action, collective_id_mlp
 
 
 def main(render=True, m=None):

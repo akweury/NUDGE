@@ -170,6 +170,9 @@ def collect_data_dqn_t(agent, args, buffer_filename, save_buffer):
 def train_mlp_t():
     # game buffer
     args = args_utils.load_args(config.path_exps, None)
+    if args.m not in ["Asterix", "Kangaroo"]:
+        return
+
     # train mlp-t
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
