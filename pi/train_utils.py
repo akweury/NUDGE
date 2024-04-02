@@ -197,18 +197,27 @@ def load_mlp_a(args, model_folder, obj_num, game_name):
     mlp_a = []
     for obj_i in range(obj_num):
         mlp_a_i_file = model_folder / f"{game_name}_mlp_a_{obj_i}.pth.tar"
-        mlp_a_i = torch.load(mlp_a_i_file)["model"].to(args.device)
+        mlp_a_i = torch.load(mlp_a_i_file, map_location=torch.device(args.device))["model"].to(args.device)
         mlp_a.append(mlp_a_i)
     return mlp_a
 
 
 def load_mlp_c(args):
     mlp_t_file = args.trained_model_folder / f"{args.m}_mlp_c.pth.tar"
-    mlp_t = torch.load(mlp_t_file)["model"].to(args.device)
+    mlp_t = torch.load(mlp_t_file, map_location=torch.device(args.device))["model"].to(args.device)
     return mlp_t
 
 
-def load_dqn_c(agent, model_folder):
+def load_mlp_t(args):
+    if args.m in ["Kangaroo", "Asterix"]:
+        mlp_t_file = args.trained_model_folder / f"{args.m}_mlp_c.pth.tar"
+        mlp_t = torch.load(mlp_t_file, map_location=torch.device(args.device))["model"].to(args.device)
+        return mlp_t
+    else:
+        return None
+
+
+def load_dqn_c(args, agent, model_folder):
     files = os.listdir(model_folder)
     dqn_model_files = [file for file in files if f'dqn_c' in file and ".pth" in file]
     if len(dqn_model_files) == 0:
@@ -216,7 +225,25 @@ def load_dqn_c(agent, model_folder):
     else:
         dqn_model_file = dqn_model_files[0]
         start_game_i = int(dqn_model_file.split("dqn_c_")[1].split(".")[0]) + 1
-        file_dict = torch.load(model_folder / dqn_model_file)
+        file_dict = torch.load(model_folder / dqn_model_file, torch.device(args.device))
+        state_dict = file_dict["state_dict"]
+        agent.learn_performance = file_dict["learn_performance"]
+        avg_score = file_dict["avg_score"]
+        agent.policy_net.load_state_dict(state_dict)
+        agent.target_net.load_state_dict(agent.policy_net.state_dict())
+        agent.target_net.eval()
+        return True, start_game_i, avg_score
+
+
+def load_dqn_t(args, agent, model_folder):
+    files = os.listdir(model_folder)
+    dqn_model_files = [file for file in files if f'dqn_t' in file and ".pth" in file]
+    if len(dqn_model_files) == 0:
+        return False, 0, 0
+    else:
+        dqn_model_file = dqn_model_files[0]
+        start_game_i = int(dqn_model_file.split("dqn_t_")[1].split(".")[0]) + 1
+        file_dict = torch.load(model_folder / dqn_model_file, torch.device(args.device))
         state_dict = file_dict["state_dict"]
         agent.learn_performance = file_dict["learn_performance"]
         avg_score = file_dict["avg_score"]
@@ -260,3 +287,15 @@ def load_dqn_a(args, model_file):
     policy = partial(_epsilon_greedy, model=model, eps=0.001)
     agent = policy
     return agent
+
+
+def get_stack_buffer(kinematic_data, stack_num):
+    stack_buffer = []
+    for s_i in range(stack_num):
+        if s_i == stack_num - 1:
+            stack_buffer.append(kinematic_data[s_i:])
+        else:
+            stack_buffer.append(kinematic_data[s_i:s_i - stack_num + 1])
+
+    kinematic_series_data = torch.cat(stack_buffer, dim=2)
+    return kinematic_series_data

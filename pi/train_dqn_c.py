@@ -19,6 +19,8 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
     # mlp-a-i predict an action
     if args.m == "Asterix":
         state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args.past_states)
+        kinematic_series_data = train_utils.get_stack_buffer(state_kinematic, args.stack_num)
+
         mlp_a_i = mlp_a[collective_pred - 1]
         if collective_pred == 1:
             indices = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -27,7 +29,7 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
         else:
             raise ValueError
         # determin object types
-        input_c_tensor = state_kinematic[-1, indices].reshape(1, -1)
+        input_c_tensor = kinematic_series_data[-1, indices].reshape(1, -1)
         action = mlp_a_i(input_c_tensor).argmax()
     elif args.m == "Boxing":
         state_kinematic = reason_utils.extract_boxing_kinematics(args, env_args.past_states)
@@ -37,10 +39,15 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
         else:
             raise ValueError
         # determin object types
-        input_c_tensor = state_kinematic[-1, indices].reshape(1, -1)
+        input_c_tensor = state_kinematic[-args.stack_num:, indices].reshape(1, -1)
+        action_tensors = torch.tensor(env_args.past_actions).to(input_c_tensor.device)
+        # input_c_tensor = torch.cat((input_c_tensor, action_tensors.view(1, -1)), dim=1)
+
         action = mlp_a_i(input_c_tensor).argmax()
     elif args.m == "Pong":
         state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
+        kinematic_series_data = train_utils.get_stack_buffer(state_kinematic, args.stack_num)
+
         ball_indices = [1]
         enemy_indices = [2]
         mlp_a_i = mlp_a[collective_pred - 1]
@@ -51,7 +58,7 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
         else:
             raise ValueError
         # determin object types
-        input_c_tensor = state_kinematic[-5:, indices].reshape(1, -1)
+        input_c_tensor = kinematic_series_data[-1:, indices].reshape(1, -1)
         action = mlp_a_i(input_c_tensor).argmax()
     elif args.m == "Kangaroo":
         state_kinematic = reason_utils.extract_kangaroo_kinematics(args, env_args.past_states)
@@ -76,7 +83,7 @@ def _reason_action(args, env_args, collective_pred, mlp_a):
         else:
             raise ValueError
         # determin object types
-        input_c_tensor = state_kinematic[-1, indices].reshape(1, -1)
+        input_c_tensor = state_kinematic[-args.stack_num:, indices].reshape(1, -1)
         action = mlp_a_i(input_c_tensor).argmax()
     else:
         raise ValueError
@@ -117,13 +124,11 @@ def train_dqn_c():
     else:
         raise ValueError
 
-    # check if dqn-t has been trained
+    # check if dqn-c has been trained
     agent = train_utils.DQNAgent(args, input_shape, num_obj_types)
     agent.agent_type = "DQN-C"
     agent.learn_performance = []
-    is_trained, _, dqn_c_avg_score = train_utils.load_dqn_c(agent, args.trained_model_folder)
-    if is_trained:
-        return dqn_c_avg_score
+    is_trained, trained_epoch, dqn_c_avg_score = train_utils.load_dqn_c(args, agent, args.trained_model_folder)
 
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
 
@@ -150,7 +155,7 @@ def train_dqn_c():
         else:
             dqn_model_file = dqn_model_files[0]
             start_game_i = int(dqn_model_file.split("dqn_c_")[1].split(".")[0]) + 1
-            file_dict = torch.load(args.trained_model_folder / dqn_model_file)
+            file_dict = torch.load(args.trained_model_folder / dqn_model_file, map_location=torch.device(args.device))
             state_dict = file_dict["state_dict"]
             agent.learn_performance = file_dict["learn_performance"]
 
@@ -159,7 +164,8 @@ def train_dqn_c():
             agent.target_net.eval()
     else:
         start_game_i = 0
-    for game_i in tqdm(range(start_game_i, args.dqn_c_episode_num), desc=f"Training agent  {agent.agent_type}"):
+    for game_i in tqdm(range(start_game_i, args.dqn_c_episode_num),
+                       desc=f"{args.m} Training agent  {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
@@ -183,6 +189,7 @@ def train_dqn_c():
             else:
                 action = _reason_action(args, env_args, collective_pred + 1, mlp_a)
 
+            env_args.past_actions.append(action)
             state = env.dqn_obs.to(args.device)
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
             game_patches.atari_frame_patches(args, env_args, info)
@@ -195,14 +202,14 @@ def train_dqn_c():
             if args.with_explain:
                 screen_text = (
                     f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
-                    f"obj: {args.row_names[collective_pred + 1]}, act: {args.action_names[action]} re: {env_args.reward}")
+                    f"group id: {collective_pred.item()}, act: {args.action_names[action]} re: {env_args.reward}")
                 # Red
                 env_args.obs[:10, :10] = 0
                 env_args.obs[:10, :10, 0] = 255
                 # Blue
                 env_args.obs[:10, 10:20] = 0
                 env_args.obs[:10, 10:20, 2] = 255
-                draw_utils.addCustomText(env_args.obs, f"dqn_obj",
+                draw_utils.addCustomText(env_args.obs, f"DQN-C",
                                          color=(255, 255, 255), thickness=1, font_size=0.3, pos=[1, 5])
                 game_plot = draw_utils.rgb_to_bgr(env_args.obs)
                 screen_plot = draw_utils.image_resize(game_plot,
@@ -231,6 +238,7 @@ def train_dqn_c():
 
         # env_args.buffer_game(args.zero_reward, args.save_frame)
         env_args.game_rewards.append(env_args.rewards)
+
         game_utils.game_over_log(args, agent, env_args)
 
         env_args.reset_buffer_game()

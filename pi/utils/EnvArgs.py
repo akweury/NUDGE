@@ -31,9 +31,11 @@ class EnvArgs():
         self.last_frame_time = 0
         # record and statistical properties
         self.last_obs = torch.zeros((window_size[0], window_size[1], 3), dtype=torch.uint8).numpy()
-        self.past_states = deque(maxlen=20)
+        self.past_states = deque(maxlen=args.stack_num)
+        self.past_actions = deque(maxlen=args.stack_num)
+
         self.action = None
-        self.collective=  None
+        self.collective = None
         self.target = None
         self.logic_state = None
         self.last_state = None
@@ -47,6 +49,7 @@ class EnvArgs():
         self.game_rewards = []
         self.game_obj_types = []
         self.game_relations = []
+        self.rule_data_buffer = []
         self.game_i = 0
         self.win_count = 0
         self.dead_counter = 0
@@ -119,16 +122,14 @@ class EnvArgs():
         self.score_update = True
         if game_name == "Kangaroo":
             self.reward = self.reward_lost_one_live
-            self.rewards[-1] += self.reward_lost_one_live
-            self.dead_counter += 1
-        if game_name == "Asterix":
-            self.reward = self.reward_lost_one_live
-            self.rewards[-1] += self.reward_lost_one_live
-            self.dead_counter += 1
+        #     self.rewards[-1] += self.reward_lost_one_live
+        #     self.dead_counter += 1
+        # if game_name == "Asterix":
+        #     self.reward = self.reward_lost_one_live
+        #     self.rewards[-1] += self.reward_lost_one_live
+        #     self.dead_counter += 1
 
     def buffer_frame(self, buffer_type):
-        if self.frame_i < self.jump_frames:
-            return
         self.next_states.append(self.next_state)
         self.logic_states.append(self.logic_state)
         self.rewards.append(self.reward)
@@ -165,3 +166,4 @@ class EnvArgs():
         self.logic_states = []
         self.actions = []
         self.rewards = []
+

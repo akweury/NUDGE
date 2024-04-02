@@ -24,7 +24,7 @@ def get_state_velo(states):
         velocity = torch.zeros(1, states.shape[1], 2)
     else:
         state_2 = torch.cat((states[:-1, :, -2:].unsqueeze(0), states[1:, :, -2:].unsqueeze(0)), dim=0)
-        velocity = math_utils.calculate_velocity_2d(state_2[:, :, :, 0], state_2[:, :, :, 1]).permute(1, 2, 0)
+        velocity = math_utils.calculate_velocity_2d(state_2[:, :, :, 0], state_2[:, :, :, 1]).permute(1, 2, 0) * 10
         velocity = math_utils.closest_one_percent(velocity, 0.01)
         velocity = torch.cat((torch.zeros(1, velocity.shape[1], velocity.shape[2]).to(velocity.device), velocity),
                              dim=0)
@@ -1256,7 +1256,8 @@ def extract_asterix_kinematics(args, logic_state):
     indices = torch.arange(logic_state.shape[1])
     obj_datas = []
     for o_i in range(logic_state.shape[1]):
-        obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
+        symbolic_state = get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1)
+        obj_datas.append(symbolic_state)
     obj_datas = torch.cat(obj_datas, dim=1)
     return obj_datas
 
@@ -1264,10 +1265,16 @@ def extract_asterix_kinematics(args, logic_state):
 def extract_boxing_kinematics(args, logic_state):
     logic_state = torch.tensor(logic_state).to(args.device)
     velo = get_state_velo(logic_state).to(args.device)
-    velo[velo > 0.2] = 0
     obj_datas = []
     for o_i in range(logic_state.shape[1]):
-        obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
+        symbolic_state = get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1)
+        symbolic_state = torch.cat((
+            symbolic_state,
+            logic_state[:, 0:1, 2:4],
+            logic_state[:, 1:2, 2:4],
+
+        ), dim=-1)
+        obj_datas.append(symbolic_state)
     obj_datas = torch.cat(obj_datas, dim=1)
     return obj_datas
 
@@ -1294,10 +1301,15 @@ def extract_pong_kinematics(args, logic_state):
     return obj_datas
 
 
+def extract_pong_symbolic(args, obj_datas):
+    series_symbolic = math_utils.closest_one_percent(obj_datas)
+    return series_symbolic
+
+
 def extract_kangaroo_kinematics(args, logic_state):
     logic_state = torch.tensor(logic_state).to(args.device)
     velo = get_state_velo(logic_state).to(args.device)
-    velo[velo > 0.2] = 0
+    # velo[velo > 0.2] = 0
     obj_datas = []
     for o_i in range(logic_state.shape[1]):
         obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
@@ -1394,15 +1406,17 @@ def pred_kangaroo_action(args, env_args, logic_state, obj_id, obj_type_model):
 
 
 def get_symbolic_state(states, velo, indices):
-    data_pos = (states[:, indices, -2:] - states[:, 0:1, -2:]).view(states.size(0), -1)
-    data_pos_dirs = []
+    player_pos = states[:, 0, -2:]
+    relative_pos = (states[:, indices, -2:] - states[:, 0:1, -2:]).view(states.size(0), -1)
+    relative_dir = []
     for index in indices:
-        pos_dir = math_utils.closest_multiple_of_45(get_ab_dir(states, 0, index)).view(-1, 1)
-        data_pos_dirs.append(pos_dir)
-    data_pos_dirs = torch.cat(data_pos_dirs, dim=1)
-    data_velo = (velo[:, 0:1] - velo[:, indices]).view(velo.size(0), -1)
-    velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(data_velo.unsqueeze(1)), 0.01)
-    data = torch.cat((data_pos, data_pos_dirs, data_velo, velo_dir), dim=1)
+        pos_dir = get_ab_dir(states, 0, index).view(-1, 1) / 360
+        relative_dir.append(pos_dir)
+    relative_dir = torch.cat(relative_dir, dim=1)
+    relative_velo = (velo[:, 0:1] - velo[:, indices]).view(velo.size(0), -1)
+    relative_velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(relative_velo.unsqueeze(1)), 0.001)
+    data = torch.cat((player_pos, relative_pos, relative_dir, relative_velo, relative_velo_dir), dim=1)
+    data[torch.isnan(data)] = 0
     return data
 
 
@@ -1458,3 +1472,39 @@ def asterix_obj_to_collective(obj_id):
         return consumable_indices, 1
     else:
         return None, None
+
+
+def kangaroo_obj_to_collective(obj_id):
+    if obj_id == 1:
+        return [1], 0
+    elif obj_id in [2, 3, 4]:
+        return [2, 3, 4], 1
+    elif obj_id in [5]:
+        return [5], 2
+    elif obj_id in [6, 7, 8, 9]:
+        return [6, 7, 8, 9], 3
+    elif obj_id in [10, 11, 12]:
+        return [10, 11, 12], 4
+    elif obj_id in [13, 14, 15, 16]:
+        return [13, 14, 15, 16], 5
+    elif obj_id in [17, 18, 19]:
+        return [17, 18, 19], 6
+    elif obj_id in [20, 21, 22]:
+        return [20, 21, 22], 7
+    else:
+        raise ValueError
+
+
+def get_rule_data(state_symbolic, c_id, action, args):
+    symbolic_collective = state_symbolic[-1, c_id]
+    rule_data = torch.cat((action.view(1), c_id.view(1), symbolic_collective))
+
+    return rule_data
+
+
+def reason_rules(env_args):
+    rule_buffer = env_args.rule_data_buffer
+
+    rules = []
+
+    return rules

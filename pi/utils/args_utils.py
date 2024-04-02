@@ -52,6 +52,7 @@ def load_args(exp_args_path, m):
     parser.add_argument("--dqn_a_episode_num", type=int, default=10000, help="Number of episodes to update the agent.")
     parser.add_argument("--dqn_c_episode_num", type=int, default=10000, help="Number of episodes to update the agent.")
     parser.add_argument("--dqn_t_episode_num", type=int, default=10000, help="Number of episodes to update the agent.")
+    parser.add_argument("--stack_num", type=int, default=10, help="Zoom in percentage of the game window.")
 
     parser.add_argument("--zoom_in", type=int, default=2.5, help="Zoom in percentage of the game window.")
     parser.add_argument("--train_state_num", type=int, default=100000, help="Zoom in percentage of the game window.")
@@ -245,7 +246,7 @@ def load_args(exp_args_path, m):
         args.step_dist = [0.01, -0.01]
         args.mile_stone_scores = [5, 10, 20, 40]
     elif args.m == "Asterix" or args.m == "asterix":
-        args.jump_frames = 5
+
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
@@ -350,7 +351,6 @@ def load_args(exp_args_path, m):
         args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
 
     elif args.m == "Boxing":
-        args.jump_frames = 3
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"

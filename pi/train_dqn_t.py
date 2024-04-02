@@ -22,18 +22,22 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c):
         print("")
     # determine relation related objects
     if args.m == "Asterix":
-        state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args, env_args.past_states)
+        state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args.past_states)
         collective_indices, collective_id_dqn = reason_utils.asterix_obj_to_collective(obj_id)
     elif args.m == "Pong":
         state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
         collective_indices, collective_id_dqn = reason_utils.asterix_obj_to_collective(obj_id)
+    elif args.m == "Kangaroo":
+        state_kinematic = reason_utils.extract_kangaroo_kinematics(args, env_args.past_states)
+        collective_indices, collective_id_dqn = reason_utils.kangaroo_obj_to_collective(obj_id + 1)
     else:
         raise ValueError
 
     if collective_indices is None:
         return torch.tensor([[0]]).to(args.device), torch.tensor([[0]]).to(args.device)
     # determin object types
-    input_c_tensor = state_kinematic[-1, 1:].reshape(1, -1)
+    kinematic_series_data = train_utils.get_stack_buffer(state_kinematic, args.stack_num)
+    input_c_tensor = kinematic_series_data[-1, 1:].reshape(1, -1)
     collective_id_mlp_conf = mlp_c(input_c_tensor)
     collective_id_mlp = collective_id_mlp_conf.argmax()
     if collective_id_mlp != collective_id_dqn:
@@ -41,7 +45,7 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c):
 
     # select mlp_a
     mlp_a_i = mlp_a[collective_id_mlp]
-    collective_kinematic = state_kinematic[-1, collective_indices].unsqueeze(0)
+    collective_kinematic = kinematic_series_data[-1, collective_indices].unsqueeze(0)
 
     obj_mask = torch.zeros(state_kinematic.shape[1], dtype=torch.bool)
     obj_mask[obj_id] = True
@@ -49,6 +53,7 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c):
     collective_kinematic[:, ~collective_mask] = 0
     # determine action
     action = mlp_a_i(collective_kinematic.view(1, -1)).argmax()
+
     return action, obj_id
 
 
@@ -64,7 +69,8 @@ def train_dqn_t():
     EPISODES = 1000
 
     args = args_utils.load_args(config.path_exps, None)
-
+    if args.m not in ["Kangaroo", "Asterix"]:
+        return
     # load MLP-A
     obj_type_num = len(args.game_info["obj_info"]) - 1
     mlp_a = train_utils.load_mlp_a(args, args.trained_model_folder, obj_type_num, args.m)
@@ -78,7 +84,7 @@ def train_dqn_t():
     input_shape = env.observation_space.shape
 
     # Initialize agent
-    num_objects = args.game_info["state_row_num"]
+    num_objects = args.game_info["state_row_num"] - 1
     agent = train_utils.DQNAgent(args, input_shape, num_objects)
     agent.agent_type = "DQN-T"
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
