@@ -1306,6 +1306,11 @@ def extract_pong_symbolic(args, obj_datas):
     return series_symbolic
 
 
+def extract_asterix_symbolic(args, obj_datas):
+    series_symbolic = math_utils.closest_one_percent(obj_datas)
+    return series_symbolic
+
+
 def extract_kangaroo_kinematics(args, logic_state):
     logic_state = torch.tensor(logic_state).to(args.device)
     velo = get_state_velo(logic_state).to(args.device)

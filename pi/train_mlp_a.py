@@ -147,14 +147,12 @@ def train_mlp_a():
     action_num = len(args.action_names)
 
     buffer_filename = args.game_buffer_path / f"z_buffer_dqn_a_{args.teacher_game_nums}.json"
-
+    if os.path.exists(args.trained_model_folder / f"{args.m}_mlp_a_0.pth.tar"):
+        return 0
     if not os.path.exists(buffer_filename):
         dqn_a_agent = train_utils.load_dqn_a(args, args.model_path)
         dqn_a_agent.agent_type = "DQN-A"
         collect_data_dqn_a(dqn_a_agent, args, buffer_filename, save_buffer=True)
-
-    if os.path.exists(args.trained_model_folder / f"{args.m}_mlp_a_0.pth.tar"):
-        return 0
 
     student_agent.load_atari_buffer(args, buffer_filename)
     pos_data, actions = _prepare_mlp_training_data(args, student_agent)

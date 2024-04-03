@@ -26,35 +26,44 @@ os.environ['OMP_NUM_THREADS'] = str(1)
 def _reason_action(args, agent, env, env_args, mlp_a, mlp_c, mlp_t):
     # determine relation related objects
     if args.m == "Asterix":
-        obj_id = agent.select_action(env.dqn_obs.to(env_args.device))
-        state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args.past_states)
-        collective_indices, collective_id_dqn = reason_utils.asterix_obj_to_collective(obj_id)
         with_target = True
+        state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args.past_states)
+        state_symbolic = reason_utils.extract_asterix_symbolic(args, state_kinematic)
     elif args.m == "Pong":
         with_target = False
         state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
         state_symbolic = reason_utils.extract_pong_symbolic(args, state_kinematic)
     elif args.m == "Kangaroo":
         with_target = True
-        obj_id = agent.select_action(env.dqn_obs.to(env_args.device))
-        state_kinematic = reason_utils.extract_kangaroo_kinematics(args, env_args.past_states)
-        collective_indices, collective_id_dqn = reason_utils.kangaroo_obj_to_collective(obj_id + 1)
+        raise ValueError
     else:
         raise ValueError
 
     # determin object types
-
-    kinematic_series_data = train_utils.get_stack_buffer(state_kinematic, args.stack_num)
-    input_c_tensor = kinematic_series_data[-1, 1:].reshape(1, -1)
-    collective_id_mlp_conf = mlp_c(input_c_tensor)
-    collective_id_mlp = collective_id_mlp_conf.argmax()
-    # collective_id_mlp = 0
-    # select mlp_a
-    mlp_a_i = mlp_a[collective_id_mlp]
-    collective_kinematic = kinematic_series_data[-1, collective_id_mlp + 1].unsqueeze(0)
-    # determine action
-    action = mlp_a_i(collective_kinematic.view(1, -1)).argmax()
-    rule_data = reason_utils.get_rule_data(state_symbolic, collective_id_mlp + 1, action, args)
+    if not with_target:
+        kinematic_series_data = train_utils.get_stack_buffer(state_kinematic, args.stack_num)
+        input_c_tensor = kinematic_series_data[-1, 1:].reshape(1, -1)
+        collective_id_mlp_conf = mlp_c(input_c_tensor)
+        collective_id_mlp = collective_id_mlp_conf.argmax()
+        # collective_id_mlp = 0
+        # select mlp_a
+        mlp_a_i = mlp_a[collective_id_mlp]
+        collective_kinematic = kinematic_series_data[-1, collective_id_mlp + 1].unsqueeze(0)
+        # determine action
+        action = mlp_a_i(collective_kinematic.view(1, -1)).argmax()
+        rule_data = reason_utils.get_rule_data(state_symbolic, collective_id_mlp + 1, action, args)
+    else:
+        kinematic_series_data = train_utils.get_stack_buffer(state_kinematic, args.stack_num)
+        input_c_tensor = kinematic_series_data[-1, 1:].reshape(1, -1)
+        collective_id_mlp_conf = mlp_c(input_c_tensor)
+        collective_id_mlp = collective_id_mlp_conf.argmax()
+        # collective_id_mlp = 0
+        # select mlp_a
+        mlp_a_i = mlp_a[collective_id_mlp]
+        collective_kinematic = kinematic_series_data[-1, collective_id_mlp + 1].unsqueeze(0)
+        # determine action
+        action = mlp_a_i(collective_kinematic.view(1, -1)).argmax()
+        rule_data = reason_utils.get_rule_data(state_symbolic, collective_id_mlp + 1, action, args)
     return action, collective_id_mlp, rule_data
 
 
