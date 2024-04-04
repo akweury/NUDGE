@@ -188,7 +188,7 @@ def train_dqn_rule():
 
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
-    buffer_filename = args.game_buffer_path / f"learn_buffer_dqn_t_{args.teacher_game_nums}.json"
+    buffer_filename = args.game_buffer_path / f"learn_buffer_dqn_r_{args.teacher_game_nums}.json"
     game_utils.save_game_buffer(args, env_args, buffer_filename)
     if args.with_explain:
         draw_utils.release_video(video_out)
