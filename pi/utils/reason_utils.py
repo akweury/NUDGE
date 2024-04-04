@@ -1511,11 +1511,30 @@ def kangaroo_obj_to_collective(obj_id):
         raise ValueError
 
 
+def action_to_vector_pong(action):
+    # action_name_pong = ["noop",  # 0
+    #                     "fire",  # 1
+    #                     "right",  # 2
+    #                     "left",  # 3
+    #                     "rightfire",  # 4
+    #                     "leftfire"  # 5
+    vec = torch.zeros(len(action), 2)
+    vec[action == 2] = torch.tensor([0, -1]).to(torch.float)
+    vec[action == 3] = torch.tensor([0, 1]).to(torch.float)
+    return vec
+
+
 def get_rule_data(state_symbolic, c_id, action, args):
     symbolic_collective = state_symbolic[-1, c_id]
+
     rule_data = torch.cat((action.view(1), c_id.view(1), symbolic_collective))
 
     return rule_data
+
+
+def reason_capture_escape(rules):
+    capture_or_escape = []
+    pass
 
 
 def reason_rules(env_args):
@@ -1529,6 +1548,40 @@ def reason_rules(env_args):
     rule_buffer = torch.cat(env_args.rule_data_buffer, dim=0)
 
     rule_buffer_fuzzy = math_utils.closest_one_percent(rule_buffer, 0.1)
+    # is_capture = torch.dot(rule_buffer_fuzzy[:, [4, 5]], rule_buffer_fuzzy[:, [7, 8]])
+
     rules = rule_buffer_fuzzy.unique(dim=0)
+    action_vector = action_to_vector_pong(rules[:, 0]).to(env_args.device)
+
+    is_capture = action_vector * rules[:, [2, 3]] > 0
+    capture_or_escape = reason_capture_escape(rules)
     priors, counts = rules[:, 1:].unique(dim=0, return_counts=True)
     return rules
+
+
+def get_behavior_action(behavior_id, kinematic_series_data):
+    # id 0 : noop
+    # id 1 : get close
+    # id 2 : get away
+    behavior_text = ""
+    if behavior_id == 0:
+        action = 0
+        behavior_text = "noop"
+    elif behavior_id == 1:
+        behavior_text = "closer"
+        if kinematic_series_data[5] < 0:
+            action = 2
+        elif kinematic_series_data[5] == 0:
+            action = 0
+        else:
+            action = 3
+    elif behavior_id == 2:
+        behavior_text = "faraway"
+        if kinematic_series_data[5] <= 0:
+            action = 3
+        else:
+            action = 2
+    else:
+        raise ValueError
+
+    return action, behavior_text

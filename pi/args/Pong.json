@@ -3,6 +3,6 @@
   "dqn_a_episode_num": 5000,
   "dqn_c_episode_num": 902,
   "teacher_game_nums": 5000,
-  "print_freq": 100,
+  "print_freq": 20,
   "stack_num": 20
 }

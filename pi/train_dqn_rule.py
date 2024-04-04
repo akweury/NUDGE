@@ -17,44 +17,28 @@ from pi import train_utils, play
 
 
 def _reason_action(args, agent, env, env_args, mlp_a, mlp_c):
-    obj_id = agent.select_action(env.dqn_obs.to(env_args.device))
-    if obj_id is None:
-        print("")
+    behavior_id = agent.select_action(env.dqn_obs.to(env_args.device))
     # determine relation related objects
     if args.m == "Asterix":
         state_kinematic = reason_utils.extract_asterix_kinematics(args, env_args.past_states)
-        collective_indices, collective_id_dqn = reason_utils.asterix_obj_to_collective(obj_id)
+        collective_indices, collective_id_dqn = reason_utils.asterix_obj_to_collective(behavior_id)
     elif args.m == "Pong":
         state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
-        collective_indices, collective_id_dqn = reason_utils.pong_obj_to_collective(obj_id)
     elif args.m == "Kangaroo":
         state_kinematic = reason_utils.extract_kangaroo_kinematics(args, env_args.past_states)
-        collective_indices, collective_id_dqn = reason_utils.kangaroo_obj_to_collective(obj_id + 1)
+        collective_indices, collective_id_dqn = reason_utils.kangaroo_obj_to_collective(behavior_id + 1)
     else:
         raise ValueError
 
-    if collective_indices is None:
-        return torch.tensor([[0]]).to(args.device), torch.tensor([[0]]).to(args.device)
     # determin object types
     kinematic_series_data = train_utils.get_stack_buffer(state_kinematic, args.stack_num)
     input_c_tensor = kinematic_series_data[-1, 1:].reshape(1, -1)
+
     collective_id_mlp_conf = mlp_c(input_c_tensor)
     collective_id_mlp = collective_id_mlp_conf.argmax()
-    if collective_id_mlp != collective_id_dqn:
-        return torch.tensor([[0]]).to(args.device), torch.tensor([[0]]).to(args.device)
 
-    # select mlp_a
-    mlp_a_i = mlp_a[collective_id_mlp]
-    collective_kinematic = kinematic_series_data[-1, collective_indices].unsqueeze(0)
-
-    obj_mask = torch.zeros(state_kinematic.shape[1], dtype=torch.bool)
-    obj_mask[obj_id] = True
-    collective_mask = obj_mask[collective_indices]
-    collective_kinematic[:, ~collective_mask] = 0
-    # determine action
-    action = mlp_a_i(collective_kinematic.view(1, -1)).argmax()
-
-    return action, obj_id
+    action, beh_text = reason_utils.get_behavior_action(behavior_id, state_kinematic[-1, collective_id_mlp + 1])
+    return action, behavior_id, beh_text, collective_id_mlp
 
 
 def train_dqn_rule():
@@ -72,9 +56,6 @@ def train_dqn_rule():
     if args.m not in ["Pong"]:
         return
 
-    rule_candidate = play.main(args)
-
-
     # load MLP-A
     obj_type_num = len(args.game_info["obj_info"]) - 1
     mlp_a = train_utils.load_mlp_a(args, args.trained_model_folder, obj_type_num, args.m)
@@ -88,8 +69,8 @@ def train_dqn_rule():
     input_shape = env.observation_space.shape
 
     # Initialize agent
-    num_objects = args.game_info["state_row_num"] - 1
-    agent = train_utils.DQNAgent(args, input_shape, num_objects)
+    num_behaviors = 3
+    agent = train_utils.DQNAgent(args, input_shape, num_behaviors)
     agent.agent_type = "DQN-R"
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     agent.learn_performance = []
@@ -132,9 +113,11 @@ def train_dqn_rule():
             env_args.past_states.append(logic_state)
             if env_args.frame_i <= args.jump_frames:
                 action = torch.tensor([[0]]).to(args.device)
-                obj_id = torch.tensor([[0]]).to(args.device)
+                behavior_id = torch.tensor([[0]]).to(args.device)
+                beh_text = "noop"
+                c_id = -1
             else:
-                action, obj_id = _reason_action(args, agent, env, env_args, mlp_a, mlp_c)
+                action, behavior_id, beh_text, c_id = _reason_action(args, agent, env, env_args, mlp_a, mlp_c)
 
             state = env.dqn_obs.to(args.device)
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
@@ -144,9 +127,12 @@ def train_dqn_rule():
                 env_args.frame_i = len(env_args.logic_states) - 1
                 env_args.update_lost_live(args.m, info["lives"])
             if args.with_explain:
-                screen_text = (
-                    f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
-                    f"obj: {args.row_names[obj_id + 1]}, act: {args.action_names[action]} re: {env_args.reward}")
+                try:
+                    screen_text = (
+                        f"DQN_R ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
+                        f"B: {beh_text}, T: {args.game_info['obj_info'][c_id + 1][0]} A: {args.action_names[action]} re: {env_args.reward}")
+                except IndexError:
+                    print("")
                 # Red
                 env_args.obs[:10, :10] = 0
                 env_args.obs[:10, :10, 0] = 255
@@ -168,7 +154,7 @@ def train_dqn_rule():
             env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
             next_state = env.dqn_obs.to(args.device) if not env_args.terminated else None
             # Store the transition in memory
-            agent.memory.push(state, obj_id, next_state, env_args.reward, env_args.terminated)
+            agent.memory.push(state, behavior_id, next_state, env_args.reward, env_args.terminated)
             # Perform one step of optimization (on the target network)
             agent.optimize_model()
         # Update the target network, copying all weights and biases in DQN
@@ -189,11 +175,11 @@ def train_dqn_rule():
             line_chart_data = torch.tensor(agent.learn_performance)
             draw_utils.plot_line_chart(line_chart_data.unsqueeze(0), path=args.trained_model_folder,
                                        labels=[f"total_score_every_{args.print_freq}"],
-                                       title=f"{args.m}_learn_dqn_t_sum_past_{args.print_freq}",
+                                       title=f"{args.m}_learn_dqn_rule_sum_past_{args.print_freq}",
                                        figure_size=(10, 10))
             # save model
             last_epoch_save_path = args.trained_model_folder / f'dqn_t_{game_i + 1 - args.print_freq}.pth'
-            save_path = args.trained_model_folder / f'dqn_t_{game_i + 1}.pth'
+            save_path = args.trained_model_folder / f'dqn_r_{game_i + 1}.pth'
             if os.path.exists(last_epoch_save_path):
                 os.remove(last_epoch_save_path)
             from pi.utils import file_utils
@@ -208,5 +194,4 @@ def train_dqn_rule():
 
 
 if __name__ == "__main__":
-
     train_dqn_rule()
