@@ -1572,15 +1572,15 @@ def get_behavior_action(behavior_id, kinematic_series_data):
         behavior_text = "noop"
     elif behavior_id == 1:
         behavior_text = "closer"
-        if kinematic_series_data[5] < 0:
+        if kinematic_series_data[3] < 0:
             action = 2
-        elif kinematic_series_data[5] == 0:
+        elif kinematic_series_data[3] == 0:
             action = 0
         else:
             action = 3
     elif behavior_id == 2:
         behavior_text = "faraway"
-        if kinematic_series_data[5] <= 0:
+        if kinematic_series_data[3] <= 0:
             action = 3
         else:
             action = 2
@@ -1589,15 +1589,15 @@ def get_behavior_action(behavior_id, kinematic_series_data):
         action = 1
     elif behavior_id == 4:
         behavior_text = "faraway_fire"
-        if kinematic_series_data[5] <= 0:
+        if kinematic_series_data[3] <= 0:
             action = 5
         else:
             action = 4
     elif behavior_id == 5:
         behavior_text = "closer_fire"
-        if kinematic_series_data[5] < 0:
+        if kinematic_series_data[3] < 0:
             action = 4
-        elif kinematic_series_data[5] == 0:
+        elif kinematic_series_data[3] == 0:
             action = 1
         else:
             action = 5

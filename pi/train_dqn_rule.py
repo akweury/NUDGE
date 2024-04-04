@@ -49,7 +49,7 @@ def train_dqn_rule():
     EPSILON_MIN = 0.01
     EPSILON_DECAY = 0.995
     LEARNING_RATE = 0.00025
-    TARGET_UPDATE_FREQ = 5
+    TARGET_UPDATE_FREQ = 1
     EPISODES = 1000
 
     args = args_utils.load_args(config.path_exps, None)
