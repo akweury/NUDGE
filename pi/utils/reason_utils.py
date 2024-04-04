@@ -1479,6 +1479,17 @@ def asterix_obj_to_collective(obj_id):
         return None, None
 
 
+def pong_obj_to_collective(obj_id):
+    ball_indices = [1]
+    enemy_indices = [2]
+    if obj_id in ball_indices:
+        return ball_indices, 0
+    elif obj_id in enemy_indices:
+        return enemy_indices, 1
+    else:
+        return None, None
+
+
 def kangaroo_obj_to_collective(obj_id):
     if obj_id == 1:
         return [1], 0
@@ -1508,8 +1519,16 @@ def get_rule_data(state_symbolic, c_id, action, args):
 
 
 def reason_rules(env_args):
-    rule_buffer = env_args.rule_data_buffer
+    # action
+    # c_id
+    # position,
+    # relative_pos,
+    # relative_dir,
+    # relative_velo,
+    # relative_velo_dir
+    rule_buffer = torch.cat(env_args.rule_data_buffer, dim=0)
 
-    rules = []
-
+    rule_buffer_fuzzy = math_utils.closest_one_percent(rule_buffer, 0.1)
+    rules = rule_buffer_fuzzy.unique(dim=0)
+    priors, counts = rules[:, 1:].unique(dim=0, return_counts=True)
     return rules

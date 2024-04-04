@@ -67,9 +67,9 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c, mlp_t):
     return action, collective_id_mlp, rule_data
 
 
-def main(render=True, m=None):
+def main(args, m=None):
     # load arguments
-    args = args_utils.load_args(config.path_exps, m)
+    # args = args_utils.load_args(config.path_exps, m)
     # learn behaviors from data
     student_agent = create_agent(args, agent_type='smp')
     # load MLP-A
@@ -83,13 +83,13 @@ def main(render=True, m=None):
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
     input_shape = env.observation_space.shape
-
+    rule_candidates = []
     # Initialize agent
     env_args = EnvArgs(agent=student_agent, args=args, window_size=obs.shape[:2], fps=60)
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
 
-    for game_i in tqdm(range(args.teacher_game_nums), desc=f"Describing agent  {student_agent.agent_type}"):
+    for game_i in tqdm(range(1), desc=f"Describing agent  {student_agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
@@ -142,11 +142,11 @@ def main(render=True, m=None):
             env_args.update_args()
             env_args.rewards.append(env_args.reward)
             if rule_data is not None:
-                env_args.rule_data_buffer.append(rule_data)
+                env_args.rule_data_buffer.append(rule_data.view(1, -1))
             env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
 
         # env_args.buffer_game(args.zero_reward, args.save_frame)
-        reason_utils.reason_rules(env_args)
+        rule_candidates += reason_utils.reason_rules(env_args)
         env_args.win_rate[game_i] = sum(env_args.rewards[:-1])  # update ep score
         env_args.reset_buffer_game()
     env.close()
@@ -156,8 +156,9 @@ def main(render=True, m=None):
     if args.with_explain:
         draw_utils.release_video(video_out)
 
-    return student_agent
+    return rule_candidates
 
 
 if __name__ == "__main__":
-    main()
+    args = args_utils.load_args(config.path_exps, m=None)
+    main(args)
