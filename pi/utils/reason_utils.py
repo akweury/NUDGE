@@ -1563,6 +1563,9 @@ def get_behavior_action(behavior_id, kinematic_series_data):
     # id 0 : noop
     # id 1 : get close
     # id 2 : get away
+    # id 3 : fire
+    # id 4 : faraway_fire
+    # id 5 : closer_fire
     behavior_text = ""
     if behavior_id == 0:
         action = 0
@@ -1581,6 +1584,23 @@ def get_behavior_action(behavior_id, kinematic_series_data):
             action = 3
         else:
             action = 2
+    elif behavior_id == 3:
+        behavior_text = "fire"
+        action = 1
+    elif behavior_id == 4:
+        behavior_text = "faraway_fire"
+        if kinematic_series_data[5] <= 0:
+            action = 5
+        else:
+            action = 4
+    elif behavior_id == 5:
+        behavior_text = "closer_fire"
+        if kinematic_series_data[5] < 0:
+            action = 4
+        elif kinematic_series_data[5] == 0:
+            action = 1
+        else:
+            action = 5
     else:
         raise ValueError
 

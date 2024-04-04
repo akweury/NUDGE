@@ -69,7 +69,7 @@ def train_dqn_rule():
     input_shape = env.observation_space.shape
 
     # Initialize agent
-    num_behaviors = 3
+    num_behaviors = 6
     agent = train_utils.DQNAgent(args, input_shape, num_behaviors)
     agent.agent_type = "DQN-R"
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
@@ -153,10 +153,11 @@ def train_dqn_rule():
             env_args.rewards.append(env_args.reward)
             env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
             next_state = env.dqn_obs.to(args.device) if not env_args.terminated else None
-            # Store the transition in memory
-            agent.memory.push(state, behavior_id, next_state, env_args.reward, env_args.terminated)
-            # Perform one step of optimization (on the target network)
-            agent.optimize_model()
+            if env_args.frame_i <= args.jump_frames:
+                # Store the transition in memory
+                agent.memory.push(state, behavior_id, next_state, env_args.reward, env_args.terminated)
+                # Perform one step of optimization (on the target network)
+                agent.optimize_model()
         # Update the target network, copying all weights and biases in DQN
         if game_i % TARGET_UPDATE_FREQ == 0:
             agent.target_net.load_state_dict(agent.policy_net.state_dict())
@@ -178,7 +179,7 @@ def train_dqn_rule():
                                        title=f"{args.m}_learn_dqn_rule_sum_past_{args.print_freq}",
                                        figure_size=(10, 10))
             # save model
-            last_epoch_save_path = args.trained_model_folder / f'dqn_t_{game_i + 1 - args.print_freq}.pth'
+            last_epoch_save_path = args.trained_model_folder / f'dqn_r_{game_i + 1 - args.print_freq}.pth'
             save_path = args.trained_model_folder / f'dqn_r_{game_i + 1}.pth'
             if os.path.exists(last_epoch_save_path):
                 os.remove(last_epoch_save_path)
