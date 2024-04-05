@@ -379,7 +379,7 @@ def screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_count
     draw_utils.save_np_as_img(screen_with_explain, file_name)
 
 
-def game_over_log(args, agent, env_args):
+def game_over_log(args,agent, env_args):
     if args.m == "Asterix":
         game_score = env_args.game_rewards[-1]
         env_args.win_rate[env_args.game_i] = sum(game_score)
@@ -407,25 +407,25 @@ def game_over_log(args, agent, env_args):
     else:
         raise ValueError
 
-    if agent.agent_type == "pretrained" or agent.agent_type == "ppo":
-        draw_utils.plot_line_chart(env_args.win_rate.unsqueeze(0)[:, :env_args.game_i], args.check_point_path,
-                                   [agent.agent_type], title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")
-    if agent.agent_type == "smp":
-
-        pretrained_wr = torch.load(args.output_folder / f"wr_pretrained_{args.teacher_game_nums}.pt")
-        smp_wr = env_args.win_rate.unsqueeze(0)[:, :env_args.game_i]
-        if len(pretrained_wr) < smp_wr.shape[1]:
-            pretrained_wr = torch.cat((pretrained_wr, torch.zeros(10000)))
-        all_wr = torch.cat((pretrained_wr.unsqueeze(0)[:, :smp_wr.shape[1]], smp_wr), dim=0)
-        draw_utils.plot_line_chart(all_wr, args.check_point_path,
-                                   ["pretrained", agent.agent_type],
-                                   title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")
-        for b_i, beh in enumerate(agent.def_behaviors):
-            print(f"- DefBeh {b_i}/{len(agent.def_behaviors)}: {beh.clause}")
-        for b_i, beh in enumerate(agent.att_behaviors):
-            print(f"+ AttBeh {b_i}/{len(agent.att_behaviors)} : {beh.clause}")
-        for b_i, beh in enumerate(agent.pf_behaviors):
-            print(f"~ PfBeh {b_i}/{len(agent.pf_behaviors)}: {beh.clause}")
+    # if agent.agent_type == "pretrained" or agent.agent_type == "ppo":
+    #     draw_utils.plot_line_chart(env_args.win_rate.unsqueeze(0)[:, :env_args.game_i], args.check_point_path,
+    #                                [agent.agent_type], title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")
+    # if agent.agent_type == "smp":
+    #
+    #     pretrained_wr = torch.load(args.output_folder / f"wr_pretrained_{args.teacher_game_nums}.pt")
+    #     smp_wr = env_args.win_rate.unsqueeze(0)[:, :env_args.game_i]
+    #     if len(pretrained_wr) < smp_wr.shape[1]:
+    #         pretrained_wr = torch.cat((pretrained_wr, torch.zeros(10000)))
+    #     all_wr = torch.cat((pretrained_wr.unsqueeze(0)[:, :smp_wr.shape[1]], smp_wr), dim=0)
+    #     draw_utils.plot_line_chart(all_wr, args.check_point_path,
+    #                                ["pretrained", agent.agent_type],
+    #                                title=f"wr_{agent.agent_type}_{len(env_args.win_rate)}")
+    #     for b_i, beh in enumerate(agent.def_behaviors):
+    #         print(f"- DefBeh {b_i}/{len(agent.def_behaviors)}: {beh.clause}")
+    #     for b_i, beh in enumerate(agent.att_behaviors):
+    #         print(f"+ AttBeh {b_i}/{len(agent.att_behaviors)} : {beh.clause}")
+    #     for b_i, beh in enumerate(agent.pf_behaviors):
+    #         print(f"~ PfBeh {b_i}/{len(agent.pf_behaviors)}: {beh.clause}")
 
 
 def frame_log(agent, env_args):

@@ -1293,10 +1293,19 @@ def extract_freeway_kinematics(args, logic_state):
 def extract_pong_kinematics(args, logic_state):
     logic_state = torch.tensor(logic_state).to(args.device)
     velo = get_state_velo(logic_state).to(args.device)
-    velo[velo > 0.2] = 0
     obj_datas = []
     for o_i in range(logic_state.shape[1]):
         obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
+    obj_datas = torch.cat(obj_datas, dim=1)
+    return obj_datas
+
+
+def extract_pong_kinematics_new(args, logic_state):
+    logic_state = torch.tensor(logic_state).to(args.device)
+    velo = get_state_velo(logic_state).to(args.device)
+    obj_datas = []
+    for o_i in range(logic_state.shape[1]):
+        obj_datas.append(get_symbolic_state_new(logic_state, velo, [o_i]).unsqueeze(1))
     obj_datas = torch.cat(obj_datas, dim=1)
     return obj_datas
 
@@ -1425,6 +1434,15 @@ def get_symbolic_state(states, velo, indices):
     return data
 
 
+def get_symbolic_state_new(states, velo, indices):
+    player_pos = states[:, 0, -2:]
+    relative_pos = (states[:, indices, -2:] - states[:, 0:1, -2:]).view(states.size(0), -1)
+    obj_velo = velo[:, indices].view(velo.size(0), -1)
+    data = torch.cat((player_pos, relative_pos, obj_velo), dim=1)
+    data[torch.isnan(data)] = 0
+    return data
+
+
 def reason_asterix(args, states, actions):
     states = torch.cat(states, dim=0)
     actions = torch.cat(actions, dim=0)
@@ -1521,7 +1539,38 @@ def action_to_vector_pong(action):
     vec = torch.zeros(len(action), 2)
     vec[action == 2] = torch.tensor([0, -1]).to(torch.float)
     vec[action == 3] = torch.tensor([0, 1]).to(torch.float)
+    vec[action == 4] = torch.tensor([0, -1]).to(torch.float)
+    vec[action == 5] = torch.tensor([0, 1]).to(torch.float)
     return vec
+
+
+def target_to_vector_pong(kinematic_data, action_vector):
+    # action_name_pong = ["noop",  # 0
+    #                     "fire",  # 1
+    #                     "right",  # 2
+    #                     "left",  # 3
+    #                     "rightfire",  # 4
+    #                     "leftfire"  # 5
+
+    target_vector_slope = kinematic_data[5] / (kinematic_data[4] + 1e-20)
+    if kinematic_data[4] < 0:
+        target_end = kinematic_data[[0, 1]] + kinematic_data[[2, 3]]
+        target_start = torch.tensor([0, target_vector_slope * (0 - target_end[0]) + target_end[1]]).to(
+            kinematic_data.device)
+    else:
+        target_start = kinematic_data[[0, 1]] + kinematic_data[[2, 3]]
+        target_end = torch.tensor([1, target_vector_slope * (1 - target_start[0]) + target_start[1]]).to(
+            kinematic_data.device)
+
+    if action_vector[1] < 0:
+        player_start = kinematic_data[[0, 1]]
+        player_end = player_start + torch.tensor([0, -1]).to(kinematic_data.device)
+    else:
+        player_end = kinematic_data[[0, 1]]
+        player_start = player_end + torch.tensor([0, 1]).to(kinematic_data.device)
+
+    do_intersect = math_utils.do_segments_intersect([player_start, player_end], [target_start, target_end])
+    return do_intersect
 
 
 def get_rule_data(state_symbolic, c_id, action, args):
@@ -1567,40 +1616,46 @@ def get_behavior_action(behavior_id, kinematic_series_data):
     # id 4 : faraway_fire
     # id 5 : closer_fire
     behavior_text = ""
+    error_tolorence = 0.03
     if behavior_id == 0:
         action = 0
         behavior_text = "noop"
     elif behavior_id == 1:
         behavior_text = "closer"
-        if kinematic_series_data[3] < 0:
+        if kinematic_series_data[3] < -error_tolorence:
             action = 2
-        elif kinematic_series_data[3] == 0:
-            action = 0
-        else:
+        elif kinematic_series_data[3] > error_tolorence:
             action = 3
+        else:
+            action = 0
     elif behavior_id == 2:
         behavior_text = "faraway"
-        if kinematic_series_data[3] <= 0:
+        if kinematic_series_data[3] < -error_tolorence:
             action = 3
-        else:
+        elif kinematic_series_data[3] > error_tolorence:
             action = 2
+        else:
+            action = 0
+
     elif behavior_id == 3:
         behavior_text = "fire"
         action = 1
     elif behavior_id == 4:
         behavior_text = "faraway_fire"
-        if kinematic_series_data[3] <= 0:
+        if kinematic_series_data[3] < -error_tolorence:
             action = 5
-        else:
+        elif kinematic_series_data[3] > error_tolorence:
             action = 4
+        else:
+            action = 0
     elif behavior_id == 5:
         behavior_text = "closer_fire"
-        if kinematic_series_data[3] < 0:
+        if kinematic_series_data[3] < -error_tolorence:
             action = 4
-        elif kinematic_series_data[3] == 0:
-            action = 1
-        else:
+        elif kinematic_series_data[3] > error_tolorence:
             action = 5
+        else:
+            action = 1
     else:
         raise ValueError
 

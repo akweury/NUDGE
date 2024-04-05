@@ -299,3 +299,12 @@ def get_stack_buffer(kinematic_data, stack_num):
 
     kinematic_series_data = torch.cat(stack_buffer, dim=2)
     return kinematic_series_data
+
+
+def load_mlp_hla(args):
+    if args.m in ["Pong"]:
+            mlp_hla_file = args.trained_model_folder / f"{args.m}_mlp_hla.pth.tar"
+            mlp_hla = torch.load(mlp_hla_file, map_location=torch.device(args.device))["model"].to(args.device)
+            return mlp_hla
+    else:
+        return None

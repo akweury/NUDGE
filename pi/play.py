@@ -3,7 +3,7 @@ import os.path
 import time
 import torch
 from ocatari.core import OCAtari
-
+import random
 from tqdm import tqdm
 import os
 
@@ -23,7 +23,44 @@ num_cores = os.cpu_count()
 os.environ['OMP_NUM_THREADS'] = str(1)
 
 
-def _reason_action(args, agent, env, env_args, mlp_a, mlp_c, mlp_t):
+def _hla2action(hla, kinematic_data, c_id):
+    # 0 noop
+    # 1 fire
+    # 2 align
+    # 3 away
+    if c_id == 0:
+        obj_text = "ball"
+    elif c_id == 1:
+        obj_text = "enemy"
+    else:
+        raise ValueError
+    if hla == 0:
+        action = 0
+        hla_text = "noop"
+    elif hla == 1:
+        action = random.choice([1])
+        hla_text = "fire"
+    elif hla == 2:
+        action = 3
+        action_vector = reason_utils.action_to_vector_pong(torch.tensor([3]))
+        do_intersect = reason_utils.target_to_vector_pong(kinematic_data, action_vector.squeeze())
+        if not do_intersect:
+            action = 2
+        hla_text = "align"
+    elif hla == 3:
+        action = 3
+        action_vector = reason_utils.action_to_vector_pong(torch.tensor([2]))
+        do_intersect = reason_utils.target_to_vector_pong(kinematic_data, action_vector.squeeze())
+        if not do_intersect:
+            action = 2
+        hla_text = "away"
+    else:
+        raise ValueError
+
+    return torch.tensor(action).reshape(1).to(kinematic_data.device), hla_text + "_" + obj_text
+
+
+def _reason_action(args, agent, env, env_args, mlp_a, mlp_c, mlp_t, mlp_hla):
     # determine relation related objects
     if args.m == "Asterix":
         with_target = True
@@ -32,6 +69,8 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c, mlp_t):
     elif args.m == "Pong":
         with_target = False
         state_kinematic = reason_utils.extract_pong_kinematics(args, env_args.past_states)
+        kinematic_data_new = reason_utils.extract_pong_kinematics_new(args, env_args.past_states)
+
         state_symbolic = reason_utils.extract_pong_symbolic(args, state_kinematic)
     elif args.m == "Kangaroo":
         with_target = True
@@ -46,11 +85,13 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c, mlp_t):
         collective_id_mlp_conf = mlp_c(input_c_tensor)
         collective_id_mlp = collective_id_mlp_conf.argmax()
         # collective_id_mlp = 0
-        # select mlp_a
-        mlp_a_i = mlp_a[collective_id_mlp]
-        collective_kinematic = kinematic_series_data[-1, collective_id_mlp + 1].unsqueeze(0)
+        # action from hla
+        hla_input = kinematic_data_new[-1, collective_id_mlp + 1, 2:].unsqueeze(0)
+        hla = mlp_hla(hla_input).argmax()
+        action, hla_text = _hla2action(hla, kinematic_data_new[-1, collective_id_mlp + 1], collective_id_mlp)
+        # collective_kinematic = kinematic_series_data[-1, collective_id_mlp + 1].unsqueeze(0)
         # determine action
-        action = mlp_a_i(collective_kinematic.view(1, -1)).argmax()
+        # action = None
         rule_data = reason_utils.get_rule_data(state_symbolic, collective_id_mlp + 1, action, args)
     else:
         kinematic_series_data = train_utils.get_stack_buffer(state_kinematic, args.stack_num)
@@ -64,7 +105,7 @@ def _reason_action(args, agent, env, env_args, mlp_a, mlp_c, mlp_t):
         # determine action
         action = mlp_a_i(collective_kinematic.view(1, -1)).argmax()
         rule_data = reason_utils.get_rule_data(state_symbolic, collective_id_mlp + 1, action, args)
-    return action, collective_id_mlp, rule_data
+    return action, collective_id_mlp, hla_text
 
 
 def main(args, m=None):
@@ -79,17 +120,22 @@ def main(args, m=None):
     mlp_c = train_utils.load_mlp_c(args)
     # mlp_c = None
     mlp_t = train_utils.load_mlp_t(args)
+
+    # load MLP-HLA
+    mlp_hla = train_utils.load_mlp_hla(args)
+
     # Initialize environment
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
     input_shape = env.observation_space.shape
     rule_candidates = []
+    hla_text = ""
     # Initialize agent
     env_args = EnvArgs(agent=student_agent, args=args, window_size=obs.shape[:2], fps=60)
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
 
-    for game_i in tqdm(range(1), desc=f"Describing agent  {student_agent.agent_type}"):
+    for game_i in tqdm(range(1000), desc=f"Describing agent  {student_agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()
@@ -110,7 +156,8 @@ def main(args, m=None):
                 obj_id = torch.tensor([[0]]).to(args.device)
                 rule_data = None
             else:
-                action, obj_id, rule_data = _reason_action(args, student_agent, env, env_args, mlp_a, mlp_c, mlp_t)
+                action, obj_id, hla_text = _reason_action(args, student_agent, env, env_args,
+                                                          mlp_a, mlp_c, mlp_t, mlp_hla)
 
             state = env.dqn_obs.to(args.device)
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
@@ -121,8 +168,8 @@ def main(args, m=None):
                 env_args.update_lost_live(args.m, info["lives"])
             if args.with_explain:
                 screen_text = (
-                    f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
-                    f"obj: {args.row_names[obj_id + 1]}, act: {args.action_names[action]} re: {env_args.reward}")
+                    f"MLP ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
+                    f"{hla_text}, act: {args.action_names[action]} re: {env_args.reward}")
                 # Red
                 env_args.obs[:10, :10] = 0
                 env_args.obs[:10, :10, 0] = 255
@@ -141,14 +188,15 @@ def main(args, m=None):
             # update game args
             env_args.update_args()
             env_args.rewards.append(env_args.reward)
-            if rule_data is not None:
-                env_args.rule_data_buffer.append(rule_data.view(1, -1))
+            # if rule_data is not None:
+            #     env_args.rule_data_buffer.append(rule_data.view(1, -1))
             env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
 
         # env_args.buffer_game(args.zero_reward, args.save_frame)
-        rule_candidates += reason_utils.reason_rules(env_args)
+        # rule_candidates += reason_utils.reason_rules(env_args)
         env_args.win_rate[game_i] = sum(env_args.rewards[:-1])  # update ep score
         env_args.reset_buffer_game()
+        game_utils.game_over_log(args, None, env_args)
     env.close()
     game_utils.finish_one_run(env_args, args, student_agent)
     buffer_filename = args.game_buffer_path / f"learn_buffer_describing_{args.teacher_game_nums}.json"
