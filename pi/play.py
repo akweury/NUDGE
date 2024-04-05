@@ -194,6 +194,7 @@ def main(args, m=None):
 
         # env_args.buffer_game(args.zero_reward, args.save_frame)
         # rule_candidates += reason_utils.reason_rules(env_args)
+        env_args.game_rewards.append(env_args.rewards)
         env_args.win_rate[game_i] = sum(env_args.rewards[:-1])  # update ep score
         env_args.reset_buffer_game()
         game_utils.game_over_log(args, None, env_args)

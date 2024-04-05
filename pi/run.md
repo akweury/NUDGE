@@ -17,6 +17,8 @@ python -m pi.train_dqn_objctive -m Pong --teacher_game_nums 1000 --device 6
 python -m pi.train -m Kangaroo --train_epochs 100000 --resume --device 6
 python -m pi.train -m Asterix --train_epochs 50000 --resume --device 7
 python -m pi.train -m Pong --train_epochs 100000 --episode_num 1000 --resume --device 7
+python -m pi.train_mlp_hla -m Pong --train_epochs 20000 --episode_num 1000 --resume --device 7
+python -m pi.play -m Pong --train_epochs 20000 --episode_num 1000 --resume --device 7
 
 python -m pi.train_dqn_objctive -m Asterix --teacher_game_nums 1000 --device 8
 python -m pi.play -m Asterix --episode_num 1000 --train_epochs 100000 --device 12
