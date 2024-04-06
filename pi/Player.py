@@ -88,6 +88,15 @@ class SymbolicMicroProgramPlayer:
         self.win_three_in_a_row = None
         self.win_five_in_a_row = None
 
+    def load_atari_buffer_by_games(self, args, buffer_filename):
+        buffer = game_utils.load_buffer(args, buffer_filename)
+        print(f'- Loaded game history : {len(buffer.logic_states)}')
+        self.buffer_win_rates = buffer.win_rates
+        self.row_names = buffer.row_names
+        self.buffer_actions = buffer.actions
+        self.rewards = buffer.rewards
+        self.states = buffer.logic_states
+
     def load_atari_buffer(self, args, buffer_filename):
         buffer = game_utils.load_buffer(args, buffer_filename)
         print(f'- Loaded game history : {len(buffer.logic_states)}')
@@ -104,7 +113,6 @@ class SymbolicMicroProgramPlayer:
             self.rewards.append(buffer.rewards[g_i].to(self.args.device))
             self.states.append(buffer.logic_states[g_i].to(self.args.device))
             # self.next_states.append(buffer.game_next_states[g_i].to(self.args.device))
-
     def load_buffer(self, buffer):
 
         print(

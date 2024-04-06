@@ -189,7 +189,9 @@ def train_mlp_c():
     student_agent = create_agent(args, agent_type='smp')
     # collect game buffer from neural agent
     buffer_filename = args.game_buffer_path / f"z_buffer_dqn_c_{args.teacher_game_nums}.json"
-
+    act_pred_model_file = args.trained_model_folder / f"{args.m}_mlp_c.pth.tar"
+    if os.path.exists(act_pred_model_file):
+        return torch.zeros(1)
     if not os.path.exists(buffer_filename):
         # load dqn-t agent
         dqn_c_agent = train_utils.DQNAgent(args, dqn_t_input_shape, obj_type_num)
@@ -212,8 +214,6 @@ def train_mlp_c():
     # input_tensor = torch.cat(pos_data, dim=1).to(args.device)
     input_tensor = pos_data[:, 1:].view(pos_data.size(0), -1)
     target_tensor = actions.to(args.device)
-
-    act_pred_model_file = args.trained_model_folder / f"{args.m}_mlp_c.pth.tar"
 
     if not os.path.exists(act_pred_model_file):
         target_pred_model = train_utils.train_nn(args, obj_type_num, input_tensor, target_tensor,
