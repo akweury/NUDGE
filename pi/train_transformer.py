@@ -105,9 +105,8 @@ def predict_next_word(model, tokenizer, input_sequence):
     input_sequence_encoded = torch.LongTensor([tokenizer.transform(input_sequence)])
     with torch.no_grad():
         predicted_logits = model(input_sequence_encoded)
-        predicted_word_index = torch.argmax(predicted_logits, dim=1)
-        predicted_word = tokenizer.inverse_transform(predicted_word_index.numpy().flatten())
-        return predicted_word[0]
+        # predicted_word_index = torch.argmax(predicted_logits, dim=1)
+        return predicted_logits
 
 
 # Define hyperparameters
@@ -118,7 +117,7 @@ num_heads = 2
 dropout = 0.1
 batch_size = 4
 learning_rate = 0.001
-epochs = 1000
+epochs = 400
 
 
 def train_transformer(dataset, model_file):
@@ -143,8 +142,35 @@ def eval_transformer(input_sequence, dataset, model_file):
     load_model(loaded_model, model_file)
     # Example of using the trained model for prediction
     predicted_word = predict_next_word(loaded_model, dataset.tokenizer, input_sequence)
-    print("Predicted next word:", predicted_word)
     return predicted_word
+
+
+def eval_pos_transformer(input_sequence, model_file):
+    # Parameters
+    input_size = 2  # Dimensionality of each 2D position
+    output_size = 2  # Dimensionality of the next 2D point
+    num_layers = 6
+    hidden_size = 64
+    num_heads = 8
+    dropout = 0.1
+    batch_size = 32
+    num_epochs = 20
+    learning_rate = 0.001
+
+    # Define model, optimizer, and loss function
+    # Create model
+    model = RNNModel(input_size, hidden_size, output_size).to(input_sequence[0].device)
+
+    load_model(model, model_file)
+    model.eval()
+    with torch.no_grad():
+        input_positions = input_sequence.permute(1, 0, 2)  # Swap batch and sequence dimensions
+
+        predicted_positions = model(input_positions)
+
+    print("Predicted next position:", predicted_positions)
+
+    return predicted_positions
 
 
 import torch
@@ -154,17 +180,30 @@ from transformers import BertModel, BertConfig
 
 # Define the transformer model
 class TransformerPositionPrediction(nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_layers, num_heads):
+    def __init__(self, input_size, output_size, num_layers, hidden_size, num_heads, dropout):
         super(TransformerPositionPrediction, self).__init__()
-        config = nn.TransformerEncoderLayer(d_model=input_dim, nhead=num_heads, dim_feedforward=hidden_dim)
-        self.transformer = nn.TransformerEncoder(config, num_layers=num_layers)
-        self.fc = nn.Linear(input_dim, 2)  # Output 2D position
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=input_size, nhead=num_heads)
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
+        self.fc = nn.Linear(input_size, output_size)
 
-    def forward(self, input_positions):
-        outputs = self.transformer(input_positions)
-        pooled_output = outputs[1]  # Use the pooled output
-        predicted_position = self.fc(pooled_output)
-        return predicted_position
+    def forward(self, x):
+        x = self.transformer_encoder(x)
+        x = self.fc(x)  # Take the last output from the sequence
+        return x
+
+
+# Define your RNN-based model
+class RNNModel(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(RNNModel, self).__init__()
+        self.hidden_size = hidden_size
+        self.rnn = nn.LSTM(input_size, hidden_size, batch_first=True)
+        self.fc = nn.Linear(hidden_size, output_size)
+
+    def forward(self, x):
+        out, _ = self.rnn(x)
+        out = self.fc(out)  # Take the last output from the sequence
+        return out
 
 
 from torch.nn.utils.rnn import pad_sequence
@@ -177,61 +216,80 @@ def collate_fn(batch):
     return padded_sequences
 
 
-def train_position_transformer(train_data, val_data, model_file):
+def train_position_transformer(args, train_loader, val_loader, model_file):
     # Convert data to PyTorch DataLoader
-    train_loader = DataLoader(train_data, batch_size=4, shuffle=True, collate_fn=collate_fn)
-    val_loader = DataLoader(val_data, batch_size=4, collate_fn=collate_fn)
+    # Parameters
+    input_size = 2  # Dimensionality of each 2D position
+    output_size = 2  # Dimensionality of the next 2D point
+    num_layers = 6
+    hidden_size = 64
+    num_heads = 2
+    dropout = 0.1
+    batch_size = 32
+    num_epochs = 20
+    learning_rate = 0.001
 
     # Define model, optimizer, and loss function
-    model = TransformerPositionPrediction(input_dim=2, hidden_dim=64, num_layers=2, num_heads=1).to(train_data[0].device)
+
+    # Create model
+    model = RNNModel(input_size, hidden_size, output_size).to(args.device)
+
+    # Define model, optimizer, and loss function
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     criterion = nn.MSELoss()
 
     # Training loop
     num_epochs = 1000
+    loss_history = torch.zeros(2, num_epochs)
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0.0
-        for batch in train_loader:
-            optimizer.zero_grad()
-            input_positions = batch.permute(1, 0, 2)  # Swap batch and sequence dimensions
-            target_positions = input_positions[-1]  # Target position is the last position in the sequence
-            predicted_positions = model(input_positions)
-            loss = criterion(predicted_positions, target_positions)
+        for batch_X, batch_y in train_loader:
+            # Forward pass
+            outputs = model(batch_X)
+            loss = criterion(outputs, batch_y)  # Target position is the last position in the sequence
+
             loss.backward()
             optimizer.step()
-            train_loss += loss.item() * input_positions.size(0)
+            train_loss += loss.item() * batch_X.size(0)
         train_loss /= len(train_loader.dataset)
+        loss_history[0, epoch] = train_loss
         print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {train_loss:.4f}")
         # Validation loop
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
-            for batch in val_loader:
-                input_positions = batch.permute(1, 0, 2)  # Swap batch and sequence dimensions
-                target_positions = input_positions[-1]  # Target position is the last position in the sequence
-                predicted_positions = model(input_positions)
-                loss = criterion(predicted_positions, target_positions)
-                val_loss += loss.item() * input_positions.size(0)
+            for batch_X, batch_y in val_loader:
+                # Forward pass
+                outputs = model(batch_X)
+                loss = criterion(outputs, batch_y)  # Target position is the last position in the sequence
+                val_loss += loss.item() * batch_X.size(0)
         val_loss /= len(val_loader.dataset)
+        loss_history[1, epoch] = val_loss
         print(f"val_loss: {val_loss:.4f}")
-
+    from pi.utils import draw_utils
+    draw_utils.plot_line_chart(loss_history, path=args.trained_model_folder, labels=["train","val"],
+                               title=f"position_transformer",
+                               figure_size=(10, 5))
     # Save the model
     torch.save(model.state_dict(), model_file)
     return model
 
 
 def position_dataset(game_positions):
-
     # Remove lists with length less than 2
     points_list = [points for points in game_positions if len(points) >= 2]
-
     # Cut longer lists into smaller lists with length 2
-    new_points_list = []
+    X = []
+    y = []
     for points in points_list:
         if len(points) == 2:
-            new_points_list.append(points)
+            X.append(points[0].unsqueeze(0))
+            y.append(points[1].unsqueeze(0))
         else:
             for i in range(len(points) - 1):
-                new_points_list.append(torch.cat((points[i].unsqueeze(0), points[i + 1].unsqueeze(0)), dim=0))
-    return new_points_list
+                X.append(points[i].unsqueeze(0))
+                y.append(points[i + 1].unsqueeze(0))
+    X = torch.cat(X, dim=0)
+    y = torch.cat(y, dim=0)
+    return X, y

@@ -133,15 +133,43 @@ def get_target_hla(last_target):
     return hla
 
 
-def reasoning_action(target_kinematic, hla_target):
-    dist = target_kinematic[[2, 3]]
-    action = None
-    if hla_target == "avoid":
-        pass
-    elif hla_target == "kill":
-        pass
-    elif hla_target == "goto":
-        pass
+def hla_goto(align_axis, x_diff, y_diff):
+    if align_axis == 1:
+        if y_diff > 0:
+            action = 5
+        else:
+            action = 2
+    elif align_axis == 0:
+        if x_diff > 0:
+            action = 3
+        else:
+            action = 2
+    else:
+        raise ValueError
+    return action
+
+
+def hla_kill(align_axis):
+    action = 0
+    return action
+
+
+def reasoning_action(target_kinematic, hla_target, align_axis):
+    # hla 0: goto
+    # hla 1: kill
+    # hla 2: avoid
+
+    x_diff = target_kinematic[2]
+    y_diff = target_kinematic[3]
+    if hla_target == 2:
+        raise NotImplementedError
+    elif hla_target == 1:
+        if torch.abs(x_diff) + torch.abs(y_diff) < 0.05:
+            action = hla_kill(align_axis)
+        else:
+            action = hla_goto(align_axis, x_diff, y_diff)
+    elif hla_target == 0:
+        action = hla_goto(align_axis, x_diff, y_diff)
     else:
         raise ValueError
 
@@ -151,29 +179,66 @@ def reasoning_action(target_kinematic, hla_target):
 from pi import train_transformer
 
 
+def get_target_mask(args, classes, state):
+    mask = []
+    for target in classes:
+        target_indices = args.same_others[args.row_names.index(target)]
+        existence = torch.tensor(state)[target_indices, :-6].sum()
+        if existence > 0:
+            mask.append(True)
+        else:
+            mask.append(False)
+    return torch.tensor(mask).unsqueeze(0)
+
+
 def _reason_action(args, agent, env, env_args):
-    action = None
     if args.last_target is None:
+        args.target_position = torch.tensor(env_args.past_states[-1])[0, -2:].to(args.device)
         args.last_target = "Player"
-
+        args.target_strategy = args.strategies[args.last_target]
     state_kinematic = reason_utils.extract_kangaroo_kinematics(args, env_args.past_states)
-    target_indices = args.same_others[args.row_names.index(args.last_target)]
-    target_kinematic = state_kinematic[-1, target_indices]
-    min_dist = 0.05
-    target_dist = target_kinematic[:, [2, 3]].abs().sum(dim=1)
-    closest_target = target_dist.argmin()
-    if target_dist.min() < min_dist:
-        # check if target satisfied
-        args.last_target = train_transformer.eval_transformer([[args.last_target]],
-                                                              args.transformer_dataset, args.transformer_file)
-        target_indices = args.same_others[args.row_names.index(args.last_target)]
-        target_kinematic = state_kinematic[-1, target_indices]
-        target_dist = target_kinematic[:, [2, 3]].abs().sum(dim=1)
-        closest_target = target_dist.argmin()
+    # target position
+    min_dist = 0.04
+    current_pos = torch.tensor(env_args.past_states[-1])[0, -2:].to(args.device)
+    dist_to_target = (current_pos - args.target_position).abs().sum()
+    if dist_to_target < min_dist:
+        # estimate the next position
+        estimated_target_pos = train_transformer.eval_pos_transformer(state_kinematic[-1:, 0:1, [0, 1]],
+                                                                      args.position_model_file)
 
-    # goto the closest target
-    hla_target = get_target_hla(args.last_target)
-    reasoning_action(target_kinematic[closest_target], hla_target)
+        target_conf = train_transformer.eval_transformer([[args.last_target]],
+                                                         args.target_dataset, args.target_model_file)
+        classes = args.target_dataset.tokenizer.classes_
+        mask_targets = get_target_mask(args, classes, env_args.past_states[-1])
+
+        target_masked_index = target_conf[mask_targets].argmax()
+        target = classes[mask_targets.squeeze(0)][target_masked_index]
+        args.last_target = target
+        args.target_strategy = args.strategies[target]
+        target_indices = args.same_others[args.row_names.index(args.last_target)]
+        target_positions = torch.tensor(env_args.past_states[-1])[target_indices, -2:].to(args.device)
+        # select the object that closest to the next position
+        args.target_index = target_indices[
+            (target_positions - estimated_target_pos.view(1, 2)).abs().sum(dim=1).argmin()]
+        args.target_position = torch.tensor(env_args.past_states[-1])[args.target_index, -2:].to(args.device)
+        args.last_distance = state_kinematic[-1, args.target_index, [2, 3]]
+
+    # determine aligning axis
+    last_distance = args.last_distance[args.align_axis].abs()
+    current_distance = state_kinematic[-1, args.target_index, [2, 3]][args.align_axis].abs()
+    if args.wait_section == 0:
+        if last_distance <= current_distance:
+            args.align_axis = (args.align_axis + 1) % 2
+        else:
+            # record position-action pair
+            args.position_action_pairs.append([args.last_target, args.last_distance, args.last_action])
+        args.last_distance = state_kinematic[-1, args.target_index, [2, 3]]
+        # goto the closest target
+        action = reasoning_action(state_kinematic[-1, args.target_index], args.target_strategy, args.align_axis)
+        args.last_action = action
+    else:
+        action = args.last_action
+    args.wait_section = (args.wait_section + 1) % 3
 
     return action
 
@@ -191,6 +256,21 @@ def play_game(args, agent, buffer_filename):
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
     args.last_target = None
+    args.target_index = 0
+    args.align_axis = 0
+    args.wait_section = 0
+    args.position_action_pairs = []
+    args.strategies = {
+        "Player": 0,
+        "Ladder": 0,
+        "Child": 0,
+        "Fruit": 0,
+        "Bell": 0,
+        "Platform": 0,
+        "Monkey": 0,
+        "FallingCoconut": 0,
+        "ThrownCoconut": 0,
+    }
     for game_i in tqdm(range(args.dqn_c_episode_num), desc=f"Collecting GameBuffer by {agent.agent_type}"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
@@ -221,6 +301,10 @@ def play_game(args, agent, buffer_filename):
                 game_patches.atari_patches(args, agent, env_args, info)
                 env_args.frame_i = len(env_args.logic_states) - 1
                 env_args.update_lost_live(args.m, info["lives"])
+                # lost the game, so reasoning the lost reason, update the strategies
+                args.strategies[args.last_target] = (args.strategies[args.last_target] + 1) % 3
+                args.last_target = None
+
             else:
                 # record game states
                 env_args.next_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
@@ -231,8 +315,8 @@ def play_game(args, agent, buffer_filename):
             env_args.frame_i += 1
             if args.with_explain:
                 screen_text = (
-                    f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
-                    f"obj: {args.row_names[obj_pred + 1]}, act: {args.action_names[action]} re: {env_args.reward}")
+                    f"transformer ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
+                    f"obj: {args.row_names[args.target_index]}, act: {args.action_names[action]} re: {env_args.reward}")
                 # Red
                 env_args.obs[:10, :10] = 0
                 env_args.obs[:10, :10, 0] = 255
@@ -362,16 +446,27 @@ def train_next_obj_predictor():
         game_ids.append(group_ids)
     from pi import train_transformer
     from sklearn.model_selection import train_test_split
-    target_transformer_file = args.output_folder / "target_transformer_model.pth"
+    from torch.utils.data import DataLoader, TensorDataset
+    target_transformer_file = args.trained_model_folder / "target_transformer_model.pth"
     transformer_dataset = train_transformer.WordSequenceDataset(game_names)
-    train_transformer.train_transformer(transformer_dataset, target_transformer_file)
+    args.target_dataset = transformer_dataset
+    args.target_model_file = target_transformer_file
+    if not os.path.exists(target_transformer_file):
+        train_transformer.train_transformer(transformer_dataset, target_transformer_file)
 
-    position_transformer_file = args.output_folder / "position_transformer_model.pth"
     # position transformer
-    positions = train_transformer.position_dataset(game_positions)
-    train_data, val_data = train_test_split(positions, test_size=0.2)
-    train_transformer.train_position_transformer(train_data, val_data, position_transformer_file)
+    position_transformer_file = args.trained_model_folder / "position_transformer_model.pth"
+    pos_X, pos_y = train_transformer.position_dataset(game_positions)
 
+    train_dataset = TensorDataset(pos_X[:-10], pos_y[:-10])
+    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
+
+    val_dataset = TensorDataset(pos_X[-10:], pos_y[-10:])
+    val_loader = DataLoader(val_dataset, batch_size=4, shuffle=True)
+
+    args.position_model_file = position_transformer_file
+    if not os.path.exists(position_transformer_file):
+        train_transformer.train_position_transformer(args, train_loader, val_loader, position_transformer_file)
     return args, student_agent, buffer_filename
 
 

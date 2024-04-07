@@ -263,7 +263,6 @@ def atari_patches(args, agent, env_args, info):
             agent.model.unaligned = False
             agent.model.kill_enemy = False
             agent.model.target_obj = 1
-            agent.model.next_target = agent.model.requirement[0]
             agent.model.unaligned_target = None
             agent.model.sub_align_axis = None
             agent.model.align_to_sub_object = False
