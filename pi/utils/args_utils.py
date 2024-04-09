@@ -287,7 +287,7 @@ def load_args(exp_args_path, m):
         args.step_dist = [0.01, -0.03]
         args.mile_stone_scores = [5, 10, 20, 40]
     elif args.m == "Freeway" or args.m == "freeway":
-        args.model_path = config.path_model / args.m / 'model_50000000.gz'
+        args.model_path = config.path_model / args.m / 'Freeway_ppo.cleanrl'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
         args.zero_reward = 0.0

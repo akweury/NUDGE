@@ -268,7 +268,10 @@ def _epsilon_greedy(obs, model, eps=0.001):
 
 
 def load_dqn_a(args, model_file):
-    ckpt = _load_checkpoint(model_file)
+    if args.m in ["Freeway"]:
+        ckpt = {"estimator_state": torch.load(model_file, map_location=torch.device(args.device))["model_weights"]}
+    else:
+        ckpt = _load_checkpoint(model_file)
     # set env
     env = ALEModern(
         args.m.lower(),
@@ -303,8 +306,8 @@ def get_stack_buffer(kinematic_data, stack_num):
 
 def load_mlp_hla(args):
     if args.m in ["Pong"]:
-            mlp_hla_file = args.trained_model_folder / f"{args.m}_mlp_hla.pth.tar"
-            mlp_hla = torch.load(mlp_hla_file, map_location=torch.device(args.device))["model"].to(args.device)
-            return mlp_hla
+        mlp_hla_file = args.trained_model_folder / f"{args.m}_mlp_hla.pth.tar"
+        mlp_hla = torch.load(mlp_hla_file, map_location=torch.device(args.device))["model"].to(args.device)
+        return mlp_hla
     else:
         return None
