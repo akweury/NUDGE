@@ -1282,10 +1282,9 @@ def extract_boxing_kinematics(args, logic_state):
 def extract_freeway_kinematics(args, logic_state):
     logic_state = torch.tensor(logic_state).to(args.device)
     velo = get_state_velo(logic_state).to(args.device)
-    velo[velo > 0.2] = 0
     obj_datas = []
     for o_i in range(logic_state.shape[1]):
-        obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
+        obj_datas.append(get_symbolic_state_new(logic_state, velo, [o_i]).unsqueeze(1))
     obj_datas = torch.cat(obj_datas, dim=1)
     return obj_datas
 
@@ -1429,7 +1428,7 @@ def get_symbolic_state(states, velo, indices):
     relative_dir = torch.cat(relative_dir, dim=1)
     relative_velo = (velo[:, 0:1] - velo[:, indices]).view(velo.size(0), -1)
     relative_velo_dir = math_utils.closest_one_percent(math_utils.get_velo_dir(relative_velo.unsqueeze(1)), 0.001)
-    data = torch.cat((player_pos, relative_pos, relative_dir, relative_velo, relative_velo_dir), dim=1)
+    data = torch.cat((player_pos, relative_pos, relative_velo), dim=1)
     data[torch.isnan(data)] = 0
     return data
 
@@ -1437,7 +1436,7 @@ def get_symbolic_state(states, velo, indices):
 def get_symbolic_state_new(states, velo, indices):
     player_pos = states[:, 0, -2:]
     relative_pos = (states[:, indices, -2:] - states[:, 0:1, -2:]).view(states.size(0), -1)
-    obj_velo = velo[:, indices].view(velo.size(0), -1)
+    obj_velo = velo[:, indices].view(velo.size(0), -1) / 10
     data = torch.cat((player_pos, relative_pos, obj_velo), dim=1)
     data[torch.isnan(data)] = 0
     return data

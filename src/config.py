@@ -207,8 +207,8 @@ game_info_kangaroo = {
     "state_col_num": len(obj_info_kangaroo) + 6,
 }
 
-obj_info_freeway = [('Chicken', 1),
-                    ('Car', 12)]
+obj_info_freeway = [('Chicken', 2),
+                    ('Car', 10)]
 game_info_freeway = {
     "name": "Freeway",
     "obj_info": obj_info_freeway,

@@ -7,8 +7,9 @@ import torch
 import cv2 as cv
 import numpy as np
 from torch import nn
+import ocatari
 
-from pi.Player import SymbolicMicroProgramPlayer, PpoPlayer
+from pi.Player import SymbolicMicroProgramPlayer, PpoPlayer, OCA_PPOAgent
 from pi.ale_env import ALEModern
 
 from pi.utils import draw_utils, math_utils, file_utils
@@ -115,7 +116,7 @@ def load_buffer(args, buffer_filename):
     return buffer
 
 
-def _load_checkpoint(fpath, device="cpu"):
+def _load_checkpoint(fpath, device):
     fpath = Path(fpath)
     with fpath.open("rb") as file:
         with GzipFile(fileobj=file) as inflated:
@@ -335,7 +336,6 @@ class AtariNet(nn.Module):
 
 def create_agent(args, agent_type):
     #### create agent
-
     if agent_type == "smp":
         agent = SymbolicMicroProgramPlayer(args)
     elif agent_type == 'random':
@@ -344,10 +344,16 @@ def create_agent(args, agent_type):
         agent = 'human'
     elif agent_type == "ppo":
         agent = PpoPlayer(args)
+    elif agent_type == "oca_ppo":
+
+        agent = OCA_PPOAgent(args.num_actions)
+        ckpt = torch.load(args.model_path, args.device)["model_weights"]
+        agent.load_state_dict(ckpt)
+
     elif agent_type in ['pretrained', 'DQN-A', 'DQN-T', 'DQN-R']:
         # game/seed/model
         game_name = args.m.lower()
-        ckpt = _load_checkpoint(args.model_path)
+        ckpt = _load_checkpoint(args.model_path, args.device)
         # set env
         env = ALEModern(
             game_name,
@@ -367,9 +373,7 @@ def create_agent(args, agent_type):
         agent = policy
     else:
         raise ValueError
-
     agent.agent_type = agent_type
-
     return agent
 
 
@@ -379,7 +383,7 @@ def screen_shot(env_args, video_out, obs, wr_plot, mt_plot, db_plots, dead_count
     draw_utils.save_np_as_img(screen_with_explain, file_name)
 
 
-def game_over_log(args,agent, env_args):
+def game_over_log(args, agent, env_args):
     if args.m == "Asterix":
         game_score = env_args.game_rewards[-1]
         env_args.win_rate[env_args.game_i] = sum(game_score)
@@ -472,9 +476,134 @@ def get_ocname(m):
         return "Pong"
     elif m == "Asterix":
         return "Asterix"
-    elif m=="Freeway":
+    elif m == "Freeway":
         return "Freeway"
-    elif m=="Boxing":
+    elif m == "Boxing":
         return "Boxing"
     else:
         raise ValueError
+
+
+from ocatari.core import OCAtari
+from pi.utils.EnvArgs import EnvArgs
+from tqdm import tqdm
+import time
+
+from pi.utils.atari import game_patches
+from pi.utils.oc_utils import extract_logic_state_atari
+
+
+def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
+    oc_name = get_ocname(args.m)
+    env = OCAtari(oc_name, mode="revised", hud=True, render_mode='rgb_array')
+    obs, info = env.reset()
+    env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
+    agent.position_norm_factor = obs.shape[0]
+    if args.with_explain:
+        video_out = get_game_viewer(env_args)
+
+    for game_i in tqdm(range(args.teacher_game_nums), desc=f"Collecting GameBuffer by {agent.agent_type}"):
+        env_args.obs, info = env.reset()
+        env_args.reset_args(game_i)
+        env_args.reset_buffer_game()
+        while not env_args.game_over:
+            # limit frame rate
+            if args.with_explain:
+                current_frame_time = time.time()
+                if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
+                    sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
+                    time.sleep(sl)
+                    continue
+                env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
+
+            env_args.logic_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
+                                                                                   obs.shape[0])
+            env_args.past_states.append(env_args.logic_state)
+            env_args.obs = env_args.last_obs
+            state = env.dqn_obs.to(args.device)
+            if env_args.frame_i <= args.jump_frames:
+                env_args.action = 0
+            else:
+                if agent.agent_type == "oca_ppo":
+                    env_args.action = agent.draw_action(env.dqn_obs.to(env_args.device)).item()
+                else:
+                    raise ValueError
+            env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(env_args.action)
+
+            game_patches.atari_frame_patches(args, env_args, info)
+
+            if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
+                game_patches.atari_patches(args, agent, env_args, info)
+                env_args.frame_i = len(env_args.logic_states) - 1
+                env_args.update_lost_live(args.m, info["lives"])
+            else:
+                # record game states
+                env_args.next_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
+                                                                                      obs.shape[0])
+                env_args.buffer_frame("dqn_a")
+            if args.with_explain:
+                screen_text = (
+                    f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
+                    f"act: {args.action_names[env_args.action]} re: {env_args.reward}")
+                # Red
+                env_args.obs[:10, :10] = 0
+                env_args.obs[:10, :10, 0] = 255
+                # Blue
+                env_args.obs[:10, 10:20] = 0
+                env_args.obs[:10, 10:20, 2] = 255
+                draw_utils.addCustomText(env_args.obs, f"{agent.agent_type}",
+                                         color=(255, 255, 255), thickness=1, font_size=0.2, pos=[2, 5])
+                game_plot = draw_utils.rgb_to_bgr(env_args.obs)
+                screen_plot = draw_utils.image_resize(game_plot,
+                                                      int(game_plot.shape[0] * env_args.zoom_in),
+                                                      int(game_plot.shape[1] * env_args.zoom_in))
+                draw_utils.addText(screen_plot, screen_text,
+                                   color=(255, 228, 181), thickness=2, font_size=0.6, pos="upper_right")
+                video_out = draw_utils.write_video_frame(video_out, screen_plot)
+            # update game args
+            # update game args
+            env_args.update_args()
+
+        if args.m == "Pong":
+            if sum(env_args.rewards) > 0:
+                env_args.buffer_game(args.zero_reward, args.save_frame)
+        elif args.m == "Asterix":
+            env_args.buffer_game(args.zero_reward, args.save_frame)
+        elif args.m == "Kangaroo":
+            env_args.buffer_game(args.zero_reward, args.save_frame)
+        elif args.m == "Freeway":
+            env_args.buffer_game(args.zero_reward, args.save_frame)
+        elif args.m == "Boxing":
+            env_args.buffer_game(args.zero_reward, args.save_frame)
+        else:
+            raise ValueError
+        env_args.game_rewards.append(env_args.rewards)
+
+        game_over_log(args, agent, env_args)
+        env_args.reset_buffer_game()
+    env.close()
+    finish_one_run(env_args, args, agent)
+    if args.with_explain:
+        draw_utils.release_video(video_out)
+    if save_buffer:
+        save_game_buffer(args, env_args, buffer_filename)
+
+
+def load_atari_buffer(args, buffer_filename):
+    buffer = load_buffer(args, buffer_filename)
+    print(f'- Loaded game history : {len(buffer.logic_states)}')
+    buffer_win_rates = buffer.win_rates
+    row_names = buffer.row_names
+    game_num = len(buffer.actions)
+    actions = []
+    rewards = []
+    states = []
+    next_states = []
+
+    for g_i in range(game_num):
+        actions.append(buffer.actions[g_i].to(args.device))
+        rewards.append(buffer.rewards[g_i].to(args.device))
+        states.append(buffer.logic_states[g_i].to(args.device))
+        # self.next_states.append(buffer.game_next_states[g_i].to(self.args.device))
+
+    return {"states": states, "actions": actions, "rewards": rewards}
