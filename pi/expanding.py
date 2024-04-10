@@ -177,7 +177,7 @@ def main():
     args = args_utils.load_args(config.path_exps, None)
 
     rtpt = RTPT(name_initials='JS', experiment_name=f"{args.m}_{args.start_frame}_{args.end_frame}",
-                max_iterations=args.start_frame - args.end_frame)
+                max_iterations=args.end_frame - args.start_frame)
     # Start the RTPT tracking
     rtpt.start()
 
