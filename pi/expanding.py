@@ -160,19 +160,16 @@ def save_pred(frame_i, inv_pred, inv_pred_file):
 def create_inv_file(file_name):
     data = {"inv_pred": [], "inv_pred_frame_i": []}
     torch.save(data, file_name)
-    return 0
 
 
-def init_pred_file(file_name):
+def init_pred_file(file_name, start_frame):
     if os.path.exists(file_name):
         frame_i = torch.load(file_name)["inv_pred_frame_i"]
-        if len(frame_i) == 0:
-            start_frame_i = 0
-        else:
-            start_frame_i = frame_i[-1]
+        if len(frame_i) > 0:
+            start_frame = frame_i[-1]
     else:
-        start_frame_i = create_inv_file(file_name)
-    return start_frame_i
+        create_inv_file(file_name)
+    return start_frame
 
 
 def main():
@@ -193,12 +190,12 @@ def main():
     actions = actions.to(args.device)
     parameter_states = _get_parameter_states(kinematic_data)
     # train the model
-    file_name = args.trained_model_folder / "inv_pred.pth"
-    start_frame_i = init_pred_file(file_name)
+    file_name = args.trained_model_folder / f"inv_pred_{args.start_frame}_{args.end_frame}.pth"
+    start_frame_i = init_pred_file(file_name, args.start_frame)
     inv_preds = []
     inv_pred_scores = []
-
-    for frame_i in tqdm(range(start_frame_i, len(parameter_states)), desc=f"Frame"):
+    end_frame = min(args.end_frame, len(parameter_states))
+    for frame_i in tqdm(range(start_frame_i, end_frame), desc=f"Frame"):
         inv_pred, score, num_cover_frames = _pi_expanding(frame_i, parameter_states, actions)
         # mask_param, score, num_cover_frames = _pi_elimination(frame_i, parameter_states, actions, inv_pred, score)
         text, trivial_pred = _pi_text(args, inv_pred)
