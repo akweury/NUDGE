@@ -154,6 +154,7 @@ def save_pred(frame_i, inv_pred, inv_pred_file):
     data = torch.load(inv_pred_file)
     data["inv_pred"].append(inv_pred)
     data["inv_pred_frame_i"].append(frame_i)
+    torch.save(data, inv_pred_file)
 
 
 def create_inv_file(file_name):
