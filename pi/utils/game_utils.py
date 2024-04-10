@@ -346,7 +346,7 @@ def create_agent(args, agent_type):
         agent = PpoPlayer(args)
     elif agent_type == "oca_ppo":
 
-        agent = OCA_PPOAgent(args.num_actions)
+        agent = OCA_PPOAgent(args.num_actions).to(args.device)
         ckpt = torch.load(args.model_path, map_location=torch.device(args.device))["model_weights"]
         agent.load_state_dict(ckpt)
 
