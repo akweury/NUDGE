@@ -3,6 +3,7 @@
 import os.path
 import torch
 import time
+from rtpt import RTPT
 
 from ocatari.core import OCAtari
 from tqdm import tqdm
@@ -174,6 +175,12 @@ def init_pred_file(file_name, start_frame):
 
 def main():
     args = args_utils.load_args(config.path_exps, None)
+
+    rtpt = RTPT(name_initials='JS', experiment_name=f"{args.m}_{args.start_frame}_{args.end_frame}",
+                max_iterations=args.start_frame - args.end_frame)
+    # Start the RTPT tracking
+    rtpt.start()
+
     # Initialize environment
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
