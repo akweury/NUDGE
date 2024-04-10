@@ -347,7 +347,7 @@ def create_agent(args, agent_type):
     elif agent_type == "oca_ppo":
 
         agent = OCA_PPOAgent(args.num_actions)
-        ckpt = torch.load(args.model_path, args.device)["model_weights"]
+        ckpt = torch.load(args.model_path, map_location=torch.device(args.device))["model_weights"]
         agent.load_state_dict(ckpt)
 
     elif agent_type in ['pretrained', 'DQN-A', 'DQN-T', 'DQN-R']:
