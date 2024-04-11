@@ -166,9 +166,9 @@ def _pi_text(args, inv_pred):
 
 def save_pred(frame_i, inv_pred, action, inv_pred_file):
     data = torch.load(inv_pred_file)
-    data["inv_pred"].append(inv_pred)
+    data["inv_pred"].append(inv_pred.tolist())
     data["inv_pred_frame_i"].append(frame_i)
-    data["action"].append(action)
+    data["action"].append(action.tolist())
     torch.save(data, inv_pred_file)
 
 
