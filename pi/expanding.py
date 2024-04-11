@@ -53,6 +53,7 @@ def check_range(parameter_state, pred_ranges):
     min_range_satisfaction = torch.sum((data_state - pred_ranges[:, :, 0]) >= 0, dim=1) == param_num
     max_range_satisfaction = torch.sum((pred_ranges[:, :, 1] - data_state) >= 0, dim=1) == param_num
     mask_in_range = max_range_satisfaction & min_range_satisfaction
+    in_range_preds = pred_ranges[mask_in_range]
     return mask_in_range
 
 
@@ -67,7 +68,7 @@ def _pi_expanding(frame_i, parameter_states, actions):
     frame_data = parameter_states[frame_i]
     param_range = torch.repeat_interleave(frame_data.unsqueeze(1), 2, dim=1)
 
-    param_step = torch.zeros_like(param_range).to(parameter_states.device)
+
     param_deltas = torch.tensor([[0, 0.01], [-0.01, 0]]).to(parameter_states.device)
     mask_same_action = same_action(actions, actions[frame_i])
 
@@ -77,8 +78,11 @@ def _pi_expanding(frame_i, parameter_states, actions):
         for p_i in range(2, len(frame_data)):
             # update param range
             score_p_i_best = 0
+            param_step = torch.zeros_like(param_range).to(parameter_states.device)
             while True:
                 param_step[p_i] = param_delta
+                if param_step.abs().sum()>0.01:
+                    print("")
                 new_param_range = param_range + param_step
                 new_param_range[new_param_range < -1] = -1
                 new_param_range[new_param_range > 1] = 1
@@ -222,6 +226,7 @@ def main():
             file_utils.add_lines(f"(inv {frame_i}) {num_cover_frames} {args.action_names[actions[frame_i]]}:-{text}",
                                  args.log_file)
             if not trivial_pred:
+                _pi_expanding(frame_i, parameter_states, actions)
                 inv_preds.append(inv_pred)
                 inv_pred_scores.append(score)
                 save_pred(frame_i, inv_pred, actions[frame_i], file_name)
