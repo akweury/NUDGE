@@ -186,6 +186,21 @@ def init_pred_file(file_name, start_frame):
     return start_frame
 
 
+def remove_redundancy(parameter_states, actions):
+    unique_states = parameter_states.unique(dim=0)
+    unique_states_actions = []
+    for s_i in tqdm(range(len(unique_states)), desc="Removing redundancies"):
+        mask_same_states = (parameter_states - unique_states[s_i]).sum(dim=1) == 0
+        actions_state = actions[mask_same_states]
+        # select one action
+        unique_values, counts = actions_state.unique(return_counts=True)
+        max_count_index = counts.argmax()
+        most_frequent_action = unique_values[max_count_index]
+        unique_states_actions.append(most_frequent_action.view(1))
+    unique_states_actions = torch.cat(unique_states_actions, dim=0)
+    return unique_states, unique_states_actions
+
+
 def main():
     args = args_utils.load_args(config.path_exps, None)
 
@@ -212,6 +227,7 @@ def main():
         kinematic_data = kinematic_data.to(args.device)
         actions = actions.to(args.device)
         parameter_states = _get_parameter_states(kinematic_data)
+        parameter_states, actions = remove_redundancy(parameter_states, actions)
         # train the model
         file_name = args.trained_model_folder / f"inv_pred_{args.start_frame}_{args.end_frame}.pth"
         start_frame_i = init_pred_file(file_name, args.start_frame)
@@ -222,10 +238,11 @@ def main():
             inv_pred, score, num_cover_frames = _pi_expanding(frame_i, parameter_states, actions)
             # mask_param, score, num_cover_frames = _pi_elimination(frame_i, parameter_states, actions, inv_pred, score)
             text, trivial_pred = _pi_text(args, inv_pred)
-            file_utils.add_lines(f"(inv {frame_i}) {num_cover_frames} {args.action_names[actions[frame_i]]}:-{text}",
-                                 args.log_file)
+
             if not trivial_pred:
-                _pi_expanding(frame_i, parameter_states, actions)
+                file_utils.add_lines(
+                    f"(inv {frame_i}) {num_cover_frames} {args.action_names[actions[frame_i]]}:-{text}",
+                    args.log_file)
                 inv_preds.append(inv_pred)
                 inv_pred_scores.append(score)
                 save_pred(frame_i, inv_pred, actions[frame_i], file_name)
