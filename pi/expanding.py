@@ -68,7 +68,6 @@ def _pi_expanding(frame_i, parameter_states, actions):
     frame_data = parameter_states[frame_i]
     param_range = torch.repeat_interleave(frame_data.unsqueeze(1), 2, dim=1)
 
-
     param_deltas = torch.tensor([[0, 0.01], [-0.01, 0]]).to(parameter_states.device)
     mask_same_action = same_action(actions, actions[frame_i])
 
@@ -81,7 +80,7 @@ def _pi_expanding(frame_i, parameter_states, actions):
             param_step = torch.zeros_like(param_range).to(parameter_states.device)
             while True:
                 param_step[p_i] = param_delta
-                if param_step.abs().sum()>0.01:
+                if param_step.abs().sum() > 0.01:
                     print("")
                 new_param_range = param_range + param_step
                 new_param_range[new_param_range < -1] = -1
@@ -92,7 +91,7 @@ def _pi_expanding(frame_i, parameter_states, actions):
                 mask_in_range = in_range(parameter_states, new_param_range)
                 num_cover_frames = (mask_in_range & mask_same_action).sum()
                 score_new_range = num_cover_frames / torch.sum(mask_in_range)
-                if score_new_range >= score_p_i_best and score_new_range > 0:
+                if score_new_range == 1:
                     score_p_i_best = score_new_range
                     param_range = new_param_range
                     if num_cover_frames > num_cover_frames_best:
@@ -241,17 +240,19 @@ def init_env(args):
     return env, obs, info
 
 
-def _reason_action(args, env_args, inv_preds):
+def _reason_action(args, env_args, inv_preds, inv_pred_actions):
     state = torch.tensor(env_args.logic_state).unsqueeze(0).to(args.device)
     kinematic_data = reason_utils.extract_freeway_kinematics(args, state).to(args.device)
     parameter_states = _get_parameter_states(kinematic_data)
     mask_in_range = check_range(parameter_states, inv_preds)
-
-    action = 0
+    action_in_range = inv_pred_actions[mask_in_range].unique()
+    if len(action_in_range) != 1:
+        print("")
+    action = action_in_range[0]
     return action
 
 
-def play_with_pi(args, inv_preds):
+def play_with_pi(args, inv_preds, inv_pred_actions):
     env, obs, info = init_env(args)
     agent = create_agent(args, agent_type="smp")
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
@@ -276,8 +277,8 @@ def play_with_pi(args, inv_preds):
             if env_args.frame_i <= args.jump_frames:
                 action = torch.tensor([[0]]).to(args.device)
             else:
-                action = _reason_action(args, env_args, inv_preds)
-                raise NotImplementedError
+                action = _reason_action(args, env_args, inv_preds, inv_pred_actions)
+
             state = env.dqn_obs.to(args.device)
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
             game_patches.atari_frame_patches(args, env_args, info)
@@ -327,22 +328,27 @@ def collect_pi(args):
     files = file_utils.all_file_in_folder(args.trained_model_folder)
     files = [file for file in files if "inv_pred_" in file]
     inv_preds = []
+    actions = []
     for file in files:
-        inv_pred = torch.load(file, map_location=torch.device(args.device))["inv_pred"]
+        data = torch.load(file, map_location=torch.device(args.device))
+        action = torch.tensor(data["action"]).to(args.device)
+        inv_pred = torch.tensor(data["inv_pred"]).to(args.device)
         inv_pred = [pred.unsqueeze(0) for pred in inv_pred]
         inv_pred = torch.cat(inv_pred, dim=0)
+        actions.append(action)
         inv_preds.append(inv_pred)
     inv_preds = torch.cat(inv_preds, dim=0)
-    inv_preds = inv_preds.unique(dim=0)
-    return inv_preds
+    actions = torch.cat(actions, dim=0)
+
+    return inv_preds, actions
 
 
 def test():
     args = args_utils.load_args(config.path_exps, None)
     # collect game buffer from neural agent
-    inv_preds = collect_pi(args)
+    inv_preds, actions = collect_pi(args)
     # play the game
-    play_with_pi(args, inv_preds)
+    play_with_pi(args, inv_preds, actions)
 
 
 if __name__ == "__main__":
