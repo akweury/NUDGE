@@ -82,7 +82,7 @@ def _pi_expanding(frame_i, parameter_states, actions):
     param_deltas = torch.tensor([[-0.01], [0.01]]).to(parameter_states.device)
     # mask_same_action = same_action(actions, actions[frame_i])
     num_cover_frames_best = 0
-    mask_params = torch.ones_like(param_range, dtype=torch.bool)
+    mask_params = torch.ones_like(param_range, dtype=torch.bool).to(parameter_states.device)
     for d_i in range(len(param_deltas)):
         for p_i in range(2, len(frame_data)):
             # update param range
@@ -199,10 +199,10 @@ def _pi_text(args, inv_pred, mask_params):
 
 def save_pred(frame_i, inv_pred, action, inv_pred_file, mask):
     data = torch.load(inv_pred_file)
-    data["inv_pred"].append(inv_pred.tolist())
-    data["inv_pred_frame_i"].append(frame_i)
-    data["action"].append(action.tolist())
-    data["mask"].append(mask.tolist())
+    data["inv_pred"] += inv_pred
+    data["inv_pred_frame_i"] += frame_i
+    data["action"] += action
+    data["mask"] += mask
     torch.save(data, inv_pred_file)
 
 
@@ -273,20 +273,29 @@ def main():
         file_name = args.trained_model_folder / f"inv_pred_{args.start_frame}_{args.end_frame}.pth"
         start_frame_i = init_pred_file(file_name, args.start_frame)
         inv_preds = []
-        inv_pred_scores = []
+        inv_pred_actions = []
+        inv_pred_frame_i = []
+        inv_pred_masks = []
         end_frame = min(args.end_frame, len(parameter_states))
         for frame_i in tqdm(range(start_frame_i, end_frame), desc=f"Frame"):
             inv_pred, num_cover_frames, mask_params = _pi_expanding(frame_i, parameter_states, actions)
             # mask_param, score, num_cover_frames = _pi_elimination(frame_i, parameter_states, actions, inv_pred, score)
             text, trivial_pred = _pi_text(args, inv_pred, mask_params)
-
             if not trivial_pred:
-                file_utils.add_lines(
-                    f"(inv {frame_i}) {num_cover_frames} {args.action_names[actions[frame_i]]}:-{text}",
-                    args.log_file)
-                inv_preds.append(inv_pred)
-                # inv_pred_scores.append(score)
-                save_pred(frame_i, inv_pred, actions[frame_i], file_name, mask_params)
+                # file_utils.add_lines(
+                #     f"(inv {frame_i}) {num_cover_frames} {args.action_names[actions[frame_i]]}:-{text}",
+                #     args.log_file)
+                inv_preds.append(inv_pred.tolist())
+                inv_pred_actions.append(actions[frame_i].tolist())
+                inv_pred_frame_i.append(frame_i)
+                inv_pred_masks.append(mask_params.tolist())
+
+            if frame_i % args.print_freq == 0:
+                save_pred(inv_pred_frame_i, inv_preds, inv_pred_actions, file_name, inv_pred_masks)
+                inv_preds = []
+                inv_pred_actions = []
+                inv_pred_frame_i = []
+                inv_pred_masks = []
 
 
 def init_env(args):
