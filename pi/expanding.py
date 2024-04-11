@@ -63,9 +63,12 @@ def same_action(actions, label_action):
 
 
 def same_action_with_param(d_i, p_i, new_param, parameter_states, actions, frame_action):
-    mask = parameter_states[:, p_i] == new_param
+    mask = (parameter_states[:, [0, 1, p_i]] == new_param).prod(dim=1).bool()
     mask_same_action = actions[mask].unique().reshape(-1) == frame_action
-    has_same_action = mask_same_action.prod().bool()
+    if len(mask_same_action) > 0:
+        has_same_action = mask_same_action.prod().bool()
+    else:
+        has_same_action = False
     counter_frame = len(mask_same_action)
     return has_same_action, counter_frame
 
@@ -81,14 +84,17 @@ def _pi_expanding(frame_i, parameter_states, actions):
     num_cover_frames_best = 0
     mask_params = torch.ones_like(param_range, dtype=torch.bool)
     for d_i in range(len(param_deltas)):
-        for p_i in range(len(frame_data)):
+        for p_i in range(2, len(frame_data)):
             # update param range
             new_param = param_range[p_i, d_i]
             num_range_action_frames = 0
             while True:
                 if new_param.abs() == 1:
                     break
-                state_with_same_action, num_states = same_action_with_param(d_i, p_i, new_param, parameter_states,
+                state_with_same_action, num_states = same_action_with_param(d_i, p_i,
+                                                                            torch.cat(
+                                                                                [frame_data[:2], new_param.reshape(1)]),
+                                                                            parameter_states,
                                                                             actions, actions[frame_i])
                 if not state_with_same_action:
                     break
@@ -106,7 +112,8 @@ def _pi_expanding(frame_i, parameter_states, actions):
                 mask_params[p_i, d_i] = False
             else:
                 param_range[p_i, d_i] = new_param
-
+            if num_range_action_frames > num_cover_frames_best:
+                num_cover_frames_best = num_range_action_frames
             #     num_range_action_frames_old = num_range_action_frames
             #     # evaluate new range and acquire score
             #     mask_in_range = in_range(parameter_states, new_param_range)
@@ -127,7 +134,7 @@ def _pi_expanding(frame_i, parameter_states, actions):
             #             break
             # scores.append(score_p_i_best)
     # inv_score = torch.tensor(scores).max()
-    return param_range, num_cover_frames_best
+    return param_range, num_cover_frames_best, mask_params
 
 
 def _pi_elimination(frame_i, parameter_states, actions, inv_pred, score):
@@ -161,26 +168,26 @@ def _get_parameter_states(kinematic_data):
     return parameter_state
 
 
-def range_to_text(prefix, range_tensor):
+def range_to_text(prefix, range_tensor, mask):
     text = ""
-    if range_tensor[0, 0] > -1:
+    if range_tensor[0, 0] > -1 and mask[0, 0]:
         text += f"{prefix}_>{range_tensor[0, 0]:.2f}_"
-    if range_tensor[0, 1] < 1:
+    if range_tensor[0, 1] < 1 and mask[0, 1]:
         text += f"{prefix}_<{range_tensor[0, 1]:.2f}_"
     return text
 
 
-def _pi_text(args, inv_pred):
+def _pi_text(args, inv_pred, mask_params):
     pos = (inv_pred[0, 0], inv_pred[1, 0])
     text = f"player_at({pos[0].item():.2f},{pos[1].item():.2f})_"
     trivial_pred = True
     for obj_i in range(1, len(args.row_names)):
         obj_name = f"{args.row_names[obj_i]}{obj_i}_"
         obj_index = 2 + (obj_i - 1) * 4
-        x_pos = range_to_text("x", inv_pred[obj_index:obj_index + 1])
-        y_pos = range_to_text("y", inv_pred[obj_index + 1:obj_index + 2])
-        x_velo = range_to_text("vx", inv_pred[obj_index + 2:obj_index + 3])
-        y_velo = range_to_text("vy", inv_pred[obj_index + 3:obj_index + 4])
+        x_pos = range_to_text("x", inv_pred[obj_index:obj_index + 1], mask_params[obj_index:obj_index + 1])
+        y_pos = range_to_text("y", inv_pred[obj_index + 1:obj_index + 2], mask_params[obj_index + 1:obj_index + 2])
+        x_velo = range_to_text("vx", inv_pred[obj_index + 2:obj_index + 3], mask_params[obj_index + 2:obj_index + 3])
+        y_velo = range_to_text("vy", inv_pred[obj_index + 3:obj_index + 4], mask_params[obj_index + 3:obj_index + 4])
         kinematic_text = f"{x_pos}{y_pos}{x_velo}{y_velo}"
         obj_text = ""
         if kinematic_text != "":
@@ -267,9 +274,9 @@ def main():
         inv_pred_scores = []
         end_frame = min(args.end_frame, len(parameter_states))
         for frame_i in tqdm(range(start_frame_i, end_frame), desc=f"Frame"):
-            inv_pred, num_cover_frames = _pi_expanding(frame_i, parameter_states, actions)
+            inv_pred, num_cover_frames, mask_params = _pi_expanding(frame_i, parameter_states, actions)
             # mask_param, score, num_cover_frames = _pi_elimination(frame_i, parameter_states, actions, inv_pred, score)
-            text, trivial_pred = _pi_text(args, inv_pred)
+            text, trivial_pred = _pi_text(args, inv_pred, mask_params)
 
             if not trivial_pred:
                 file_utils.add_lines(

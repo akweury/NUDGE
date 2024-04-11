@@ -20,6 +20,9 @@ python -m pi.train -m Pong --train_epochs 100000 --episode_num 1000 --resume --d
 python -m pi.train_mlp_hla -m Pong --train_epochs 20000 --episode_num 1000 --resume --device 7
 python -m pi.play -m Pong --train_epochs 20000 --episode_num 1000 --resume --device 7
 python -m pi.expanding -m Freeway --device 8 --start_frame 5000 --end_frame 10000
+python -m pi.expanding -m Freeway --device 9 --start_frame 10000 --end_frame 15000
+python -m pi.expanding -m Freeway --device 10 --start_frame 15000 --end_frame 25000
+python -m pi.expanding -m Freeway --device 11 --start_frame 25000 --end_frame 35000
 
 python -m pi.train_dqn_objctive -m Asterix --teacher_game_nums 1000 --device 8
 python -m pi.play -m Asterix --episode_num 1000 --train_epochs 100000 --device 12
