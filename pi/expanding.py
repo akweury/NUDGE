@@ -4,7 +4,7 @@ import os.path
 import torch
 import time
 from rtpt import RTPT
-
+import copy
 from ocatari.core import OCAtari
 from tqdm import tqdm
 from pi.utils import args_utils
@@ -62,46 +62,72 @@ def same_action(actions, label_action):
     return mask_action
 
 
+def same_action_with_param(d_i, p_i, new_param, parameter_states, actions, frame_action):
+    mask = parameter_states[:, p_i] == new_param
+    mask_same_action = actions[mask].unique().reshape(-1) == frame_action
+    has_same_action = mask_same_action.prod().bool()
+    counter_frame = len(mask_same_action)
+    return has_same_action, counter_frame
+
+
 def _pi_expanding(frame_i, parameter_states, actions):
     # expand
 
     frame_data = parameter_states[frame_i]
     param_range = torch.repeat_interleave(frame_data.unsqueeze(1), 2, dim=1)
 
-    param_deltas = torch.tensor([[0, 0.01], [-0.01, 0]]).to(parameter_states.device)
-    mask_same_action = same_action(actions, actions[frame_i])
-
-    scores = []
+    param_deltas = torch.tensor([[-0.01], [0.01]]).to(parameter_states.device)
+    # mask_same_action = same_action(actions, actions[frame_i])
     num_cover_frames_best = 0
-    for param_delta in param_deltas:
+    mask_params = torch.ones_like(param_range, dtype=torch.bool)
+    for d_i in range(len(param_deltas)):
         for p_i in range(len(frame_data)):
             # update param range
-            score_p_i_best = 0
-            param_step = torch.zeros_like(param_range).to(parameter_states.device)
+            new_param = param_range[p_i, d_i]
+            num_range_action_frames = 0
             while True:
-                param_step[p_i] = param_delta
-                if param_step.abs().sum() > 0.01:
-                    print("")
-                new_param_range = param_range + param_step
-                new_param_range[new_param_range < -1] = -1
-                new_param_range[new_param_range > 1] = 1
-                if torch.equal(new_param_range, param_range):
+                if new_param.abs() == 1:
                     break
-                # evaluate new range and acquire score
-                mask_in_range = in_range(parameter_states, new_param_range)
-                num_cover_frames = (mask_in_range & mask_same_action).sum()
-                score_new_range = num_cover_frames / torch.sum(mask_in_range)
-                if score_new_range == 1:
-                    score_p_i_best = score_new_range
-                    param_range = new_param_range
-                    if num_cover_frames > num_cover_frames_best:
-                        num_cover_frames_best = num_cover_frames
+                state_with_same_action, num_states = same_action_with_param(d_i, p_i, new_param, parameter_states,
+                                                                            actions, actions[frame_i])
+                if not state_with_same_action:
+                    break
                 else:
-                    print("")
-                    break
-            scores.append(score_p_i_best)
-    inv_score = torch.tensor(scores).max()
-    return param_range, inv_score, num_cover_frames_best
+                    if num_states > 0:
+                        num_range_action_frames += num_states
+                        # same action states
+                        # new_param_range = copy.copy(param_range)
+                        # new_param_range[p_i, d_i] = new_param
+                        # mask_in_range = in_range(parameter_states, new_param_range)
+                        new_param = new_param + param_deltas[d_i]
+                    else:
+                        break
+            if param_range[p_i, d_i] == new_param:
+                mask_params[p_i, d_i] = False
+            else:
+                param_range[p_i, d_i] = new_param
+
+            #     num_range_action_frames_old = num_range_action_frames
+            #     # evaluate new range and acquire score
+            #     mask_in_range = in_range(parameter_states, new_param_range)
+            #     num_range_action_frames = (mask_in_range & mask_same_action).sum()
+            #     num_in_range_frames = torch.sum(mask_in_range)
+            #     score_new_range = num_range_action_frames / num_in_range_frames
+            #
+            #     if num_range_action_frames_old == num_range_action_frames:
+            #         continue
+            #     else:
+            #         if score_new_range == 1:
+            #             score_p_i_best = score_new_range
+            #             param_range = new_param_range
+            #             if num_range_action_frames > num_cover_frames_best:
+            #                 num_cover_frames_best = num_range_action_frames
+            #         else:
+            #             print("")
+            #             break
+            # scores.append(score_p_i_best)
+    # inv_score = torch.tensor(scores).max()
+    return param_range, num_cover_frames_best
 
 
 def _pi_elimination(frame_i, parameter_states, actions, inv_pred, score):
@@ -241,7 +267,7 @@ def main():
         inv_pred_scores = []
         end_frame = min(args.end_frame, len(parameter_states))
         for frame_i in tqdm(range(start_frame_i, end_frame), desc=f"Frame"):
-            inv_pred, score, num_cover_frames = _pi_expanding(frame_i, parameter_states, actions)
+            inv_pred, num_cover_frames = _pi_expanding(frame_i, parameter_states, actions)
             # mask_param, score, num_cover_frames = _pi_elimination(frame_i, parameter_states, actions, inv_pred, score)
             text, trivial_pred = _pi_text(args, inv_pred)
 
@@ -250,7 +276,7 @@ def main():
                     f"(inv {frame_i}) {num_cover_frames} {args.action_names[actions[frame_i]]}:-{text}",
                     args.log_file)
                 inv_preds.append(inv_pred)
-                inv_pred_scores.append(score)
+                # inv_pred_scores.append(score)
                 save_pred(frame_i, inv_pred, actions[frame_i], file_name)
 
 
