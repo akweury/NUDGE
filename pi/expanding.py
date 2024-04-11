@@ -191,7 +191,7 @@ def main():
     # Start the RTPT tracking
     rtpt.start()
 
-    if args.mode == "test":
+    if args.test:
         test()
     else:
         # Initialize environment

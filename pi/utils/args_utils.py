@@ -18,7 +18,9 @@ def load_args(exp_args_path, m):
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--seed", help="Seed for pytorch + env", default=0,
                         required=False, action="store", dest="seed", type=int)
-    parser.add_argument("--mode", type=str, default="learn")
+    parser.add_argument("-m", "--mode", help="the game mode you want to play with",
+                        required=True, action="store", dest="m")
+    parser.add_argument("--test", help="test the invented predicates", action="store_true", default=False)
     parser.add_argument("-r", "--rules", type=str)
     parser.add_argument("-l", "--log", help="record the information of games", action="store_true")
     parser.add_argument("-rec", "--record", help="record the rendering of the game", action="store_true")
