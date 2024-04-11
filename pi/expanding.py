@@ -108,7 +108,7 @@ def _pi_expanding(frame_i, parameter_states, actions):
                         new_param = new_param + param_deltas[d_i]
                     else:
                         break
-            if param_range[p_i, d_i] == new_param:
+            if param_range[p_i, d_i] + param_deltas[d_i] == new_param:
                 mask_params[p_i, d_i] = False
             else:
                 param_range[p_i, d_i] = new_param
@@ -197,16 +197,18 @@ def _pi_text(args, inv_pred, mask_params):
     return text, trivial_pred
 
 
-def save_pred(frame_i, inv_pred, action, inv_pred_file):
+def save_pred(frame_i, inv_pred, action, inv_pred_file, mask):
     data = torch.load(inv_pred_file)
     data["inv_pred"].append(inv_pred.tolist())
     data["inv_pred_frame_i"].append(frame_i)
     data["action"].append(action.tolist())
+    data["mask"].append(mask.tolist())
     torch.save(data, inv_pred_file)
 
 
 def create_inv_file(file_name):
-    data = {"inv_pred": [], "inv_pred_frame_i": [], "action": []}
+    data = {"inv_pred": [], "inv_pred_frame_i": [], "action": [], "mask": []}
+
     torch.save(data, file_name)
 
 
@@ -284,7 +286,7 @@ def main():
                     args.log_file)
                 inv_preds.append(inv_pred)
                 # inv_pred_scores.append(score)
-                save_pred(frame_i, inv_pred, actions[frame_i], file_name)
+                save_pred(frame_i, inv_pred, actions[frame_i], file_name, mask_params)
 
 
 def init_env(args):
