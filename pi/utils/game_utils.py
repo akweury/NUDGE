@@ -345,11 +345,9 @@ def create_agent(args, agent_type):
     elif agent_type == "ppo":
         agent = PpoPlayer(args)
     elif agent_type == "oca_ppo":
-
         agent = OCA_PPOAgent(args.num_actions).to(args.device)
         ckpt = torch.load(args.model_path, map_location=torch.device(args.device))["model_weights"]
         agent.load_state_dict(ckpt)
-
     elif agent_type in ['pretrained', 'DQN-A', 'DQN-T', 'DQN-R']:
         # game/seed/model
         game_name = args.m.lower()
@@ -363,7 +361,6 @@ def create_agent(args, agent_type):
             clip_rewards_val=False,
             record_dir=None,
         )
-
         # init model
         model = AtariNet(env.action_space.n, distributional="C51_" in str(args.model_path))
         model.load_state_dict(ckpt["estimator_state"])

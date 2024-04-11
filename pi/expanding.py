@@ -16,7 +16,7 @@ from pi.utils import game_utils, reason_utils, math_utils
 from pi.utils.EnvArgs import EnvArgs
 from pi.utils.oc_utils import extract_logic_state_atari
 from pi.utils.atari import game_patches
-from pi.utils import game_utils, draw_utils
+from pi.utils import game_utils, draw_utils, file_utils
 
 
 def collect_data(args, agent):
@@ -43,6 +43,15 @@ def in_range(kinematic_data, new_param_range):
     data_range = torch.repeat_interleave(new_param_range.unsqueeze(0), kinematic_data.shape[0], dim=0)
     min_range_satisfaction = torch.sum((kinematic_data - data_range[:, :, 0]) >= 0, dim=1) == param_num
     max_range_satisfaction = torch.sum((data_range[:, :, 1] - kinematic_data) >= 0, dim=1) == param_num
+    mask_in_range = max_range_satisfaction & min_range_satisfaction
+    return mask_in_range
+
+
+def check_range(parameter_state, pred_ranges):
+    param_num = parameter_state.shape[1]
+    data_state = torch.repeat_interleave(parameter_state, pred_ranges.shape[0], dim=0)
+    min_range_satisfaction = torch.sum((data_state - pred_ranges[:, :, 0]) >= 0, dim=1) == param_num
+    max_range_satisfaction = torch.sum((pred_ranges[:, :, 1] - data_state) >= 0, dim=1) == param_num
     mask_in_range = max_range_satisfaction & min_range_satisfaction
     return mask_in_range
 
@@ -151,15 +160,16 @@ def _pi_text(args, inv_pred):
     return text, trivial_pred
 
 
-def save_pred(frame_i, inv_pred, inv_pred_file):
+def save_pred(frame_i, inv_pred, action, inv_pred_file):
     data = torch.load(inv_pred_file)
     data["inv_pred"].append(inv_pred)
     data["inv_pred_frame_i"].append(frame_i)
+    data["action"].append(action)
     torch.save(data, inv_pred_file)
 
 
 def create_inv_file(file_name):
-    data = {"inv_pred": [], "inv_pred_frame_i": []}
+    data = {"inv_pred": [], "inv_pred_frame_i": [], "action": []}
     torch.save(data, file_name)
 
 
@@ -181,37 +191,153 @@ def main():
     # Start the RTPT tracking
     rtpt.start()
 
+    if args.mode == "test":
+        test()
+    else:
+        # Initialize environment
+        env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
+        obs, info = env.reset()
+        args.num_actions = env.action_space.n
+        dqn_a_input_shape = env.observation_space.shape
+        from pi.utils import file_utils
+        args.log_file = file_utils.create_log_file(args.trained_model_folder, "pi")
+        # learn behaviors from data
+        teacher_agent = create_agent(args, agent_type=args.teacher_agent)
+        # collect game buffer from neural agent
+        game_buffer = collect_data(args, teacher_agent)
+        kinematic_data, actions = _get_kinematic_states(args, game_buffer)
+        kinematic_data = kinematic_data.to(args.device)
+        actions = actions.to(args.device)
+        parameter_states = _get_parameter_states(kinematic_data)
+        # train the model
+        file_name = args.trained_model_folder / f"inv_pred_{args.start_frame}_{args.end_frame}.pth"
+        start_frame_i = init_pred_file(file_name, args.start_frame)
+        inv_preds = []
+        inv_pred_scores = []
+        end_frame = min(args.end_frame, len(parameter_states))
+        for frame_i in tqdm(range(start_frame_i, end_frame), desc=f"Frame"):
+            inv_pred, score, num_cover_frames = _pi_expanding(frame_i, parameter_states, actions)
+            # mask_param, score, num_cover_frames = _pi_elimination(frame_i, parameter_states, actions, inv_pred, score)
+            text, trivial_pred = _pi_text(args, inv_pred)
+            file_utils.add_lines(f"(inv {frame_i}) {num_cover_frames} {args.action_names[actions[frame_i]]}:-{text}",
+                                 args.log_file)
+            if not trivial_pred:
+                inv_preds.append(inv_pred)
+                inv_pred_scores.append(score)
+                save_pred(frame_i, inv_pred, actions[frame_i], file_name)
+
+
+def init_env(args):
     # Initialize environment
     env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
     obs, info = env.reset()
     args.num_actions = env.action_space.n
-    dqn_a_input_shape = env.observation_space.shape
-    from pi.utils import file_utils
     args.log_file = file_utils.create_log_file(args.trained_model_folder, "pi")
-    # learn behaviors from data
-    student_agent = create_agent(args, agent_type=args.teacher_agent)
-    # collect game buffer from neural agent
-    game_buffer = collect_data(args, student_agent)
-    kinematic_data, actions = _get_kinematic_states(args, game_buffer)
-    kinematic_data = kinematic_data.to(args.device)
-    actions = actions.to(args.device)
+    return env, obs, info
+
+
+def _reason_action(args, env_args, inv_preds):
+    state = torch.tensor(env_args.logic_state).unsqueeze(0).to(args.device)
+    kinematic_data = reason_utils.extract_freeway_kinematics(args, state).to(args.device)
     parameter_states = _get_parameter_states(kinematic_data)
-    # train the model
-    file_name = args.trained_model_folder / f"inv_pred_{args.start_frame}_{args.end_frame}.pth"
-    start_frame_i = init_pred_file(file_name, args.start_frame)
+    mask_in_range = check_range(parameter_states, inv_preds)
+
+    action = 0
+    return action
+
+
+def play_with_pi(args, inv_preds):
+    env, obs, info = init_env(args)
+    agent = create_agent(args, agent_type="smp")
+    env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
+    if args.with_explain:
+        video_out = game_utils.get_game_viewer(env_args)
+    for game_i in tqdm(range(args.teacher_game_nums), desc=f"Collecting GameBuffer by {agent.agent_type}"):
+        env_args.obs, info = env.reset()
+        env_args.reset_args(game_i)
+        env_args.reset_buffer_game()
+        while not env_args.game_over:
+            if args.with_explain:
+                current_frame_time = time.time()
+                if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
+                    sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
+                    time.sleep(sl)
+                    continue
+                env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
+
+            env_args.logic_state, _ = extract_logic_state_atari(args, env.objects, args.game_info, obs.shape[0])
+            env_args.past_states.append(env_args.logic_state)
+
+            if env_args.frame_i <= args.jump_frames:
+                action = torch.tensor([[0]]).to(args.device)
+            else:
+                action = _reason_action(args, env_args, inv_preds)
+                raise NotImplementedError
+            state = env.dqn_obs.to(args.device)
+            env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
+            game_patches.atari_frame_patches(args, env_args, info)
+            if info["lives"] < env_args.current_lives or env_args.truncated or env_args.terminated:
+                game_patches.atari_patches(args, agent, env_args, info)
+                env_args.frame_i = len(env_args.logic_states) - 1
+                env_args.update_lost_live(args.m, info["lives"])
+            else:
+                # record game states
+                env_args.next_state, env_args.state_score = extract_logic_state_atari(args, env.objects, args.game_info,
+                                                                                      obs.shape[0])
+
+            env_args.frame_i += 1
+            if args.with_explain:
+                screen_text = (
+                    f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
+                    f"act: {args.action_names[action]} re: {env_args.reward}")
+                # Red
+                env_args.obs[:10, :10] = 0
+                env_args.obs[:10, :10, 0] = 255
+                # Blue
+                env_args.obs[:10, 10:20] = 0
+                env_args.obs[:10, 10:20, 2] = 255
+                draw_utils.addCustomText(env_args.obs, f"dqn_obj",
+                                         color=(255, 255, 255), thickness=1, font_size=0.3, pos=[1, 5])
+                game_plot = draw_utils.rgb_to_bgr(env_args.obs)
+                screen_plot = draw_utils.image_resize(game_plot,
+                                                      int(game_plot.shape[0] * env_args.zoom_in),
+                                                      int(game_plot.shape[1] * env_args.zoom_in))
+                draw_utils.addText(screen_plot, screen_text,
+                                   color=(255, 228, 181), thickness=2, font_size=0.6, pos="upper_right")
+                video_out = draw_utils.write_video_frame(video_out, screen_plot)
+
+            env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
+
+        game_utils.game_over_log(args, agent, env_args)
+
+        env_args.reset_buffer_game()
+
+    env.close()
+    game_utils.finish_one_run(env_args, args, agent)
+    if args.with_explain:
+        draw_utils.release_video(video_out)
+
+
+def collect_pi(args):
+    files = file_utils.all_file_in_folder(args.trained_model_folder)
+    files = [file for file in files if "inv_pred_" in file]
     inv_preds = []
-    inv_pred_scores = []
-    end_frame = min(args.end_frame, len(parameter_states))
-    for frame_i in tqdm(range(start_frame_i, end_frame), desc=f"Frame"):
-        inv_pred, score, num_cover_frames = _pi_expanding(frame_i, parameter_states, actions)
-        # mask_param, score, num_cover_frames = _pi_elimination(frame_i, parameter_states, actions, inv_pred, score)
-        text, trivial_pred = _pi_text(args, inv_pred)
-        file_utils.add_lines(f"(inv {frame_i}) {num_cover_frames} {args.action_names[actions[frame_i]]}:-{text}",
-                             args.log_file)
-        if not trivial_pred:
-            inv_preds.append(inv_pred)
-            inv_pred_scores.append(score)
-            save_pred(frame_i, inv_pred, file_name)
+    for file in files:
+        inv_pred = torch.load(file, map_location=torch.device(args.device))["inv_pred"]
+        inv_pred = [pred.unsqueeze(0) for pred in inv_pred]
+        inv_pred = torch.cat(inv_pred, dim=0)
+        inv_preds.append(inv_pred)
+    inv_preds = torch.cat(inv_preds, dim=0)
+    inv_preds = inv_preds.unique(dim=0)
+    return inv_preds
+
+
+def test():
+    args = args_utils.load_args(config.path_exps, None)
+    # collect game buffer from neural agent
+    inv_preds = collect_pi(args)
+    # play the game
+    play_with_pi(args, inv_preds)
 
 
 if __name__ == "__main__":
