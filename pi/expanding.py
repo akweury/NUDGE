@@ -74,7 +74,7 @@ def _pi_expanding(frame_i, parameter_states, actions):
     scores = []
     num_cover_frames_best = 0
     for param_delta in param_deltas:
-        for p_i in range(2, len(frame_data)):
+        for p_i in range(len(frame_data)):
             # update param range
             score_p_i_best = 0
             param_step = torch.zeros_like(param_range).to(parameter_states.device)
@@ -191,7 +191,12 @@ def remove_redundancy(parameter_states, actions):
     unique_states = parameter_states.unique(dim=0)
     unique_states_actions = []
     for s_i in tqdm(range(len(unique_states)), desc="Removing redundancies"):
-        mask_same_states = (parameter_states - unique_states[s_i]).sum(dim=1) == 0
+        if unique_states.dim() == 3:
+            mask_same_states = (parameter_states - unique_states[s_i]).sum(dim=1).sum(dim=1) == 0
+        elif unique_states.dim() == 2:
+            mask_same_states = (parameter_states - unique_states[s_i]).sum(dim=1) == 0
+        else:
+            raise ValueError
         actions_state = actions[mask_same_states]
         # select one action
         unique_values, counts = actions_state.unique(return_counts=True)
@@ -357,8 +362,9 @@ def collect_pi(args):
         inv_preds.append(inv_pred)
     inv_preds = torch.cat(inv_preds, dim=0)
     actions = torch.cat(actions, dim=0)
+    inv_preds_unique, actions_unique = remove_redundancy(inv_preds, actions)
 
-    return inv_preds, actions
+    return inv_preds_unique, actions_unique
 
 
 def test():
