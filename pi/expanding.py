@@ -97,6 +97,7 @@ def _pi_expanding(frame_i, parameter_states, actions):
                     if num_cover_frames > num_cover_frames_best:
                         num_cover_frames_best = num_cover_frames
                 else:
+                    print("")
                     break
             scores.append(score_p_i_best)
     inv_score = torch.tensor(scores).max()
