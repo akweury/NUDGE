@@ -1,8 +1,9 @@
 {
+  "teacher_agent": "pretrained",
   "dqn_a_episode_num": 300,
   "dqn_c_episode_num": 502,
   "dqn_t_episode_num": 2000,
-  "teacher_game_nums": 300,
+  "teacher_game_nums": 100,
   "jump_frames": 20,
   "stack_num": 20,
   "print_freq": 100

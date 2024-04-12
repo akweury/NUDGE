@@ -1294,7 +1294,7 @@ def extract_pong_kinematics(args, logic_state):
     velo = get_state_velo(logic_state).to(args.device)
     obj_datas = []
     for o_i in range(logic_state.shape[1]):
-        obj_datas.append(get_symbolic_state(logic_state, velo, [o_i]).unsqueeze(1))
+        obj_datas.append(get_symbolic_state_new(logic_state, velo, [o_i]).unsqueeze(1))
     obj_datas = torch.cat(obj_datas, dim=1)
     return obj_datas
 

@@ -352,13 +352,15 @@ def get_obj_data(obj_info):
     data_touchable = []
     data_movable = []
     data_scorable = []
-    for obj_name, obj_num in obj_info:
+    row_ids = []
+    for o_id, (obj_name, obj_num) in enumerate(obj_info):
         row_names += [obj_name] * obj_num
+        row_ids += [o_id] * obj_num
 
     data = torch.cat((torch.tensor(data_touchable).unsqueeze(1),
                       torch.tensor(data_movable).unsqueeze(1),
                       torch.tensor(data_scorable).unsqueeze(1)), dim=1)
-    return row_names, data
+    return row_ids, row_names, data
 
 
 def get_same_others(row_names):

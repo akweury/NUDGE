@@ -1,8 +1,9 @@
 {
+  "teacher_agent": "oca_ppo",
   "jump_frames": 25,
   "dqn_a_episode_num": 5000,
   "dqn_c_episode_num": 902,
-  "teacher_game_nums": 5000,
+  "teacher_game_nums": 100,
   "print_freq": 100,
   "stack_num": 20
 }

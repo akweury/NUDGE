@@ -523,6 +523,8 @@ def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
             else:
                 if agent.agent_type == "oca_ppo":
                     env_args.action = agent.draw_action(env.dqn_obs.to(env_args.device)).item()
+                elif agent.agent_type == "pretrained":
+                    env_args.action,_ = agent(env.dqn_obs.to(env_args.device))
                 else:
                     raise ValueError
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(env_args.action)
@@ -562,8 +564,7 @@ def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
             env_args.update_args()
 
         if args.m == "Pong":
-            if sum(env_args.rewards) > 0:
-                env_args.buffer_game(args.zero_reward, args.save_frame)
+            env_args.buffer_game(args.zero_reward, args.save_frame)
         elif args.m == "Asterix":
             env_args.buffer_game(args.zero_reward, args.save_frame)
         elif args.m == "Kangaroo":

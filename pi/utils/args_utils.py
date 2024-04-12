@@ -167,7 +167,7 @@ def load_args(exp_args_path, m):
         args.step_dist = [0.01, -0.03]
         args.mile_stone_scores = [5, 10, 20, 40]
     elif args.m == "Pong" or args.m == "pong":
-        args.model_path = config.path_model / args.m / 'model_50000000.gz'
+        args.model_path = config.path_model / args.m / 'Pong_ppo.cleanrl'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
         args.o2o_data_file = args.check_point_path / "o2o" / f"pf_stats.json"
@@ -188,7 +188,7 @@ def load_args(exp_args_path, m):
         args.reward_score_one_enemy = 10
         args.game_info = config.game_info_pong
         args.obj_info = args.game_info["obj_info"]
-        args.row_names, args.obj_data = config.get_obj_data(args.obj_info)
+        args.row_ids, args.row_names, args.obj_data = config.get_obj_data(args.obj_info)
         args.var_th = 0.4
         args.reasoning_gap = 1
         args.step_dist = [0.01, -0.01]
@@ -264,7 +264,7 @@ def load_args(exp_args_path, m):
         args.reward_score_one_enemy = 10
         args.game_info = config.game_info_asterix
         args.obj_info = args.game_info["obj_info"]
-        args.row_names, args.obj_data = config.get_obj_data(args.obj_info)
+        args.row_ids, args.row_names, args.obj_data = config.get_obj_data(args.obj_info)
 
         args.var_th = 0.4
         args.reasoning_gap = 1

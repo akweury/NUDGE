@@ -33,6 +33,10 @@ def _get_kinematic_states(args, game_buffer):
         actions = torch.cat(game_buffer["actions"], dim=0)
         states = torch.cat(game_buffer["states"], dim=0)
         kinematic_data = reason_utils.extract_freeway_kinematics(args, states)
+    elif args.m == "Pong":
+        actions = torch.cat(game_buffer["actions"], dim=0)
+        states = torch.cat(game_buffer["states"], dim=0)
+        kinematic_data = reason_utils.extract_pong_kinematics(args, states)
     else:
         raise ValueError
     return kinematic_data, actions
@@ -241,25 +245,7 @@ def remove_redundancy(parameter_states, actions):
 
 
 def _raw_pi_collection(kinematic_state):
-    # above one dx dy
-    player_x, player_y = kinematic_state[0, [0, 1]]
-
-    mask_above = kinematic_state[:, 3] < 0
-    _, above_indices = kinematic_state[mask_above, 3].sort(descending=True)
-
-    mask_below = kinematic_state[:, 3] > 0
-    _, below_indices = kinematic_state[mask_below, 1].sort(descending=True)
-
-    above_3 = kinematic_state[mask_above][above_indices[:3]][:, [2, 3]]
-    below_1 = kinematic_state[mask_below][below_indices[:1]][:, [2, 3]]
-
-    if len(above_3) < 3:
-        append_tensor = torch.zeros(3 - len(above_3), 2)
-        above_3 = torch.cat((above_3, append_tensor), dim=0)
-    if len(below_1) < 1:
-        below_1 = torch.zeros(1, 2)
-    inv_pred = torch.cat((above_3, below_1), dim=0)
-    assert inv_pred.shape[0] == 4
+    inv_pred = kinematic_state[1:].reshape(-1)
     return inv_pred
 
 
@@ -295,7 +281,7 @@ def main():
         start_frame_i = init_pred_file(file_name, args.start_frame)
         inv_preds = []
         end_frame = len(kinematic_data)
-        for frame_i in tqdm(range(start_frame_i, end_frame), desc=f"Frame"):
+        for frame_i in tqdm(range(end_frame), desc=f"Frame"):
             inv_pred = _raw_pi_collection(kinematic_data[frame_i])
             # inv_pred, num_cover_frames, mask_params = _pi_expanding(frame_i, parameter_states, actions)
             # mask_param, score, num_cover_frames = _pi_elimination(frame_i, parameter_states, actions, inv_pred, score)
@@ -328,30 +314,15 @@ def init_env(args):
 
 
 def _reason_action(args, env_args, inv_preds, inv_pred_actions):
-    state = torch.tensor(env_args.logic_state).unsqueeze(0).to(args.device)
+    state = torch.tensor(env_args.past_states)[-1].to(args.device).unsqueeze(0)
     kinematic_state = reason_utils.extract_freeway_kinematics(args, state).to(args.device).squeeze()
-
-    mask_above = kinematic_state[:, 3] < 0
-    _, above_indices = kinematic_state[mask_above, 3].sort(descending=True)
-
-    mask_below = kinematic_state[:, 3] > 0
-    _, below_indices = kinematic_state[mask_below, 1].sort(descending=True)
-
-    above_3 = kinematic_state[mask_above][above_indices[:3]][:, [2, 3]]
-    below_1 = kinematic_state[mask_below][below_indices[:1]][:, [2, 3]]
-
-    if len(above_3) < 3:
-        append_tensor = torch.zeros(3 - len(above_3), 2)
-        above_3 = torch.cat((above_3, append_tensor), dim=0)
-    if len(below_1) < 1:
-        below_1 = torch.zeros(1, 2)
-    state_data = torch.cat((above_3, below_1), dim=0)
+    state_data = kinematic_state[1:].reshape(-1)
     state_data = math_utils.closest_one_percent(state_data, 0.01)
-    mask_pred = (inv_preds - state_data.unsqueeze(0)).sum(-1).sum(-1) == 0
+    mask_pred = (inv_preds - state_data.unsqueeze(0)).sum(-1) == 0
     min_th = 0
     while mask_pred.sum() == 0:
         min_th += 1e-5
-        mask_pred = (inv_preds - state_data.unsqueeze(0)).sum(-1).sum(-1).abs() < min_th
+        mask_pred = (inv_preds - state_data.unsqueeze(0)).sum(-1).abs() < min_th
 
     action_preds, counts = inv_pred_actions[mask_pred].unique(return_counts=True)
     action = action_preds[counts.argmax()]
