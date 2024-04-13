@@ -6,7 +6,7 @@ semantic implementation
 from nesy_pi.aitk.utils import logic_utils
 from nesy_pi.aitk.utils.fol.language import Language
 
-import ilp
+from nesy_pi import ilp
 
 import nesy_pi.aitk.utils.lang_utils as lang_utils
 
