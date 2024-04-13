@@ -2,13 +2,11 @@
 import os
 import time
 import datetime
-from pathlib import Path
+
 import torch
 from rtpt import RTPT
 
-from aitk import percept
-from aitk.percept_group import detect_obj_groups
-from aitk.utils import log_utils, args_utils, file_utils
+from nesy_pi.aitk.utils import log_utils, args_utils
 import semantic as se
 import config
 
