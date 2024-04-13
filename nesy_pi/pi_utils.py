@@ -2,10 +2,10 @@
 # Create Date: 31.01.2023
 from lark import Lark
 
-from aitk.utils.fol.exp_parser import ExpTree
-from aitk.utils.fol.language import DataType
+from nesy_pi.aitk.utils.fol.exp_parser import ExpTree
+from nesy_pi.aitk.utils.fol.language import DataType
 
-import logic_utils
+from nesy_pi import logic_utils
 
 
 def generate_new_predicate(args, lang, clause_clusters, pi_type=None):
