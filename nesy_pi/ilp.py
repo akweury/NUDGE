@@ -5,17 +5,16 @@ from sklearn.metrics import roc_curve, accuracy_score, recall_score
 from tqdm import tqdm
 import torch
 
-import config
-import eval_clause_infer
-import semantic as se
+from src import config
+from nesy_pi import eval_clause_infer
+from nesy_pi import semantic as se
 from nesy_pi.aitk import ai_interface
 from nesy_pi.aitk.utils.fol import bk, logic
 from nesy_pi.aitk.utils import nsfr_utils, visual_utils, lang_utils, logic_utils, log_utils
 from nesy_pi.aitk.utils.fol.refinement import RefinementGenerator
 
-from ilp_utils import remove_duplicate_clauses, remove_conflict_clauses, update_refs
-from pi import generate_explain_pred
-from pi_utils import gen_clu_pi_clauses, gen_exp_pi_clauses, generate_new_predicate
+from nesy_pi.ilp_utils import remove_duplicate_clauses, remove_conflict_clauses, update_refs
+from nesy_pi.pi_utils import gen_clu_pi_clauses, gen_exp_pi_clauses, generate_new_predicate
 
 
 def clause_eval(args, lang, FC, clauses, step, eval_data=None):
