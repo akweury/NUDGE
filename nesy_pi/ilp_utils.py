@@ -6,6 +6,7 @@ from nesy_pi.aitk.utils import log_utils
 from nesy_pi.aitk.utils import data_utils
 
 from src import config
+from nesy_pi.aitk.utils import logic_utils as util_logic
 from nesy_pi import logic_utils
 from nesy_pi.aitk.utils.eval_utils import eval_data
 
@@ -158,7 +159,7 @@ def extract_pi(lang, all_pi_clauses, args):
 
 def update_refs(clause_with_scores, args):
     refs = []
-    nc_clauses = aitk.utils.logic_utils.extract_clauses_from_bs_clauses(clause_with_scores, "clause", args)
+    nc_clauses = util_logic.extract_clauses_from_bs_clauses(clause_with_scores, "clause", args)
     refs += nc_clauses
 
     return refs
