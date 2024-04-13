@@ -372,3 +372,6 @@ def get_same_others(row_names):
 
 score_example_index = {"neg": 0, "pos": 1}
 score_type_index = {"ness": 0, "suff": 1, "sn": 2}
+pi_type = {'bk': 'bk_pred',
+           'clu': 'clu_pred',
+           'exp': 'exp_pred'}
