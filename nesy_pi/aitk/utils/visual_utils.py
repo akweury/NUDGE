@@ -6,9 +6,9 @@ import numpy as np
 import torch
 import copy
 
-import config
-from aitk import ai_interface
-from aitk.utils import eval_utils
+from nesy_pi import config
+from nesy_pi.aitk import ai_interface
+from nesy_pi.aitk.utils import eval_utils
 
 
 # --------------------------- evaluate operations ----------------------------------------------------------------------
