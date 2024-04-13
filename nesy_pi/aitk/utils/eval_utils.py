@@ -6,9 +6,9 @@ import math
 from sklearn.linear_model import LinearRegression
 from scipy.integrate import quad
 
-import config
+from src import config
 
-from aitk.utils import data_utils
+from nesy_pi.aitk.utils import data_utils
 
 ness_index = config.score_type_index["ness"]
 suff_index = config.score_type_index["suff"]
