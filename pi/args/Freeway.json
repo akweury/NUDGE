@@ -1,5 +1,7 @@
 {
   "teacher_agent": "oca_ppo",
+  "bk_pred_names": "phi,rho",
+  "batch_size": 4096,
   "dqn_a_episode_num": 10,
   "dqn_c_episode_num": 10000,
   "dqn_t_episode_num": 10000,

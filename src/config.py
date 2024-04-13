@@ -34,7 +34,7 @@ path_image = root / "image"
 path_runs = root / "runs"
 path_model = root / 'models'
 path_saved_bs_data = root / "bs_data"
-
+path_nesy = root / ".." / "nesy_pi"
 path_output = root / ".." / ".." / "storage"
 if not os.path.exists(path_output):
     os.mkdir(path_output)
@@ -368,3 +368,7 @@ def get_same_others(row_names):
     for i in range(len(row_names)):
         same_others.append([j for j in range(len(row_names)) if row_names[i] == row_names[j]])
     return same_others
+
+
+score_example_index = {"neg": 0, "pos": 1}
+score_type_index = {"ness": 0, "suff": 1, "sn": 2}
