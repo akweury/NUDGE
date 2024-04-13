@@ -1,13 +1,13 @@
 # Created by shaji on 21-Apr-23
 import torch
 
-import aitk.utils.logic_utils
-from aitk.utils import log_utils
-from aitk.utils import data_utils
+import nesy_pi.aitk.utils.logic_utils
+from nesy_pi.aitk.utils import log_utils
+from nesy_pi.aitk.utils import data_utils
 
-import config
-import logic_utils
-from aitk.utils.eval_utils import eval_data
+from src import config
+from nesy_pi import logic_utils
+from nesy_pi.aitk.utils.eval_utils import eval_data
 
 
 def remove_duplicate_clauses(refs_i, unused_args, used_args, args):
