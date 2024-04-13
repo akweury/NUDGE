@@ -4,7 +4,7 @@ import math
 import torch
 from sklearn.linear_model import LinearRegression
 
-import config
+from src import config
 
 
 def prop2index(props, g_type="group"):
