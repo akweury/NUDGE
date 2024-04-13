@@ -3,8 +3,8 @@ import torch
 import itertools
 
 
-import config
-import ilp
+from src import config
+from nesy_pi import ilp
 
 import nesy_pi.aitk.utils.fol.language
 from nesy_pi.aitk.utils import log_utils
