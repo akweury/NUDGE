@@ -32,7 +32,7 @@ def collect_data_getout(agent, args):
     game_num = 300
     # play games using the random agent
     seed = random.seed() if args.seed is None else int(args.seed)
-    args.filename = args.m + '_' + args.teacher_agent + '_episode_' + str(game_num) + '.json'
+    args.filename = args.m + '_' + args.agent + '_episode_' + str(game_num) + '.json'
 
     buffer = RolloutBuffer(args.filename)
 
@@ -99,7 +99,7 @@ def collect_data_getout(agent, args):
 
 def collect_data_assault(agent, args):
     sample_num = 500
-    args.filename = args.m + '_' + args.teacher_agent + '_sample_num_' + str(sample_num) + '.json'
+    args.filename = args.m + '_' + args.agent + '_sample_num_' + str(sample_num) + '.json'
     buffer = RolloutBuffer(args.filename)
     if os.path.exists(buffer.filename):
         return

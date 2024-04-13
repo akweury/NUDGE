@@ -202,7 +202,7 @@ args = args_utils.load_args(config.path_exps, None)
 student_agent = create_agent(args, agent_type='smp')
 # collect game buffer from neural agent
 if not os.path.exists(args.buffer_filename):
-    teacher_agent = create_agent(args, agent_type=args.teacher_agent)
+    teacher_agent = create_agent(args, agent_type=args.agent)
     collect_data_dqn_a(teacher_agent, args, save_buffer=True)
 student_agent.load_atari_buffer(args)
 

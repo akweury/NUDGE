@@ -250,14 +250,14 @@ def _raw_pi_collection(kinematic_state):
     mask_below = kinematic_state[:, 3] > 0
     _, below_indices = kinematic_state[mask_below, 1].sort(descending=True)
 
-    above_3 = kinematic_state[mask_above][above_indices[:3]][:, [2, 3]]
-    below_1 = kinematic_state[mask_below][below_indices[:1]][:, [2, 3]]
+    above_3 = kinematic_state[mask_above][above_indices[:3]][:, [2, 3, 4, 5]]
+    below_1 = kinematic_state[mask_below][below_indices[:1]][:, [2, 3, 4, 5]]
 
     if len(above_3) < 3:
-        append_tensor = torch.zeros(3 - len(above_3), 2)
+        append_tensor = torch.zeros(3 - len(above_3), 4).to(above_3.device)
         above_3 = torch.cat((above_3, append_tensor), dim=0)
     if len(below_1) < 1:
-        below_1 = torch.zeros(1, 2)
+        below_1 = torch.zeros(1, 4).to(above_3.device)
     inv_pred = torch.cat((above_3, below_1), dim=0)
     assert inv_pred.shape[0] == 4
     return inv_pred
@@ -271,18 +271,18 @@ def main():
     # Start the RTPT tracking
     rtpt.start()
 
+    # Initialize environment
+    env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
+    obs, info = env.reset()
+    dqn_a_input_shape = env.observation_space.shape
+    args.num_actions = env.action_space.n
+    teacher_agent = create_agent(args, agent_type=args.agent)
     if args.test:
-        test()
+        test(teacher_agent)
     else:
-        # Initialize environment
-        env = OCAtari(args.m, mode="revised", hud=True, render_mode='rgb_array')
-        obs, info = env.reset()
-        args.num_actions = env.action_space.n
-        dqn_a_input_shape = env.observation_space.shape
         from pi.utils import file_utils
         args.log_file = file_utils.create_log_file(args.trained_model_folder, "pi")
         # learn behaviors from data
-        teacher_agent = create_agent(args, agent_type=args.teacher_agent)
         # collect game buffer from neural agent
         game_buffer = collect_data(args, teacher_agent)
         kinematic_data, actions = _get_kinematic_states(args, game_buffer)
@@ -295,6 +295,7 @@ def main():
         start_frame_i = init_pred_file(file_name, args.start_frame)
         inv_preds = []
         end_frame = len(kinematic_data)
+
         for frame_i in tqdm(range(start_frame_i, end_frame), desc=f"Frame"):
             inv_pred = _raw_pi_collection(kinematic_data[frame_i])
             # inv_pred, num_cover_frames, mask_params = _pi_expanding(frame_i, parameter_states, actions)
@@ -306,10 +307,22 @@ def main():
             #     inv_pred_frame_i.append(frame_i)
             #     inv_pred_masks.append(mask_params.tolist())
             inv_preds.append(inv_pred.unsqueeze(0))
+
         inv_preds = torch.cat(inv_preds, dim=0)
         inv_preds = math_utils.closest_one_percent(inv_preds, 0.01)
         data = {"inv_preds": inv_preds, "actions": actions}
         torch.save(data, file_name)
+        # histogram_data = [[inv_preds[:,0,0].to("cpu"), inv_preds[:,1,0].to("cpu")],
+        #                   [inv_preds[:,2,0].to("cpu"), inv_preds[:,3,0].to("cpu")],
+        #                   [inv_preds[:,0,2].to("cpu"), inv_preds[:,1,2].to("cpu")]]
+
+
+        for plot_action in [0,1,2]:
+            for obj_id in [0,1,2,3]:
+                name = f"{obj_id}-{plot_action}"
+                draw_utils.plot_scatter([inv_preds[actions==plot_action,obj_id,:2].to("cpu")],[plot_action],
+                                        name, args.trained_model_folder, figure_size=[20,5])
+        # draw_utils.plot_histogram(histogram_data, ["x"], "above_1", args.trained_model_folder)
         # if frame_i % args.print_freq == 0:
         #     save_pred(inv_pred_frame_i, inv_preds, inv_pred_actions, file_name, inv_pred_masks)
         #     inv_preds = []
@@ -327,7 +340,7 @@ def init_env(args):
     return env, obs, info
 
 
-def _reason_action(args, env_args, inv_preds, inv_pred_actions):
+def _filter_preds(args, env_args, inv_preds, inv_pred_actions, action_teacher):
     state = torch.tensor(env_args.logic_state).unsqueeze(0).to(args.device)
     kinematic_state = reason_utils.extract_freeway_kinematics(args, state).to(args.device).squeeze()
 
@@ -337,34 +350,63 @@ def _reason_action(args, env_args, inv_preds, inv_pred_actions):
     mask_below = kinematic_state[:, 3] > 0
     _, below_indices = kinematic_state[mask_below, 1].sort(descending=True)
 
-    above_3 = kinematic_state[mask_above][above_indices[:3]][:, [2, 3]]
-    below_1 = kinematic_state[mask_below][below_indices[:1]][:, [2, 3]]
+    above_3 = kinematic_state[mask_above][above_indices[:3]][:, [2, 3, 4, 5]]
+    below_1 = kinematic_state[mask_below][below_indices[:1]][:, [2, 3, 4, 5]]
 
     if len(above_3) < 3:
-        append_tensor = torch.zeros(3 - len(above_3), 2)
+        append_tensor = torch.zeros(3 - len(above_3), 4).to(above_3.device)
         above_3 = torch.cat((above_3, append_tensor), dim=0)
     if len(below_1) < 1:
-        below_1 = torch.zeros(1, 2)
+        below_1 = torch.zeros(1, 4).to(above_3.device)
     state_data = torch.cat((above_3, below_1), dim=0)
     state_data = math_utils.closest_one_percent(state_data, 0.01)
     mask_pred = (inv_preds - state_data.unsqueeze(0)).sum(-1).sum(-1) == 0
-    min_th = 0
-    while mask_pred.sum() == 0:
-        min_th += 1e-5
-        mask_pred = (inv_preds - state_data.unsqueeze(0)).sum(-1).sum(-1).abs() < min_th
+    # min_th = 0
+    # while mask_pred.sum() == 0:
+    #     min_th += 1e-5
+    #     mask_pred = (inv_preds - state_data.unsqueeze(0)).sum(-1).sum(-1).abs() < min_th
 
-    action_preds, counts = inv_pred_actions[mask_pred].unique(return_counts=True)
-    action = action_preds[counts.argmax()]
+    conflit_states = ~(inv_pred_actions == action_teacher) & mask_pred
+
+    inv_preds_updated = inv_preds[~conflit_states]
+    inv_pred_actions_updated = inv_pred_actions[~conflit_states]
     # parameter_states = _get_parameter_states(kinematic_data)
     # mask_in_range = check_range(parameter_states, inv_preds)
     # action_in_range = inv_pred_actions[mask_in_range].unique()
     # if len(action_in_range) != 1:
     #     print("")
     # action = action_in_range[0]
-    return action
+    return inv_preds_updated, inv_pred_actions_updated
 
 
-def play_with_pi(args, inv_preds, inv_pred_actions):
+def _inv_preds(args, env_args, filtered_inv_preds, filtered_inv_pred_actions, action):
+    state = torch.tensor(env_args.logic_state).unsqueeze(0).to(args.device)
+    kinematic_state = reason_utils.extract_freeway_kinematics(args, state).to(args.device).squeeze()
+
+    mask_above = kinematic_state[:, 3] < 0
+    _, above_indices = kinematic_state[mask_above, 3].sort(descending=True)
+
+    mask_below = kinematic_state[:, 3] > 0
+    _, below_indices = kinematic_state[mask_below, 1].sort(descending=True)
+
+    above_3 = kinematic_state[mask_above][above_indices[:3]][:, [2, 3, 4, 5]]
+    below_1 = kinematic_state[mask_below][below_indices[:1]][:, [2, 3, 4, 5]]
+
+    if len(above_3) < 3:
+        append_tensor = torch.zeros(3 - len(above_3), 4).to(above_3.device)
+        above_3 = torch.cat((above_3, append_tensor), dim=0)
+    if len(below_1) < 1:
+        below_1 = torch.zeros(1, 4).to(above_3.device)
+    state_data = torch.cat((above_3, below_1), dim=0)
+    state_data = math_utils.closest_one_percent(state_data, 0.01)
+    mask_pred = (filtered_inv_preds - state_data.unsqueeze(0)).sum(-1).sum(-1) == 0
+    pred_actions = filtered_inv_pred_actions[mask_pred]
+    predicated_actions, counts = pred_actions.unique(return_counts=True)
+    pred_action = predicated_actions[counts.argmax()]
+    return pred_action
+
+
+def play_with_pi(args, inv_preds, inv_pred_actions, filtered_inv_preds, filtered_inv_pred_actions, teacher_agent):
     env, obs, info = init_env(args)
     agent = create_agent(args, agent_type="smp")
     env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
@@ -389,8 +431,11 @@ def play_with_pi(args, inv_preds, inv_pred_actions):
             if env_args.frame_i <= args.jump_frames:
                 action = torch.tensor([[0]]).to(args.device)
             else:
-                action = _reason_action(args, env_args, inv_preds, inv_pred_actions)
-
+                action = teacher_agent.draw_action(env.dqn_obs.to(env_args.device)).item()
+                inv_preds, inv_pred_actions = _filter_preds(args, env_args, inv_preds,
+                                                            inv_pred_actions, action)
+                if not args.learn:
+                    action = _inv_preds(args, env_args, filtered_inv_preds, filtered_inv_pred_actions, action)
             state = env.dqn_obs.to(args.device)
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(action)
             game_patches.atari_frame_patches(args, env_args, info)
@@ -407,16 +452,17 @@ def play_with_pi(args, inv_preds, inv_pred_actions):
             env_args.frame_i += 1
             if args.with_explain:
                 screen_text = (
-                    f"dqn_obj ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
-                    f"act: {args.action_names[action]} re: {env_args.reward}")
+                    f"Epoch: {env_args.game_i}\n"
+                    f"Action: {args.action_names[action]} \n"
+                    f"#InvPreds: {len(inv_preds)}")
                 # Red
-                env_args.obs[:10, :10] = 0
-                env_args.obs[:10, :10, 0] = 255
+                env_args.obs[:15, :15] = 0
+                env_args.obs[:15, :15, 0] = 255
                 # Blue
-                env_args.obs[:10, 10:20] = 0
-                env_args.obs[:10, 10:20, 2] = 255
-                draw_utils.addCustomText(env_args.obs, f"dqn_obj",
-                                         color=(255, 255, 255), thickness=1, font_size=0.3, pos=[1, 5])
+                env_args.obs[:15, 15:30] = 0
+                env_args.obs[:15, 15:30, 2] = 255
+                draw_utils.addCustomText(env_args.obs, f"T-INV",
+                                         color=(255, 255, 255), thickness=1, font_size=0.2, pos=[1, 7])
                 game_plot = draw_utils.rgb_to_bgr(env_args.obs)
                 screen_plot = draw_utils.image_resize(game_plot,
                                                       int(game_plot.shape[0] * env_args.zoom_in),
@@ -428,11 +474,14 @@ def play_with_pi(args, inv_preds, inv_pred_actions):
             env_args.reward = torch.tensor(env_args.reward).reshape(1).to(args.device)
         env_args.game_rewards.append(env_args.rewards)
         game_utils.game_over_log(args, agent, env_args)
-
+        print(f"{len(inv_preds)} predicates left.")
         env_args.reset_buffer_game()
 
     env.close()
     game_utils.finish_one_run(env_args, args, agent)
+
+    torch.save({"inv_preds": inv_preds, "inv_pred_actions": inv_pred_actions},
+               args.trained_model_folder / "filtered_inv_preds.pth")
     if args.with_explain:
         draw_utils.release_video(video_out)
 
@@ -458,12 +507,30 @@ def collect_pi(args):
     return inv_preds, actions
 
 
-def test():
+def collect_filtered_pi(args):
+    inv_preds = []
+    actions = []
+    file = args.trained_model_folder / "filtered_inv_preds.pth"
+    data = torch.load(file, map_location=torch.device(args.device))
+    action = data["inv_pred_actions"].to(args.device)
+    inv_pred = data["inv_preds"].to(args.device)
+    actions.append(action)
+    inv_preds.append(inv_pred)
+    inv_preds = torch.cat(inv_preds, dim=0)
+    actions = torch.cat(actions, dim=0)
+    return inv_preds, actions
+
+
+def test(teacher_agent):
     args = args_utils.load_args(config.path_exps, None)
     # collect game buffer from neural agent
     inv_preds, actions = collect_pi(args)
+    if not args.learn:
+        filtered_preds, filtered_pred_actions = collect_filtered_pi(args)
+    else:
+        filtered_preds, filtered_pred_actions = None, None
     # play the game
-    play_with_pi(args, inv_preds, actions)
+    play_with_pi(args, inv_preds, actions, filtered_preds, filtered_pred_actions, teacher_agent)
 
 
 if __name__ == "__main__":

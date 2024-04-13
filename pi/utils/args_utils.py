@@ -20,6 +20,7 @@ def load_args(exp_args_path, m):
                         required=False, action="store", dest="seed", type=int)
     parser.add_argument("-m", "--mode", help="the game mode you want to play with",
                         required=True, action="store", dest="m")
+    parser.add_argument("--learn", help="learn the invented predicates", action="store_true", default=False)
     parser.add_argument("--test", help="test the invented predicates", action="store_true", default=False)
     parser.add_argument("-r", "--rules", type=str)
     parser.add_argument("-l", "--log", help="record the information of games", action="store_true")
@@ -303,7 +304,7 @@ def load_args(exp_args_path, m):
         args.reward_score_one_enemy = 10
         args.game_info = config.game_info_freeway
         args.obj_info = args.game_info["obj_info"]
-        args.row_names, args.obj_data = config.get_obj_data(args.obj_info)
+        args.row_ids, args.row_names, args.obj_data = config.get_obj_data(args.obj_info)
         args.var_th = 0.4
         args.reasoning_gap = 1
         args.step_dist = [0.01, -0.03]

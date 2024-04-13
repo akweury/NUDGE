@@ -302,7 +302,7 @@ def main():
         from pi.utils import file_utils
         args.log_file = file_utils.create_log_file(args.trained_model_folder, "pi")
         # learn behaviors from data
-        teacher_agent = create_agent(args, agent_type=args.teacher_agent)
+        teacher_agent = create_agent(args, agent_type=args.agent)
         # collect game buffer from neural agent
         game_buffer = collect_data(args, teacher_agent)
         kinematic_data, actions, states = _get_kinematic_states(args, game_buffer)
