@@ -7,8 +7,8 @@ import torch
 from rtpt import RTPT
 
 from nesy_pi.aitk.utils import log_utils, args_utils
-import semantic as se
-import config
+from nesy_pi import semantic as se
+from src import config
 
 date_now = datetime.datetime.today().date()
 time_now = datetime.datetime.now().strftime("%H_%M_%S")
