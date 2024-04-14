@@ -4,6 +4,7 @@
   "top_data": 5000,
   "rho_num": 20,
   "phi_num": 4,
+  "max_rule_obj": 10,
   "game_obj_num": 10,
   "batch_size": 1000,
   "dqn_a_episode_num": 10,
