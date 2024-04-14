@@ -51,7 +51,7 @@ def main():
     for a_i in range(len(args.action_names)):
         args.label = a_i
         args.label_name = args.action_names[a_i]
-        for obj_num in range(2, args.max_rule_obj):
+        for obj_num in range(1, args.max_rule_obj):
             args.rule_obj_num = obj_num
             # set up the environment, load the dataset and results from perception models
             start = time.time()

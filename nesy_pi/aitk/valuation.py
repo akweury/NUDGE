@@ -265,8 +265,8 @@ class FCNNRhoValuationFunction(nn.Module):
         Returns:
             A batch of probabilities.
         """
-        c_1 = self.to_center(z_1)
-        c_2 = self.to_center(z_2)
+        c_1 = z_2[:, -2:].permute(1, 0)
+        c_2 = z_1[:, -2:].permute(1, 0)
 
         dir_vec = c_2 - c_1
         dir_vec[1] = -dir_vec[1]
@@ -318,17 +318,20 @@ class FCNNPhiValuationFunction(nn.Module):
         Returns:
             A batch of probabilities.
         """
-        c_1 = z_1[:, -2:].permute(1, 0)
-        c_2 = z_2[:, -2:].permute(1, 0)
-
+        from nesy_pi.aitk.utils import math_utils
+        # c_1 = z_2[:, -2:].permute(1, 0)
+        # c_2 = z_1[:, -2:].permute(1, 0)
+        #
+        # math_utils.dir_a_and_b_with_alignment_o2o(c_1, c_2)
         round_divide = dir.shape[1]
         area_angle = int(360 / round_divide)
         area_angle_half = area_angle * 0.5
-        # area_angle_half = 0
-        dir_vec = c_2 - c_1
-        dir_vec[1] = -dir_vec[1]
-        rho, phi = self.cart2pol(dir_vec[0], dir_vec[1])
-        phi_clock_shift = (90 - phi.long()) % 360
+        # # area_angle_half = 0
+        # dir_vec = c_2 - c_1
+        # dir_vec[1] = -dir_vec[1]
+        # rho, phi = self.cart2pol(dir_vec[0], dir_vec[1])
+        degrees = math_utils.calculate_direction(z_2[:, -2:].unsqueeze(1), z_1[:, -2:].unsqueeze(1)).to(torch.long)
+        phi_clock_shift = (90 - degrees) % 360
         zone_id = (phi_clock_shift + area_angle_half) // area_angle % round_divide
 
         # This is a threshold, but it can be decided automatically.

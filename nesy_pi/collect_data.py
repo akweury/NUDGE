@@ -37,11 +37,9 @@ if not os.path.exists(data_file):
     actions = torch.cat([action for action in game_buffer["actions"]], dim=0)
     data = {}
     for a_i in range(args.num_actions):
-        action_mask = actions==a_i
-        pos_data = states[action_mask]
-        neg_data = states[~action_mask]
+        action_mask = actions == a_i
+        pos_data = states[action_mask][:,[0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]
+        neg_data = states[~action_mask][:,[0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]
         data[a_i] = {"pos_data": pos_data, "neg_data": neg_data}
     torch.save(data, data_file)
     print(f"Saved data to {data_file}.")
-
-

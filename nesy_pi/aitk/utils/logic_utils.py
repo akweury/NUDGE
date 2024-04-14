@@ -244,6 +244,9 @@ def update_args(args, data):
     args.train_data = []
     args.test_data = []
     for a_i in range(len(data)):
+        data_size = min(args.top_data, len(data[a_i]["pos_data"]), len(data[a_i]["neg_data"]))
+        data[a_i]["pos_data"] = data[a_i]["pos_data"][:data_size]
+        data[a_i]["neg_data"] = data[a_i]["neg_data"][:data_size]
         train_pos, test_pos = train_test_split(data[a_i]["pos_data"])
         train_neg, test_neg = train_test_split(data[a_i]["neg_data"])
         args.train_data.append([train_pos, train_neg])

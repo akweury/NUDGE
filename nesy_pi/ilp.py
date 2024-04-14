@@ -134,13 +134,13 @@ def ilp_pi(args, lang, clauses, e):
             log_utils.add_lines(f"{c}", args.log_file)
 
 
-def ilp_test(args, lang, level):
+def ilp_test(args, lang):
     log_utils.add_lines(f"================== ILP TEST ==================", args.log_file)
     if args.show_process:
         log_utils.print_result(args, lang)
 
     reset_args(args)
-    init_clauses, e = reset_lang(lang, args, level, args.neural_preds, full_bk=True)
+    init_clauses, e = reset_lang(lang, args, args.neural_preds, full_bk=True)
 
     VM = ai_interface.get_vm(args, lang)
     FC = ai_interface.get_fc(args, lang, VM, e)
@@ -148,7 +148,7 @@ def ilp_test(args, lang, level):
     # searching for a proper clause to describe the patterns.
     for i in range(args.max_step):
         args.iteration = i
-        step_clauses, step_data = ilp_search(args, lang, init_clauses, FC, level)
+        ilp_search(args, lang, init_clauses, FC)
 
         if args.is_done:
             break
@@ -225,14 +225,14 @@ def ilp_eval(success, args, lang, clauses, g_data):
     # target_predicate = [clauses[0].head.pred.name]
     # calculate scores
     VM = ai_interface.get_vm(args, lang)
-    FC = ai_interface.get_fc(args, lang, VM, args.group_e)
+    FC = ai_interface.get_fc(args, lang, VM, args.rule_obj_num)
 
     # evaluate all test images at once
     img_scores, clauses_scores = clause_eval(args, lang, FC, clauses, 0, eval_data="test")
     clause_with_scores = sort_clauses_by_score(clauses, img_scores, clauses_scores, args)
     success, clauses = log_utils.print_test_result(args, lang, clause_with_scores)
 
-    for data_type in ["true", "false"]:
+    for d_i, data_type in enumerate(["true", "false"]):
         if data_type == "true":
             img_sign = config.score_example_index["pos"]
         else:
@@ -240,7 +240,7 @@ def ilp_eval(success, args, lang, clauses, g_data):
         scores_dict[data_type] = {}
         scores_dict[data_type]["clause"] = []
         scores_dict[data_type]["score"] = []
-        for img_i in range(len(args.test_group_pos)):
+        for img_i in range(len(args.test_data[args.label][d_i])):
             # scores_sorted, scores_indices = torch.sort(img_scores[:, i, img_sign], descending=True)
 
             score_best = img_scores[0, img_i, img_sign]
@@ -252,7 +252,7 @@ def ilp_eval(success, args, lang, clauses, g_data):
                 print("(FP)")
             elif data_type == "true" and score_best < 0.1:
                 print("(FN)")
-    visual_utils.visualization(args, lang, scores_dict)
+    # visual_utils.visualization(args, lang, scores_dict)
 
     log_utils.add_lines("===================== top clause score ================================", args.log_file)
     positive_res = torch.tensor(scores_dict['true']['score'])
