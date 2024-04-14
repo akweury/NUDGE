@@ -358,7 +358,7 @@ def get_clause_score(NSFR, args, pred_names, eval_data, pos_group_pred=None, neg
 
     if pos_group_pred is None:
         if eval_data == "play":
-            pass
+            pos_group_pred = args.test_data
         elif eval_data == "test":
             pos_group_pred = args.test_data[args.label][0]
         else:
@@ -366,7 +366,7 @@ def get_clause_score(NSFR, args, pred_names, eval_data, pos_group_pred=None, neg
 
     if neg_group_pred is None:
         if eval_data == "play":
-            pass
+            neg_group_pred = args.test_data
         elif eval_data == "test":
             neg_group_pred = args.test_data[args.label][1]
         else:

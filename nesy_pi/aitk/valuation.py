@@ -330,7 +330,8 @@ class FCNNPhiValuationFunction(nn.Module):
         # dir_vec = c_2 - c_1
         # dir_vec[1] = -dir_vec[1]
         # rho, phi = self.cart2pol(dir_vec[0], dir_vec[1])
-        degrees = math_utils.calculate_direction(z_2[:, -2:].unsqueeze(1), z_1[:, -2:].unsqueeze(1)).to(torch.long)
+        degrees = math_utils.calculate_direction(z_2[:, -2:].unsqueeze(1), z_1[:, -2:].unsqueeze(1)).to(
+            torch.long).reshape(-1)
         phi_clock_shift = (90 - degrees) % 360
         zone_id = (phi_clock_shift + area_angle_half) // area_angle % round_divide
 

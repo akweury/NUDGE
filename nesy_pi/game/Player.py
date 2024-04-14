@@ -14,6 +14,7 @@ from nesy_pi.aitk.utils import game_utils, draw_utils
 from nesy_pi.aitk import ai_interface
 from nesy_pi import ilp
 
+
 class ClausePlayer:
     def __init__(self, args):
         self.args = args
@@ -25,14 +26,12 @@ class ClausePlayer:
 
     def draw_action(self, logic_state):
         scores = []
-        self.args.test_data = logic_state
-        for clause in self.clauses:
-            # evaluate new clauses
-            target_preds = [clause.head.pred.name]
-            score = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")
-            scores.append(score)
-
-        action = 0
+        self.args.test_data = torch.tensor(logic_state).unsqueeze(0)
+        target_preds = self.args.action_names
+        score = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")
+        best_idx = score[:,0,0].argmax()
+        action_name = self.lang.all_clauses[best_idx].head.pred.name
+        action = self.args.action_names.index(action_name)
         return action
 
 

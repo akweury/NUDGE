@@ -32,6 +32,7 @@ def load_clauses(args):
     args.index_neg = config.score_example_index["neg"]
     args.lark_path = config.path_nesy / "lark" / "exp.lark"
     args.invented_pred_num = 0
+    args.batch_size = 1
     args.last_refs = []
     args.found_ns = False
     bk_preds = [bk.neural_predicate_2[bk_pred_name] for bk_pred_name in args.bk_pred_names.split(",")]
