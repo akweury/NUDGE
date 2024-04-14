@@ -8,7 +8,7 @@ import cv2 as cv
 import numpy as np
 from torch import nn
 
-from nesy_pi.game.Player import SymbolicMicroProgramPlayer, PpoPlayer, OCA_PPOAgent
+from nesy_pi.game.Player import SymbolicMicroProgramPlayer, PpoPlayer, OCA_PPOAgent, ClausePlayer
 from nesy_pi.aitk.utils.ale_env import ALEModern
 
 from nesy_pi.aitk.utils import draw_utils
@@ -337,6 +337,8 @@ def create_agent(args, agent_type):
     #### create agent
     if agent_type == "smp":
         agent = SymbolicMicroProgramPlayer(args)
+    elif agent_type == "clause":
+        agent =ClausePlayer(args)
     elif agent_type == 'random':
         agent = RandomPlayer(args)
     elif agent_type == 'human':

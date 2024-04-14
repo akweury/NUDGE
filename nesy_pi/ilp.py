@@ -112,7 +112,7 @@ def ilp_pi(args, lang, clauses, e):
     # predicate invention by clustering
     new_clu_pred_with_scores = cluster_invention(args, lang, clauses, e)
     # convert to strings
-    new_clauses_str_list, kp_str_list = generate_new_clauses_str_list(new_clu_pred_with_scores)
+    new_clauses_str_list, kp_str_list = generate_new_clauses_str_list(args, new_clu_pred_with_scores)
     pi_clu_clauses, pi_kp_clauses = gen_clu_pi_clauses(args, lang, new_clu_pred_with_scores, new_clauses_str_list,
                                                        kp_str_list)
     lang.pi_kp_clauses = extract_kp_pi(lang, pi_kp_clauses, args)
@@ -357,13 +357,17 @@ def get_clause_score(NSFR, args, pred_names, eval_data, pos_group_pred=None, neg
     """ input: clause, output: score """
 
     if pos_group_pred is None:
-        if eval_data == "test":
+        if eval_data == "play":
+            pass
+        elif eval_data == "test":
             pos_group_pred = args.test_data[args.label][0]
         else:
             pos_group_pred = args.train_data[args.label][0]
 
     if neg_group_pred is None:
-        if eval_data == "test":
+        if eval_data == "play":
+            pass
+        elif eval_data == "test":
             neg_group_pred = args.test_data[args.label][1]
         else:
             neg_group_pred = args.train_data[args.label][1]
@@ -572,13 +576,13 @@ def cluster_invention(args, lang, clauses, e):
     return new_preds_with_scores
 
 
-def generate_new_clauses_str_list(new_predicates):
+def generate_new_clauses_str_list(args, new_predicates):
     pi_str_lists = []
     kp_str_lists = []
     for [new_predicate, p_score] in new_predicates:
         single_pi_str_list = []
         # head_args = "(O1,O2)" if new_predicate.arity == 2 else "(X)"
-        kp_clause = "kp(X):-"
+        kp_clause = f"{args.label_name}(X):-"
         head_args = "("
 
         for arg in new_predicate.args:

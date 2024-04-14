@@ -2,11 +2,11 @@
 import os
 import time
 import datetime
-
+import dill
 import torch
 from rtpt import RTPT
 
-from nesy_pi.aitk.utils import log_utils, args_utils
+from nesy_pi.aitk.utils import log_utils, args_utils, file_utils
 from nesy_pi import semantic as se
 from src import config
 
@@ -48,10 +48,13 @@ def main():
     log_file = log_utils.create_log_file(args.trained_model_folder, "nesy_train")
     print(f"- log_file_path:{log_file}")
     args.log_file = log_file
+    learned_clauses = []
+    lang = None
     for a_i in range(len(args.action_names)):
         args.label = a_i
         args.label_name = args.action_names[a_i]
-        for obj_num in range(3, args.max_rule_obj):
+        action_clauses = []
+        for obj_num in range(2, args.max_rule_obj):
             args.rule_obj_num = obj_num
             # set up the environment, load the dataset and results from perception models
             start = time.time()
@@ -80,8 +83,18 @@ def main():
             log_utils.add_lines(f"+ Running time: {((eval_end - exp_start) / 60):.2f} minute(s)", args.log_file)
             log_utils.add_lines(f"=============================", args.log_file)
 
+            action_clauses += clauses
             if success:
                 break
+        learned_clauses.append(action_clauses)
+    learned_data = {"clauses": learned_clauses,
+                    "all_invented_preds": lang.all_invented_preds,
+                    "invented_preds":lang.invented_preds,
+                    "p_inv_counter": args.p_inv_counter,
+                    "preds":lang.preds,
+    }
+    file_utils.save_clauses(learned_data, args.trained_model_folder / "learned_clauses.pkl")
+    return learned_clauses
 
 
 if __name__ == "__main__":

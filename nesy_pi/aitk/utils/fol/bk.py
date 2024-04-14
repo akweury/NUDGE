@@ -3,6 +3,7 @@ target_predicate = [
     'in:2:group,image'
 ]
 
+
 neural_predicate = []
 
 neural_predicate_2 = {

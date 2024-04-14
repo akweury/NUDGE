@@ -11,7 +11,29 @@ from src.agents.utils_getout import extract_neural_state_getout
 from nesy_pi.game import Reasoner
 from nesy_pi.aitk.utils import file_utils, oc_utils, reason_utils, math_utils
 from nesy_pi.aitk.utils import game_utils, draw_utils
+from nesy_pi.aitk import ai_interface
+from nesy_pi import ilp
 
+class ClausePlayer:
+    def __init__(self, args):
+        self.args = args
+        self.lang = args.lang
+        self.VM = ai_interface.get_vm(args, self.lang)
+        self.FC = ai_interface.get_fc(args, self.lang, self.VM, args.rule_obj_num)
+        self.NSFR = ai_interface.get_nsfr(args, args.lang, self.FC, self.lang.all_clauses)
+        self.lang = args.lang
+
+    def draw_action(self, logic_state):
+        scores = []
+        self.args.test_data = logic_state
+        for clause in self.clauses:
+            # evaluate new clauses
+            target_preds = [clause.head.pred.name]
+            score = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")
+            scores.append(score)
+
+        action = 0
+        return action
 
 
 class SymbolicMicroProgramModel(nn.Module):
@@ -634,8 +656,6 @@ class SymbolicMicroProgramPlayer:
         prediction = torch.argmax(predictions).cpu().item()
         action = prediction + 1
         return action, explain
-
-
 
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):

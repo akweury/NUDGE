@@ -55,7 +55,7 @@ class EnvArgs():
         self.dead_counter = 0
         self.current_steak = 0
         self.explain_text = ""
-        if agent.agent_type == "smp":
+        if agent.agent_type in ["smp", "clause"]:
             self.game_num = args.student_game_nums
         elif agent.agent_type == "pretrained" or agent.agent_type == "ppo":
             self.game_num = args.teacher_game_nums

@@ -33,10 +33,10 @@ def get_mode_declarations_kandinsky(lang, obj_num):
         modeb_list.append(ModeDeclaration('body', obj_num, lang.get_pred_by_name('shape'), [p_group, s_shape]))
     if "rho" in considered_pred_names:
         modeb_list.append(
-            ModeDeclaration('body', obj_num, lang.get_pred_by_name('rho'), [p_group, s_player, s_rho], ordered=False))
+            ModeDeclaration('body', obj_num, lang.get_pred_by_name('rho'), [p_group, s_player, s_rho], ordered=True))
     if "phi" in considered_pred_names:
         modeb_list.append(
-            ModeDeclaration('body', obj_num, lang.get_pred_by_name('phi'), [p_group, s_player, s_phi], ordered=False))
+            ModeDeclaration('body', obj_num, lang.get_pred_by_name('phi'), [p_group, s_player, s_phi], ordered=True))
     if "slope" in considered_pred_names:
         modeb_list.append(
             ModeDeclaration('body', obj_num, lang.get_pred_by_name('slope'), [p_group, s_slope], ordered=False))

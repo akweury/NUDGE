@@ -18,6 +18,7 @@ class SmpReasoner(nn.Module):
         self.last_state = None
         self.last2nd_state = None
         self.predicate_weights_table = None
+
         # self.action_prob = torch.zeros(len(args.action_names)).to(args.device)
 
     def set_model(self):
@@ -84,6 +85,7 @@ class SmpReasoner(nn.Module):
             self.args = args
 
     def forward(self, x):
+
         # game Getout: tensor with size 1 * 4 * 6
         action_prob = torch.zeros(1, len(self.args.action_names))
         action_mask = torch.zeros(1, len(self.args.action_names), dtype=torch.bool)

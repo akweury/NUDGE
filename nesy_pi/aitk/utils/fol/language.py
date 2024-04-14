@@ -25,7 +25,7 @@ class Language(object):
         consts (List[Const]): A set of constants.
     """
 
-    def __init__(self, args, funcs, pi_type):
+    def __init__(self, args, funcs, pi_type, no_init=False):
         self.vars = [Var(f"O{i + 1}") for i in range(args.rule_obj_num)]
         self.var_num = args.rule_obj_num
         self.atoms = []
@@ -49,9 +49,16 @@ class Language(object):
             self.lp_clause = Lark(grammar.read(), start="clause")
         with open(args.lark_path, encoding="utf-8") as grammar:
             self.lp_atom = Lark(grammar.read(), start="atom")
-
-        self.load_lang(args, pi_type)
-        # self.load_init_clauses(args.e)
+        if not no_init:
+            self.load_lang(args, pi_type)
+        else:
+            self.preds = []
+            for action_name in args.action_names:
+                pred = self.parse_pred(bk.target_predicate[0], pi_type, action_name)
+                self.preds.append(pred)
+            self.preds.append(self.parse_pred(bk.target_predicate[1], pi_type, action_name))
+            self.consts = self.load_consts(args)
+            # self.load_init_clauses(args.e)
 
     def __str__(self):
         s = "===Predicates===\n"

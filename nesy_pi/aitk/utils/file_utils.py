@@ -1,5 +1,6 @@
 import os
 import torch
+import pickle
 
 from src import config
 
@@ -39,3 +40,16 @@ def get_image_names(args):
         # if len(image_name_dict[data_mode]["true"]) == 0 or len(image_name_dict[data_mode]["false"]) == 0:
         #     raise ValueError
     args.image_name_dict = image_name_dict
+
+
+def save_clauses(learned_clauses, file_name):
+    with open(file_name, 'wb') as f:
+        pickle.dump(learned_clauses, f)
+    print(f'Saved clauses to {file_name}.')
+    return None
+
+
+def load_clauses(clause_file):
+    with open(clause_file, 'rb') as f:
+        loaded_obj = pickle.load(f)
+    return loaded_obj
