@@ -24,8 +24,8 @@ python -m pi.expanding -m Freeway --device 9 --start_frame 10000 --end_frame 150
 python -m pi.expanding -m Freeway --device 10 --start_frame 15000 --end_frame 25000
 python -m pi.expanding -m Freeway --device 11 --start_frame 25000 --end_frame 35000
 
-python -m nesy_pi.aaa_main -m Freeway --device 10
-python -m nesy_pi.collect_data -m Freeway --device 0
+python -m nesy_pi.aaa_main -m Freeway --device 10 --with_pi
+python -m nesy_pi.collect_data -m Freeway --device 10
 
 python -m pi.train_dqn_objctive -m Asterix --teacher_game_nums 1000 --device 8
 python -m pi.play -m Asterix --episode_num 1000 --train_epochs 100000 --device 12
