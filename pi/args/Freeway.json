@@ -1,10 +1,10 @@
 {
   "teacher_agent": "oca_ppo",
   "bk_pred_names": "phi,rho",
-  "top_data": 5000,
+  "top_data": 500,
   "rho_num": 20,
   "phi_num": 4,
-  "max_rule_obj": 10,
+  "max_rule_obj": 5,
   "game_obj_num": 10,
   "batch_size": 1000,
   "dqn_a_episode_num": 10,
