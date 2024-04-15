@@ -22,13 +22,14 @@ buffer_filename = args.trained_model_folder / f"nesy_pi_{args.teacher_game_nums}
 game_buffer = game_utils.load_buffer(args, buffer_filename)
 data_file = args.trained_model_folder / f"nesy_data.pth"
 if not os.path.exists(data_file):
-    states = torch.cat([state for state in game_buffer["states"]], dim=0)
-    actions = torch.cat([action for action in game_buffer["actions"]], dim=0)
+    states = torch.cat(game_buffer.logic_states, dim=0)
+    actions = torch.cat(game_buffer.actions, dim=0)
+    args.num_actions = len(actions.unique())
     data = {}
     for a_i in range(args.num_actions):
         action_mask = actions == a_i
-        pos_data = states[action_mask][:,[0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]
-        neg_data = states[~action_mask][:,[0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]
+        pos_data = states[action_mask]
+        neg_data = states[~action_mask]
         data[a_i] = {"pos_data": pos_data, "neg_data": neg_data}
     torch.save(data, data_file)
     print(f"Saved data to {data_file}.")

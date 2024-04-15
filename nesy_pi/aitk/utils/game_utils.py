@@ -63,11 +63,13 @@ class RolloutBuffer:
         self.actions = [torch.tensor(state_info['actions'][i]) for i in range(len(state_info['actions']))]
         self.logic_states = [torch.tensor(state_info['logic_states'][i]) for i in
                              range(len(state_info['logic_states']))]
-        if state_info['next_states'][0][0] is not None:
+        if "next_states" in list(state_info.keys()) and state_info['next_states'][0][0] is not None:
             self.game_next_states = [torch.tensor(state_info['next_states'][i]) for i in
                                      range(len(state_info['next_states']))]
         self.rewards = [torch.tensor(state_info['reward'][i]) for i in range(len(state_info['reward']))]
-        self.row_names = state_info['row_names']
+
+        if "row_names" in list(state_info.keys()):
+            self.row_names = state_info['row_names']
         if 'neural_states' in list(state_info.keys()):
             self.neural_states = torch.tensor(state_info['neural_states']).to(args.device)
         if 'action_probs' in list(state_info.keys()):
@@ -338,7 +340,7 @@ def create_agent(args, agent_type):
     if agent_type == "smp":
         agent = SymbolicMicroProgramPlayer(args)
     elif agent_type == "clause":
-        agent =ClausePlayer(args)
+        agent = ClausePlayer(args)
     elif agent_type == 'random':
         agent = RandomPlayer(args)
     elif agent_type == 'human':
@@ -525,7 +527,7 @@ def collect_data_dqn_a(agent, args, buffer_filename, save_buffer):
                 if agent.agent_type == "oca_ppo":
                     env_args.action = agent.draw_action(env.dqn_obs.to(env_args.device)).item()
                 elif agent.agent_type == "pretrained":
-                    env_args.action,_ = agent(env.dqn_obs.to(env_args.device))
+                    env_args.action, _ = agent(env.dqn_obs.to(env_args.device))
                 else:
                     raise ValueError
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(env_args.action)
