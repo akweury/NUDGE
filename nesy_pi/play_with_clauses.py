@@ -76,7 +76,7 @@ def main():
     env, env_args, agent, obs = init(args)
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
-    for game_i in tqdm(range(args.teacher_game_nums), desc=f"ClausePlayer"):
+    for game_i in tqdm(range(args.student_game_nums), desc=f"ClausePlayer"):
         env_args.obs, info = env.reset()
         env_args.reset_args(game_i)
         env_args.reset_buffer_game()

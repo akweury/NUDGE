@@ -1,5 +1,5 @@
 {
-  "teacher_agent": "oca_ppo",
+  "teacher_agent": "ppo",
   "bk_pred_names": "phi,rho",
   "top_data": 5000,
   "rho_num": 10,
@@ -7,11 +7,7 @@
   "max_rule_obj": 2,
   "game_obj_num": 10,
   "batch_size": 500,
-  "dqn_a_episode_num": 10,
-  "dqn_c_episode_num": 10000,
-  "dqn_t_episode_num": 10000,
-  "teacher_game_nums": 100,
-  "student_game_nums": 10,
+  "teacher_game_nums": 300,
   "print_freq": 100,
   "jump_frames": 0
 }

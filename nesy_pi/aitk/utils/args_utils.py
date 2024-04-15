@@ -178,7 +178,7 @@ def get_args():
     parser.add_argument("--train_state_num", type=int, default=100000, help="Zoom in percentage of the game window.")
     parser.add_argument("--hardness", type=int, default=0, help="Hardness of the game.")
     parser.add_argument("--teacher_game_nums", type=int, default=100, help="Number of the teacher game.")
-    parser.add_argument("--student_game_nums", type=int, default=1000, help="Number of the student game.")
+    parser.add_argument("--student_game_nums", type=int, default=10, help="Number of the student game.")
     parser.add_argument("--train_epochs", type=int, default=50000, help="Epochs for training the predicate weight.")
     parser.add_argument("--fact_conf", type=float, default=0.1,
                         help="Minimum confidence required to save a fact as a behavior.")
@@ -258,8 +258,6 @@ def get_args():
         args.game_info = config.game_info_getout
         args.obj_info = args.game_info["obj_info"]
         args.mile_stone_scores = [5, 10, 20, 40]
-
-        args.obj_info = pi.game_settings.atari_obj_info(args.obj_info)
     elif args.m == "Assault" or args.m == "assault":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"

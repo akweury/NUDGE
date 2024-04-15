@@ -379,7 +379,7 @@ def get_clause_score(NSFR, args, pred_names, eval_data, pos_group_pred=None, neg
     V_T_pos = torch.zeros(len(NSFR.clauses), train_size, len(NSFR.atoms)).to(args.device)
     V_T_neg = torch.zeros(len(NSFR.clauses), train_size, len(NSFR.atoms)).to(args.device)
     img_scores = torch.zeros(size=(V_T_pos.shape[0], V_T_pos.shape[1], 2)).to(args.device)
-    for i in tqdm(range(int(train_size / batch_size)), desc=f"Evaluating Clauses (Batch Size {args.batch_size})"):
+    for i in range(int(train_size / batch_size)):
         date_now = datetime.datetime.today().date()
         time_now = datetime.datetime.now().strftime("%H_%M_%S")
         # print(f"({date_now} {time_now}) eval batch {i + 1}/{int(train_size / args.batch_size_train)}")
