@@ -129,10 +129,13 @@ def extract_clauses_from_bs_clauses(bs_clauses, c_type, args):
         if args.show_process:
             if len(bs_clause) == 3:
                 positive_score = bs_clause[2][:, config.score_example_index["pos"]]
-                failed_img_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+                negative_score = 1 - bs_clause[2][:, config.score_example_index["neg"]]
+                failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+                failed_neg_index = ((negative_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
                 log_utils.add_lines(
                     f"({c_type}): {bs_clause[0]} {bs_clause[1].reshape(-1)} "
-                    f"Failed Positive States: ({len(failed_img_index)}/{bs_clause[2].shape[0]}) ",
+                    f"Failed Pos States: ({len(failed_pos_index)}/{bs_clause[2].shape[0]}) "
+                    f"Failed Neg States: ({len(failed_neg_index)}/{bs_clause[2].shape[0]}) ",
                     args.log_file)
     return clauses
 
@@ -247,10 +250,10 @@ def update_args(args, data):
         data_size = min(args.top_data, len(data[a_i]["pos_data"]), len(data[a_i]["neg_data"]))
         pos_data = data[a_i]["pos_data"][:data_size]
         neg_data = data[a_i]["neg_data"][:data_size]
-        train_pos = data[a_i]["pos_data"][:args.train_data_size]
-        test_pos = data[a_i]["pos_data"][:args.test_data_size]
-        train_neg = data[a_i]["neg_data"][:args.train_data_size]
-        test_neg = data[a_i]["neg_data"][:args.test_data_size]
+        train_pos =pos_data[:args.train_data_size]
+        test_pos = pos_data[:args.test_data_size]
+        train_neg = neg_data[:args.train_data_size]
+        test_neg = neg_data[:args.test_data_size]
 
         args.train_data.append([train_pos, train_neg])
         args.test_data.append([test_pos, test_neg])

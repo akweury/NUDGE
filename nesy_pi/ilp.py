@@ -88,7 +88,9 @@ def ilp_search(args, lang, init_clauses, FC):
             clauses = logic_utils.top_select(clause_with_scores, args)
 
         # save data
-        lang.all_clauses += clause_with_scores
+        all_c = [c[0] for c in lang.all_clauses]
+        new_c = [c for c in clause_with_scores if c[0] not in all_c]
+        lang.all_clauses += new_c
         extend_step += 1
 
     if len(clauses) > 0:
@@ -242,16 +244,15 @@ def ilp_eval(success, args, lang, clauses, g_data):
         scores_dict[data_type]["score"] = []
         for img_i in range(len(args.test_data[args.label][d_i])):
             # scores_sorted, scores_indices = torch.sort(img_scores[:, i, img_sign], descending=True)
-
             score_best = img_scores[0, img_i, img_sign]
             clause_best = clauses[0]
             scores_dict[data_type]["score"].append(score_best)
             scores_dict[data_type]["clause"].append(clause_best)
 
-            if data_type == "false" and score_best > 0.9:
-                print("(FP)")
-            elif data_type == "true" and score_best < 0.1:
-                print("(FN)")
+            # if data_type == "false" and score_best > 0.9:
+            #     print("(FP)")
+            # elif data_type == "true" and score_best < 0.1:
+            #     print("(FN)")
     # visual_utils.visualization(args, lang, scores_dict)
 
     log_utils.add_lines("===================== top clause score ================================", args.log_file)
@@ -456,21 +457,18 @@ def clause_extend(args, lang, clauses):
 def prune_clauses(clause_with_scores, args):
     refs = []
 
-    # prune score similar clauses
+    # prune necessity zero clauses
     if args.score_unique:
         if args.show_process:
             log_utils.add_lines(f"- score pruning ... ({len(clause_with_scores)} clauses)", args.log_file)
         # for c in clause_with_scores:
         #     log_utils.add_lines(f"(clause before pruning) {c[0]} {c[1].reshape(3)}", args.log_file)
         score_unique_c = []
-        score_repeat_c = []
         appeared_scores = []
         for c in clause_with_scores:
-            if not eval_clause_infer.eval_score_similarity(c[1][2], appeared_scores, args.similar_th):
+            if c[1][0]>args.ness_th:
                 score_unique_c.append(c)
                 appeared_scores.append(c[1][2])
-            else:
-                score_repeat_c.append(c)
         c_score_pruned = score_unique_c
     else:
         c_score_pruned = clause_with_scores

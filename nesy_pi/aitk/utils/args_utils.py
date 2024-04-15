@@ -173,6 +173,7 @@ def get_args():
     parser.add_argument("--start_frame", type=int, default=0)
     parser.add_argument("--end_frame", type=int, default=10000)
     parser.add_argument("--max_rule_obj", type=int, default=5)
+    parser.add_argument("--ness_th", type=float, default=0.05)
     parser.add_argument("--game_obj_num", type=int)
     parser.add_argument("--zoom_in", type=int, default=2.5, help="Zoom in percentage of the game window.")
     parser.add_argument("--train_state_num", type=int, default=100000, help="Zoom in percentage of the game window.")
@@ -245,7 +246,6 @@ def get_args():
         args.var_th = 0.8
         args.step_dist = [0.01, -0.03]
         args.max_dist = 0.1
-        args.teacher_game_nums = 300
         args.zoom_in = 1.5
         args.max_lives = 0
         args.reward_lost_one_live = -20

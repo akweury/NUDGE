@@ -7,7 +7,7 @@
   "test_data_size": 500,
   "max_rule_obj": 3,
   "top_data": 5000,
-  "rho_num": 10,
+  "rho_num": 20,
   "phi_num": 2,
   "game_obj_num": 11,
   "batch_size": 500,
