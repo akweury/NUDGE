@@ -9,7 +9,7 @@
   "top_data": 5000,
   "rho_num": 10,
   "phi_num": 2,
-  "game_obj_num": 12,
+  "game_obj_num": 11,
   "batch_size": 500,
   "dqn_a_episode_num": 10,
   "dqn_c_episode_num": 10000,
