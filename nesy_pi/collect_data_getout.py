@@ -28,6 +28,7 @@ if not os.path.exists(data_file):
     data = {}
     for a_i in range(args.num_actions):
         action_mask = actions == a_i
+        states[:, :, -2:] = states[:, :, -2:] / 50
         pos_data = states[action_mask]
         neg_data = states[~action_mask]
         data[a_i] = {"pos_data": pos_data, "neg_data": neg_data}

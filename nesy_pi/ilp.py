@@ -262,7 +262,7 @@ def ilp_eval(success, args, lang, clauses, g_data):
     fp_count = len(negative_res[negative_res > 0.95])
     f_total = len(negative_res)
     log_utils.add_lines(f"Recall: {tp_count / p_total} ({tp_count}/{p_total})", args.log_file)
-    log_utils.add_lines(f"Precision: {tp_count / (fp_count + tp_count)} ({tp_count}/{fp_count + tp_count})",
+    log_utils.add_lines(f"Precision: {tp_count / ((fp_count + tp_count)+1e-20)} ({tp_count}/{fp_count + tp_count})",
                         args.log_file)
     log_utils.add_lines("=======================================================================", args.log_file)
 

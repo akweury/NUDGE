@@ -57,6 +57,8 @@ def load_args(exp_args_path, m):
     parser.add_argument("--stack_num", type=int, default=10, help="Zoom in percentage of the game window.")
     parser.add_argument("--start_frame", type=int, default=0)
     parser.add_argument("--end_frame", type=int, default=10000)
+    parser.add_argument("--train_data_size", type=int, default=100)
+    parser.add_argument("--test_data_size", type=int, default=10)
 
     parser.add_argument("--zoom_in", type=int, default=2.5, help="Zoom in percentage of the game window.")
     parser.add_argument("--train_state_num", type=int, default=100000, help="Zoom in percentage of the game window.")

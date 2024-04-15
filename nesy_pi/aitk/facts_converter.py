@@ -59,7 +59,7 @@ class FactsConverter(nn.Module):
 
             # this atom is a neural predicate
             if type(atom.pred) == NeuralPredicate and i > 1:
-                if atom.pred.name in ["in", "phi", "rho"]:
+                if atom.pred.name in ["in", "phi", "rho", "shape"]:
                     V[:, i] = self.vm(Z, atom)
 
             # this atom is an invented predicate

@@ -19,8 +19,9 @@ class FCNNValuationModule(nn.Module):
             dataset (str): The dataset.
     """
 
-    def __init__(self, lang, device):
+    def __init__(self, args, lang, device):
         super().__init__()
+        self.args = args
         self.lang = lang
         self.device = device
         self.layers, self.vfs = self.init_valuation_functions(device)
@@ -45,11 +46,11 @@ class FCNNValuationModule(nn.Module):
         vfs['color'] = v_color
         layers.append(v_color)
 
-        v_shape = FCNNShapeValuationFunction()
+        v_shape = FCNNShapeValuationFunction(len(self.args.game_info["obj_info"]))
         vfs['shape'] = v_shape
         layers.append(v_shape)
 
-        v_in = FCNNInValuationFunction()
+        v_in = FCNNInValuationFunction(len(self.args.game_info["obj_info"]))
         vfs['in'] = v_in
         layers.append(v_in)
 
@@ -126,7 +127,7 @@ class FCNNValuationModule(nn.Module):
         """
         term_index = self.lang.term_index(term)
         if term.dtype.name == 'group':
-            return zs[:, term_index + 1].to(self.device)
+            return zs[:, term_index].to(self.device)
         elif term.dtype.name == "player":
             return zs[:, 0].to(self.device)
         elif term.dtype.name in bk.attr_names:
@@ -170,8 +171,9 @@ class FCNNShapeValuationFunction(nn.Module):
     """The function v_shape.
     """
 
-    def __init__(self):
+    def __init__(self, obj_type_num):
         super(FCNNShapeValuationFunction, self).__init__()
+        self.obj_type_num = obj_type_num
 
     def forward(self, z, a):
         """
@@ -187,8 +189,8 @@ class FCNNShapeValuationFunction(nn.Module):
         Returns:
             A batch of probabilities.
         """
-        shape_indices = [config.group_tensor_index[_shape] for _shape in config.group_pred_shapes]
-        z_shape = z[:, shape_indices]
+        # shape_indices = [config.group_tensor_index[_shape] for _shape in config.group_pred_shapes]
+        z_shape = z[:, :self.obj_type_num]
         # a_batch = a.repeat((z.size(0), 1))  # one-hot encoding for batch
         return (a * z_shape).sum(dim=1)
 
@@ -223,8 +225,9 @@ class FCNNInValuationFunction(nn.Module):
     """The function v_in.
     """
 
-    def __init__(self):
+    def __init__(self, obj_type_num):
         super(FCNNInValuationFunction, self).__init__()
+        self.obj_type_num = obj_type_num
 
     def forward(self, z, x):
         """
@@ -238,7 +241,7 @@ class FCNNInValuationFunction(nn.Module):
             A batch of probabilities.
         """
 
-        prob, _ = z[:, :-6].max(dim=-1)
+        prob, _ = z[:, :self.obj_type_num].max(dim=-1)
         return prob
 
 
@@ -269,6 +272,7 @@ class FCNNRhoValuationFunction(nn.Module):
         c_2 = z_1[:, -2:].permute(1, 0)
 
         dir_vec = c_2 - c_1
+
         dir_vec[1] = -dir_vec[1]
         rho, phi = self.cart2pol(dir_vec[0], dir_vec[1])
         dist_id = torch.zeros(rho.shape)
@@ -420,5 +424,5 @@ class FCNNSlopeValuationFunction(nn.Module):
 
 
 def get_valuation_module(args, lang):
-    VM = FCNNValuationModule(lang=lang, device=args.device)
+    VM = FCNNValuationModule(args=args, lang=lang, device=args.device)
     return VM

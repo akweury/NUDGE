@@ -35,7 +35,7 @@ const_dict = {
 attr_names = ['color', 'shape', 'rho', 'phi', 'group_shape', "slope", 'number']
 
 color = ['pink', 'green', 'blue']
-shape = ['sphere', 'cube', 'cone', 'cylinder', 'line', 'circle', "conic"]
+# shape = ['sphere', 'cube', 'cone', 'cylinder', 'line', 'circle', "conic"]
 
 pred_obj_mapping = {
     'in': None,
