@@ -5,8 +5,8 @@ import torch
 from torch import nn as nn
 from torch.distributions import Categorical
 import numpy as np
-
-from src.agents.neural_agent import ActorCritic, NeuralPPO
+from src import config
+from src.agents.neural_agent import ActorCritic, NeuralPPO, NeuralPlayer
 from src.agents.utils_getout import extract_neural_state_getout
 from nesy_pi.game import Reasoner
 from nesy_pi.aitk.utils import file_utils, oc_utils, reason_utils, math_utils
@@ -29,7 +29,7 @@ class ClausePlayer:
         self.args.test_data = torch.tensor(logic_state).unsqueeze(0)
         target_preds = self.args.action_names
         score = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")
-        best_idx = score[:,0,0].argmax()
+        best_idx = score[:, 0, 0].argmax()
         action_name = self.lang.all_clauses[best_idx].head.pred.name
         action = self.args.action_names.index(action_name)
         return action
@@ -763,10 +763,9 @@ class PpoPlayer:
     def load_model(self, model_path, args, set_eval=True):
 
         with open(model_path, "rb") as f:
-            # model = ActorCritic(args).to(args.device)
-            model = NeuralPPO(args).to(args.device)
 
-            model.load_state_dict(state_dict=torch.load(f, map_location="cpu"))
+            model = ActorCritic(args).to(args.device)
+            model.load_state_dict(state_dict=torch.load(f, map_location=torch.device(args.device)))
 
         print(f"- loaded player model from {model_path}")
         model = model.actor

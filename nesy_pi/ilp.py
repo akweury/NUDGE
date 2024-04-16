@@ -263,7 +263,7 @@ def ilp_eval(success, args, lang, clauses, g_data):
     fp_count = len(negative_res[negative_res > 0.95])
     f_total = len(negative_res)
     log_utils.add_lines(f"Recall: {tp_count / p_total} ({tp_count}/{p_total})", args.log_file)
-    log_utils.add_lines(f"Precision: {tp_count / ((fp_count + tp_count)+1e-20)} ({tp_count}/{fp_count + tp_count})",
+    log_utils.add_lines(f"Precision: {tp_count / ((fp_count + tp_count) + 1e-20)} ({tp_count}/{fp_count + tp_count})",
                         args.log_file)
     log_utils.add_lines("=======================================================================", args.log_file)
 
@@ -466,7 +466,7 @@ def prune_clauses(clause_with_scores, args):
         score_unique_c = []
         appeared_scores = []
         for c in clause_with_scores:
-            if c[1][0]>args.ness_th:
+            if c[1][0] > args.ness_th:
                 score_unique_c.append(c)
                 appeared_scores.append(c[1][2])
         c_score_pruned = score_unique_c
@@ -500,13 +500,28 @@ def prune_clauses(clause_with_scores, args):
         log_utils.add_lines(f"- {len(c_score_pruned)} clauses left.", args.log_file)
 
     # select top N clauses
-    if args.c_top is not None and len(c_score_pruned) > args.c_top:
-        c_score_pruned = c_score_pruned[:args.c_top]
+    if args.top_kp is not None:
+        c_score_pruned = top_kp(args, c_score_pruned)
     # log_utils.add_lines(f"after top select: {len(c_score_pruned)}", args.log_file)
 
     refs += update_refs(c_score_pruned, args)
 
     return refs, c_score_pruned
+
+
+def top_kp(args, clauses):
+    sn_percents = torch.tensor([c[1][2] for c in clauses])
+    log_utils.add_lines(f"- total sn percent {sn_percents.sum():.3f}", args.log_file)
+    indices_ranked = sn_percents.argsort(descending=True)
+    percent_count = 0
+    top_clauses = []
+    for i in indices_ranked:
+        if percent_count < args.top_kp:
+            percent_count += sn_percents[i]
+            top_clauses.append(clauses[i])
+    log_utils.add_lines(f"- {len(top_clauses)} clauses left.", args.log_file)
+
+    return top_clauses
 
 
 def check_result(args, clauses):

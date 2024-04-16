@@ -745,7 +745,7 @@ class PpoPlayer:
 
         with open(model_path, "rb") as f:
             # model = ActorCritic(args).to(args.device)
-            model = NeuralPPO(args).to(args.device)
+            model = (args).to(args.device)
 
             model.load_state_dict(state_dict=torch.load(f, map_location="cpu"))
 
