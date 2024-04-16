@@ -142,7 +142,7 @@ def ilp_test(args, lang):
         log_utils.print_result(args, lang)
 
     reset_args(args)
-    init_clauses, e = reset_lang(lang, args, args.neural_preds, full_bk=True)
+    clauses, e = reset_lang(lang, args, args.neural_preds, full_bk=True)
 
     VM = ai_interface.get_vm(args, lang)
     FC = ai_interface.get_fc(args, lang, VM, e)
@@ -150,7 +150,7 @@ def ilp_test(args, lang):
     # searching for a proper clause to describe the patterns.
     for i in range(args.max_step):
         args.iteration = i
-        ilp_search(args, lang, init_clauses, FC)
+        clauses = ilp_search(args, lang, clauses, FC)
 
         if args.is_done:
             break

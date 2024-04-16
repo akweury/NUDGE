@@ -352,7 +352,8 @@ class Language(object):
             Predicate: The matched preicate with the given name.
         """
         pred = [pred for pred in self.preds if pred.name == pred_name]
-        assert len(pred) == 1, 'Too many or less match in ' + pred_name
+        if not len(pred) == 1:
+            print("")
         return pred[0]
 
     def get_invented_pred_by_name(self, invented_pred_name):
@@ -425,14 +426,20 @@ class Language(object):
 
         return new_predicate
 
+    def append_new_predicate(self, old_predicates, new_predicates):
+        for new_predicate in new_predicates:
+            if new_predicate not in old_predicates:
+                old_predicates.append(new_predicate)
+        return old_predicates
+
     def update_bk(self, neural_pred=None, full_bk=True):
 
         # put everything into the bk
         if full_bk:
             if neural_pred is not None:
-                self.preds = self.preds + neural_pred
+                self.preds = self.append_new_predicate(self.preds, neural_pred)
             self.invented_preds = self.all_invented_preds
-            self.preds += self.invented_preds
+            self.preds = self.append_new_predicate(self.preds, self.invented_preds)
             self.pi_clauses = self.all_pi_clauses
         else:
 

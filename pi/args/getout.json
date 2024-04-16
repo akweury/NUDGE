@@ -6,7 +6,7 @@
   "sc_th": 0.9,
   "ness_th": 0.05,
   "max_step": 6,
-  "pi_top": 2,
+  "pi_top": 10,
   "top_data": 600,
   "train_data_size": 500,
   "rho_num": 10,

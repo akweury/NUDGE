@@ -84,6 +84,7 @@ def main():
             if success:
                 break
         learned_clauses.append(action_clauses)
+
     learned_data = {"clauses": learned_clauses,
                     "all_invented_preds": lang.all_invented_preds,
                     "invented_preds":lang.invented_preds,
