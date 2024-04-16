@@ -63,13 +63,11 @@ def main():
 
             # ILP and PI system
             lang = se.init_ilp(args, data, config.pi_type['bk'])
-            success, clauses = se.run_ilp_train(args, lang)
+            success, sorted_clauses_with_scores = se.run_ilp_train(args, lang)
             train_end = time.time()
             train_round_time.append(train_end - group_end)
 
             train_end = time.time()
-            # evaluation
-            g_data = None
             # se.ilp_eval(success, args, lang, clauses, g_data)
             eval_end = time.time()
 
@@ -82,7 +80,7 @@ def main():
             log_utils.add_lines(f"+ Running time: {((eval_end - exp_start) / 60):.2f} minute(s)", args.log_file)
             log_utils.add_lines(f"=============================", args.log_file)
 
-            action_clauses += clauses
+            action_clauses += sorted_clauses_with_scores
             if success:
                 break
         learned_clauses.append(action_clauses)

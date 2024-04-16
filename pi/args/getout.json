@@ -3,6 +3,7 @@
   "bk_pred_names": "shape,phi,rho",
   "top_kp": 2,
   "nc_th": 0.2,
+  "sc_th": 0.9,
   "ness_th": 0.05,
   "max_step": 6,
   "pi_top": 2,

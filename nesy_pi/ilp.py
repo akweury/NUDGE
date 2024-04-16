@@ -155,11 +155,10 @@ def ilp_test(args, lang):
         if args.is_done:
             break
     sorted_clauses_with_scores = sorted(lang.all_clauses, key=lambda x: x[1][2], reverse=True)
-
-    # lang.clauses = [c[0] for c in sorted_clauses_with_scores]
+    sorted_clauses_with_scores = [c for c in sorted_clauses_with_scores if c[1][1] > args.sc_th]
 
     success, clauses = log_utils.print_test_result(args, lang, sorted_clauses_with_scores)
-    return success, clauses
+    return success, sorted_clauses_with_scores
 
 
 def ilp_predict(NSFR, args, th=None, split='train'):

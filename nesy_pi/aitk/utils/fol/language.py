@@ -430,7 +430,7 @@ class Language(object):
         # put everything into the bk
         if full_bk:
             if neural_pred is not None:
-                self.preds = self.preds[:2] + neural_pred
+                self.preds = self.preds + neural_pred
             self.invented_preds = self.all_invented_preds
             self.preds += self.invented_preds
             self.pi_clauses = self.all_pi_clauses

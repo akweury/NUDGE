@@ -70,7 +70,6 @@ def init(args):
 from src.agents.utils_getout import extract_logic_state_getout
 from src.environments.getout.getout.getout.paramLevelGenerator import ParameterizedLevelGenerator
 from src.environments.getout.getout.getout.getout import Getout
-import torch
 
 
 def _render(args, agent, env_args, video_out, agent_type):
@@ -79,19 +78,8 @@ def _render(args, agent, env_args, video_out, agent_type):
     screen_text = (
         f"{agent.agent_type} ep: {env_args.game_i}, Rec: {env_args.best_score} \n "
         f"act: {args.action_names[env_args.action]} re: {env_args.reward}")
-
-    if env_args.frame_i % 100 == 0:
-        #     if agent.agent_type == "smp" and agent.model.pwt is not None:
-        #         analysis_data = agent.model.pwt
-        #     else:
-        analysis_data = torch.zeros(10, 10)
-
-        env_args.analysis_plot = draw_utils.plot_heat_map(analysis_data,
-                                                          args.output_folder, "o2o_weights", figsize=(5, 5))
-
     # env_args.logic_state = agent.now_state
-    video_out, _ = game_utils.plot_game_frame(agent_type, env_args, video_out, env_args.obs, env_args.analysis_plot,
-                                              screen_text)
+    video_out, _ = game_utils.plot_game_frame(agent_type, env_args, video_out, env_args.obs, screen_text)
 
 
 def main():
@@ -140,14 +128,13 @@ def main():
             env_args.obs = env_args.last_obs
             env_args.action = agent.draw_action(env_args.logic_state)
             try:
-                env_args.reward = env.step(env_args.action)
+                env_args.reward = env.step(env_args.action + 1)
             except KeyError:
                 env.level.terminated = True
                 env.level.lost = True
                 env_args.terminated = True
                 env_args.truncated = True
                 break
-            env_args.action = env_args.action - 1
             env_args.last_obs = np.array(env.camera.screen.convert("RGB"))
             if env.level.terminated:
                 env_args.frame_i = len(env_args.logic_states) - 1

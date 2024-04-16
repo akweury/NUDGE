@@ -25,7 +25,7 @@ class ClausePlayer:
         self.lang = args.lang
 
     def draw_action(self, logic_state):
-        scores = []
+
         self.args.test_data = torch.tensor(logic_state).unsqueeze(0)
         target_preds = self.args.action_names
         score = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")
