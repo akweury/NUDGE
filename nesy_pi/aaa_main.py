@@ -25,9 +25,9 @@ def init(args):
     # Start the RTPT tracking
     rtpt.start()
     torch.set_printoptions(precision=4)
-    torch.autograd.set_detect_anomaly(True)
+
     data_file = args.trained_model_folder / f"nesy_data.pth"
-    data = torch.load(data_file)
+    data = torch.load(data_file, map_location=torch.device(args.device))
 
     # load logical representations
     args.lark_path = str(config.root / 'src' / 'lark' / 'exp.lark')
