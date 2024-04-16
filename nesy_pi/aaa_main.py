@@ -87,11 +87,13 @@ def main():
 
     learned_data = {"clauses": learned_clauses,
                     "all_invented_preds": lang.all_invented_preds,
-                    "invented_preds":lang.invented_preds,
+                    "all_pi_clauses": lang.all_pi_clauses,
+                    "invented_preds": lang.invented_preds,
                     "p_inv_counter": args.p_inv_counter,
-                    "preds":lang.preds,
-    }
-    file_utils.save_clauses(learned_data, args.trained_model_folder / "learned_clauses.pkl")
+                    "preds": lang.preds,
+                    }
+    file_utils.save_clauses(learned_data,
+                            args.trained_model_folder / f"learned_clauses_rho{args.rho_num}_phi_{args.phi_num}_train_{args.train_data_size}.pkl")
     return learned_clauses
 
 

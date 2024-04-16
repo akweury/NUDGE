@@ -81,6 +81,7 @@ class NSFReasoner(nn.Module):
         x = torch.tensor(x)
         # convert to the valuation tensor
         V_0 = self.fc(x, self.atoms, self.bk)
+
         # perform T-step forward-chaining reasoning
         V_T = self.cim(V_0, self.atoms)
         return V_T

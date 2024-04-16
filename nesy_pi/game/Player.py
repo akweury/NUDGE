@@ -28,8 +28,9 @@ class ClausePlayer:
 
         self.args.test_data = torch.tensor(logic_state).unsqueeze(0)
         target_preds = self.args.action_names
-        score = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")
-        best_idx = score[:, 0, 0].argmax()
+        score = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")[:,0,0]
+        score *= self.args.clause_scores[:,1]
+        best_idx = score.argmax()
         action_name = self.lang.all_clauses[best_idx].head.pred.name
         action = self.args.action_names.index(action_name)
         return action
