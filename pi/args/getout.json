@@ -9,7 +9,7 @@
   "pi_top": 10,
   "top_data": 6000,
   "train_data_size": 5000,
-  "rho_num": 10,
+  "rho_num": 20,
   "phi_num": 2,
   "max_rule_obj": 3,
   "game_obj_num": 4,
