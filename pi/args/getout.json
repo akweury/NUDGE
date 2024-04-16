@@ -1,19 +1,20 @@
 {
   "teacher_agent": "ppo",
-  "bk_pred_names": "shape,phi",
-  "top_kp": 0.99,
+  "bk_pred_names": "shape,phi,rho",
+  "top_kp": 2,
+  "nc_th": 0.2,
   "ness_th": 0.05,
-  "max_step": 5,
+  "max_step": 6,
   "pi_top": 2,
-  "top_data": 1500,
-  "train_data_size": 1500,
-  "test_data_size": 500,
+  "top_data": 600,
+  "train_data_size": 500,
   "rho_num": 10,
   "phi_num": 2,
   "max_rule_obj": 3,
   "game_obj_num": 4,
   "batch_size": 50,
-  "teacher_game_nums": 200,
+  "teacher_game_nums": 2000,
   "print_freq": 100,
-  "jump_frames": 0
+  "jump_frames": 0,
+  "semantic_unique": true
 }

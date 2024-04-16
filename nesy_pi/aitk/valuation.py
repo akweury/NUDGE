@@ -58,7 +58,7 @@ class FCNNValuationModule(nn.Module):
         vfs['rho'] = v_rho
         layers.append(v_rho)
 
-        v_phi = FCNNPhiValuationFunction(device)
+        v_phi = FCNNPhiValuationFunction(len(self.args.game_info["obj_info"]), device)
         vfs['phi'] = v_phi
         layers.append(v_phi)
 
@@ -268,6 +268,8 @@ class FCNNRhoValuationFunction(nn.Module):
         Returns:
             A batch of probabilities.
         """
+        if (z_1==z_2).prod().bool():
+            return torch.zeros(dist_grade.shape[0]).to(dist_grade.device)
         c_1 = z_2[:, -2:].permute(1, 0)
         c_2 = z_1[:, -2:].permute(1, 0)
 
@@ -303,11 +305,12 @@ class FCNNPhiValuationFunction(nn.Module):
     """The function v_area.
     """
 
-    def __init__(self, device):
+    def __init__(self, obj_type_num, device):
         super(FCNNPhiValuationFunction, self).__init__()
         self.device = device
         self.logi = LogisticRegression(input_dim=1)
         self.logi.to(device)
+        self.obj_type_num = obj_type_num
 
     def forward(self, z_1, z_2, dir):
         """
@@ -322,6 +325,11 @@ class FCNNPhiValuationFunction(nn.Module):
         Returns:
             A batch of probabilities.
         """
+        if (z_1==z_2).prod().bool():
+            return torch.zeros(dir.shape[0]).to(dir.device)
+        mask_z1 = z_1[:, :self.obj_type_num].sum(dim=-1) > 0
+        mask_z2 = z_2[:, :self.obj_type_num].sum(dim=-1) > 0
+        mask = (mask_z1 & mask_z2)
         from nesy_pi.aitk.utils import math_utils
         # c_1 = z_2[:, -2:].permute(1, 0)
         # c_2 = z_1[:, -2:].permute(1, 0)
@@ -329,15 +337,15 @@ class FCNNPhiValuationFunction(nn.Module):
         # math_utils.dir_a_and_b_with_alignment_o2o(c_1, c_2)
         round_divide = dir.shape[1]
         area_angle = int(360 / round_divide)
-        area_angle_half = area_angle * 0.5
+
         # # area_angle_half = 0
         # dir_vec = c_2 - c_1
         # dir_vec[1] = -dir_vec[1]
         # rho, phi = self.cart2pol(dir_vec[0], dir_vec[1])
-        degrees = math_utils.calculate_direction(z_2[:, -2:].unsqueeze(1), z_1[:, -2:].unsqueeze(1)).to(
+        degrees = math_utils.calculate_direction(z_1[:, -2:].unsqueeze(1), z_2[:, -2:].unsqueeze(1)).to(
             torch.long).reshape(-1)
         phi_clock_shift = (90 - degrees) % 360
-        zone_id = (phi_clock_shift + area_angle_half) // area_angle % round_divide
+        zone_id = (phi_clock_shift) // area_angle % round_divide
 
         # This is a threshold, but it can be decided automatically.
         # zone_id[rho >= 0.12] = zone_id[rho >= 0.12] + round_divide
@@ -346,7 +354,7 @@ class FCNNPhiValuationFunction(nn.Module):
         for i in range(dir_pred.shape[0]):
             dir_pred[i, int(zone_id[i])] = 1
 
-        return (dir * dir_pred).sum(dim=1)
+        return (dir * dir_pred).sum(dim=1) * mask
 
     def cart2pol(self, x, y):
         rho = torch.sqrt(x ** 2 + y ** 2)

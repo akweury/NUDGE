@@ -251,9 +251,9 @@ def update_args(args, data):
         pos_data = data[a_i]["pos_data"][:data_size]
         neg_data = data[a_i]["neg_data"][:data_size]
         train_pos =pos_data[:args.train_data_size]
-        test_pos = pos_data[:args.test_data_size]
         train_neg = neg_data[:args.train_data_size]
-        test_neg = neg_data[:args.test_data_size]
+        test_pos = pos_data[args.train_data_size:]
+        test_neg = neg_data[args.train_data_size:]
 
         args.train_data.append([train_pos, train_neg])
         args.test_data.append([test_pos, test_neg])

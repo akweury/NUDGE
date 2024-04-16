@@ -2,11 +2,14 @@
 import os
 import torch
 import random
+import numpy as np
 from rtpt import RTPT
 from tqdm import tqdm
 from src import config
+import time
+from nesy_pi.aitk.utils.EnvArgs import EnvArgs
 
-from nesy_pi.aitk.utils import args_utils, game_utils
+from nesy_pi.aitk.utils import args_utils, game_utils, draw_utils
 from nesy_pi.aitk.utils.game_utils import RolloutBuffer
 from src.environments.getout.getout.getout.getout import Getout
 from src.environments.getout.getout.getout.paramLevelGenerator import ParameterizedLevelGenerator
@@ -20,6 +23,17 @@ rtpt.start()
 # learn behaviors from data
 # collect game buffer from neural agent
 buffer_filename = args.trained_model_folder / f"nesy_pi_{args.teacher_game_nums}.json"
+
+
+def _render(args, agent, env_args, video_out, agent_type):
+    # render the game
+
+    screen_text = (
+        f"ep: {env_args.game_i}\n "
+        f"act: {args.action_names[env_args.action - 1]} re: {env_args.reward}")
+    # env_args.logic_state = agent.now_state
+    video_out, _ = game_utils.plot_game_frame(agent_type, env_args, video_out, env_args.obs,
+                                              screen_text)
 
 
 def create_getout_instance(args, seed=None):
@@ -40,9 +54,7 @@ def collect_getout_data(args, agent, buffer_filename, save_buffer):
     game_num = args.teacher_game_nums
     # play games using the random agent
     seed = random.seed() if args.seed is None else int(args.seed)
-    args.filename = args.m + '_' + '_episode_' + str(game_num) + '.json'
-
-    buffer = RolloutBuffer(args.filename)
+    buffer = RolloutBuffer(buffer_filename)
 
     if os.path.exists(buffer.filename):
         return
@@ -52,7 +64,11 @@ def collect_getout_data(args, agent, buffer_filename, save_buffer):
     win_rates = []
     if args.m == 'getout':
         game_env = create_getout_instance(args)
+        env_args = EnvArgs(agent=agent, args=args, window_size=[game_env.camera.height,
+                                                                game_env.camera.width], fps=60)
 
+        if args.with_explain:
+            video_out = game_utils.get_game_viewer(env_args)
         # frame rate limiting
         for i in tqdm(range(game_num), desc=f"win counter: {win_count}"):
             step += 1
@@ -63,9 +79,20 @@ def collect_getout_data(args, agent, buffer_filename, save_buffer):
 
             # play a game
             while not (game_env.level.terminated):
+                # limit frame rate
+                if args.with_explain:
+                    current_frame_time = time.time()
+                    if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
+                        sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
+                        time.sleep(sl)
+                        continue
+                    env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
+
+                env_args.obs = env_args.last_obs
                 # random actions
                 action = agent.reasoning_act(game_env)
                 logic_state = extract_logic_state_getout(game_env, args).squeeze()
+                env_args.logic_state = logic_state
                 try:
                     reward = game_env.step(action)
                 except KeyError:
@@ -80,9 +107,18 @@ def collect_getout_data(args, agent, buffer_filename, save_buffer):
                     logic_states.append(logic_state.detach().tolist())
                     actions.append(action - 1)
                     rewards.append(reward)
-
+                env_args.last_obs = np.array(game_env.camera.screen.convert("RGB"))
                 frame_counter += 1
 
+                if args.with_explain:
+                    env_args.frame_i = frame_counter
+                    env_args.game_i = i
+                    env_args.action = action
+                    env_args.reward = reward
+                    _render(args, agent, env_args, video_out, "")
+                if frame_counter > 400:
+                    game_env.level.terminated = True
+                    game_env.level.lost = True
             # save game buffer
             if not game_env.level.lost:
                 buffer.logic_states.append(logic_states)
@@ -101,7 +137,8 @@ def collect_getout_data(args, agent, buffer_filename, save_buffer):
 
         buffer.win_rates = win_rates
         buffer.save_data()
-
+    if args.with_explain:
+        draw_utils.release_video(video_out)
     return
 
 

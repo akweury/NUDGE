@@ -154,7 +154,7 @@ def ilp_test(args, lang):
 
         if args.is_done:
             break
-    sorted_clauses_with_scores = sorted(lang.all_clauses, key=lambda x: x[1][2], reverse=True)[:args.c_top]
+    sorted_clauses_with_scores = sorted(lang.all_clauses, key=lambda x: x[1][2], reverse=True)
 
     # lang.clauses = [c[0] for c in sorted_clauses_with_scores]
 
@@ -318,7 +318,7 @@ def keep_best_preds(args, lang):
 
 def reset_args(args):
     args.is_done = False
-    args.iteration = 0
+    args.iteration = 2
     args.max_clause = [0.0, None]
     args.no_new_preds = False
     args.no_new_preds = True
@@ -510,14 +510,15 @@ def prune_clauses(clause_with_scores, args):
 
 
 def top_kp(args, clauses):
-    sn_percents = torch.tensor([c[1][2] for c in clauses])
-    log_utils.add_lines(f"- total sn percent {sn_percents.sum():.3f}", args.log_file)
-    indices_ranked = sn_percents.argsort(descending=True)
+    suff_percents = torch.tensor([c[1][1] for c in clauses])
+    ness_percents = torch.tensor([c[1][0] for c in clauses])
+    log_utils.add_lines(f"- total ness percent {ness_percents.sum():.3f}", args.log_file)
+    indices_ranked = suff_percents.argsort(descending=True)
     percent_count = 0
     top_clauses = []
     for i in indices_ranked:
         if percent_count < args.top_kp:
-            percent_count += sn_percents[i]
+            percent_count += ness_percents[i]
             top_clauses.append(clauses[i])
     log_utils.add_lines(f"- {len(top_clauses)} clauses left.", args.log_file)
 
@@ -663,30 +664,30 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
     index_ness = config.score_type_index['ness']
     index_sn = config.score_type_index['sn']
 
-    clu_suff = [clu for clu in clu_all if clu[1][index_suff] > args.sc_th and clu[1][index_sn] > args.sn_min_th]
-    clu_ness = [clu for clu in clu_all if clu[1][index_ness] > args.nc_th and clu[1][index_sn] > args.sn_min_th]
-    clu_sn = [clu for clu in clu_all if clu[1][index_sn] > args.sn_th]
-    clu_classified = sorted(clu_suff + clu_ness + clu_sn, key=lambda x: x[1][2], reverse=True)
+    clu_suff = [clu for clu in clu_all if
+                clu[1][index_suff] > args.sc_th and clu[1][index_sn] > args.sn_min_th and clu[1][
+                    index_ness] > args.nc_th]
+    # clu_ness = [clu for clu in clu_all if clu[1][index_ness] > args.nc_th and clu[1][index_sn] > args.sn_min_th]
+    # clu_sn = [clu for clu in clu_all if clu[1][index_sn] > args.sn_th]
+    clu_classified = sorted(clu_suff, key=lambda x: x[1][2], reverse=True)
     clu_lists_sorted = sorted(clu_all, key=lambda x: x[1][index_ness], reverse=True)
     return clu_classified
 
 
 def ilp_train(args, lang):
-    for neural_pred in args.neural_preds:
-        reset_args(args)
-        init_clauses, e = reset_lang(lang, args, neural_pred, full_bk=False)
-        while args.iteration < args.max_step and not args.is_done:
-            # update system
-            VM = ai_interface.get_vm(args, lang)
-            FC = ai_interface.get_fc(args, lang, VM, e)
-            clauses = ilp_search(args, lang, init_clauses, FC)
-            if args.with_pi:
-                ilp_pi(args, lang, clauses, e)
-            args.iteration += 1
-        # save the promising predicates
-        keep_best_preds(args, lang)
-        if args.found_ns:
-            break
+    # for neural_pred in args.neural_preds:
+    reset_args(args)
+    init_clauses, e = reset_lang(lang, args, args.neural_preds, full_bk=True)
+    while args.iteration < args.max_step and not args.is_done:
+        # update system
+        VM = ai_interface.get_vm(args, lang)
+        FC = ai_interface.get_fc(args, lang, VM, e)
+        clauses = ilp_search(args, lang, init_clauses, FC)
+        if args.with_pi:
+            ilp_pi(args, lang, clauses, e)
+        args.iteration += 1
+    # save the promising predicates
+    keep_best_preds(args, lang)
 
 
 def ilp_train_explain(args, lang, level):

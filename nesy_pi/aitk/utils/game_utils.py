@@ -63,10 +63,10 @@ class RolloutBuffer:
         self.actions = [torch.tensor(state_info['actions'][i]) for i in range(len(state_info['actions']))]
         self.logic_states = [torch.tensor(state_info['logic_states'][i]) for i in
                              range(len(state_info['logic_states']))]
-        if "next_states" in list(state_info.keys()) and state_info['next_states'][0][0] is not None:
+        self.rewards = [torch.tensor(state_info['reward'][i]) for i in range(len(state_info['reward']))]
+        if "next_states" in list(state_info.keys()) and len(state_info['next_states']) > 0:
             self.game_next_states = [torch.tensor(state_info['next_states'][i]) for i in
                                      range(len(state_info['next_states']))]
-        self.rewards = [torch.tensor(state_info['reward'][i]) for i in range(len(state_info['reward']))]
 
         if "row_names" in list(state_info.keys()):
             self.row_names = state_info['row_names']
@@ -170,7 +170,7 @@ def get_game_viewer(env_args):
     return out
 
 
-def plot_game_frame(agent_type, env_args, out, obs, analysis_plot, screen_text):
+def plot_game_frame(agent_type, env_args, out, obs, screen_text):
     # Red
     obs[:10, :10] = 0
     obs[:10, :10, 0] = 255
@@ -180,7 +180,7 @@ def plot_game_frame(agent_type, env_args, out, obs, analysis_plot, screen_text):
     draw_utils.addCustomText(obs, agent_type,
                              color=(255, 255, 255), thickness=1, font_size=0.3, pos=[1, 5])
     game_plot = draw_utils.rgb_to_bgr(obs)
-    analysis_plot = draw_utils.rgb_to_bgr(analysis_plot)
+    # analysis_plot = draw_utils.rgb_to_bgr(analysis_plot)
 
     screen_plot = draw_utils.image_resize(game_plot,
                                           int(game_plot.shape[0] * env_args.zoom_in),
@@ -207,7 +207,7 @@ def plot_game_frame(agent_type, env_args, out, obs, analysis_plot, screen_text):
                        pos=[pixel_x, pixel_y])
 
     # explain_plot_four_channel = draw_utils.three_to_four_channel(explain_plot)
-    screen_with_explain = draw_utils.hconcat_resize([screen_plot, analysis_plot])
+    screen_with_explain = draw_utils.hconcat_resize([screen_plot])
     out = draw_utils.write_video_frame(out, screen_with_explain)
     if env_args.save_frame:
         draw_utils.save_np_as_img(screen_with_explain,

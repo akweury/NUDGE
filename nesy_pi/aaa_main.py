@@ -53,7 +53,7 @@ def main():
         args.label = a_i
         args.label_name = args.action_names[a_i]
         action_clauses = []
-        for obj_num in range(1, args.max_rule_obj):
+        for obj_num in range(2, args.max_rule_obj):
             args.rule_obj_num = obj_num
             # set up the environment, load the dataset and results from perception models
             start = time.time()
@@ -70,7 +70,7 @@ def main():
             train_end = time.time()
             # evaluation
             g_data = None
-            se.ilp_eval(success, args, lang, clauses, g_data)
+            # se.ilp_eval(success, args, lang, clauses, g_data)
             eval_end = time.time()
 
             # log
