@@ -1,7 +1,7 @@
 {
   "teacher_agent": "ppo",
   "bk_pred_names": "shape,phi,rho",
-  "top_kp": 10,
+  "top_kp": 5,
   "nc_th": 0.2,
   "sc_th": 0.9,
   "ness_th": 0.05,
@@ -13,7 +13,7 @@
   "phi_num": 2,
   "max_rule_obj": 3,
   "game_obj_num": 4,
-  "batch_size": 50,
+  "batch_size": 25,
   "teacher_game_nums": 2000,
   "print_freq": 100,
   "jump_frames": 0,
