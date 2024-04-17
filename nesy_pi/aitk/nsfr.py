@@ -77,14 +77,14 @@ class NSFReasoner(nn.Module):
     #     V_T = self.cim(V_0)
     #     return V_T
 
-    def clause_eval_quick(self, x):
+    def clause_eval_quick(self, x, given_param=None):
         x = torch.tensor(x)
         # convert to the valuation tensor
-        V_0 = self.fc(x, self.atoms, self.bk)
+        V_0, param = self.fc(x, self.atoms, self.bk, given_param)
 
         # perform T-step forward-chaining reasoning
         V_T = self.cim(V_0, self.atoms)
-        return V_T
+        return V_T, param
 
     def clause_eval_v_0(self, x):
         V_0 = self.fc(x, self.atoms, self.bk)
@@ -109,8 +109,9 @@ class NSFReasoner(nn.Module):
             # target_all[t_counter] = v[:, :, t_index]
             # target_max[t_counter] = v[:, :, t_index]
             # max_value = torch.max(target_max)
-            values[0] = v[0, :, target_indices[0]].max(dim=-1, keepdim=True)[0]
-            values[1:] = v[1:, :, target_indices[1]].max(dim=-1, keepdim=True)[0]
+            values, _ = v[:, :, torch.tensor(target_indices).reshape(-1)].max(dim=-1, keepdim=True)
+            # values[0] = v[0, :, target_indices[0]].max(dim=-1, keepdim=True)[0]
+            # values[1:] = v[1:, :, target_indices[1]].max(dim=-1, keepdim=True)[0]
 
         else:
             target_index_list = lu.get_index_by_predname(pred_str=prednames, atoms=self.atoms)

@@ -19,7 +19,7 @@ from nesy_pi.aitk.utils.fol import bk
 
 
 def load_clauses(args):
-    clause_file = args.trained_model_folder / f"learned_clauses.pkl"
+    clause_file = args.trained_model_folder / args.learned_clause_file
     data = file_utils.load_clauses(clause_file)
 
     args.rule_obj_num = 10
@@ -91,7 +91,7 @@ def main():
     load_clauses(args)
     # env, env_args, agent, obs = init(args)
     agent = game_utils.create_agent(args, agent_type="clause")
-
+    teacher_agent = game_utils.create_agent(args, agent_type="ppo")
     def create_getout_instance(args, seed=None):
         if args.hardness == 1:
             enemies = True
@@ -130,7 +130,8 @@ def main():
             env_args.logic_state = extract_logic_state_getout(env, args).squeeze().tolist()
 
             env_args.obs = env_args.last_obs
-            env_args.action = agent.draw_action(env_args.logic_state)
+            teacher_action = teacher_agent.reasoning_act(env)
+            env_args.action = agent.learn_action_weights(env_args.logic_state, teacher_action)
             try:
                 env_args.reward = env.step(env_args.action + 1)
             except KeyError:

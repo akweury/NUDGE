@@ -54,7 +54,7 @@ class FCNNValuationModule(nn.Module):
         vfs['in'] = v_in
         layers.append(v_in)
 
-        v_rho = FCNNRhoValuationFunction(device)
+        v_rho = FCNNRhoValuationFunction(len(self.args.game_info["obj_info"]), device)
         vfs['rho'] = v_rho
         layers.append(v_rho)
 
@@ -97,7 +97,7 @@ class FCNNValuationModule(nn.Module):
                 attrs[term] = one_hot
         return attrs
 
-    def forward(self, zs, atom):
+    def forward(self, zs, atom, param):
         """Convert the object-centric representation to a valuation tensor.
 
             Args:
@@ -109,11 +109,12 @@ class FCNNValuationModule(nn.Module):
         """
         if atom.pred.name in self.vfs:
             args = [self.ground_to_tensor(term, zs) for term in atom.terms]
+            args.append(param)
             # call valuation function
             return self.vfs[atom.pred.name](*args)
         else:
             return torch.zeros((zs.size(0),)).to(
-                torch.float32).to(self.device)
+                torch.float32).to(self.device), None
 
     def ground_to_tensor(self, term, zs):
         """Ground terms into tensor representations.
@@ -127,7 +128,9 @@ class FCNNValuationModule(nn.Module):
         """
         term_index = self.lang.term_index(term)
         if term.dtype.name == 'group':
-            return zs[:, term_index].to(self.device)
+            # if term_index == 0:
+            #     return torch.zeros_like(zs[:, term_index]).to(self.device)
+            return zs[:, term_index + 1].to(self.device)
         elif term.dtype.name == "player":
             return zs[:, 0].to(self.device)
         elif term.dtype.name in bk.attr_names:
@@ -175,7 +178,7 @@ class FCNNShapeValuationFunction(nn.Module):
         super(FCNNShapeValuationFunction, self).__init__()
         self.obj_type_num = obj_type_num
 
-    def forward(self, z, a):
+    def forward(self, z, a, given_param=None):
         """
         Args:
             z (tensor): 2-d tensor (B * D), the object-centric representation.
@@ -190,9 +193,10 @@ class FCNNShapeValuationFunction(nn.Module):
             A batch of probabilities.
         """
         # shape_indices = [config.group_tensor_index[_shape] for _shape in config.group_pred_shapes]
-        z_shape = z[:, :self.obj_type_num]
+        z_shape = z[:, 1:self.obj_type_num]
+        param = None
         # a_batch = a.repeat((z.size(0), 1))  # one-hot encoding for batch
-        return (a * z_shape).sum(dim=1)
+        return (a * z_shape).sum(dim=1), param
 
 
 class FCNNShapeCounterValuationFunction(nn.Module):
@@ -229,7 +233,7 @@ class FCNNInValuationFunction(nn.Module):
         super(FCNNInValuationFunction, self).__init__()
         self.obj_type_num = obj_type_num
 
-    def forward(self, z, x):
+    def forward(self, z, x, given_params=None):
         """
         Args:
             z (tensor): 2-d tensor (B * D), the object-centric representation.
@@ -240,22 +244,24 @@ class FCNNInValuationFunction(nn.Module):
         Returns:
             A batch of probabilities.
         """
-
+        param = None
         prob, _ = z[:, :self.obj_type_num].max(dim=-1)
-        return prob
+
+        return prob, param
 
 
 class FCNNRhoValuationFunction(nn.Module):
     """The function v_area.
     """
 
-    def __init__(self, device):
+    def __init__(self, obj_type_num, device):
         super(FCNNRhoValuationFunction, self).__init__()
+        self.obj_type_num = obj_type_num
         self.device = device
         self.logi = LogisticRegression(input_dim=1)
         self.logi.to(device)
 
-    def forward(self, z_1, z_2, dist_grade):
+    def forward(self, z_1, z_2, dist_grade, given_param):
         """
         Args:
             z_1 (tensor): 2-d tensor (B * D), the object-centric representation.
@@ -268,8 +274,12 @@ class FCNNRhoValuationFunction(nn.Module):
         Returns:
             A batch of probabilities.
         """
-        if (z_1==z_2).prod().bool():
-            return torch.zeros(dist_grade.shape[0]).to(dist_grade.device)
+        if (z_1 == z_2).prod().bool():
+            return torch.zeros(dist_grade.shape[0]).to(dist_grade.device), None
+        mask_z1 = z_1[:, :self.obj_type_num].sum(dim=-1) > 0
+        mask_z2 = z_2[:, :self.obj_type_num].sum(dim=-1) > 0
+        mask = (mask_z1 & mask_z2)
+
         c_1 = z_2[:, -2:].permute(1, 0)
         c_2 = z_1[:, -2:].permute(1, 0)
 
@@ -289,7 +299,12 @@ class FCNNRhoValuationFunction(nn.Module):
         for i in range(dist_pred.shape[0]):
             dist_pred[i, int(dist_id[i])] = 1
 
-        return (dist_grade * dist_pred).sum(dim=1)
+        satisfaction = (dist_grade * dist_pred).sum(dim=1) * mask
+        if given_param is not None and len(given_param) > 0:
+            range_min, range_max = given_param.min(), given_param.max()
+            satisfaction = (rho <= range_max) * (rho >= range_min)
+        parameters = rho[satisfaction > 0]
+        return satisfaction, parameters
 
     def cart2pol(self, x, y):
         rho = torch.sqrt(x ** 2 + y ** 2)
@@ -312,7 +327,7 @@ class FCNNPhiValuationFunction(nn.Module):
         self.logi.to(device)
         self.obj_type_num = obj_type_num
 
-    def forward(self, z_1, z_2, dir):
+    def forward(self, z_1, z_2, dir, given_param):
         """
         Args:
             z_1 (tensor): 2-d tensor (B * D), the object-centric representation.
@@ -325,8 +340,8 @@ class FCNNPhiValuationFunction(nn.Module):
         Returns:
             A batch of probabilities.
         """
-        if (z_1==z_2).prod().bool():
-            return torch.zeros(dir.shape[0]).to(dir.device)
+        if (z_1 == z_2).prod().bool():
+            return torch.zeros(dir.shape[0]).to(dir.device), None
         mask_z1 = z_1[:, :self.obj_type_num].sum(dim=-1) > 0
         mask_z2 = z_2[:, :self.obj_type_num].sum(dim=-1) > 0
         mask = (mask_z1 & mask_z2)
@@ -353,8 +368,13 @@ class FCNNPhiValuationFunction(nn.Module):
         dir_pred = torch.zeros(dir.shape).to(dir.device)
         for i in range(dir_pred.shape[0]):
             dir_pred[i, int(zone_id[i])] = 1
+        satisfaction = (dir * dir_pred).sum(dim=1) * mask
+        if given_param is not None and len(given_param) > 0:
+            range_min, range_max = given_param.min(), given_param.max()
+            satisfaction = (phi_clock_shift <= range_max) * (phi_clock_shift >= range_min)
 
-        return (dir * dir_pred).sum(dim=1) * mask
+        parameters = phi_clock_shift[satisfaction > 0]
+        return satisfaction, parameters
 
     def cart2pol(self, x, y):
         rho = torch.sqrt(x ** 2 + y ** 2)

@@ -84,6 +84,7 @@ def ilp_search(args, lang, init_clauses, FC):
         # prune clauses
         if args.pi_top > 0:
             clauses, clause_with_scores = prune_clauses(clause_with_scores, args)
+
         else:
             clauses = logic_utils.top_select(clause_with_scores, args)
 
@@ -386,8 +387,8 @@ def get_clause_score(NSFR, args, pred_names, eval_data, pos_group_pred=None, neg
         g_tensors_pos = pos_group_pred[i * bz:(i + 1) * bz]
         g_tensors_neg = neg_group_pred[i * bz:(i + 1) * bz]
         # V_T_pos.dim = clause num * img num * atoms num
-        V_T_pos[:, i * bz:(i + 1) * bz, :] = NSFR.clause_eval_quick(g_tensors_pos)
-        V_T_neg[:, i * bz:(i + 1) * bz, :] = NSFR.clause_eval_quick(g_tensors_neg)
+        V_T_pos[:, i * bz:(i + 1) * bz, :], pos_param = NSFR.clause_eval_quick(g_tensors_pos, [None] * len(NSFR.atoms))
+        V_T_neg[:, i * bz:(i + 1) * bz, :], neg_param = NSFR.clause_eval_quick(g_tensors_neg, pos_param)
     # each score needs an explanation
     score_positive = NSFR.get_target_prediciton(V_T_pos, pred_names, args.device)
     score_negative = NSFR.get_target_prediciton(V_T_neg, pred_names, args.device)
@@ -405,8 +406,6 @@ def get_clause_score(NSFR, args, pred_names, eval_data, pos_group_pred=None, neg
 
     img_scores[:, :, index_pos] = score_positive[:, :, 0]
     img_scores[:, :, index_neg] = score_negative[:, :, 0]
-
-    data_match_score = 0
 
     return img_scores
 
@@ -447,7 +446,8 @@ def clause_extend(args, lang, clauses):
         args.is_done = True
 
     if args.show_process:
-        log_utils.add_lines(f"=============== extended clauses =================", args.log_file)
+        log_utils.add_lines(f"=============== extended {len(refs_no_conflict)} clauses =================",
+                            args.log_file)
         for ref in refs_no_conflict:
             log_utils.add_lines(f"{ref}", args.log_file)
     return refs_no_conflict
@@ -474,6 +474,14 @@ def prune_clauses(clause_with_scores, args):
 
     if args.show_process:
         log_utils.add_lines(f"- {len(c_score_pruned)} clauses left.", args.log_file)
+        for c in c_score_pruned:
+            positive_score = c[2][:, config.score_example_index["pos"]]
+            negative_score = 1 - c[2][:, config.score_example_index["neg"]]
+            failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+            failed_neg_index = ((negative_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+            log_utils.add_lines(f"(sco-uni): {c[0]} {torch.round(c[1], decimals=2).reshape(-1)} "
+                                f"Failed Pos States: ({len(failed_pos_index)}/{c[2].shape[0]}) "
+                                f"Failed Neg States: ({len(failed_neg_index)}/{c[2].shape[0]}) ", args.log_file)
     # prune predicate similar clauses
 
     if args.semantic_unique:
@@ -492,11 +500,59 @@ def prune_clauses(clause_with_scores, args):
         c_semantic_pruned = semantic_unique_c
     else:
         c_semantic_pruned = c_score_pruned
-
     c_score_pruned = c_semantic_pruned
 
     if args.show_process:
         log_utils.add_lines(f"- {len(c_score_pruned)} clauses left.", args.log_file)
+        for c in c_score_pruned:
+            positive_score = c[2][:, config.score_example_index["pos"]]
+            negative_score = 1 - c[2][:, config.score_example_index["neg"]]
+            failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+            failed_neg_index = ((negative_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+            log_utils.add_lines(f"(sem-uni): {c[0]} {torch.round(c[1], decimals=2).reshape(-1)} "
+                                f"Failed Pos States: ({len(failed_pos_index)}/{c[2].shape[0]}) "
+                                f"Failed Neg States: ({len(failed_neg_index)}/{c[2].shape[0]}) ", args.log_file)
+
+    if args.ness_maximize:
+        if args.show_process:
+            log_utils.add_lines(f"- necessity pruning ... ({len(c_score_pruned)} clauses)", args.log_file)
+
+        contribute_percents = []
+        used_data = torch.zeros_like(clause_with_scores[0][2][:, 0], dtype=torch.bool)
+
+        suff_percents = torch.tensor([c[1][1] for c in c_score_pruned])
+        indices_ranked = suff_percents.argsort(descending=True)
+        c_score_pruned = [c_score_pruned[i] for i in indices_ranked]
+        for c in c_score_pruned:
+            c_ness_indices = c[2][:, config.score_example_index["pos"]] > 0.9
+            contribute_percent = (~used_data * c_ness_indices).sum() / len(used_data)
+            used_data[c_ness_indices] = True
+            contribute_percents.append(contribute_percent)
+        contri_ranked, contri_ranks = torch.tensor(contribute_percents).sort(descending=True)
+        ness_maximize_c = []
+        ness_percent = 0
+        for c_i in range(len(contri_ranked)):
+            if ness_percent < args.top_kp:
+                ness_maximize_c.append(c_score_pruned[contri_ranks[c_i]])
+                ness_percent += contri_ranked[c_i]
+    else:
+        ness_maximize_c = c_score_pruned
+    c_score_pruned = ness_maximize_c
+
+    if args.show_process and args.ness_maximize:
+        log_utils.add_lines(
+            f"- {len(c_score_pruned)} clauses left. Total ness {ness_percent:.2f}",
+            args.log_file)
+        for c_i, c in enumerate(c_score_pruned):
+            positive_score = c[2][:, config.score_example_index["pos"]]
+            negative_score = 1 - c[2][:, config.score_example_index["neg"]]
+            failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+            failed_neg_index = ((negative_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+            log_utils.add_lines(
+                f"(contri-perc {contri_ranked[c_i]:.2f}): "
+                f"{c[0]} {torch.round(c[1], decimals=2).reshape(-1)} "
+                f"Failed Pos States: ({len(failed_pos_index)}/{c[2].shape[0]}) "
+                f"Failed Neg States: ({len(failed_neg_index)}/{c[2].shape[0]}) ", args.log_file)
 
     # select top N clauses
     if args.top_kp is not None:

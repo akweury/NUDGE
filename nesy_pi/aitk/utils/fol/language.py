@@ -159,12 +159,14 @@ class Language(object):
                 num = args.player_num
             const_names = []
             for i in range(int(num)):
+                if const == "group" and i == 0:
+                    continue
                 const_names.append(str(const) + str(i))
         elif "enum" in const_type:
             if const == 'color':
                 const_names = bk.color
             elif const == 'shape':
-                const_names = [data[0] for data in args.game_info["obj_info"]]
+                const_names = [data[0] for data in args.game_info["obj_info"][1:]]
             # elif const == 'group_shape':
             #     const_names = group_shape
             else:

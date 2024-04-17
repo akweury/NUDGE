@@ -24,8 +24,8 @@ class FactsConverter(nn.Module):
     def __repr__(self):
         return "FactsConverter(entities={}, dimension={})".format(self.e, self.d)
 
-    def forward(self, Z, G, B, scores=None):
-        return self.convert(Z, G, B, scores)
+    def forward(self, Z, G, B, given_param, scores=None):
+        return self.convert(Z, G, B, given_param, scores)
 
     def get_params(self):
         return self.vm.get_params()
@@ -48,20 +48,21 @@ class FactsConverter(nn.Module):
             vs.append(self.convert_i(zs, G))
         return torch.stack(vs)
 
-    def convert(self, Z, G, B, scores=None):
+    def convert(self, Z, G, B, given_param, scores=None):
         batch_size = Z.size(0)
 
         # V = self.init_valuation(len(G), Z.size(0))
 
         # evaluate value of each atom
         V = torch.zeros((batch_size, len(G))).to(torch.float32).to(self.device)
+        pred_params = []
         for i, atom in enumerate(G):
-
+            parameters = None
             # this atom is a neural predicate
             if type(atom.pred) == NeuralPredicate and i > 1:
                 if atom.pred.name in ["in", "phi", "rho", "shape"]:
-                    V[:, i] = self.vm(Z, atom)
-
+                    V[:, i], parameters = self.vm(Z, atom, given_param[i])
+            pred_params.append(parameters)
             # this atom is an invented predicate
             # elif type(atom.pred) == InventedPredicate:
             #     if atom.pred.body is not None:
@@ -75,7 +76,7 @@ class FactsConverter(nn.Module):
             #     V[:, i] += value
 
         V[:, 1] = torch.ones((batch_size,)).to(torch.float32).to(self.device)
-        return V
+        return V, pred_params
 
 
 def convert_i(self, zs, G):

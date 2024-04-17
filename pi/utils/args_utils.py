@@ -21,6 +21,8 @@ def load_args(exp_args_path, m):
     parser.add_argument("-m", "--mode", help="the game mode you want to play with",
                         required=True, action="store", dest="m")
     parser.add_argument("--learn", help="learn the invented predicates", action="store_true", default=False)
+    parser.add_argument("--fine_tune_pred_parameter",
+                        help="learn the invented predicates", action="store_true", default=False)
     parser.add_argument("--test", help="test the invented predicates", action="store_true", default=False)
     parser.add_argument("-r", "--rules", type=str)
     parser.add_argument("-l", "--log", help="record the information of games", action="store_true")

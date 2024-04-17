@@ -23,13 +23,42 @@ class ClausePlayer:
         self.FC = ai_interface.get_fc(args, self.lang, self.VM, args.rule_obj_num)
         self.NSFR = ai_interface.get_nsfr(args, args.lang, self.FC, self.lang.all_clauses)
         self.lang = args.lang
+        self.clause_adj = torch.zeros(len(args.clauses), len(args.clauses))
+        self.clause_actions = torch.tensor(
+            [self.args.action_names.index(c.head.pred.name) for c in self.lang.all_clauses])
 
-    def draw_action(self, logic_state):
+    def highest_priority_index(self, indices):
+        # Initialize highest priority index and maximum priority
+        highest_priority_idx = None
+        max_priority = float('-inf')  # Initialize with negative infinity
 
+        # Iterate over the given indices
+        for idx in indices:
+            # Get the priority weight for the given index
+            priority = self.clause_adj[idx]
+
+            # Check if the priority is higher than the current maximum priority
+            if priority > max_priority:
+                max_priority = priority
+                highest_priority_idx = idx
+
+        return highest_priority_idx
+
+    def update_clause_adj(self, score, teacher_action):
+        mask_score = score > 0.9
+        mask_teacher_action = (self.clause_actions == teacher_action) * mask_score
+        mask_wrong_action = (self.clause_actions != teacher_action) * mask_score
+        if mask_teacher_action.sum() > 0 and mask_wrong_action.sum() > 0:
+            self.clause_adj[mask_teacher_action][mask_wrong_action] += 1
+
+    def learn_action_weights(self, logic_state, teacher_action):
         self.args.test_data = torch.tensor(logic_state).unsqueeze(0)
         target_preds = self.args.action_names
-        score = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")[:,0,0]
-        score *= self.args.clause_scores[:,1]
+        score = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")[:, 0, 0]
+        # score *= self.args.clause_scores[:, 1]
+        max_score = score.max()
+        if max_score > 0.9:
+            self.update_clause_adj(score, teacher_action)
         best_idx = score.argmax()
         action_name = self.lang.all_clauses[best_idx].head.pred.name
         action = self.args.action_names.index(action_name)
@@ -764,7 +793,6 @@ class PpoPlayer:
     def load_model(self, model_path, args, set_eval=True):
 
         with open(model_path, "rb") as f:
-
             model = ActorCritic(args).to(args.device)
             model.load_state_dict(state_dict=torch.load(f, map_location=torch.device(args.device)))
 

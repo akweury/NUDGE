@@ -16,7 +16,9 @@ def get_args():
                         help="prune same score clauses.")
     parser.add_argument("--semantic_unique", action="store_false",
                         help="prune same semantic clauses.")
-
+    parser.add_argument("--ness_maximize", action="store_true",
+                        help="maximize the necessity of searched clauses.")
+    parser.add_argument("--ness_equal_th", type=float, default=0.1)
     parser.add_argument("--num-workers", type=int, default=4,
                         help="Number of threads for data loader")
     parser.add_argument('--gamma', default=0.001, type=float,
@@ -136,6 +138,7 @@ def get_args():
     parser.add_argument("--learn", help="learn the invented predicates", action="store_true", default=False)
     parser.add_argument("--test", help="test the invented predicates", action="store_true", default=False)
     parser.add_argument("-r", "--rules", type=str)
+    parser.add_argument( "--learned_clause_file", type=str)
     parser.add_argument("-l", "--log", help="record the information of games", action="store_true")
     parser.add_argument("-rec", "--record", help="record the rendering of the game", action="store_true")
     parser.add_argument("--log_file_name", help="the name of log file", required=False, dest='logfile')
