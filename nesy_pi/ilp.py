@@ -22,9 +22,9 @@ def clause_eval(args, lang, FC, clauses, step, eval_data=None):
     NSFR = ai_interface.get_nsfr(args, lang, FC, clauses)
     # evaluate new clauses
     target_preds = [clauses[0].head.pred.name]
-    img_scores = get_clause_score(NSFR, args, target_preds, eval_data)
+    img_scores, p_pos = get_clause_score(NSFR, args, target_preds, eval_data)
     clause_scores = get_clause_3score(img_scores[:, :, args.index_pos], img_scores[:, :, args.index_neg], args, step)
-    return img_scores, clause_scores
+    return img_scores, clause_scores, p_pos
 
 
 def clause_robust_eval(args, lang, FC, clauses, step, eval_data=None):
@@ -54,6 +54,38 @@ def clause_robust_eval(args, lang, FC, clauses, step, eval_data=None):
 #     return clauses, clause_with_scores
 
 
+def inv_consts(args, p_pos, clauses, lang):
+    const_data = []
+    for c_with_score in clauses:
+        # invent const
+        if c_with_score[1][1] > args.sc_th:
+            rule_consts = []
+
+            c = c_with_score[0]
+            for atom in c.body:
+                if "phi" in atom.terms[-1].name or "rho" in atom.terms[-1].name:
+                    rule_consts.append([atom.terms[-1].dtype, atom.terms[-1].name])
+            for rule_const in rule_consts:
+                rule_consts_atom_id = []
+                for a_i, atom in enumerate(lang.atoms):
+                    if atom.terms[-1].name == rule_const[1]:
+                        rule_consts_atom_id.append(a_i)
+                const_values = p_pos[:, rule_consts_atom_id].unique()
+                const_values = const_values[const_values != 0]
+                const_data.append([rule_const[0], const_values])
+
+    # create new const object
+
+    if len(const_data) > 0:
+        for new_const in const_data:
+            lang.inv_new_const(new_const[0], new_const[1])
+
+        lang.generate_atoms()
+        return True
+
+    return False
+
+
 def ilp_search(args, lang, init_clauses, FC):
     """
     given one or multiple neural predicates, searching for high scoring clauses, which includes following steps
@@ -72,7 +104,7 @@ def ilp_search(args, lang, init_clauses, FC):
             break
 
         # clause evaluation
-        img_scores, clause_scores = clause_eval(args, lang, FC, clauses, extend_step)
+        img_scores, clause_scores, p_pos = clause_eval(args, lang, FC, clauses, extend_step)
         # classify clauses
         clause_with_scores = sort_clauses_by_score(clauses, img_scores, clause_scores, args)
         # print best clauses that have been found...
@@ -84,24 +116,29 @@ def ilp_search(args, lang, init_clauses, FC):
         # prune clauses
         if args.pi_top > 0:
             clauses, clause_with_scores = prune_clauses(clause_with_scores, args)
-
         else:
             clauses = logic_utils.top_select(clause_with_scores, args)
 
+        has_new_consts = inv_consts(args, p_pos, clause_with_scores, lang)
+        if has_new_consts:
+            VM = ai_interface.get_vm(args, lang)
+            FC = ai_interface.get_fc(args, lang, VM, args.rule_obj_num)
+
         # save data
         all_c = [c[0] for c in lang.all_clauses]
-        new_c = [c for c in clause_with_scores if c[0] not in all_c]
+        new_c = [c for c in clause_with_scores if c[0] not in all_c and c[1][1] > args.sc_th]
         lang.all_clauses += new_c
-        extend_step += 1
 
+        done, clause_with_scores = check_result(args, clause_with_scores, lang.all_clauses)
+        clauses = [c[0] for c in clause_with_scores]
+        extend_step += 1
+        if done:
+            args.is_done = True
+            break
     if len(clauses) > 0:
         lang.clause_with_scores = clause_with_scores
         # args.last_refs = clauses
-
-    # lang.clauses = args.last_refs
-    check_result(args, clause_with_scores)
-
-    return clauses
+    return clauses, FC
 
 
 def explain_scenes(args, lang, clauses):
@@ -149,14 +186,13 @@ def ilp_test(args, lang):
     FC = ai_interface.get_fc(args, lang, VM, e)
     # ILP
     # searching for a proper clause to describe the patterns.
-    for i in range(args.max_step):
-        args.iteration = i
-        clauses = ilp_search(args, lang, clauses, FC)
 
-        if args.is_done:
-            break
+    args.iteration = args.max_step
+    # returned clauses have to cover all the positive images and no negative images
+    ilp_search(args, lang, clauses, FC)
+
     sorted_clauses_with_scores = sorted(lang.all_clauses, key=lambda x: x[1][2], reverse=True)
-    sorted_clauses_with_scores = [c for c in sorted_clauses_with_scores if c[1][1] > args.sc_th]
+    sorted_clauses_with_scores = [c for c in sorted_clauses_with_scores if c[1][1] > args.sc_th][:args.top_k]
 
     success, clauses = log_utils.print_test_result(args, lang, sorted_clauses_with_scores)
     return success, sorted_clauses_with_scores
@@ -318,7 +354,7 @@ def keep_best_preds(args, lang):
 
 def reset_args(args):
     args.is_done = False
-    args.iteration = 2
+    args.iteration = 1
     args.max_clause = [0.0, None]
     args.no_new_preds = False
     args.no_new_preds = True
@@ -379,35 +415,39 @@ def get_clause_score(NSFR, args, pred_names, eval_data, pos_group_pred=None, neg
     bz = args.batch_size
     V_T_pos = torch.zeros(len(NSFR.clauses), train_size, len(NSFR.atoms)).to(args.device)
     V_T_neg = torch.zeros(len(NSFR.clauses), train_size, len(NSFR.atoms)).to(args.device)
+    P_pos = torch.zeros(train_size, len(NSFR.atoms)).to(args.device)
+    P_neg = torch.zeros(train_size, len(NSFR.atoms)).to(args.device)
     img_scores = torch.zeros(size=(V_T_pos.shape[0], V_T_pos.shape[1], 2)).to(args.device)
     for i in range(int(train_size / batch_size)):
         date_now = datetime.datetime.today().date()
         time_now = datetime.datetime.now().strftime("%H_%M_%S")
         # print(f"({date_now} {time_now}) eval batch {i + 1}/{int(train_size / args.batch_size_train)}")
-        g_tensors_pos = pos_group_pred[i * bz:(i + 1) * bz]
-        g_tensors_neg = neg_group_pred[i * bz:(i + 1) * bz]
+        l_i = i * bz
+        r_i = (i + 1) * bz
+        g_tensors_pos = pos_group_pred[l_i:r_i]
+        g_tensors_neg = neg_group_pred[l_i:r_i]
         # V_T_pos.dim = clause num * img num * atoms num
-        V_T_pos[:, i * bz:(i + 1) * bz, :], pos_param = NSFR.clause_eval_quick(g_tensors_pos, [None] * len(NSFR.atoms))
-        V_T_neg[:, i * bz:(i + 1) * bz, :], neg_param = NSFR.clause_eval_quick(g_tensors_neg, pos_param)
+        V_T_pos[:, l_i:r_i, :], P_pos[l_i:r_i, :] = NSFR.clause_eval_quick(g_tensors_pos, P_pos[l_i:r_i, :])
+        if not eval_data == "play":
+            V_T_neg[:, l_i:r_i, :], P_neg[l_i:r_i, :] = NSFR.clause_eval_quick(g_tensors_neg, P_pos[l_i:r_i, :])
     # each score needs an explanation
     score_positive = NSFR.get_target_prediciton(V_T_pos, pred_names, args.device)
-    score_negative = NSFR.get_target_prediciton(V_T_neg, pred_names, args.device)
-
-    score_negative[score_negative == 1] = 0.99
     score_positive[score_positive == 1] = 0.99
-
     if score_positive.size(2) > 1:
         score_positive = score_positive.max(dim=2, keepdim=True)[0]
-    if score_negative.size(2) > 1:
-        score_negative = score_negative.max(dim=2, keepdim=True)[0]
-
     index_pos = config.score_example_index["pos"]
-    index_neg = config.score_example_index["neg"]
-
     img_scores[:, :, index_pos] = score_positive[:, :, 0]
-    img_scores[:, :, index_neg] = score_negative[:, :, 0]
 
-    return img_scores
+    if not eval_data == "play":
+        score_negative = NSFR.get_target_prediciton(V_T_neg, pred_names, args.device)
+        score_negative[score_negative == 1] = 0.99
+        if score_negative.size(2) > 1:
+            score_negative = score_negative.max(dim=2, keepdim=True)[0]
+
+        index_neg = config.score_example_index["neg"]
+        img_scores[:, :, index_neg] = score_negative[:, :, 0]
+
+    return img_scores, P_pos
 
 
 def sort_clauses_by_score(clauses, scores_all, scores, args):
@@ -453,28 +493,19 @@ def clause_extend(args, lang, clauses):
     return refs_no_conflict
 
 
-def prune_clauses(clause_with_scores, args):
-    refs = []
-
-    # prune necessity zero clauses
-    if args.score_unique:
-        if args.show_process:
-            log_utils.add_lines(f"- score pruning ... ({len(clause_with_scores)} clauses)", args.log_file)
-        # for c in clause_with_scores:
-        #     log_utils.add_lines(f"(clause before pruning) {c[0]} {c[1].reshape(3)}", args.log_file)
-        score_unique_c = []
-        appeared_scores = []
-        for c in clause_with_scores:
-            if c[1][0] > args.ness_th:
-                score_unique_c.append(c)
-                appeared_scores.append(c[1][2])
-        c_score_pruned = score_unique_c
-    else:
-        c_score_pruned = clause_with_scores
+def prune_low_ness_clauses(args, clause_with_scores):
+    if args.show_process:
+        log_utils.add_lines(f"- score pruning ... ({len(clause_with_scores)} clauses)", args.log_file)
+    score_unique_c = []
+    appeared_scores = []
+    for c in clause_with_scores:
+        if c[1][0] > args.ness_th:
+            score_unique_c.append(c)
+            appeared_scores.append(c[1][2])
 
     if args.show_process:
-        log_utils.add_lines(f"- {len(c_score_pruned)} clauses left.", args.log_file)
-        for c in c_score_pruned:
+        log_utils.add_lines(f"- {len(score_unique_c)} clauses left.", args.log_file)
+        for c in score_unique_c:
             positive_score = c[2][:, config.score_example_index["pos"]]
             negative_score = 1 - c[2][:, config.score_example_index["neg"]]
             failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
@@ -482,26 +513,22 @@ def prune_clauses(clause_with_scores, args):
             log_utils.add_lines(f"(sco-uni): {c[0]} {torch.round(c[1], decimals=2).reshape(-1)} "
                                 f"Failed Pos States: ({len(failed_pos_index)}/{c[2].shape[0]}) "
                                 f"Failed Neg States: ({len(failed_neg_index)}/{c[2].shape[0]}) ", args.log_file)
-    # prune predicate similar clauses
+    return score_unique_c
 
-    if args.semantic_unique:
-        if args.show_process:
-            log_utils.add_lines(f"- semantic pruning ... ({len(c_score_pruned)} clauses)", args.log_file)
-        semantic_unique_c = []
-        semantic_repeat_c = []
-        appeared_semantics = []
-        for c in c_score_pruned:
-            c_semantic = logic_utils.get_semantic_from_c(c[0])
-            if not eval_clause_infer.eval_semantic_similarity(c_semantic, appeared_semantics, args):
-                semantic_unique_c.append(c)
-                appeared_semantics.append(c_semantic)
-            else:
-                semantic_repeat_c.append(c)
-        c_semantic_pruned = semantic_unique_c
-    else:
-        c_semantic_pruned = c_score_pruned
-    c_score_pruned = c_semantic_pruned
 
+def prune_semantic_repeat_clauses(args, c_score_pruned):
+    if args.show_process:
+        log_utils.add_lines(f"- semantic pruning ... ({len(c_score_pruned)} clauses)", args.log_file)
+    semantic_unique_c = []
+    semantic_repeat_c = []
+    appeared_semantics = []
+    for c in c_score_pruned:
+        c_semantic = logic_utils.get_semantic_from_c(c[0])
+        if not eval_clause_infer.eval_semantic_similarity(c_semantic, appeared_semantics, args):
+            semantic_unique_c.append(c)
+            appeared_semantics.append(c_semantic)
+        else:
+            semantic_repeat_c.append(c)
     if args.show_process:
         log_utils.add_lines(f"- {len(c_score_pruned)} clauses left.", args.log_file)
         for c in c_score_pruned:
@@ -513,54 +540,19 @@ def prune_clauses(clause_with_scores, args):
                                 f"Failed Pos States: ({len(failed_pos_index)}/{c[2].shape[0]}) "
                                 f"Failed Neg States: ({len(failed_neg_index)}/{c[2].shape[0]}) ", args.log_file)
 
-    if args.ness_maximize:
-        if args.show_process:
-            log_utils.add_lines(f"- necessity pruning ... ({len(c_score_pruned)} clauses)", args.log_file)
+    return semantic_unique_c
 
-        contribute_percents = []
-        used_data = torch.zeros_like(clause_with_scores[0][2][:, 0], dtype=torch.bool)
 
-        suff_percents = torch.tensor([c[1][1] for c in c_score_pruned])
-        indices_ranked = suff_percents.argsort(descending=True)
-        c_score_pruned = [c_score_pruned[i] for i in indices_ranked]
-        for c in c_score_pruned:
-            c_ness_indices = c[2][:, config.score_example_index["pos"]] > 0.9
-            contribute_percent = (~used_data * c_ness_indices).sum() / len(used_data)
-            used_data[c_ness_indices] = True
-            contribute_percents.append(contribute_percent)
-        contri_ranked, contri_ranks = torch.tensor(contribute_percents).sort(descending=True)
-        ness_maximize_c = []
-        ness_percent = 0
-        for c_i in range(len(contri_ranked)):
-            if ness_percent < args.top_kp:
-                ness_maximize_c.append(c_score_pruned[contri_ranks[c_i]])
-                ness_percent += contri_ranked[c_i]
+def prune_clauses(clause_with_scores, args):
+    refs = []
+    # prune necessity zero clauses
+    if args.score_unique:
+        c_score_pruned = prune_low_ness_clauses(args, clause_with_scores)
     else:
-        ness_maximize_c = c_score_pruned
-    c_score_pruned = ness_maximize_c
-
-    if args.show_process and args.ness_maximize:
-        log_utils.add_lines(
-            f"- {len(c_score_pruned)} clauses left. Total ness {ness_percent:.2f}",
-            args.log_file)
-        for c_i, c in enumerate(c_score_pruned):
-            positive_score = c[2][:, config.score_example_index["pos"]]
-            negative_score = 1 - c[2][:, config.score_example_index["neg"]]
-            failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
-            failed_neg_index = ((negative_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
-            log_utils.add_lines(
-                f"(contri-perc {contri_ranked[c_i]:.2f}): "
-                f"{c[0]} {torch.round(c[1], decimals=2).reshape(-1)} "
-                f"Failed Pos States: ({len(failed_pos_index)}/{c[2].shape[0]}) "
-                f"Failed Neg States: ({len(failed_neg_index)}/{c[2].shape[0]}) ", args.log_file)
-
-    # select top N clauses
-    if args.top_kp is not None:
-        c_score_pruned = top_kp(args, c_score_pruned)
-    # log_utils.add_lines(f"after top select: {len(c_score_pruned)}", args.log_file)
-
+        c_score_pruned = clause_with_scores
+    if args.semantic_unique:
+        c_score_pruned = prune_semantic_repeat_clauses(args, c_score_pruned)
     refs += update_refs(c_score_pruned, args)
-
     return refs, c_score_pruned
 
 
@@ -580,20 +572,67 @@ def top_kp(args, clauses):
     return top_clauses
 
 
-def check_result(args, clauses):
-    if len(clauses) == 0:
-        args.is_done = True
-    elif len(clauses) > 0 and clauses[0][1][2] == 1.0:
-        log_utils.add_lines(f"found sufficient and necessary clause.", args.log_file)
-        # cs = extract_clauses_from_bs_clauses([clauses[0]], "sn", args)
-        args.is_done = True
-        # break
-    elif len(clauses) > 0 and clauses[0][1][2] > args.sn_th:
-        log_utils.add_lines(f"found quasi-sufficient and necessary clause.", args.log_file)
-        args.is_done = True
-        # for c in clauses:
-        # if c[1][2] > args.sn_th:
-        #     cs += extract_clauses_from_bs_clauses([c], "sn_good", args)
+def check_result(args, clause_with_scores, all_clauses):
+    done = False
+    if len(clause_with_scores) == 0:
+        return done
+
+    all_c = [c[0] for c in all_clauses]
+    new_c = [c for c in clause_with_scores if c[0] not in all_c]
+    clause_with_scores = all_clauses + new_c
+
+    # rank by sufficiency
+
+    suff_percents = torch.tensor([c[1][1] for c in clause_with_scores])
+    indices_ranked = suff_percents.argsort(descending=True)
+    c_score_pruned = [clause_with_scores[i] for i in indices_ranked]
+
+    # rank by necessity
+    ness_percents = []
+    suff_percents = []
+    ness_used_data = torch.zeros_like(clause_with_scores[0][2][:, 0], dtype=torch.bool)
+    suff_used_data = torch.zeros_like(clause_with_scores[0][2][:, 1], dtype=torch.bool)
+    for c in c_score_pruned:
+        c_ness_indices = c[2][:, config.score_example_index["pos"]] > 0.9
+        c_suff_indices = c[2][:, config.score_example_index["neg"]] > 0.9
+        ness_percent = (~ness_used_data * c_ness_indices).sum() / len(ness_used_data)
+        suff_percent = (~suff_used_data * c_suff_indices).sum() / len(suff_used_data)
+        ness_used_data[c_ness_indices] = True
+        suff_used_data[c_suff_indices] = True
+        ness_percents.append(ness_percent)
+        suff_percents.append(suff_percent)
+    ness_ranked, ness_indices = torch.tensor(ness_percents).sort(descending=True)
+    suff_rankded = torch.tensor(suff_percents)[ness_indices]
+
+    ness_maximize_c = []
+    ness_percent_total = 0
+    suff_percent_total = 0
+    for c_i in range(min(args.top_k, len(ness_indices))):
+        ness_maximize_c.append(c_score_pruned[ness_indices[c_i]])
+        ness_percent_total += ness_ranked[c_i]
+        suff_percent_total += suff_rankded[c_i]
+
+    saved_ness_percents = 0
+    saved_suff_percents = 0
+    if len(all_clauses) > 0:
+        saved_ness_used_data = torch.zeros_like(all_clauses[0][2][:, 0], dtype=torch.bool)
+        saved_suff_used_data = torch.zeros_like(all_clauses[0][2][:, 1], dtype=torch.bool)
+        for c_i, c in enumerate(all_clauses):
+            c_ness_indices = c[2][:, config.score_example_index["pos"]] > 0.9
+            c_suff_indices = c[2][:, config.score_example_index["neg"]] > 0.9
+            ness_percent = (~saved_ness_used_data * c_ness_indices).sum() / len(saved_ness_used_data)
+            suff_percent = (~saved_suff_used_data * c_suff_indices).sum() / len(saved_suff_used_data)
+            saved_ness_used_data[c_ness_indices] = True
+            saved_suff_used_data[c_suff_indices] = True
+            saved_ness_percents += ness_percent
+            saved_suff_percents += suff_percent
+    log_utils.add_lines(f"- necessity sum: {ness_percent_total:.2f}, "
+                        f"sufficiency sum: {suff_percent_total:.2f}\n "
+                        f"saved_necessity sum: {saved_ness_percents:.2f}, "
+                        f"saved sufficiency sum: {saved_suff_percents:.2f}", args.log_file)
+    if saved_ness_percents > args.nc_th:
+        done = True
+    return done, ness_maximize_c
 
 
 def explain_invention(args, lang, clauses):
@@ -719,9 +758,7 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
     index_ness = config.score_type_index['ness']
     index_sn = config.score_type_index['sn']
 
-    clu_suff = [clu for clu in clu_all if
-                clu[1][index_suff] > args.sc_th and clu[1][index_sn] > args.sn_min_th and clu[1][
-                    index_ness] > args.nc_th]
+    clu_suff = [clu for clu in clu_all if clu[1][index_suff] > args.inv_sc_th and clu[1][index_ness] > args.inv_nc_th]
     # clu_ness = [clu for clu in clu_all if clu[1][index_ness] > args.nc_th and clu[1][index_sn] > args.sn_min_th]
     # clu_sn = [clu for clu in clu_all if clu[1][index_sn] > args.sn_th]
     clu_classified = sorted(clu_suff, key=lambda x: x[1][2], reverse=True)
@@ -737,9 +774,13 @@ def ilp_train(args, lang):
         # update system
         VM = ai_interface.get_vm(args, lang)
         FC = ai_interface.get_fc(args, lang, VM, e)
-        clauses = ilp_search(args, lang, init_clauses, FC)
+        clauses, FC = ilp_search(args, lang, init_clauses, FC)
         if args.with_pi:
             ilp_pi(args, lang, clauses, e)
+            # update predicate list
+            lang.preds = lang.append_new_predicate(lang.preds, lang.invented_preds)
+            # update language
+            lang.mode_declarations = lang_utils.get_mode_declarations(e, lang)
         args.iteration += 1
     # save the promising predicates
     keep_best_preds(args, lang)

@@ -54,11 +54,11 @@ class FCNNValuationModule(nn.Module):
         vfs['in'] = v_in
         layers.append(v_in)
 
-        v_rho = FCNNRhoValuationFunction(len(self.args.game_info["obj_info"]), device)
+        v_rho = FCNNRhoValuationFunction(self.args.rho_num, len(self.args.game_info["obj_info"]), device)
         vfs['rho'] = v_rho
         layers.append(v_rho)
 
-        v_phi = FCNNPhiValuationFunction(len(self.args.game_info["obj_info"]), device)
+        v_phi = FCNNPhiValuationFunction(self.args.phi_num, len(self.args.game_info["obj_info"]), device)
         vfs['phi'] = v_phi
         layers.append(v_phi)
 
@@ -113,8 +113,8 @@ class FCNNValuationModule(nn.Module):
             # call valuation function
             return self.vfs[atom.pred.name](*args)
         else:
-            return torch.zeros((zs.size(0),)).to(
-                torch.float32).to(self.device), None
+            return torch.zeros((zs.size(0),)).to(torch.float32).to(self.device), torch.zeros((zs.size(0),)).to(
+                torch.float32).to(self.device)
 
     def ground_to_tensor(self, term, zs):
         """Ground terms into tensor representations.
@@ -134,7 +134,11 @@ class FCNNValuationModule(nn.Module):
         elif term.dtype.name == "player":
             return zs[:, 0].to(self.device)
         elif term.dtype.name in bk.attr_names:
-            return self.attrs[term].unsqueeze(0).repeat(zs.shape[0], 1).to(self.device)
+            try:
+                res = self.attrs[term].unsqueeze(0).repeat(zs.shape[0], 1).to(self.device)
+            except KeyError:
+                print("")
+            return res
         elif term.dtype.name == 'image':
             return None
         else:
@@ -194,9 +198,10 @@ class FCNNShapeValuationFunction(nn.Module):
         """
         # shape_indices = [config.group_tensor_index[_shape] for _shape in config.group_pred_shapes]
         z_shape = z[:, 1:self.obj_type_num]
-        param = None
+        pred = (a * z_shape).sum(dim=1)
+        param = torch.zeros_like(pred).to(torch.float32)
         # a_batch = a.repeat((z.size(0), 1))  # one-hot encoding for batch
-        return (a * z_shape).sum(dim=1), param
+        return pred, param
 
 
 class FCNNShapeCounterValuationFunction(nn.Module):
@@ -244,9 +249,9 @@ class FCNNInValuationFunction(nn.Module):
         Returns:
             A batch of probabilities.
         """
-        param = None
-        prob, _ = z[:, :self.obj_type_num].max(dim=-1)
 
+        prob, _ = z[:, :self.obj_type_num].max(dim=-1)
+        param = torch.zeros_like(prob)
         return prob, param
 
 
@@ -254,8 +259,9 @@ class FCNNRhoValuationFunction(nn.Module):
     """The function v_area.
     """
 
-    def __init__(self, obj_type_num, device):
+    def __init__(self, rho_num, obj_type_num, device):
         super(FCNNRhoValuationFunction, self).__init__()
+        self.rho_num = rho_num
         self.obj_type_num = obj_type_num
         self.device = device
         self.logi = LogisticRegression(input_dim=1)
@@ -275,7 +281,8 @@ class FCNNRhoValuationFunction(nn.Module):
             A batch of probabilities.
         """
         if (z_1 == z_2).prod().bool():
-            return torch.zeros(dist_grade.shape[0]).to(dist_grade.device), None
+            return torch.zeros(dist_grade.shape[0]).to(dist_grade.device), torch.zeros(dist_grade.shape[0]).to(
+                dist_grade.device)
         mask_z1 = z_1[:, :self.obj_type_num].sum(dim=-1) > 0
         mask_z2 = z_2[:, :self.obj_type_num].sum(dim=-1) > 0
         mask = (mask_z1 & mask_z2)
@@ -289,7 +296,7 @@ class FCNNRhoValuationFunction(nn.Module):
         rho, phi = self.cart2pol(dir_vec[0], dir_vec[1])
         dist_id = torch.zeros(rho.shape)
 
-        dist_grade_num = dist_grade.shape[1]
+        dist_grade_num = self.rho_num
         grade_weight = 1 / dist_grade_num
         for i in range(1, dist_grade_num):
             threshold = grade_weight * i
@@ -300,10 +307,11 @@ class FCNNRhoValuationFunction(nn.Module):
             dist_pred[i, int(dist_id[i])] = 1
 
         satisfaction = (dist_grade * dist_pred).sum(dim=1) * mask
-        if given_param is not None and len(given_param) > 0:
+        if given_param.sum() > 0:
             range_min, range_max = given_param.min(), given_param.max()
             satisfaction = (rho <= range_max) * (rho >= range_min)
-        parameters = rho[satisfaction > 0]
+        parameters = torch.zeros_like(satisfaction).to(torch.float)
+        parameters[satisfaction > 0] = rho[satisfaction > 0].to(torch.float)
         return satisfaction, parameters
 
     def cart2pol(self, x, y):
@@ -320,9 +328,10 @@ class FCNNPhiValuationFunction(nn.Module):
     """The function v_area.
     """
 
-    def __init__(self, obj_type_num, device):
+    def __init__(self, phi_num, obj_type_num, device):
         super(FCNNPhiValuationFunction, self).__init__()
         self.device = device
+        self.phi_num = phi_num
         self.logi = LogisticRegression(input_dim=1)
         self.logi.to(device)
         self.obj_type_num = obj_type_num
@@ -341,7 +350,7 @@ class FCNNPhiValuationFunction(nn.Module):
             A batch of probabilities.
         """
         if (z_1 == z_2).prod().bool():
-            return torch.zeros(dir.shape[0]).to(dir.device), None
+            return torch.zeros(dir.shape[0]).to(dir.device), torch.zeros(dir.shape[0]).to(dir.device)
         mask_z1 = z_1[:, :self.obj_type_num].sum(dim=-1) > 0
         mask_z2 = z_2[:, :self.obj_type_num].sum(dim=-1) > 0
         mask = (mask_z1 & mask_z2)
@@ -350,7 +359,7 @@ class FCNNPhiValuationFunction(nn.Module):
         # c_2 = z_1[:, -2:].permute(1, 0)
         #
         # math_utils.dir_a_and_b_with_alignment_o2o(c_1, c_2)
-        round_divide = dir.shape[1]
+        round_divide = self.phi_num
         area_angle = int(360 / round_divide)
 
         # # area_angle_half = 0
@@ -368,12 +377,13 @@ class FCNNPhiValuationFunction(nn.Module):
         dir_pred = torch.zeros(dir.shape).to(dir.device)
         for i in range(dir_pred.shape[0]):
             dir_pred[i, int(zone_id[i])] = 1
-        satisfaction = (dir * dir_pred).sum(dim=1) * mask
-        if given_param is not None and len(given_param) > 0:
+        if given_param.sum() > 0:
             range_min, range_max = given_param.min(), given_param.max()
             satisfaction = (phi_clock_shift <= range_max) * (phi_clock_shift >= range_min)
-
-        parameters = phi_clock_shift[satisfaction > 0]
+        else:
+            satisfaction = (dir * dir_pred).sum(dim=1) * mask
+        parameters = torch.zeros_like(satisfaction).to(torch.float)
+        parameters[satisfaction > 0] = phi_clock_shift[satisfaction > 0].to(torch.float)
         return satisfaction, parameters
 
     def cart2pol(self, x, y):

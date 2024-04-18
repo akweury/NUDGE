@@ -49,6 +49,10 @@ def get_args():
                         help="The accept threshold for unclassified clauses.")
     parser.add_argument("--sc_th", type=float, default=0.9,
                         help="The accept threshold for sufficient clauses.")
+    parser.add_argument("--inv_sc_th", type=float, default=0.9,
+                        help="The accept threshold for sufficient clauses.")
+    parser.add_argument("--inv_nc_th", type=float, default=0.9,
+                        help="The accept threshold for sufficient clauses.")
     parser.add_argument("--sn_min_th", type=float, default=0.2,
                         help="The accept sn threshold for sufficient or necessary clauses.")
     parser.add_argument("--similar_th", type=float, default=1e-3,
@@ -59,7 +63,7 @@ def get_args():
                         help="The accept threshold for conflict clauses.")
     parser.add_argument("--length_weight", type=float, default=0.05,
                         help="The weight of clause length for clause evaluation.")
-    parser.add_argument("--top_kp", type=float, default=0.95,
+    parser.add_argument("--top_k", type=int, default=20,
                         help="The accept number for clauses.")
     parser.add_argument("--uc_good_top", type=int, default=10,
                         help="The accept number for unclassified good clauses.")
@@ -138,7 +142,7 @@ def get_args():
     parser.add_argument("--learn", help="learn the invented predicates", action="store_true", default=False)
     parser.add_argument("--test", help="test the invented predicates", action="store_true", default=False)
     parser.add_argument("-r", "--rules", type=str)
-    parser.add_argument( "--learned_clause_file", type=str)
+    parser.add_argument("--learned_clause_file", type=str)
     parser.add_argument("-l", "--log", help="record the information of games", action="store_true")
     parser.add_argument("-rec", "--record", help="record the rendering of the game", action="store_true")
     parser.add_argument("--log_file_name", help="the name of log file", required=False, dest='logfile')

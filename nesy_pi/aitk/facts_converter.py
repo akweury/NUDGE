@@ -55,14 +55,21 @@ class FactsConverter(nn.Module):
 
         # evaluate value of each atom
         V = torch.zeros((batch_size, len(G))).to(torch.float32).to(self.device)
-        pred_params = []
+        pred_params = torch.zeros_like(V).to(self.device)
         for i, atom in enumerate(G):
-            parameters = None
             # this atom is a neural predicate
             if type(atom.pred) == NeuralPredicate and i > 1:
                 if atom.pred.name in ["in", "phi", "rho", "shape"]:
-                    V[:, i], parameters = self.vm(Z, atom, given_param[i])
-            pred_params.append(parameters)
+                    if atom.terms[-1].values is not None:
+                        param = atom.terms[-1].values
+                    elif given_param[:, i].sum() > 0:
+                        param = given_param[:, i].unique()
+                        param = param[param != 0]
+                    else:
+                        param = given_param[:, i]
+                    a, b = self.vm(Z, atom, param)
+                    V[:, i], pred_params[:, i] = a, b
+
             # this atom is an invented predicate
             # elif type(atom.pred) == InventedPredicate:
             #     if atom.pred.body is not None:

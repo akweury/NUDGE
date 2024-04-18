@@ -25,7 +25,7 @@ class Language(object):
         consts (List[Const]): A set of constants.
     """
 
-    def __init__(self, args, funcs, pi_type, no_init=False):
+    def __init__(self, args, funcs, pi_type, inv_consts=None):
         self.vars = [Var(f"O{i + 1}") for i in range(args.rule_obj_num)]
         self.var_num = args.rule_obj_num
         self.atoms = []
@@ -44,20 +44,23 @@ class Language(object):
         self.all_invented_preds = []
         self.all_pi_clauses = []
         self.invented_preds_number = args.p_inv_counter
+        self.invented_consts_number = args.invented_consts_number
 
         with open(args.lark_path, encoding="utf-8") as grammar:
             self.lp_clause = Lark(grammar.read(), start="clause")
         with open(args.lark_path, encoding="utf-8") as grammar:
             self.lp_atom = Lark(grammar.read(), start="atom")
-        if not no_init:
+        if inv_consts is None:
             self.load_lang(args, pi_type)
         else:
             self.preds = []
             for action_name in args.action_names:
-                pred = self.parse_pred(bk.target_predicate[0], pi_type, action_name)
+                pred_str = f"{action_name}:1:image"
+                pred = self.parse_pred(pred_str, pi_type)
                 self.preds.append(pred)
-            self.preds.append(self.parse_pred(bk.target_predicate[1], pi_type, action_name))
-            self.consts = self.load_consts(args)
+            self.preds.append(self.parse_pred(bk.target_predicate[1], pi_type))
+            # self.consts = self.load_consts(args)
+            self.consts =inv_consts
             # self.load_init_clauses(args.e)
 
     def __str__(self):
@@ -129,14 +132,12 @@ class Language(object):
         clauses = [clauses]
         return clauses
 
-    def parse_pred(self, line, pi_type, action_pred_str):
+    def parse_pred(self, line, pi_type):
         """Parse string to predicates.
         """
         head_str, arity, dtype_names_str = line.split(':')
         dtype_names = dtype_names_str.split(',')
         dtypes = [DataType(dt) for dt in dtype_names]
-        if head_str == "action":
-            head_str = action_pred_str
         return NeuralPredicate(head_str, int(arity), dtypes, pi_type)
 
     def parse_const(self, args, const, const_type):
@@ -272,7 +273,11 @@ class Language(object):
 
     def load_lang(self, args, pi_type):
 
-        self.preds = [self.parse_pred(line, pi_type, args.label_name) for line in bk.target_predicate]
+        self.preds = [self.parse_pred(line, pi_type) for line in bk.target_predicate[1:]]
+        for action_name in args.action_names:
+            pred_str = f"{action_name}:1:image"
+            pred = self.parse_pred(pred_str, pi_type)
+            self.preds.append(pred)
         # preds += self.load_neural_preds()
         self.consts = self.load_consts(args)
         # pi_templates = self.load_invented_preds_template(str(self.base_path / 'neural_preds.txt'))
@@ -295,6 +300,22 @@ class Language(object):
                 dtype = atom.pred.dtypes[i]
                 var_dtype_list.append((arg, dtype))
         return var_dtype_list
+
+    def inv_new_const(self, const_type, const_value):
+
+        const_name = f"{const_type.name}inv{self.invented_consts_number}"
+        new_const = Const(const_name, const_type, const_value)
+
+        has_const = False
+        for const in self.consts:
+            if const.values is not None:
+                if const.values.min() == new_const.values.min() and const.values.max() == new_const.values.max():
+                    has_const = True
+                    break
+        if not has_const:
+            self.consts.append(new_const)
+            self.invented_consts_number += 1
+        return new_const
 
     def get_by_dtype(self, dtype):
         """Get constants that match given dtypes.

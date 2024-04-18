@@ -54,11 +54,14 @@ class ClausePlayer:
     def learn_action_weights(self, logic_state, teacher_action):
         self.args.test_data = torch.tensor(logic_state).unsqueeze(0)
         target_preds = self.args.action_names
-        score = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")[:, 0, 0]
+        score, _ = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")
+        score = score[:, 0, config.score_example_index["pos"]]
         # score *= self.args.clause_scores[:, 1]
         max_score = score.max()
         if max_score > 0.9:
             self.update_clause_adj(score, teacher_action)
+        else:
+            print("")
         best_idx = score.argmax()
         action_name = self.lang.all_clauses[best_idx].head.pred.name
         action = self.args.action_names.index(action_name)

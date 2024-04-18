@@ -78,12 +78,13 @@ class NSFReasoner(nn.Module):
     #     return V_T
 
     def clause_eval_quick(self, x, given_param=None):
-        x = torch.tensor(x)
         # convert to the valuation tensor
         V_0, param = self.fc(x, self.atoms, self.bk, given_param)
 
         # perform T-step forward-chaining reasoning
-        V_T = self.cim(V_0, self.atoms)
+        V_T = self.cim(V_0, self.atoms, param)
+        # param shape: list with len: c_num
+        # for each in list: shape = batch_size * pred_num
         return V_T, param
 
     def clause_eval_v_0(self, x):

@@ -24,6 +24,7 @@ def load_clauses(args):
 
     args.rule_obj_num = 10
     args.p_inv_counter = data["p_inv_counter"]
+    args.invented_consts_number = 10
     # load logical representations
     clauses_with_scores = [cs for acs in data["clauses"] for cs in acs]
     args.clause_scores = torch.cat([cs[1].unsqueeze(0) for cs in clauses_with_scores], dim=0).to(args.device)
@@ -39,7 +40,7 @@ def load_clauses(args):
     neural_preds = file_utils.load_neural_preds(bk_preds, "bk_pred")
     args.neural_preds = [neural_pred for neural_pred in neural_preds]
 
-    lang = Language(args, [], config.pi_type['bk'], no_init=True)
+    lang = Language(args, [], config.pi_type['bk'], inv_consts=data["inv_consts"])
     # update language
     lang.all_clauses = args.clauses
     lang.invented_preds_with_scores = []

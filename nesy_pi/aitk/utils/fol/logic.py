@@ -75,10 +75,10 @@ class Const(Term):
         dtype (datatype): Data type of the term.
     """
 
-    def __init__(self, name, dtype=None):
+    def __init__(self, name, dtype=None, values=None):
         self.name = name
         self.dtype = dtype
-
+        self.values=values
     def __repr__(self, level=0):
         return self.name
 

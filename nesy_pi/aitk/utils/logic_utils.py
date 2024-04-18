@@ -250,7 +250,7 @@ def update_args(args, data):
         data_size = min(args.top_data, len(data[a_i]["pos_data"]), len(data[a_i]["neg_data"]))
         pos_data = data[a_i]["pos_data"][:data_size]
         neg_data = data[a_i]["neg_data"][:data_size]
-        train_pos =pos_data[:args.train_data_size]
+        train_pos = pos_data[:args.train_data_size]
         train_neg = neg_data[:args.train_data_size]
         test_pos = pos_data[args.train_data_size:]
         test_neg = neg_data[args.train_data_size:]
@@ -260,6 +260,8 @@ def update_args(args, data):
 
     args.lark_path = config.path_nesy / "lark" / "exp.lark"
     args.invented_pred_num = 0
+    args.invented_consts_number = 0
+
     args.last_refs = []
     args.found_ns = False
     bk_preds = [bk.neural_predicate_2[bk_pred_name] for bk_pred_name in args.bk_pred_names.split(",")]
