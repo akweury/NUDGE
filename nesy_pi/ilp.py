@@ -132,9 +132,11 @@ def ilp_search(args, lang, init_clauses, FC):
         done, clause_with_scores = check_result(args, clause_with_scores, lang.all_clauses)
         clauses = [c[0] for c in clause_with_scores]
         extend_step += 1
+
         if done:
             args.is_done = True
             break
+
     if len(clauses) > 0:
         lang.clause_with_scores = clause_with_scores
         # args.last_refs = clauses
@@ -626,7 +628,7 @@ def check_result(args, clause_with_scores, all_clauses):
             saved_suff_used_data[c_suff_indices] = True
             saved_ness_percents += ness_percent
             saved_suff_percents += suff_percent
-    log_utils.add_lines(f"- necessity sum: {ness_percent_total:.2f}, "
+    log_utils.add_lines(f"-({len(ness_maximize_c)} clause left) necessity sum: {ness_percent_total:.2f}, "
                         f"sufficiency sum: {suff_percent_total:.2f}\n "
                         f"saved_necessity sum: {saved_ness_percents:.2f}, "
                         f"saved sufficiency sum: {saved_suff_percents:.2f}", args.log_file)
