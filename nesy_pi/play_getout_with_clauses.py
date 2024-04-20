@@ -11,10 +11,7 @@ from src import config
 import torch
 from nesy_pi.aitk.utils import args_utils, file_utils, game_utils, draw_utils
 from nesy_pi.aitk.utils.EnvArgs import EnvArgs
-from nesy_pi.aitk.utils.oc_utils import extract_logic_state_atari
-from nesy_pi.aitk.utils import game_patches
 from nesy_pi.aitk.utils.fol.language import Language
-from nesy_pi import ilp
 from nesy_pi.aitk.utils.fol import bk
 
 

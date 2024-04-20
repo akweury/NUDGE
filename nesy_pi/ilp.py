@@ -60,7 +60,6 @@ def inv_consts(args, p_pos, clauses, lang):
         # invent const
         if c_with_score[1][1] > args.sc_th:
             rule_consts = []
-
             c = c_with_score[0]
             for atom in c.body:
                 if "phi" in atom.terms[-1].name or "rho" in atom.terms[-1].name:
