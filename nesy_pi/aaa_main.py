@@ -45,16 +45,18 @@ def main():
     print(f"- log_file_path:{log_file}")
     args.log_file = log_file
     learned_clauses = []
+    clause_scores = []
 
     args, rtpt, data, NSFR = init(args)
     args.rule_obj_num = args.max_rule_obj
     lang = se.init_ilp(args, data, config.pi_type['bk'])
 
-    for a_i in range(len(args.action_names)):
+    # for a_i in range(len(args.action_names)):
+    for a_i in [1, 2, 0]:
         args.label = a_i
         args.label_name = args.action_names[a_i]
         action_clauses = []
-
+        action_clause_scores = []
         log_utils.add_lines(
             f"============================= RULE OBJ NUM : {args.rule_obj_num} =======================",
             args.log_file)
@@ -81,10 +83,13 @@ def main():
         log_utils.add_lines(f"+ Running time: {((eval_end - exp_start) / 60):.2f} minute(s)", args.log_file)
         log_utils.add_lines(f"=============================", args.log_file)
 
-        action_clauses += sorted_clauses_with_scores
+        action_clauses += [cs[0] for cs in sorted_clauses_with_scores]
+        action_clause_scores += [cs[1] for cs in sorted_clauses_with_scores]
+        clause_scores.append(action_clause_scores)
         learned_clauses.append(action_clauses)
 
     learned_data = {"clauses": learned_clauses,
+                    "clause_scores": clause_scores,
                     "all_invented_preds": lang.all_invented_preds,
                     "all_pi_clauses": lang.all_pi_clauses,
                     "invented_preds": lang.invented_preds,

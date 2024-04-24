@@ -25,18 +25,22 @@ def get_mode_declarations_kandinsky(lang, obj_num):
 
     modeb_list = []
     considered_pred_names = [p.name for p in lang.preds]
-    if "in" in considered_pred_names:
-        modeb_list.append(ModeDeclaration('body', obj_num, lang.get_pred_by_name('in'), [m_group, p_img]))
+    if "exist" in considered_pred_names:
+        modeb_list.append(ModeDeclaration('body', obj_num, lang.get_pred_by_name('exist'), [s_shape, p_img]))
     if "color" in considered_pred_names:
         modeb_list.append(ModeDeclaration('body', obj_num, lang.get_pred_by_name('color'), [p_group, s_color]))
     if "shape" in considered_pred_names:
-        modeb_list.append(ModeDeclaration('body', obj_num, lang.get_pred_by_name('shape'), [p_group, s_shape]))
+        modeb_list.append(ModeDeclaration('body', obj_num, lang.get_pred_by_name('shape'), [s_shape]))
+    if "not_exist" in considered_pred_names:
+        modeb_list.append(ModeDeclaration('body', obj_num, lang.get_pred_by_name('not_exist'), [s_shape, p_img]))
     if "rho" in considered_pred_names:
         modeb_list.append(
-            ModeDeclaration('body', obj_num, lang.get_pred_by_name('rho'), [p_group, s_player, s_rho], ordered=True))
+            ModeDeclaration('body', obj_num, lang.get_pred_by_name('rho'), [s_shape, s_player, s_rho, p_img],
+                            ordered=True))
     if "phi" in considered_pred_names:
         modeb_list.append(
-            ModeDeclaration('body', obj_num, lang.get_pred_by_name('phi'), [p_group, s_player, s_phi], ordered=True))
+            ModeDeclaration('body', obj_num, lang.get_pred_by_name('phi'), [s_shape, s_player, s_phi, p_img],
+                            ordered=True))
     if "slope" in considered_pred_names:
         modeb_list.append(
             ModeDeclaration('body', obj_num, lang.get_pred_by_name('slope'), [p_group, s_slope], ordered=False))
@@ -56,7 +60,7 @@ def get_mode_declarations_kandinsky(lang, obj_num):
 
 
 def get_pi_mode_declarations(lang, obj_num):
-    p_object = ModeTerm('+', DataType('group'))
+    p_object = ModeTerm('#', DataType('shape'))
 
     pi_mode_declarations = []
     for pi_index, pi in enumerate(lang.invented_preds):

@@ -1,19 +1,14 @@
 target_predicate = [
     'action:1:image',
-    'in:2:group,image'
 ]
-
 
 neural_predicate = []
 
 neural_predicate_2 = {
-    'shape_counter': 'shape_counter:2:group,number',
-    'color_counter': 'color_counter:2:group,number',
-    'color': 'color:2:group,color',
-    'shape': 'shape:2:group,shape',
-    'phi': 'phi:3:group,player,phi',
-    'rho': 'rho:3:group,player,rho',
-    'slope': 'slope:2:group,slope',
+    'exist': 'exist:2:shape,image',
+    'not_exist': 'not_exist:2:shape,image',
+    'phi': 'phi:4:shape,player,phi,image',
+    'rho': 'rho:4:shape,player,rho,image',
 }
 
 neural_predicate_3 = [
@@ -23,13 +18,10 @@ neural_predicate_3 = [
 const_dict = {
     'player': "amount_player",
     'image': 'target',
-    'color': 'enum',
     'shape': 'enum',
     'group': 'amount_e',
     'phi': 'amount_phi',
     'rho': 'amount_rho',
-    'slope': 'amount_slope',
-    'number': 'amount_10',
 }
 
 attr_names = ['color', 'shape', 'rho', 'phi', 'group_shape', "slope", 'number']

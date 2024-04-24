@@ -13,20 +13,11 @@ def generate_new_predicate(args, lang, clause_clusters, pi_type=None):
     # cluster predicates
     for pi_index, [clause_cluster, cluster_score] in enumerate(clause_clusters):
         p_args = logic_utils.count_arity_from_clause_cluster(clause_cluster)
-        dtypes = [DataType("group")] * len(p_args)
+        dtypes = [DataType("shape")] * len(p_args)
         new_predicate = lang.inv_pred(args, arity=len(p_args), pi_dtypes=dtypes, p_args=p_args, pi_type=pi_type)
         new_predicate.body = []
         for [c_i, clause, c_score] in clause_cluster:
-            atoms = []
-            for atom in clause.body:
-                terms = logic_utils.get_terms_from_atom(atom)
-                terms = sorted(terms)
-                if "X" in terms:
-                    terms.remove("X")
-                obsolete_term = [t for t in terms if t not in p_args]
-                if len(obsolete_term) == 0:
-                    atoms.append(atom)
-            new_predicate.body.append(atoms)
+            new_predicate.body.append(clause.body)
         if len(new_predicate.body) > 1:
             new_predicates.append([new_predicate, cluster_score])
         elif len(new_predicate.body) == 1:

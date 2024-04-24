@@ -122,11 +122,7 @@ class Language(object):
     def load_init_clauses(self, label, e):
         """Read lines and parse to Atom objects.
         """
-        init_clause = f"{label}(X):-"
-        for i in range(e):
-            init_clause += f"in(O{i + 1},X),"
-        init_clause = init_clause[:-1]
-        init_clause += "."
+        init_clause = f"{label}(X):-."
         tree = self.lp_clause.parse(init_clause)
         clauses = ExpTree(self).transform(tree)
         clauses = [clauses]

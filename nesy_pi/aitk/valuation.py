@@ -50,6 +50,10 @@ class FCNNValuationModule(nn.Module):
         vfs['shape'] = v_shape
         layers.append(v_shape)
 
+        v_not_shape = FCNNNotShapeValuationFunction(len(self.args.game_info["obj_info"]))
+        vfs['not_exist'] = v_not_shape
+        layers.append(v_not_shape)
+
         v_in = FCNNInValuationFunction(len(self.args.game_info["obj_info"]))
         vfs['in'] = v_in
         layers.append(v_in)
@@ -127,12 +131,12 @@ class FCNNValuationModule(nn.Module):
                 The tensor representation of the input term.
         """
         term_index = self.lang.term_index(term)
-        if term.dtype.name == 'group':
+        if term.dtype.name == 'shape':
             # if term_index == 0:
             #     return torch.zeros_like(zs[:, term_index]).to(self.device)
-            return zs[:, term_index + 1].to(self.device)
+            return zs[:, term_index + 1, [term_index + 1, -2, -1]].to(self.device)
         elif term.dtype.name == "player":
-            return zs[:, 0].to(self.device)
+            return zs[:, 0, [0, -2, -1]].to(self.device)
         elif term.dtype.name in bk.attr_names:
             try:
                 res = self.attrs[term].unsqueeze(0).repeat(zs.shape[0], 1).to(self.device)
@@ -204,6 +208,36 @@ class FCNNShapeValuationFunction(nn.Module):
         return pred, param
 
 
+class FCNNNotShapeValuationFunction(nn.Module):
+    """The function v_shape.
+    """
+
+    def __init__(self, obj_type_num):
+        super(FCNNNotShapeValuationFunction, self).__init__()
+        self.obj_type_num = obj_type_num
+
+    def forward(self, z, a, given_param=None):
+        """
+        Args:
+            z (tensor): 2-d tensor (B * D), the object-centric representation.
+                [x,y,z, (0:3)
+                color1, color2, color3, (3:6)
+                sphere, 6
+                cube, 7
+                ]
+            a (tensor): The one-hot tensor that is expanded to the batch size.
+
+        Returns:
+            A batch of probabilities.
+        """
+        # shape_indices = [config.group_tensor_index[_shape] for _shape in config.group_pred_shapes]
+
+        pred = (~z[:, 0].to(torch.bool)).to(torch.float32)
+        param = torch.zeros_like(pred).to(torch.float32)
+        # a_batch = a.repeat((z.size(0), 1))  # one-hot encoding for batch
+        return pred, param
+
+
 class FCNNShapeCounterValuationFunction(nn.Module):
     def __init__(self):
         super(FCNNShapeCounterValuationFunction, self).__init__()
@@ -267,7 +301,7 @@ class FCNNRhoValuationFunction(nn.Module):
         self.logi = LogisticRegression(input_dim=1)
         self.logi.to(device)
 
-    def forward(self, z_1, z_2, dist_grade, given_param):
+    def forward(self, z_1, z_2, dist_grade, img, given_param):
         """
         Args:
             z_1 (tensor): 2-d tensor (B * D), the object-centric representation.
@@ -283,8 +317,8 @@ class FCNNRhoValuationFunction(nn.Module):
         if (z_1 == z_2).prod().bool():
             return torch.zeros(dist_grade.shape[0]).to(dist_grade.device), torch.zeros(dist_grade.shape[0]).to(
                 dist_grade.device)
-        mask_z1 = z_1[:, :self.obj_type_num].sum(dim=-1) > 0
-        mask_z2 = z_2[:, :self.obj_type_num].sum(dim=-1) > 0
+        mask_z1 = z_1[:, 0] > 0
+        mask_z2 = z_2[:, 0] > 0
         mask = (mask_z1 & mask_z2)
 
         c_1 = z_2[:, -2:].permute(1, 0)
@@ -307,6 +341,7 @@ class FCNNRhoValuationFunction(nn.Module):
             dist_pred[i, int(dist_id[i])] = 1
 
         satisfaction = (dist_grade * dist_pred).sum(dim=1) * mask
+
         if given_param.sum() > 0:
             range_min, range_max = given_param.min(), given_param.max()
             satisfaction = (rho <= range_max) * (rho >= range_min)
@@ -336,7 +371,7 @@ class FCNNPhiValuationFunction(nn.Module):
         self.logi.to(device)
         self.obj_type_num = obj_type_num
 
-    def forward(self, z_1, z_2, dir, given_param):
+    def forward(self, z_1, z_2, dir, img, given_param):
         """
         Args:
             z_1 (tensor): 2-d tensor (B * D), the object-centric representation.
@@ -349,10 +384,11 @@ class FCNNPhiValuationFunction(nn.Module):
         Returns:
             A batch of probabilities.
         """
+
         if (z_1 == z_2).prod().bool():
             return torch.zeros(dir.shape[0]).to(dir.device), torch.zeros(dir.shape[0]).to(dir.device)
-        mask_z1 = z_1[:, :self.obj_type_num].sum(dim=-1) > 0
-        mask_z2 = z_2[:, :self.obj_type_num].sum(dim=-1) > 0
+        mask_z1 = z_1[:, 0] > 0
+        mask_z2 = z_2[:, 0] > 0
         mask = (mask_z1 & mask_z2)
         from nesy_pi.aitk.utils import math_utils
         # c_1 = z_2[:, -2:].permute(1, 0)
@@ -379,9 +415,11 @@ class FCNNPhiValuationFunction(nn.Module):
             dir_pred[i, int(zone_id[i])] = 1
         if given_param.sum() > 0:
             range_min, range_max = given_param.min(), given_param.max()
-            satisfaction = (phi_clock_shift <= range_max) * (phi_clock_shift >= range_min)
+            satisfaction = (phi_clock_shift <= range_max) * (phi_clock_shift >= range_min) * mask
+
         else:
             satisfaction = (dir * dir_pred).sum(dim=1) * mask
+
         parameters = torch.zeros_like(satisfaction).to(torch.float)
         parameters[satisfaction > 0] = phi_clock_shift[satisfaction > 0].to(torch.float)
         return satisfaction, parameters

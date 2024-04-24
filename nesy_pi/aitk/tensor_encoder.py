@@ -63,7 +63,8 @@ class TensorEncoder(object):
                     body = clause_.body
                     theta_list = self.generate_subs(body)
                     S_list.append(len(theta_list))
-        return max(S_list)
+
+        return max(1, max(S_list))
 
     def encode(self):
         """Compute the index tensor for the differentiable inference.
@@ -305,7 +306,7 @@ class TensorEncoder(object):
 
         ind = [self.get_fact_index(nf) for nf in atoms]
         # ind = self.get_fact_index_v(atoms)
-        return torch.tensor(ind, dtype=torch.int16).to(self.device)
+        return torch.tensor(ind, dtype=torch.int16).to(self.device).reshape(-1)
 
     def get_fact_index_v(self, facts):
         """Convert a fact to the index in the ordered set of all facts.
