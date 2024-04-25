@@ -7,6 +7,7 @@
   "sc_th": 0.8,
   "sn_th": 0.7,
   "ness_th": 0.2,
+  "ness_min": 0.05,
   "suff_min": 0.3,
   "inv_sc_th": 0.5,
   "inv_nc_th": 0.8,

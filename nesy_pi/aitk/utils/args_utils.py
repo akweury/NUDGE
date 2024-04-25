@@ -40,6 +40,8 @@ def get_args():
                         help="The learning rate.")
     parser.add_argument("--suff_min", type=float, default=0.1,
                         help="The minimum accept threshold for sufficient clauses.")
+    parser.add_argument("--ness_min", type=float, default=0.05,
+                        help="The minimum accept threshold for ness clauses.")
     parser.add_argument("--sn_th", type=float, default=0.9,
                         help="The accept threshold for sufficient and necessary clauses.")
     parser.add_argument("--nc_th", type=float, default=0.9,

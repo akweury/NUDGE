@@ -100,7 +100,7 @@ def ilp_search(args, lang, init_clauses, FC):
     clause_with_scores = []
     clauses = init_clauses
     while extend_step <= args.max_step and not args.is_done:
-        log_utils.add_lines(f"###### extend step {extend_step}/{args.max_step} ######", args.log_file)
+        log_utils.add_lines(f"############### extend step {extend_step}/{args.max_step} ################", args.log_file)
 
         # clause extension
         clauses = clause_extend(args, lang, clauses)
@@ -643,17 +643,64 @@ def top_kp(args, clauses):
     return top_clauses
 
 
+def update_saved_clauses(args, all_clauses):
+    # update saved clauses
+    saved_ness_percents = 0
+    saved_ness_percents_all = []
+    saved_suff_percents = 0
+    saved_suff_percents_all = []
+    updated_clauses = []
+    if len(all_clauses) > 0:
+        all_clauses = sorted(all_clauses, key=lambda c: c[1][1], reverse=True)
+        saved_ness_used_data = torch.zeros_like(all_clauses[0][2][:, 0], dtype=torch.bool)
+        saved_suff_used_data = torch.zeros_like(all_clauses[0][2][:, 1], dtype=torch.bool)
+        for c_i, c in enumerate(all_clauses):
+            c_ness_indices = c[2][:, config.score_example_index["pos"]] > 0.9
+            c_suff_indices = c[2][:, config.score_example_index["neg"]] > 0.9
+            ness_percent = (~saved_ness_used_data * c_ness_indices).sum() / (0.99 * len(saved_ness_used_data))
+            suff_percent = (~saved_suff_used_data * c_suff_indices).sum() / (0.99 * len(saved_suff_used_data))
+            if ness_percent < args.ness_min:
+                continue
+            saved_ness_used_data[c_ness_indices] = True
+            saved_suff_used_data[c_suff_indices] = True
+            saved_ness_percents += ness_percent
+            saved_suff_percents += suff_percent
+            saved_suff_percents_all.append(suff_percent)
+            saved_ness_percents_all.append(ness_percent)
+            updated_clauses.append(c)
+        log_utils.add_lines(f"- Saved Total {len(all_clauses)} clauses.", args.log_file)
+        for c_i, c in enumerate(all_clauses):
+            positive_score = c[2][:, config.score_example_index["pos"]]
+            negative_score = 1 - c[2][:, config.score_example_index["neg"]]
+            failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+            failed_neg_index = ((negative_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+            log_utils.add_lines(f"{c_i + 1}/{len(all_clauses)} "
+                                f"contri ness:{saved_ness_percents_all[c_i]:.2f},"
+                                f"contri suff:{saved_suff_percents_all[c_i]:.2f},"
+                                f"ness:{torch.round(c[1][0], decimals=2):.2f},"
+                                f"suff:{torch.round(c[1][1], decimals=2):.2f} "
+                                f"+:({len(failed_pos_index)}/{c[2].shape[0]}) "
+                                f"-:({len(failed_neg_index)}/{c[2].shape[0]}) {c[0]} ", args.log_file)
+        log_utils.add_lines(
+            f"\n- Saved Total Ness: {saved_ness_percents:.2f}, Saved Total Suff: {(1 - saved_suff_percents):.2f}\n",
+            args.log_file)
+    return updated_clauses, saved_ness_percents, saved_suff_percents, saved_ness_percents_all, saved_suff_percents_all
+
+
 def check_result(args, clause_with_scores, all_clauses):
     done = False
     if len(clause_with_scores) == 0:
         return done, []
+
+    # update saved clauses
+    all_clauses, saved_ness_percents, saved_suff_percents, saved_ness_percents_all, saved_suff_percents_all = update_saved_clauses(
+        args, all_clauses)
 
     all_c = [c[0] for c in all_clauses]
     new_c = [c for c in clause_with_scores if c[0] not in all_c]
     clause_with_scores = all_clauses + new_c
 
     # rank by sufficiency
-
     suff_percents = torch.tensor([c[1][1] for c in clause_with_scores])
     indices_ranked = suff_percents.argsort(descending=True)
     c_score_pruned = [clause_with_scores[i] for i in indices_ranked]
@@ -683,26 +730,6 @@ def check_result(args, clause_with_scores, all_clauses):
         ness_percent_total += ness_ranked[c_i]
         suff_percent_total += suff_rankded[c_i]
 
-    saved_ness_percents = 0
-    saved_ness_percents_all = []
-    saved_suff_percents = 0
-    saved_suff_percents_all = []
-    if len(all_clauses) > 0:
-        saved_ness_used_data = torch.zeros_like(all_clauses[0][2][:, 0], dtype=torch.bool)
-        saved_suff_used_data = torch.zeros_like(all_clauses[0][2][:, 1], dtype=torch.bool)
-        for c_i, c in enumerate(all_clauses):
-            c_ness_indices = c[2][:, config.score_example_index["pos"]] > 0.9
-            c_suff_indices = c[2][:, config.score_example_index["neg"]] > 0.9
-            ness_percent = (~saved_ness_used_data * c_ness_indices).sum() / len(saved_ness_used_data)
-            suff_percent = (~saved_suff_used_data * c_suff_indices).sum() / len(saved_suff_used_data)
-            saved_ness_used_data[c_ness_indices] = True
-            saved_suff_used_data[c_suff_indices] = True
-            saved_ness_percents += ness_percent
-            saved_suff_percents += suff_percent
-
-            saved_suff_percents_all.append(suff_percent)
-            saved_ness_percents_all.append(ness_percent)
-
     if saved_ness_percents > args.nc_th:
         done = True
     # log
@@ -715,24 +742,9 @@ def check_result(args, clause_with_scores, all_clauses):
                             f"suff:{torch.round(c[1][1], decimals=2):.2f} "
                             f"+:({len(failed_pos_index)}/{c[2].shape[0]}) "
                             f"-:({len(failed_neg_index)}/{c[2].shape[0]}) {c[0]} ", args.log_file)
-    log_utils.add_lines(f"-Total Ness: {ness_percent_total:.2f}\n"
-                        f"Total Suff: {suff_percent_total:.2f} ", args.log_file)
+    log_utils.add_lines(f"\n-Total Ness: {ness_percent_total:.2f}, Total Suff: {suff_percent_total:.2f} \n",
+                        args.log_file)
 
-    log_utils.add_lines(f"- Saved Total {len(all_clauses)} clauses.", args.log_file)
-    for c_i, c in enumerate(all_clauses):
-        positive_score = c[2][:, config.score_example_index["pos"]]
-        negative_score = 1 - c[2][:, config.score_example_index["neg"]]
-        failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
-        failed_neg_index = ((negative_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
-        log_utils.add_lines(f"{c_i + 1}/{len(all_clauses)} "
-                            f"contri ness:{saved_ness_percents_all[c_i]:.2f},"
-                            f"contri suff:{saved_suff_percents_all[c_i]:.2f},"
-                            f"ness:{torch.round(c[1][0], decimals=2):.2f},"
-                            f"suff:{torch.round(c[1][1], decimals=2):.2f} "
-                            f"+:({len(failed_pos_index)}/{c[2].shape[0]}) "
-                            f"-:({len(failed_neg_index)}/{c[2].shape[0]}) {c[0]} ", args.log_file)
-    log_utils.add_lines(f"Saved Total Ness: {saved_ness_percents:.2f}\n"
-                        f"Saved Total Suff: {(1 - saved_suff_percents):.2f}", args.log_file)
     return done, ness_maximize_c
 
 
