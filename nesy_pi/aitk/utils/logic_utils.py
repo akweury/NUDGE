@@ -133,7 +133,7 @@ def extract_clauses_from_bs_clauses(bs_clauses, c_type, args):
                 failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
                 failed_neg_index = ((negative_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
                 log_utils.add_lines(
-                    f"({c_type}): {bs_clause[0]} {bs_clause[1].reshape(-1)} "
+                    f"({c_type}): {bs_clause[0]} suff: {bs_clause[1].reshape(-1)} "
                     f"Failed Pos States: ({len(failed_pos_index)}/{bs_clause[2].shape[0]}) "
                     f"Failed Neg States: ({len(failed_neg_index)}/{bs_clause[2].shape[0]}) ",
                     args.log_file)

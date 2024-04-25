@@ -99,7 +99,7 @@ def ilp_search(args, lang, init_clauses, FC):
     extend_step = 0
     clause_with_scores = []
     clauses = init_clauses
-    while extend_step <= args.iteration:
+    while extend_step <= args.max_step and not args.is_done:
         # clause extension
         clauses = clause_extend(args, lang, clauses)
         if args.is_done:
@@ -128,7 +128,7 @@ def ilp_search(args, lang, init_clauses, FC):
 
         # save data
         all_c = [c[0] for c in lang.all_clauses]
-        new_c = [c for c in clause_with_scores if c[0] not in all_c and c[1][2] > args.sn_th and c[1][0] > args.nc_th]
+        new_c = [c for c in clause_with_scores if c[0] not in all_c and c[1][1] > 0.9]
         lang.all_clauses += new_c
 
         done, clause_with_scores = check_result(args, clause_with_scores, lang.all_clauses)
@@ -399,7 +399,7 @@ def get_suff_score(score_pos, score_neg):
     data_size = score_pos.shape[1]
     pos_score = score_pos.sum(dim=1) / (0.99 * data_size)
     neg_score = (1 - score_neg).sum(dim=1) / (0.99 * data_size)
-    scores = pos_score * neg_score
+    scores = torch.cat((pos_score.unsqueeze(dim=1), neg_score.unsqueeze(dim=1)), dim=1)
 
     return scores
 
@@ -470,7 +470,7 @@ def sort_clauses_by_score(clauses, scores_all, scores, args):
         clause_with_scores.append((clause, scores[c_i], scores_all[c_i]))
 
     if len(clause_with_scores) > 0:
-        c_sorted = sorted(clause_with_scores, key=lambda x: x[1], reverse=True)
+        c_sorted = sorted(clause_with_scores, key=lambda x: x[1][1], reverse=True)
         # for c in c_sorted:
         #     log_utils.add_lines(f"clause: {c[0]} {c[1]}", args.log_file)
         return c_sorted
@@ -514,7 +514,7 @@ def prune_low_ness_clauses(args, clause_with_scores):
     for c in clause_with_scores:
         if c[1][0] > args.ness_th:
             score_unique_c.append(c)
-            appeared_scores.append(c[1][2])
+            appeared_scores.append(c[1][0])
 
     if args.show_process:
         log_utils.add_lines(f"- {len(score_unique_c)} clauses left.", args.log_file)
@@ -537,7 +537,7 @@ def prune_low_suff_clauses(args, clause_with_scores):
     for c in clause_with_scores:
         if c[1][1] > args.suff_min:
             score_unique_c.append(c)
-            appeared_scores.append(c[1][2])
+            appeared_scores.append(c[1])
     score_unique_c = sorted(score_unique_c, key=lambda x: x[1][1], reverse=True)
     if args.show_process:
         log_utils.add_lines(f"- {len(score_unique_c)} clauses left.", args.log_file)
@@ -588,9 +588,9 @@ def prune_repeat_score_clauses(args, c_score_pruned):
     score_repeat_c = []
     appeared_scores = []
     for c in c_score_pruned:
-        if not eval_clause_infer.eval_score_similarity(c[1][2], appeared_scores, args.similar_th):
+        if not eval_clause_infer.eval_score_similarity(c[1][1], appeared_scores, args.similar_th):
             score_unique_c.append(c)
-            appeared_scores.append(c[1][2])
+            appeared_scores.append(c[1][1])
         else:
             score_repeat_c.append(c)
     c_score_pruned = score_unique_c
@@ -613,8 +613,8 @@ def prune_clauses(clause_with_scores, args):
     refs = []
     # prune necessity zero clauses
     if args.score_unique:
-        # c_score_pruned = prune_low_ness_clauses(args, clause_with_scores)
-        c_score_pruned = prune_low_suff_clauses(args, clause_with_scores)
+        c_score_pruned = prune_low_ness_clauses(args, clause_with_scores)
+        c_score_pruned = prune_low_suff_clauses(args, c_score_pruned)
 
         c_score_pruned = prune_repeat_score_clauses(args, c_score_pruned)
     else:
@@ -695,12 +695,35 @@ def check_result(args, clause_with_scores, all_clauses):
             saved_suff_used_data[c_suff_indices] = True
             saved_ness_percents += ness_percent
             saved_suff_percents += suff_percent
-    log_utils.add_lines(f"-({len(ness_maximize_c)} clause left) necessity sum: {ness_percent_total:.2f}, "
-                        f"sufficiency sum: {suff_percent_total:.2f}\n "
-                        f"saved_necessity sum: {saved_ness_percents:.2f}, "
-                        f"saved sufficiency sum: {(1 - saved_suff_percents):.2f}", args.log_file)
+
     if saved_ness_percents > args.nc_th:
         done = True
+    # log
+    print('\n\n')
+    for c_i, c in enumerate(ness_maximize_c):
+        positive_score = c[2][:, config.score_example_index["pos"]]
+        negative_score = 1 - c[2][:, config.score_example_index["neg"]]
+        failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+        failed_neg_index = ((negative_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+        log_utils.add_lines(f"{c_i + 1}/{len(ness_maximize_c)} ness:{torch.round(c[1][0], decimals=2):.2f},"
+                            f"suff:{torch.round(c[1][1], decimals=2):.2f} "
+                            f"+:({len(failed_pos_index)}/{c[2].shape[0]}) "
+                            f"-:({len(failed_neg_index)}/{c[2].shape[0]}) {c[0]} ", args.log_file)
+    log_utils.add_lines(f"-Total Ness: {ness_percent_total:.2f}\n"
+                        f"Total Suff: {suff_percent_total:.2f}\n ", args.log_file)
+
+    print('\n\n')
+    for c_i, c in enumerate(all_clauses):
+        positive_score = c[2][:, config.score_example_index["pos"]]
+        negative_score = 1 - c[2][:, config.score_example_index["neg"]]
+        failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+        failed_neg_index = ((negative_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
+        log_utils.add_lines(f"{c_i + 1}/{len(all_clauses)} ness:{torch.round(c[1][0], decimals=2):.2f},"
+                            f"suff:{torch.round(c[1][1], decimals=2):.2f} "
+                            f"+:({len(failed_pos_index)}/{c[2].shape[0]}) "
+                            f"-:({len(failed_neg_index)}/{c[2].shape[0]}) {c[0]} ", args.log_file)
+    log_utils.add_lines(f"Saved Total Ness: {saved_ness_percents:.2f}\n"
+                        f"Saved Total Suff: {(1 - saved_suff_percents):.2f}", args.log_file)
     return done, ness_maximize_c
 
 
@@ -846,7 +869,7 @@ def ilp_train(args, lang):
         clauses, FC = ilp_search(args, lang, init_clauses, FC)  # searching for high sufficiency clauses
         if args.is_done:
             break
-        if args.with_pi:
+        if args.with_pi and len(lang.all_clauses) > 0:
             ilp_pi(args, lang, clauses, e)
             # update predicate list
             lang.preds = lang.append_new_predicate(lang.preds, lang.invented_preds)
