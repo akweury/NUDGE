@@ -682,7 +682,9 @@ def check_result(args, clause_with_scores, all_clauses):
         suff_percent_total += suff_rankded[c_i]
 
     saved_ness_percents = 0
+    saved_ness_percents_all = []
     saved_suff_percents = 0
+    saved_suff_percents_all = []
     if len(all_clauses) > 0:
         saved_ness_used_data = torch.zeros_like(all_clauses[0][2][:, 0], dtype=torch.bool)
         saved_suff_used_data = torch.zeros_like(all_clauses[0][2][:, 1], dtype=torch.bool)
@@ -695,6 +697,9 @@ def check_result(args, clause_with_scores, all_clauses):
             saved_suff_used_data[c_suff_indices] = True
             saved_ness_percents += ness_percent
             saved_suff_percents += suff_percent
+
+            saved_suff_percents_all.append(suff_percent)
+            saved_ness_percents_all.append(ness_percent)
 
     if saved_ness_percents > args.nc_th:
         done = True
@@ -712,13 +717,16 @@ def check_result(args, clause_with_scores, all_clauses):
     log_utils.add_lines(f"-Total Ness: {ness_percent_total:.2f}\n"
                         f"Total Suff: {suff_percent_total:.2f}\n ", args.log_file)
 
-    print('\n\n')
+    log_utils.add_lines(f"- Saved Total {len(all_clauses)} clauses.", args.log_file)
     for c_i, c in enumerate(all_clauses):
         positive_score = c[2][:, config.score_example_index["pos"]]
         negative_score = 1 - c[2][:, config.score_example_index["neg"]]
         failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
         failed_neg_index = ((negative_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
-        log_utils.add_lines(f"{c_i + 1}/{len(all_clauses)} ness:{torch.round(c[1][0], decimals=2):.2f},"
+        log_utils.add_lines(f"{c_i + 1}/{len(all_clauses)} "
+                            f"contri ness:{saved_ness_percents_all[c_i]:.2f},"
+                            f"contri suff:{saved_suff_percents_all[c_i]:.2f},"
+                            f"ness:{torch.round(c[1][0], decimals=2):.2f},"
                             f"suff:{torch.round(c[1][1], decimals=2):.2f} "
                             f"+:({len(failed_pos_index)}/{c[2].shape[0]}) "
                             f"-:({len(failed_neg_index)}/{c[2].shape[0]}) {c[0]} ", args.log_file)
