@@ -60,9 +60,9 @@ class Language(object):
                 pred_str = f"{action_name}:1:image"
                 pred = self.parse_pred(pred_str, pi_type)
                 self.preds.append(pred)
-            self.preds.append(self.parse_pred(bk.target_predicate[1], pi_type))
             # self.consts = self.load_consts(args)
-            self.consts = inv_consts
+            self.consts = self.load_consts(args)
+            self.consts += inv_consts
             # self.load_init_clauses(args.e)
 
     def __str__(self):
@@ -92,7 +92,7 @@ class Language(object):
         atoms = []
         for pred in self.preds:
             dtypes = pred.dtypes
-            consts_list = [self.get_by_dtype(dtype) for dtype in dtypes]
+            consts_list = [self.get_by_dtype(dtype, with_inv=True) for dtype in dtypes]
             args_list = list(set(itertools.product(*consts_list)))
             for args in args_list:
                 if len(args) == 1 or len(set(args)) == len(args):
@@ -100,7 +100,7 @@ class Language(object):
         pi_atoms = []
         for pred in self.invented_preds:
             dtypes = pred.dtypes
-            consts_list = [self.get_by_dtype(dtype) for dtype in dtypes]
+            consts_list = [self.get_by_dtype(dtype, with_inv=True) for dtype in dtypes]
             args_list = list(set(itertools.product(*consts_list)))
             for args in args_list:
                 if len(args) == 1 or len(set(args)) == len(args):
@@ -110,7 +110,7 @@ class Language(object):
         bk_pi_atoms = []
         for pred in self.bk_inv_preds:
             dtypes = pred.dtypes
-            consts_list = [self.get_by_dtype(dtype) for dtype in dtypes]
+            consts_list = [self.get_by_dtype(dtype, with_inv=True) for dtype in dtypes]
             args_list = list(set(itertools.product(*consts_list)))
             for args in args_list:
                 # check if args and pred correspond are in the same area
@@ -325,7 +325,7 @@ class Language(object):
         for const in self.consts:
             if const.values is not None:
                 similarity = self.cosine_similarity(const.values, new_const.values)
-                if similarity > 0.5:
+                if similarity > 0.8:
                     # integrate range
                     const.values = torch.cat((const.values, new_const.values), dim=0).unique()
                     const_exists = True
@@ -347,7 +347,7 @@ class Language(object):
                 consts.append(const)
         self.consts = consts
 
-    def get_by_dtype(self, dtype):
+    def get_by_dtype(self, dtype, with_inv):
         """Get constants that match given dtypes.
 
         Args:
@@ -356,9 +356,17 @@ class Language(object):
         Returns:
             List of constants whose data type is the given data type.
         """
-        return [c for c in self.consts if c.dtype == dtype]
+        consts = []
+        for c in self.consts:
 
-    def get_by_dtype_name(self, dtype_name):
+            if c.dtype == dtype:
+                if c.values is None:
+                    consts.append(c)
+                elif with_inv:
+                    consts.append(c)
+        return consts
+
+    def get_by_dtype_name(self, dtype_name, with_inv):
         """Get constants that match given dtype name.
 
         Args:
@@ -367,9 +375,16 @@ class Language(object):
         Returns:
             List of constants whose datatype has the given name.
         """
-        return [c for c in self.consts if c.dtype.name == dtype_name]
+        consts = []
+        for c in self.consts:
+            if c.dtype.name == dtype_name:
+                if c.values is None:
+                    consts.append(c)
+                elif with_inv:
+                    consts.append(c)
+        return consts
 
-    def term_index(self, term):
+    def term_index(self, term, with_inv):
         """Get the index of a term in the language.
 
         Args:
@@ -378,7 +393,7 @@ class Language(object):
         Returns:
             int: The index of the term.
         """
-        terms = self.get_by_dtype(term.dtype)
+        terms = self.get_by_dtype(term.dtype, with_inv)
         return terms.index(term)
 
     def get_const_by_name(self, const_name):

@@ -24,7 +24,7 @@ const_dict = {
     'rho': 'amount_rho',
 }
 
-attr_names = ['color', 'shape', 'rho', 'phi', 'group_shape', "slope", 'number']
+attr_names = ['shape', 'rho', 'phi']
 
 color = ['pink', 'green', 'blue']
 # shape = ['sphere', 'cube', 'cone', 'cylinder', 'line', 'circle', "conic"]

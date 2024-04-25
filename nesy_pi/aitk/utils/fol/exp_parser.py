@@ -53,7 +53,7 @@ class ExpTree(Transformer):
             return [content[0]] + content[1:]
 
     def const(self, name):
-        dtype = self.lang.get_by_dtype_name(name[0])
+        dtype = self.lang.get_by_dtype_name(name[0], with_inv=True)
         return Const(name[0], dtype)
 
     def variable(self, name):

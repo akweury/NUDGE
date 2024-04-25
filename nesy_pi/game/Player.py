@@ -5,6 +5,8 @@ import torch
 from torch import nn as nn
 from torch.distributions import Categorical
 import numpy as np
+from itertools import combinations
+
 from src import config
 from src.agents.neural_agent import ActorCritic, NeuralPPO, NeuralPlayer
 from src.agents.utils_getout import extract_neural_state_getout
@@ -23,47 +25,52 @@ class ClausePlayer:
         self.FC = ai_interface.get_fc(args, self.lang, self.VM, args.rule_obj_num)
         self.NSFR = ai_interface.get_nsfr(args, args.lang, self.FC, self.lang.all_clauses)
         self.lang = args.lang
-        self.clause_adj = torch.zeros(len(args.clauses), len(args.clauses))
+        self.clause_scores = args.clause_scores
+        self.clause_priorities = {k: None for k in list(combinations(list(range(len(args.clauses))), 2))}
         self.clause_actions = torch.tensor(
             [self.args.action_names.index(c.head.pred.name) for c in self.lang.all_clauses])
 
     def highest_priority_index(self, indices):
+        indices = indices.tolist()
         # Initialize highest priority index and maximum priority
-        highest_priority_idx = None
-        max_priority = float('-inf')  # Initialize with negative infinity
+        while len(indices) > 1:
+            combs = list(combinations((indices), 2))
+            first_has_lowest_priority = True
+            for comb in combs:
+                if self.clause_priorities[comb]:
+                    indices.remove(comb[1])
+                    first_has_lowest_priority = False
+                    break
+            if first_has_lowest_priority:
+                indices.remove(combs[0][0])
+        return indices[0]
 
-        # Iterate over the given indices
-        for idx in indices:
-            # Get the priority weight for the given index
-            priority = self.clause_adj[idx]
-
-            # Check if the priority is higher than the current maximum priority
-            if priority > max_priority:
-                max_priority = priority
-                highest_priority_idx = idx
-
-        return highest_priority_idx
-
-    def update_clause_adj(self, score, teacher_action):
-        mask_score = score > 0.9
+    def update_clause_adj(self, scores, teacher_action):
+        mask_score = scores > 0.9
         mask_teacher_action = (self.clause_actions == teacher_action) * mask_score
         mask_wrong_action = (self.clause_actions != teacher_action) * mask_score
         if mask_teacher_action.sum() > 0 and mask_wrong_action.sum() > 0:
-            self.clause_adj[mask_teacher_action][mask_wrong_action] += 1
+            teacher_indices = torch.nonzero(mask_teacher_action).reshape(-1).tolist()
+            wrong_indices = torch.nonzero(mask_wrong_action).reshape(-1).tolist()
+            for t_i in teacher_indices:
+                for w_i in wrong_indices:
+                    self.clause_priorities[(t_i, w_i)] = True
 
     def learn_action_weights(self, logic_state, teacher_action):
         self.args.test_data = torch.tensor(logic_state).unsqueeze(0)
         target_preds = self.args.action_names
-        score, _ = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")
-        score = score[:, 0, config.score_example_index["pos"]]
-        # score *= self.args.clause_scores[:, 1]
-        max_score = score.max()
-        if max_score > 0.9:
-            self.update_clause_adj(score, teacher_action)
-        else:
-            print("")
-        best_idx = score.argmax()
-        action_name = self.lang.all_clauses[best_idx].head.pred.name
+        scores, _ = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")
+        scores = scores[:, 0, config.score_example_index["pos"]]
+        indices = torch.nonzero(scores > 0.9).reshape(-1)
+        suff_scores = self.clause_scores[indices]
+
+
+        highest_priority_index = indices[suff_scores[:,1].argmax()]
+        for s_i, score in enumerate(scores):
+            if score > 0.9:
+                print(f'{self.NSFR.clauses[s_i]}')
+        print('')
+        action_name = self.lang.all_clauses[highest_priority_index].head.pred.name
         action = self.args.action_names.index(action_name)
         return action
 

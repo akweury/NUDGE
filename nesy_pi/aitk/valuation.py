@@ -92,9 +92,9 @@ class FCNNValuationModule(nn.Module):
         attr_names = bk.attr_names
         attrs = {}
         for dtype_name in attr_names:
-            for term in self.lang.get_by_dtype_name(dtype_name):
-                term_index = self.lang.term_index(term)
-                num_classes = len(self.lang.get_by_dtype_name(dtype_name))
+            for term in self.lang.get_by_dtype_name(dtype_name, with_inv=False):
+                term_index = self.lang.term_index(term, with_inv=False)
+                num_classes = len(self.lang.get_by_dtype_name(dtype_name, with_inv=False))
                 one_hot = F.one_hot(torch.tensor(
                     term_index).to(device), num_classes=num_classes)
                 one_hot.to(device)
@@ -113,7 +113,10 @@ class FCNNValuationModule(nn.Module):
         """
         if atom.pred.name in self.vfs:
             args = [self.ground_to_tensor(term, zs) for term in atom.terms]
-            args.append(param)
+            if atom.terms[-2].values is not None:
+                args.append(args[2])
+            else:
+                args.append(param)
             # call valuation function
             return self.vfs[atom.pred.name](*args)
         else:
@@ -130,7 +133,7 @@ class FCNNValuationModule(nn.Module):
             Return:
                 The tensor representation of the input term.
         """
-        term_index = self.lang.term_index(term)
+        term_index = self.lang.term_index(term, with_inv=True)
         if term.dtype.name == 'shape':
             # if term_index == 0:
             #     return torch.zeros_like(zs[:, term_index]).to(self.device)
@@ -142,7 +145,6 @@ class FCNNValuationModule(nn.Module):
                 res = term.values
             else:
                 res = self.attrs[term].unsqueeze(0).repeat(zs.shape[0], 1).to(self.device)
-
             return res
         elif term.dtype.name == 'image':
             return None
@@ -336,10 +338,7 @@ class FCNNRhoValuationFunction(nn.Module):
             threshold = grade_weight * i
             dist_id[rho >= threshold] = i
 
-        if dist_grade.shape[0] != z_1.shape[0]:
-            range_min, range_max = dist_grade.min(), dist_grade.max()
-            satisfaction = (rho <= range_max) * (rho >= range_min) * mask
-        elif given_param.sum() > 0:
+        if given_param.sum() > 0:
             range_min, range_max = given_param.min(), given_param.max()
             satisfaction = (rho <= range_max) * (rho >= range_min) * mask
         else:
@@ -414,19 +413,16 @@ class FCNNPhiValuationFunction(nn.Module):
         # zone_id[rho >= 0.12] = zone_id[rho >= 0.12] + round_divide
 
         # with invented const
-        if dir.shape[0] != z_1.shape[0]:
-            try:
-                range_min, range_max = dir.min(), dir.max()
-            except RuntimeError:
-                raise ValueError()
-            satisfaction = (phi_clock_shift <= range_max) * (phi_clock_shift >= range_min) * mask
-        elif given_param.sum() > 0:
+        if given_param.sum() > 0:
             range_min, range_max = given_param.min(), given_param.max()
             satisfaction = (phi_clock_shift <= range_max) * (phi_clock_shift >= range_min) * mask
         else:
             dir_pred = torch.zeros(dir.shape).to(dir.device)
             for i in range(dir_pred.shape[0]):
-                dir_pred[i, int(zone_id[i])] = 1
+                try:
+                    dir_pred[i, int(zone_id[i])] = 1
+                except IndexError:
+                    raise IndexError()
             satisfaction = (dir * dir_pred).sum(dim=1) * mask
         parameters = torch.zeros_like(satisfaction).to(torch.float)
         parameters[satisfaction > 0] = phi_clock_shift[satisfaction > 0].to(torch.float)

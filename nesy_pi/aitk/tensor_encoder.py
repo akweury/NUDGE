@@ -283,7 +283,7 @@ class TensorEncoder(object):
 
         vars = list(set(vars))
         n_vars = len(vars)
-        consts = self.lang.get_by_dtype(dtypes[0])
+        consts = self.lang.get_by_dtype(dtypes[0], with_inv=True)
 
         # e.g. if the data type is shape, then subs_consts_list = [(red,), (yellow,), (blue,)]
         subs_consts_list = itertools.permutations(consts, n_vars)

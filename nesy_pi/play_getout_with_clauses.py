@@ -23,13 +23,14 @@ def load_clauses(args):
     args.p_inv_counter = data["p_inv_counter"]
     args.invented_consts_number = 10
     # load logical representations
-    clauses_with_scores = [cs for acs in data["clauses"] for cs in acs]
-    args.clause_scores = torch.cat([cs[1].unsqueeze(0) for cs in clauses_with_scores], dim=0).to(args.device)
-    args.clauses = [cs[0] for cs in clauses_with_scores]
+    args.clauses = [cs for acs in data["clauses"] for cs in acs]
+    scores = [clause_score.unsqueeze(0) for scores in data["clause_scores"] for clause_score in scores]
+    args.clause_scores = torch.cat(scores, dim=0).to(args.device)
     args.index_pos = config.score_example_index["pos"]
     args.index_neg = config.score_example_index["neg"]
     args.lark_path = config.path_nesy / "lark" / "exp.lark"
     args.invented_pred_num = data["p_inv_counter"]
+    args.invented_consts_num = data["invented_consts_number"]
     args.batch_size = 1
     args.last_refs = []
     args.found_ns = False
@@ -90,6 +91,7 @@ def main():
     # env, env_args, agent, obs = init(args)
     agent = game_utils.create_agent(args, agent_type="clause")
     teacher_agent = game_utils.create_agent(args, agent_type="ppo")
+
     def create_getout_instance(args, seed=None):
         if args.hardness == 1:
             enemies = True
@@ -128,7 +130,7 @@ def main():
             env_args.logic_state = extract_logic_state_getout(env, args).squeeze().tolist()
 
             env_args.obs = env_args.last_obs
-            teacher_action = teacher_agent.reasoning_act(env)
+            teacher_action = teacher_agent.reasoning_act(env) - 1
             env_args.action = agent.learn_action_weights(env_args.logic_state, teacher_action)
             try:
                 env_args.reward = env.step(env_args.action + 1)

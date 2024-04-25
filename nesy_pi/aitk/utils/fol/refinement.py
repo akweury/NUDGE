@@ -90,7 +90,7 @@ class RefinementGenerator(object):
                 assignments = [self.generate_new_variable(clause)]
             elif mt.mode == '#':
                 # consts = self.lang.get_by_dtype(mt.mode.dtype)
-                assignments = self.lang.get_by_dtype(mt.dtype)
+                assignments = self.lang.get_by_dtype(mt.dtype, with_inv=True)
 
             assignments_list.append(assignments)
         # generate all combinations by cartesian product
