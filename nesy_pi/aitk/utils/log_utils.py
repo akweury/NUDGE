@@ -141,8 +141,6 @@ def print_test_result(args, lang, c_with_scores):
                       args.log_file)
             # add_lines(f"{c[0]} {c[1]}", args.log_file)
             clauses.append(c[0])
-            if c[1][2] > args.sn_th:
-                success = True
     else:
         add_lines(f"Failure.", args.log_file)
 

@@ -138,10 +138,11 @@ class FCNNValuationModule(nn.Module):
         elif term.dtype.name == "player":
             return zs[:, 0, [0, -2, -1]].to(self.device)
         elif term.dtype.name in bk.attr_names:
-            try:
+            if term.values is not None:
+                res = term.values
+            else:
                 res = self.attrs[term].unsqueeze(0).repeat(zs.shape[0], 1).to(self.device)
-            except KeyError:
-                print("")
+
             return res
         elif term.dtype.name == 'image':
             return None
@@ -315,8 +316,7 @@ class FCNNRhoValuationFunction(nn.Module):
             A batch of probabilities.
         """
         if (z_1 == z_2).prod().bool():
-            return torch.zeros(dist_grade.shape[0]).to(dist_grade.device), torch.zeros(dist_grade.shape[0]).to(
-                dist_grade.device)
+            return torch.zeros(z_2.shape[0]).to(z_2.device), torch.zeros(z_2.shape[0]).to(z_2.device)
         mask_z1 = z_1[:, 0] > 0
         mask_z2 = z_2[:, 0] > 0
         mask = (mask_z1 & mask_z2)
@@ -336,15 +336,18 @@ class FCNNRhoValuationFunction(nn.Module):
             threshold = grade_weight * i
             dist_id[rho >= threshold] = i
 
-        dist_pred = torch.zeros(dist_grade.shape).to(dist_grade.device)
-        for i in range(dist_pred.shape[0]):
-            dist_pred[i, int(dist_id[i])] = 1
-
-        satisfaction = (dist_grade * dist_pred).sum(dim=1) * mask
-
-        if given_param.sum() > 0:
+        if dist_grade.shape[0] != z_1.shape[0]:
+            range_min, range_max = dist_grade.min(), dist_grade.max()
+            satisfaction = (rho <= range_max) * (rho >= range_min) * mask
+        elif given_param.sum() > 0:
             range_min, range_max = given_param.min(), given_param.max()
-            satisfaction = (rho <= range_max) * (rho >= range_min)
+            satisfaction = (rho <= range_max) * (rho >= range_min) * mask
+        else:
+            dist_pred = torch.zeros(dist_grade.shape).to(dist_grade.device)
+            for i in range(dist_pred.shape[0]):
+                dist_pred[i, int(dist_id[i])] = 1
+            satisfaction = (dist_grade * dist_pred).sum(dim=1) * mask
+
         parameters = torch.zeros_like(satisfaction).to(torch.float)
         parameters[satisfaction > 0] = rho[satisfaction > 0].to(torch.float)
         return satisfaction, parameters
@@ -386,7 +389,7 @@ class FCNNPhiValuationFunction(nn.Module):
         """
 
         if (z_1 == z_2).prod().bool():
-            return torch.zeros(dir.shape[0]).to(dir.device), torch.zeros(dir.shape[0]).to(dir.device)
+            return torch.zeros(z_2.shape[0]).to(z_2.device), torch.zeros(z_2.shape[0]).to(z_2.device)
         mask_z1 = z_1[:, 0] > 0
         mask_z2 = z_2[:, 0] > 0
         mask = (mask_z1 & mask_z2)
@@ -410,16 +413,21 @@ class FCNNPhiValuationFunction(nn.Module):
         # This is a threshold, but it can be decided automatically.
         # zone_id[rho >= 0.12] = zone_id[rho >= 0.12] + round_divide
 
-        dir_pred = torch.zeros(dir.shape).to(dir.device)
-        for i in range(dir_pred.shape[0]):
-            dir_pred[i, int(zone_id[i])] = 1
-        if given_param.sum() > 0:
+        # with invented const
+        if dir.shape[0] != z_1.shape[0]:
+            try:
+                range_min, range_max = dir.min(), dir.max()
+            except RuntimeError:
+                raise ValueError()
+            satisfaction = (phi_clock_shift <= range_max) * (phi_clock_shift >= range_min) * mask
+        elif given_param.sum() > 0:
             range_min, range_max = given_param.min(), given_param.max()
             satisfaction = (phi_clock_shift <= range_max) * (phi_clock_shift >= range_min) * mask
-
         else:
+            dir_pred = torch.zeros(dir.shape).to(dir.device)
+            for i in range(dir_pred.shape[0]):
+                dir_pred[i, int(zone_id[i])] = 1
             satisfaction = (dir * dir_pred).sum(dim=1) * mask
-
         parameters = torch.zeros_like(satisfaction).to(torch.float)
         parameters[satisfaction > 0] = phi_clock_shift[satisfaction > 0].to(torch.float)
         return satisfaction, parameters

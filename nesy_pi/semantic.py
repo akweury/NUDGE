@@ -17,6 +17,14 @@ def init_ilp(args, data, pi_type):
     return lang
 
 
+def update_ilp(lang, args, data, pi_type):
+    args.invented_pred_num = lang.invented_preds_number
+    args.invented_consts_number = lang.invented_consts_number
+    args.p_inv_counter = lang.invented_preds_number
+    lang = Language(args, [], pi_type)
+    return lang
+
+
 def init_eval_ilp(args, percept_dict, obj_groups, obj_avail, pi_type, level, target_clauses, inv_p_clauses):
     logic_utils.update_eval_args(args, percept_dict, obj_groups, obj_avail)
     lang = Language(args, [], pi_type, level)
@@ -106,3 +114,8 @@ def ilp_robust_eval(args, lang):
 
 def train_nsfr(args, rtpt, lang, clauses):
     ilp.train_nsfr(args, rtpt, lang, clauses)
+
+
+def extract_invented_data(lang):
+    data = ilp.extract_invented_data(lang)
+    return data

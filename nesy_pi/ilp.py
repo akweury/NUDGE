@@ -62,30 +62,33 @@ def inv_consts(args, p_pos, clauses, lang):
         if c_with_score[1][1] > args.suff_min:
             rule_consts = []
             c = c_with_score[0]
-            for atom in c.body:
+            for a_i, atom in enumerate(c.body):
                 if "phi" == atom.pred.name or "rho" == atom.pred.name:
-                    rule_consts.append([atom.terms[0].name, atom.terms[-2].name, atom.terms[-2].dtype])
+                    rule_consts.append([a_i, atom.terms[0].name, atom.terms[-2].name, atom.terms[-2].dtype])
+
             for rule_const in rule_consts:
                 rule_consts_atom_id = []
                 for a_i, atom in enumerate(lang.atoms):
-                    if len(atom.terms) > 1 and atom.terms[0].name == rule_const[0] and atom.terms[-2].name == \
-                            rule_const[1]:
+                    if len(atom.terms) > 1 and atom.terms[0].name == rule_const[1] and atom.terms[-2].name == \
+                            rule_const[2]:
                         rule_consts_atom_id.append(a_i)
                 const_values = p_pos[:, rule_consts_atom_id].unique()
                 const_values = const_values[const_values != 0]
-                const_data.append([rule_const[-1], const_values])
+                # create new const object
+                new_const = lang.inv_new_const(rule_const[-1], const_values)
+                if new_const is not None:
+                    new_consts.append(new_const)
+                    # replace with new const
+                    c.body[rule_const[0]].terms = list(c.body[rule_const[0]].terms)
+                    c.body[rule_const[0]].terms[-2] = new_const
+                    c.body[rule_const[0]].terms = tuple(c.body[rule_const[0]].terms)
 
-    # create new const object
-
-    if len(const_data) > 0:
-        for new_const in const_data:
-            new_const = lang.inv_new_const(new_const[0], new_const[1])
-            new_consts.append(new_const)
-
+    if len(new_consts) > 0:
+        # lang.remove_primitive_consts()
         lang.generate_atoms()
-        return True, list(set(new_consts))
+        return True, list(set(new_consts)), clauses
 
-    return False, new_consts
+    return False, new_consts, clauses
 
 
 def ilp_search(args, lang, init_clauses, FC):
@@ -99,8 +102,9 @@ def ilp_search(args, lang, init_clauses, FC):
     extend_step = 0
     clause_with_scores = []
     clauses = init_clauses
-    while extend_step <= args.max_step and not args.is_done:
-        log_utils.add_lines(f"############### extend step {extend_step}/{args.max_step} ################", args.log_file)
+    while extend_step < args.max_step and not args.is_done:
+        log_utils.add_lines(f"############### extend step {extend_step}/{args.max_step} ################",
+                            args.log_file)
 
         # clause extension
         clauses = clause_extend(args, lang, clauses)
@@ -123,17 +127,17 @@ def ilp_search(args, lang, init_clauses, FC):
         else:
             clauses = logic_utils.top_select(clause_with_scores, args)
 
-        has_new_consts, const_data = inv_consts(args, p_pos, clause_with_scores, lang)
+        has_new_consts, const_data, clause_with_scores = inv_consts(args, p_pos, clause_with_scores, lang)
         if has_new_consts:
             VM = ai_interface.get_vm(args, lang)
             FC = ai_interface.get_fc(args, lang, VM, args.rule_obj_num)
 
         # save data
         all_c = [c[0] for c in lang.all_clauses]
-        new_c = [c for c in clause_with_scores if c[0] not in all_c and c[1][1] > 0.9]
+        new_c = [c for c in clause_with_scores if c[0] not in all_c and c[1][1] > 0.6]
         lang.all_clauses += new_c
 
-        done, clause_with_scores = check_result(args, clause_with_scores, lang.all_clauses)
+        done, clause_with_scores, lang.all_clauses = check_result(args, clause_with_scores, lang.all_clauses)
         clauses = [c[0] for c in clause_with_scores]
         extend_step += 1
 
@@ -197,8 +201,7 @@ def ilp_test(args, lang):
     # returned clauses have to cover all the positive images and no negative images
     ilp_search(args, lang, clauses, FC)
 
-    sorted_clauses_with_scores = sorted(lang.all_clauses, key=lambda x: x[1][2], reverse=True)
-    sorted_clauses_with_scores = [c for c in sorted_clauses_with_scores if c[1][1] > args.sc_th][:args.top_k]
+    sorted_clauses_with_scores = sorted(lang.all_clauses, key=lambda x: x[1][0], reverse=True)
 
     success, clauses = log_utils.print_test_result(args, lang, sorted_clauses_with_scores)
     return success, sorted_clauses_with_scores
@@ -346,7 +349,7 @@ def ilp_robust_eval(args, lang):
 
 
 def keep_best_preds(args, lang):
-    p_inv_best = sorted(lang.invented_preds_with_scores, key=lambda x: x[1][2], reverse=True)
+    p_inv_best = sorted(lang.invented_preds_with_scores, key=lambda x: x[1][0], reverse=True)
     p_inv_best = p_inv_best[:args.pi_top]
     p_inv_best = logic_utils.extract_clauses_from_bs_clauses(p_inv_best, "best inv clause", args)
 
@@ -400,7 +403,7 @@ def get_suff_score(score_pos, score_neg):
     # negative scores are inversely proportional to sufficiency scores
     data_size = score_pos.shape[1]
     pos_score = score_pos.sum(dim=1) / (0.99 * data_size)
-    neg_score = (1 - score_neg).sum(dim=1) / (0.99 * data_size)
+    neg_score = (0.99 - score_neg).sum(dim=1) / (0.99 * data_size)
     scores = torch.cat((pos_score.unsqueeze(dim=1), neg_score.unsqueeze(dim=1)), dim=1)
 
     return scores
@@ -668,19 +671,19 @@ def update_saved_clauses(args, all_clauses):
             saved_suff_percents_all.append(suff_percent)
             saved_ness_percents_all.append(ness_percent)
             updated_clauses.append(c)
-        log_utils.add_lines(f"- Saved Total {len(updated_clauses)} clauses.", args.log_file)
+        log_utils.add_lines(f"\n- Saved Total {len(updated_clauses)} clauses.", args.log_file)
         for c_i, c in enumerate(updated_clauses):
             positive_score = c[2][:, config.score_example_index["pos"]]
             negative_score = 1 - c[2][:, config.score_example_index["neg"]]
             failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
             failed_neg_index = ((negative_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
-            log_utils.add_lines(f"{c_i + 1}/{len(all_clauses)} "
+            log_utils.add_lines(f"{c_i + 1}/{len(updated_clauses)} "
                                 f"contri ness:{saved_ness_percents_all[c_i]:.2f},"
                                 f"contri suff:{saved_suff_percents_all[c_i]:.2f},"
                                 f"ness:{torch.round(c[1][0], decimals=2):.2f},"
                                 f"suff:{torch.round(c[1][1], decimals=2):.2f} "
                                 f"+:({len(failed_pos_index)}/{c[2].shape[0]}) "
-                                f"-:({len(failed_neg_index)}/{c[2].shape[0]}) {c[0]} ", args.log_file)
+                                f"-:({len(failed_neg_index)}/{c[2].shape[0]})\n{c[0]} ", args.log_file)
         log_utils.add_lines(
             f"\n- Saved Total Ness: {saved_ness_percents:.2f}, Saved Total Suff: {(1 - saved_suff_percents):.2f}\n",
             args.log_file)
@@ -690,12 +693,13 @@ def update_saved_clauses(args, all_clauses):
 def check_result(args, clause_with_scores, all_clauses):
     done = False
     if len(clause_with_scores) == 0:
-        return done, []
+        return done, [], all_clauses
 
     # update saved clauses
     all_clauses, saved_ness_percents, saved_suff_percents, saved_ness_percents_all, saved_suff_percents_all = update_saved_clauses(
         args, all_clauses)
-
+    if saved_ness_percents > args.nc_th:
+        done = True
     all_c = [c[0] for c in all_clauses]
     new_c = [c for c in clause_with_scores if c[0] not in all_c]
     clause_with_scores = all_clauses + new_c
@@ -725,14 +729,15 @@ def check_result(args, clause_with_scores, all_clauses):
     ness_maximize_c = []
     ness_percent_total = 0
     suff_percent_total = 0
+    saved_clauses = [c[0] for c in all_clauses]
     for c_i in range(min(args.top_k, len(ness_indices))):
-        ness_maximize_c.append(c_score_pruned[ness_indices[c_i]])
-        ness_percent_total += ness_ranked[c_i]
-        suff_percent_total += suff_rankded[c_i]
-
-    if saved_ness_percents > args.nc_th:
-        done = True
+        c = c_score_pruned[ness_indices[c_i]]
+        if c[0] not in saved_clauses:
+            ness_maximize_c.append(c)
+            ness_percent_total += ness_ranked[c_i]
+            suff_percent_total += suff_rankded[c_i]
     # log
+    log_utils.add_lines(f'\n Next Clauses: {len(ness_maximize_c)} ', args.log_file)
     for c_i, c in enumerate(ness_maximize_c):
         positive_score = c[2][:, config.score_example_index["pos"]]
         negative_score = 1 - c[2][:, config.score_example_index["neg"]]
@@ -741,11 +746,11 @@ def check_result(args, clause_with_scores, all_clauses):
         log_utils.add_lines(f"{c_i + 1}/{len(ness_maximize_c)} ness:{torch.round(c[1][0], decimals=2):.2f},"
                             f"suff:{torch.round(c[1][1], decimals=2):.2f} "
                             f"+:({len(failed_pos_index)}/{c[2].shape[0]}) "
-                            f"-:({len(failed_neg_index)}/{c[2].shape[0]}) {c[0]} ", args.log_file)
-    log_utils.add_lines(f"\n-Total Ness: {ness_percent_total:.2f}, Total Suff: {suff_percent_total:.2f} \n",
+                            f"-:({len(failed_neg_index)}/{c[2].shape[0]}) \n{c[0]} ", args.log_file)
+    log_utils.add_lines(f"\n-Total Ness: {ness_percent_total:.2f}, Total Suff: {(1 - suff_percent_total):.2f} \n",
                         args.log_file)
 
-    return done, ness_maximize_c
+    return done, ness_maximize_c, all_clauses
 
 
 def explain_invention(args, lang, clauses):
@@ -781,8 +786,6 @@ def explain_invention(args, lang, clauses):
 
 
 def cluster_invention(args, lang, clauses, e):
-    found_ns = False
-
     clu_lists = search_independent_clauses_parallel(args, lang, clauses, e)
     new_preds_with_scores = generate_new_predicate(args, lang, clu_lists, pi_type=config.pi_type["clu"])
     new_preds_with_scores = sorted(new_preds_with_scores, key=lambda x: x[1][0], reverse=True)
@@ -792,9 +795,7 @@ def cluster_invention(args, lang, clauses, e):
     if args.show_process:
         log_utils.add_lines(f"new PI: {len(new_preds_with_scores)}", args.log_file)
         for new_c, new_c_score in new_preds_with_scores:
-            log_utils.add_lines(f"{new_c} {new_c_score.reshape(3)}", args.log_file)
-
-    args.is_done = found_ns
+            log_utils.add_lines(f"{new_c} {new_c_score.reshape(-1)}", args.log_file)
     return new_preds_with_scores
 
 
@@ -864,7 +865,7 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
         # score_max[:, :, index_neg] = score_neg[:, :, 0]
         score_pos = score_pos.permute(1, 0)
         score_neg = score_neg.permute(1, 0)
-        score_all = get_clause_3score(score_pos, score_neg, args, len(pattern[0][1].body) - e)
+        score_all = get_suff_score(score_pos, score_neg).reshape(-1)
         clu_all.append([pattern, score_all])
 
     index_suff = config.score_type_index['suff']
@@ -872,10 +873,7 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
     index_sn = config.score_type_index['sn']
 
     clu_suff = [clu for clu in clu_all if clu[1][index_suff] > args.inv_sc_th and clu[1][index_ness] > args.inv_nc_th]
-    # clu_ness = [clu for clu in clu_all if clu[1][index_ness] > args.nc_th and clu[1][index_sn] > args.sn_min_th]
-    # clu_sn = [clu for clu in clu_all if clu[1][index_sn] > args.sn_th]
     clu_classified = sorted(clu_suff, key=lambda x: x[1][0], reverse=True)
-    clu_lists_sorted = sorted(clu_all, key=lambda x: x[1][index_ness], reverse=True)
     return clu_classified
 
 
@@ -883,42 +881,38 @@ def ilp_train(args, lang):
     # for neural_pred in args.neural_preds:
     reset_args(args)
     init_clauses, e = reset_lang(lang, args, args.neural_preds, full_bk=True)
-    while args.iteration < args.max_step and not args.is_done:
-        # update system
-        VM = ai_interface.get_vm(args, lang)
-        FC = ai_interface.get_fc(args, lang, VM, e)
-        clauses, FC = ilp_search(args, lang, init_clauses, FC)  # searching for high sufficiency clauses
-        if args.is_done:
-            break
-        if args.with_pi and len(lang.all_clauses) > 0:
-            ilp_pi(args, lang, clauses, e)
-            # update predicate list
-            lang.preds = lang.append_new_predicate(lang.preds, lang.invented_preds)
-            # update language
-            lang.mode_declarations = lang_utils.get_mode_declarations(e, lang)
-        args.iteration += 1
+    # update system
+    VM = ai_interface.get_vm(args, lang)
+    FC = ai_interface.get_fc(args, lang, VM, e)
+    clauses, FC = ilp_search(args, lang, init_clauses, FC)  # searching for high sufficiency clauses
+    if args.with_pi and len(lang.all_clauses) > 0:
+        ilp_pi(args, lang, clauses, e)
+        # update predicate list
+        lang.preds = lang.append_new_predicate(lang.preds, lang.invented_preds)
+        # update language
+        lang.mode_declarations = lang_utils.get_mode_declarations(e, lang)
     # save the promising predicates
     keep_best_preds(args, lang)
 
 
-def ilp_train_explain(args, lang, level):
-    for neural_pred in args.neural_preds:
-        reset_args(args)
-        init_clause, e = reset_lang(lang, args, level, neural_pred, full_bk=False)
-        while args.iteration < args.max_step and not args.is_done:
-            # update system
-            VM = ai_interface.get_vm(args, lang)
-            FC = ai_interface.get_fc(args, lang, VM, e)
-            clauses = ilp_search(args, lang, init_clause, FC, level)
-            if args.with_explain:
-                explain_scenes(args, lang, clauses)
-            if args.with_pi:
-                ilp_pi(args, lang, clauses, e)
-            args.iteration += 1
-        # save the promising predicates
-        keep_best_preds(args, lang)
-        if args.found_ns:
-            break
+# def ilp_train_explain(args, lang, level):
+#     for neural_pred in args.neural_preds:
+#         reset_args(args)
+#         init_clause, e = reset_lang(lang, args, level, neural_pred, full_bk=False)
+#         while args.iteration < args.max_step and not args.is_done:
+#             # update system
+#             VM = ai_interface.get_vm(args, lang)
+#             FC = ai_interface.get_fc(args, lang, VM, e)
+#             clauses = ilp_search(args, lang, init_clause, FC, level)
+#             if args.with_explain:
+#                 explain_scenes(args, lang, clauses)
+#             if args.with_pi:
+#                 ilp_pi(args, lang, clauses, e)
+#             args.iteration += 1
+#         # save the promising predicates
+#         keep_best_preds(args, lang)
+#         if args.found_ns:
+#             break
 
 
 def train_nsfr(args, rtpt, lang, clauses):
@@ -1002,3 +996,11 @@ def final_evaluation(NSFR, args):
     log_utils.add_lines(f"training acc: {acc}, threshold: {th}, recall: {rec}", args.log_file)
     log_utils.add_lines(f"val acc: {acc_val}, threshold: {th_val}, recall: {rec_val}", args.log_file)
     log_utils.add_lines(f"test acc: {acc_test}, threshold: {th_test}, recall: {rec_test}", args.log_file)
+
+
+def extract_invented_data(lang):
+    data = {'inv_preds': lang.all_invented_preds,
+            'pi_clauses': lang.all_pi_clauses,
+            'inv_consts': [const for const in lang.consts if const.values is not None]}
+
+    return data

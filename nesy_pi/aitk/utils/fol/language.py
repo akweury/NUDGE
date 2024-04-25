@@ -5,6 +5,8 @@ import re
 from .exp_parser import ExpTree
 from .logic import *
 from . import bk
+import torch.nn.functional as F
+import torch
 
 
 # from fol import mode_declaration
@@ -60,7 +62,7 @@ class Language(object):
                 self.preds.append(pred)
             self.preds.append(self.parse_pred(bk.target_predicate[1], pi_type))
             # self.consts = self.load_consts(args)
-            self.consts =inv_consts
+            self.consts = inv_consts
             # self.load_init_clauses(args.e)
 
     def __str__(self):
@@ -297,21 +299,53 @@ class Language(object):
                 var_dtype_list.append((arg, dtype))
         return var_dtype_list
 
-    def inv_new_const(self, const_type, const_value):
+    def cosine_similarity(self, t1, t2):
+        t1_norm = (F.normalize(t1, dim=0) * 99).to(torch.int)
+        t2_norm = (F.normalize(t2, dim=0) * 99).to(torch.int)
 
+        t1_tenosor = torch.zeros(100)
+        t2_tenosor = torch.zeros(100)
+        try:
+            t1_tenosor[t1_norm] = 0.1
+        except IndexError:
+            raise IndexError()
+        t2_tenosor[t2_norm] = 0.1
+        # Compute dot product
+        dot_product = torch.dot(t1_tenosor, t2_tenosor)
+        total = min(torch.dot(t2_tenosor, t2_tenosor), torch.dot(t1_tenosor, t1_tenosor))
+        res = dot_product / total
+        return res
+
+    def inv_new_const(self, const_type, const_value):
+        if len(const_value) == 0:
+            return None
         const_name = f"{const_type.name}inv{self.invented_consts_number}"
         new_const = Const(const_name, const_type, const_value)
-
-        has_const = False
+        const_exists = False
         for const in self.consts:
             if const.values is not None:
-                if const.values.min() == new_const.values.min() and const.values.max() == new_const.values.max():
-                    has_const = True
+                similarity = self.cosine_similarity(const.values, new_const.values)
+                if similarity > 0.5:
+                    # integrate range
+                    const.values = torch.cat((const.values, new_const.values), dim=0).unique()
+                    const_exists = True
                     break
-        if not has_const:
+        if not const_exists:
             self.consts.append(new_const)
             self.invented_consts_number += 1
-        return new_const
+            return new_const
+        else:
+            return None
+
+    def remove_primitive_consts(self):
+        consts = []
+        for const in self.consts:
+            if 'phi' in const.name or 'rho' in const.name:
+                if const.values is not None:
+                    consts.append(const)
+            else:
+                consts.append(const)
+        self.consts = consts
 
     def get_by_dtype(self, dtype):
         """Get constants that match given dtypes.

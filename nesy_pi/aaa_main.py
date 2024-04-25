@@ -46,13 +46,15 @@ def main():
     args.log_file = log_file
     learned_clauses = []
     clause_scores = []
-
+    inv_consts = []
+    pi_clauses = []
+    inv_preds = []
     args, rtpt, data, NSFR = init(args)
     args.rule_obj_num = args.max_rule_obj
-    lang = se.init_ilp(args, data, config.pi_type['bk'])
 
+    lang = se.init_ilp(args, data, config.pi_type['bk'])
     # for a_i in range(len(args.action_names)):
-    for a_i in [1, 2, 0]:
+    for a_i in [2, 1, 0]:
         args.label = a_i
         args.label_name = args.action_names[a_i]
         action_clauses = []
@@ -66,6 +68,7 @@ def main():
         group_end = time.time()
         group_round_time.append(group_end - start)
         # ILP and PI system
+        lang = se.update_ilp(lang, args, data, config.pi_type['bk'])
         success, sorted_clauses_with_scores = se.run_ilp_train(args, lang)
         train_end = time.time()
         train_round_time.append(train_end - group_end)
@@ -87,16 +90,20 @@ def main():
         action_clause_scores += [cs[1] for cs in sorted_clauses_with_scores]
         clause_scores.append(action_clause_scores)
         learned_clauses.append(action_clauses)
+        action_invented_data = se.extract_invented_data(lang)
 
+        inv_consts += action_invented_data['inv_consts']
+        pi_clauses += action_invented_data['pi_clauses']
+        inv_preds += action_invented_data['inv_preds']
     learned_data = {"clauses": learned_clauses,
                     "clause_scores": clause_scores,
-                    "all_invented_preds": lang.all_invented_preds,
-                    "all_pi_clauses": lang.all_pi_clauses,
-                    "invented_preds": lang.invented_preds,
+                    "all_invented_preds": inv_preds,
+                    "all_pi_clauses": pi_clauses,
+                    "invented_preds": inv_preds,
                     "p_inv_counter": lang.invented_preds_number,
                     "invented_consts_number": lang.invented_consts_number,
                     "preds": lang.preds,
-                    "inv_consts": lang.consts
+                    "inv_consts": inv_consts
                     }
     file_utils.save_clauses(learned_data,
                             args.trained_model_folder / f"learned_clauses_rho{args.rho_num}_phi_{args.phi_num}_train_{args.train_data_size}.pkl")

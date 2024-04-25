@@ -260,6 +260,7 @@ def update_args(args, data):
         args.test_data.append([test_pos, test_neg])
 
     args.lark_path = config.path_nesy / "lark" / "exp.lark"
+
     args.invented_pred_num = 0
     args.invented_consts_number = 0
 
