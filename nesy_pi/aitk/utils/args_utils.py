@@ -11,7 +11,6 @@ def get_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--with_pi", action="store_true", help="Generate Clause with predicate invention.")
-
     parser.add_argument("--score_unique", action="store_false",
                         help="prune same score clauses.")
     parser.add_argument("--semantic_unique", action="store_false",
@@ -113,7 +112,7 @@ def get_args():
                         help="The maximum number of objects/groups to deal with in a single image.")
     parser.add_argument("--distribute_error_th", type=float, default=0.0005,
                         help="The threshold for group points forming a shape that evenly distributed on the whole shape.")
-    parser.add_argument("--show_process", action="store_false",
+    parser.add_argument("--show_process", action="store_true",
                         help="Print process to the logs and screen.")
     parser.add_argument("--obj_group", action="store_false",
                         help="Treat a single object as a group.")

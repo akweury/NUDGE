@@ -100,6 +100,8 @@ def ilp_search(args, lang, init_clauses, FC):
     clause_with_scores = []
     clauses = init_clauses
     while extend_step <= args.max_step and not args.is_done:
+        log_utils.add_lines(f"###### extend step {extend_step}/{args.max_step} ######", args.log_file)
+
         # clause extension
         clauses = clause_extend(args, lang, clauses)
         if args.is_done:
@@ -704,7 +706,6 @@ def check_result(args, clause_with_scores, all_clauses):
     if saved_ness_percents > args.nc_th:
         done = True
     # log
-    print('\n\n')
     for c_i, c in enumerate(ness_maximize_c):
         positive_score = c[2][:, config.score_example_index["pos"]]
         negative_score = 1 - c[2][:, config.score_example_index["neg"]]
@@ -715,7 +716,7 @@ def check_result(args, clause_with_scores, all_clauses):
                             f"+:({len(failed_pos_index)}/{c[2].shape[0]}) "
                             f"-:({len(failed_neg_index)}/{c[2].shape[0]}) {c[0]} ", args.log_file)
     log_utils.add_lines(f"-Total Ness: {ness_percent_total:.2f}\n"
-                        f"Total Suff: {suff_percent_total:.2f}\n ", args.log_file)
+                        f"Total Suff: {suff_percent_total:.2f} ", args.log_file)
 
     log_utils.add_lines(f"- Saved Total {len(all_clauses)} clauses.", args.log_file)
     for c_i, c in enumerate(all_clauses):
