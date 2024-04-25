@@ -668,8 +668,8 @@ def update_saved_clauses(args, all_clauses):
             saved_suff_percents_all.append(suff_percent)
             saved_ness_percents_all.append(ness_percent)
             updated_clauses.append(c)
-        log_utils.add_lines(f"- Saved Total {len(all_clauses)} clauses.", args.log_file)
-        for c_i, c in enumerate(all_clauses):
+        log_utils.add_lines(f"- Saved Total {len(updated_clauses)} clauses.", args.log_file)
+        for c_i, c in enumerate(updated_clauses):
             positive_score = c[2][:, config.score_example_index["pos"]]
             negative_score = 1 - c[2][:, config.score_example_index["neg"]]
             failed_pos_index = ((positive_score < 0.9).nonzero(as_tuple=True)[0]).tolist()
