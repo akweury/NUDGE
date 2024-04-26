@@ -150,12 +150,12 @@ game_buffer = game_utils.load_buffer(args, buffer_filename)
 data_file = args.trained_model_folder / f"nesy_data.pth"
 if not os.path.exists(data_file):
     states = torch.cat(game_buffer.logic_states, dim=0)
+    states[:, :, -2:] = states[:, :, -2:] / 50
     actions = torch.cat(game_buffer.actions, dim=0)
     args.num_actions = len(actions.unique())
     data = {}
     for a_i in range(args.num_actions):
         action_mask = actions == a_i
-        states[:, :, -2:] = states[:, :, -2:] / 50
         pos_data = states[action_mask]
         neg_data = states[~action_mask]
         data[a_i] = {"pos_data": pos_data, "neg_data": neg_data}

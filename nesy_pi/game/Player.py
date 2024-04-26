@@ -66,7 +66,10 @@ class ClausePlayer:
         suff_scores = self.clause_scores[indices]
 
         highest_priority_index = indices[suff_scores[:, 1].argmax()]
-
+        print(f'=======all valid rules=========================')
+        for i in indices:
+            print(f'{self.NSFR.clauses[i]}')
+        print(f'=======best rule=========================')
         print(f'{self.NSFR.clauses[highest_priority_index]}')
         action_name = self.lang.all_clauses[highest_priority_index].head.pred.name
         action = self.args.action_names.index(action_name)

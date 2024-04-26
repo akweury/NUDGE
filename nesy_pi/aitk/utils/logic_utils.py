@@ -249,8 +249,10 @@ def update_args(args, data):
     for a_i in range(len(data)):
         data_size = min(args.top_data, len(data[a_i]["pos_data"]), len(data[a_i]["neg_data"]))
         data_size = data_size - data_size % args.batch_size
-        pos_data = data[a_i]["pos_data"][:data_size]
-        neg_data = data[a_i]["neg_data"][:data_size]
+        random_pos_indices = torch.randperm(len(data[a_i]["pos_data"]))[:data_size]
+        random_neg_indices = torch.randperm(len(data[a_i]["neg_data"]))[:data_size]
+        pos_data = data[a_i]["pos_data"][random_pos_indices]
+        neg_data = data[a_i]["neg_data"][random_neg_indices]
         train_pos = pos_data[:args.train_data_size]
         train_neg = neg_data[:args.train_data_size]
         test_pos = pos_data[args.train_data_size:]

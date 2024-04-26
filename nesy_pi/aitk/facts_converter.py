@@ -60,8 +60,8 @@ class FactsConverter(nn.Module):
             # this atom is a neural predicate
             if type(atom.pred) == NeuralPredicate and i > 1:
                 if atom.pred.name in ["in", "phi", "rho", "shape", "not_exist"]:
-                    if atom.terms[-1].values is not None:
-                        param = atom.terms[-1].values
+                    if atom.terms[-2].values is not None:
+                        param = atom.terms[-2].values
                     elif given_param[:, i].sum() > 0:
                         param = given_param[:, i].unique()
                         param = param[param != 0]
