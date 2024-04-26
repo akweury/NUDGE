@@ -120,7 +120,7 @@ def collect_getout_data(args, agent, buffer_filename, save_buffer):
                     game_env.level.terminated = True
                     game_env.level.lost = True
             # save game buffer
-            if not game_env.level.lost and len(logic_states) < 30:
+            if not game_env.level.lost and len(logic_states) < 100:
                 buffer.logic_states.append(logic_states)
                 buffer.actions.append(actions)
                 buffer.rewards.append(rewards)
