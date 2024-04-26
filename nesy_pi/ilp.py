@@ -654,7 +654,7 @@ def update_saved_clauses(args, all_clauses):
     saved_suff_percents_all = []
     updated_clauses = []
     if len(all_clauses) > 0:
-        all_clauses = sorted(all_clauses, key=lambda c: c[1][0], reverse=True)
+        all_clauses = sorted(all_clauses, key=lambda c: c[1][1], reverse=True)
         saved_ness_used_data = torch.zeros_like(all_clauses[0][2][:, 0], dtype=torch.bool)
         saved_suff_used_data = torch.zeros_like(all_clauses[0][2][:, 1], dtype=torch.bool)
         for c_i, c in enumerate(all_clauses):

@@ -53,7 +53,7 @@ def create_getout_instance(args, seed=None):
 def collect_getout_data(args, agent, buffer_filename, save_buffer):
     game_num = args.teacher_game_nums
     # play games using the random agent
-    seed = random.seed() if args.seed is None else int(args.seed)
+    seed = random.seed()
     buffer = RolloutBuffer(buffer_filename)
 
     if os.path.exists(buffer.filename):
@@ -63,7 +63,7 @@ def collect_getout_data(args, agent, buffer_filename, save_buffer):
     win_count = 0
     win_rates = []
     if args.m == 'getout':
-        game_env = create_getout_instance(args)
+        game_env = create_getout_instance(args, seed)
         env_args = EnvArgs(agent=agent, args=args, window_size=[game_env.camera.height,
                                                                 game_env.camera.width], fps=60)
 
@@ -103,7 +103,7 @@ def collect_getout_data(args, agent, buffer_filename, save_buffer):
                     logic_states.append(logic_state.detach().tolist())
                     actions.append(action - 1)
                     rewards.append(reward)
-                elif action - 1 != actions[-1] or frame_counter % 5 == 0:
+                else:
                     logic_states.append(logic_state.detach().tolist())
                     actions.append(action - 1)
                     rewards.append(reward)
@@ -116,11 +116,11 @@ def collect_getout_data(args, agent, buffer_filename, save_buffer):
                     env_args.action = action
                     env_args.reward = reward
                     _render(args, agent, env_args, video_out, "")
-                if frame_counter > 400:
+                if frame_counter > 100:
                     game_env.level.terminated = True
                     game_env.level.lost = True
             # save game buffer
-            if not game_env.level.lost:
+            if not game_env.level.lost and len(logic_states) < 30:
                 buffer.logic_states.append(logic_states)
                 buffer.actions.append(actions)
                 buffer.rewards.append(rewards)
@@ -133,7 +133,7 @@ def collect_getout_data(args, agent, buffer_filename, save_buffer):
 
             win_rates.append(win_count / (i + 1e-20))
             # start a new game
-            game_env = create_getout_instance(args)
+            game_env = create_getout_instance(args, seed)
 
         buffer.win_rates = win_rates
         buffer.save_data()

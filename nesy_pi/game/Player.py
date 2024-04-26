@@ -58,18 +58,16 @@ class ClausePlayer:
 
     def learn_action_weights(self, logic_state, teacher_action):
         self.args.test_data = torch.tensor(logic_state).unsqueeze(0)
+        self.args.test_data[:, :, -2:] = self.args.test_data[:, :, -2:] / 50 # Normalize the position!!!
         target_preds = self.args.action_names
         scores, _ = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")
         scores = scores[:, 0, config.score_example_index["pos"]]
         indices = torch.nonzero(scores > 0.9).reshape(-1)
         suff_scores = self.clause_scores[indices]
 
+        highest_priority_index = indices[suff_scores[:, 1].argmax()]
 
-        highest_priority_index = indices[suff_scores[:,1].argmax()]
-        for s_i, score in enumerate(scores):
-            if score > 0.9:
-                print(f'{self.NSFR.clauses[s_i]}')
-        print('')
+        print(f'{self.NSFR.clauses[highest_priority_index]}')
         action_name = self.lang.all_clauses[highest_priority_index].head.pred.name
         action = self.args.action_names.index(action_name)
         return action

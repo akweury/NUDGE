@@ -94,8 +94,8 @@ def keep_best_preds(args, lang):
 
 def run_ilp_train(args, lang):
     ilp.ilp_train(args, lang)
-    success, sorted_clauses_with_scores = ilp.ilp_test(args, lang)
-    return success, sorted_clauses_with_scores
+    # success, sorted_clauses_with_scores = ilp.ilp_test(args, lang)
+    return lang.all_clauses
 
 
 def run_ilp_train_explain(args, lang, level):
