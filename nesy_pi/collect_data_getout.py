@@ -156,7 +156,7 @@ if not os.path.exists(data_file):
     actions = actions[with_all_objects]
     data = {}
     action_data = []
-    for a_i in range(args.num_actions):
+    for a_i in range(len(args.action_names)):
         d = states[actions == a_i]
         random_indices = torch.randperm(d.shape[0])
         action_data.append(d[random_indices])
@@ -164,7 +164,7 @@ if not os.path.exists(data_file):
     min_size = min_size - min_size % 100
     action_data = [d[:min_size] for d in action_data]
 
-    for a_i in range(args.num_actions):
+    for a_i in range(len(args.action_names)):
         action_mask = actions == a_i
         pos_data = action_data[a_i]
         rest_data = torch.cat([d for d_i, d in enumerate(action_data) if d_i != a_i])
