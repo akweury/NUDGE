@@ -19,7 +19,7 @@ const_dict = {
     'player': "amount_player",
     'image': 'target',
     'shape': 'enum',
-    'group': 'amount_e',
+    # 'group': 'amount_e',
     'phi': 'amount_phi',
     'rho': 'amount_rho',
 }

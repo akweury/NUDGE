@@ -165,7 +165,7 @@ class Language(object):
             if const == 'color':
                 const_names = bk.color
             elif const == 'shape':
-                const_names = [data[0] for data in args.game_info["obj_info"][1:]]
+                const_names = [f"{data[0]}{d_i}" for data in args.game_info["obj_info"][1:] for d_i in range(data[1])]
             # elif const == 'group_shape':
             #     const_names = group_shape
             else:
