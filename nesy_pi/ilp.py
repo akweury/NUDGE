@@ -124,7 +124,7 @@ def ilp_search(args, lang, init_clauses, FC):
 
         # prune clauses
         if args.pi_top > 0:
-            passed_clauses = [c for c in clause_with_scores if c[1][0] > 0.9]
+            passed_clauses = [c for c in clause_with_scores if c[1][0] > 0.7]
             if len(passed_clauses) == 0:
                 clauses, clause_with_scores = prune_clauses(clause_with_scores, args)
             else:
