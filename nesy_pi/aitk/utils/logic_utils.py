@@ -7,7 +7,7 @@ import itertools
 import os
 import torch
 from sklearn.model_selection import train_test_split
-
+from collections import defaultdict
 from src import config
 from nesy_pi.aitk.utils import log_utils, file_utils
 from nesy_pi.aitk.utils.fol import bk
@@ -162,17 +162,22 @@ def get_semantic_from_c(clause):
 
 
 def get_independent_clusters(args, lang, clauses):
-    clause_with_scores = lang.clause_with_scores
 
     if args.show_process:
-        print(f"- searching for independent clauses from {len(clause_with_scores)} clauses...")
+        print(f"- searching for independent clauses from {len(clauses)} clauses...")
 
     clauses_with_score = []
-    for clause_i, [clause, four_scores, c_scores] in enumerate(clause_with_scores):
-        clauses_with_score.append([clause_i, clause, c_scores])
+    clause_objs = []
+    for clause_i, [clause, four_scores, c_scores] in enumerate(clauses):
+        clause_objs.append([atom.terms[0].name for atom in clause.body])
+    grouped_names_indices = defaultdict(list)
+    for i, name_list in enumerate(clause_objs):
+        grouped_names_indices[tuple(name_list)].append(i)
+    group_indices = list(grouped_names_indices.values())
 
-    clause_clusters = sub_lists(clauses_with_score, min_len=args.min_cluster_size, max_len=args.max_cluster_size)
-
+    clause_clusters = []
+    for group_i in range(len(group_indices)):
+        clause_clusters.append([[i, clauses[i][0],clauses[i][2]] for i in group_indices[group_i]])
     return clause_clusters
 
 
@@ -246,17 +251,23 @@ def sub_lists(l, min_len=0, max_len=None):
 def update_args(args, data):
     args.train_data = []
     args.test_data = []
+
     for a_i in range(len(data)):
         data_size = min(args.top_data, len(data[a_i]["pos_data"]), len(data[a_i]["neg_data"]))
-        data_size = data_size - data_size % args.batch_size
         random_pos_indices = torch.randperm(len(data[a_i]["pos_data"]))[:data_size]
         random_neg_indices = torch.randperm(len(data[a_i]["neg_data"]))[:data_size]
         pos_data = data[a_i]["pos_data"][random_pos_indices]
         neg_data = data[a_i]["neg_data"][random_neg_indices]
-        train_pos = pos_data[:args.train_data_size]
-        train_neg = neg_data[:args.train_data_size]
-        test_pos = pos_data[args.train_data_size:]
-        test_neg = neg_data[args.train_data_size:]
+        if a_i == 0:
+            valid_indices = pos_data[:, 1, 4] < pos_data[:, 0, 4]
+        elif a_i == 1:
+            valid_indices = pos_data[:, 1, 4] > pos_data[:, 0, 4]
+        else:
+            valid_indices = pos_data[:, 1, 4]>0
+        train_pos = pos_data[valid_indices][:1000]
+        train_neg = neg_data[valid_indices][:1000]
+        test_pos = pos_data[valid_indices][:1000]
+        test_neg = neg_data[valid_indices][:1000]
 
         args.train_data.append([train_pos, train_neg])
         args.test_data.append([test_pos, test_neg])

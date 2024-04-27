@@ -46,7 +46,6 @@ def load_clauses(args):
     lang.all_invented_preds = data["all_invented_preds"]
     # update predicates
     lang.update_bk(args.neural_preds, full_bk=True)
-
     args.lang = lang
 
 
@@ -155,19 +154,18 @@ def main():
             else:
                 if args.with_explain:
                     _render(args, agent, env_args, video_out, "")
-
                     game_utils.frame_log(agent, env_args)
             # update game args
             env_args.update_args()
         if not env.level.lost:
-            env_args.win_rate[game_i] = env_args.win_rate[game_i - 1] + 1
+            env_args.win_rate[game_i] = env_args.win_rate[game_i] + 1
         else:
-            env_args.win_rate[game_i] = env_args.win_rate[game_i - 1]
-        env_args.state_score = env_args.win_rate[game_i - 1]
+            env_args.win_rate[game_i] = env_args.win_rate[game_i]
+        env_args.state_score = env_args.win_rate[game_i]
 
         env_args.reset_buffer_game()
         # game_utils.game_over_log(args, agent, env_args)
-
+    print(f"Total win rate: {env_args.win_rate.sum()} / {env_args.game_num}")
     game_utils.finish_one_run(env_args, args, agent)
     if args.with_explain:
         draw_utils.release_video(video_out)

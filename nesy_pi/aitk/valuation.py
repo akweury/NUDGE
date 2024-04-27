@@ -5,6 +5,7 @@ from torch.nn import functional as F
 
 from src import config
 from nesy_pi.aitk.utils.fol import bk
+from nesy_pi.aitk.utils import math_utils
 from nesy_pi.aitk.utils.neural_utils import LogisticRegression
 
 
@@ -330,6 +331,7 @@ class FCNNRhoValuationFunction(nn.Module):
 
         dir_vec[1] = -dir_vec[1]
         rho, phi = self.cart2pol(dir_vec[0], dir_vec[1])
+        rho = math_utils.closest_one_percent(rho, 0.01)
         dist_id = torch.zeros(rho.shape)
 
         dist_grade_num = self.rho_num
@@ -338,16 +340,16 @@ class FCNNRhoValuationFunction(nn.Module):
             threshold = grade_weight * i
             dist_id[rho >= threshold] = i
 
-        if given_param.sum() > 0:
-            range_min, range_max = given_param.min(), given_param.max()
-            satisfaction = (rho <= range_max) * (rho >= range_min) * mask
+        if (given_param == 1e+20).sum() != given_param.shape[0]:
+            params = given_param[given_param != 1e+20].unique()
+            satisfaction = torch.cat([(rho == p).unsqueeze(0) for p in params], dim=0).sum(dim=0) * mask
         else:
             dist_pred = torch.zeros(dist_grade.shape).to(dist_grade.device)
             for i in range(dist_pred.shape[0]):
                 dist_pred[i, int(dist_id[i])] = 1
             satisfaction = (dist_grade * dist_pred).sum(dim=1) * mask
 
-        parameters = torch.zeros_like(satisfaction).to(torch.float)
+        parameters = torch.zeros_like(satisfaction).to(torch.float) + 1e+20
         parameters[satisfaction > 0] = rho[satisfaction > 0].to(torch.float)
         return satisfaction, parameters
 
@@ -395,37 +397,42 @@ class FCNNPhiValuationFunction(nn.Module):
         from nesy_pi.aitk.utils import math_utils
         # c_1 = z_2[:, -2:].permute(1, 0)
         # c_2 = z_1[:, -2:].permute(1, 0)
+
+        delta_x = z_1[:, -2] - z_2[:, -2]
+        delta_y = z_2[:, -1] - z_1[:, -1]
+
+        angle_radians = torch.atan2(delta_y, delta_x)
+        angle_degrees = torch.rad2deg(angle_radians)
+        angle_degrees = math_utils.closest_one_percent(angle_degrees, 0.1)
+        # round_divide = self.phi_num
+        # area_angle = int(360 / round_divide)
         #
-        # math_utils.dir_a_and_b_with_alignment_o2o(c_1, c_2)
-        round_divide = self.phi_num
-        area_angle = int(360 / round_divide)
-
-        # # area_angle_half = 0
-        # dir_vec = c_2 - c_1
-        # dir_vec[1] = -dir_vec[1]
-        # rho, phi = self.cart2pol(dir_vec[0], dir_vec[1])
-        degrees = math_utils.calculate_direction(z_1[:, -2:].unsqueeze(1), z_2[:, -2:].unsqueeze(1)).to(
-            torch.long).reshape(-1)
-        phi_clock_shift = (90 - degrees) % 360
-        zone_id = (phi_clock_shift) // area_angle % round_divide
-
-        # This is a threshold, but it can be decided automatically.
-        # zone_id[rho >= 0.12] = zone_id[rho >= 0.12] + round_divide
+        # # # area_angle_half = 0
+        # # dir_vec = c_2 - c_1
+        # # dir_vec[1] = -dir_vec[1]
+        # # rho, phi = self.cart2pol(dir_vec[0], dir_vec[1])
+        # degrees = math_utils.calculate_direction(z_1[:, -2:].unsqueeze(1), z_2[:, -2:].unsqueeze(1)).to(
+        #     torch.long).reshape(-1)
+        # # Calculate the remainder when dividing by 45
+        # remainder = degrees % 45
+        # # Determine the closest multiple of 45
+        # closest_multiple = degrees - remainder
+        # # Check if rounding up is closer than rounding down
+        # closest_multiple[remainder > 22.5] += 45
+        # phi_clock_shift = (90 - closest_multiple) % 360
+        # zone_id = (phi_clock_shift) // area_angle % round_divide
+        #
+        # # This is a threshold, but it can be decided automatically.
+        # # zone_id[rho >= 0.12] = zone_id[rho >= 0.12] + round_divide
 
         # with invented const
-        if given_param.sum() > 0:
-            range_min, range_max = given_param.min(), given_param.max()
-            satisfaction = (phi_clock_shift <= range_max) * (phi_clock_shift >= range_min) * mask
+        if (given_param == 1e+20).sum() != given_param.shape[0]:
+            params = given_param[given_param != 1e+20].unique()
+            satisfaction = torch.cat([(angle_degrees == p).unsqueeze(0) for p in params], dim=0).sum(dim=0) * mask
         else:
-            dir_pred = torch.zeros(dir.shape).to(dir.device)
-            for i in range(dir_pred.shape[0]):
-                try:
-                    dir_pred[i, int(zone_id[i])] = 1
-                except IndexError:
-                    raise IndexError()
-            satisfaction = (dir * dir_pred).sum(dim=1) * mask
-        parameters = torch.zeros_like(satisfaction).to(torch.float)
-        parameters[satisfaction > 0] = phi_clock_shift[satisfaction > 0].to(torch.float)
+            satisfaction = (dir).sum(dim=1) * mask
+        parameters = torch.zeros_like(satisfaction).to(torch.float) + 1e+20
+        parameters[satisfaction > 0] = angle_degrees[satisfaction > 0].to(torch.float)
         return satisfaction, parameters
 
     def cart2pol(self, x, y):

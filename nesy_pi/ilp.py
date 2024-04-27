@@ -72,10 +72,11 @@ def inv_consts(args, p_pos, clauses, lang):
                     if len(atom.terms) > 1 and atom.terms[0].name == rule_const[1] and atom.terms[-2].name == \
                             rule_const[2]:
                         rule_consts_atom_id.append(a_i)
-                const_values = p_pos[:, rule_consts_atom_id].unique()
-                const_values = const_values[const_values != 0]
+                all_values = p_pos[:, rule_consts_atom_id]
+                all_values = all_values[all_values != 1e+20]
+                const_values = all_values.unique()
                 # create new const object
-                new_const = lang.inv_new_const(rule_const[-1], const_values)
+                new_const = lang.inv_new_const(rule_const[-1], const_values.reshape(-1))
                 if new_const is not None:
                     new_consts.append(new_const)
                     # replace with new const
@@ -123,18 +124,23 @@ def ilp_search(args, lang, init_clauses, FC):
 
         # prune clauses
         if args.pi_top > 0:
-            clauses, clause_with_scores = prune_clauses(clause_with_scores, args)
+            passed_clauses = [c for c in clause_with_scores if c[1][0] > 0.9]
+            if len(passed_clauses) == 0:
+                clauses, clause_with_scores = prune_clauses(clause_with_scores, args)
+            else:
+                lang.all_clauses = passed_clauses
+                clause_with_scores = passed_clauses
         else:
             clauses = logic_utils.top_select(clause_with_scores, args)
 
-        has_new_consts, const_data, clause_with_scores = inv_consts(args, p_pos, clause_with_scores, lang)
-        if has_new_consts:
-            VM = ai_interface.get_vm(args, lang)
-            FC = ai_interface.get_fc(args, lang, VM, args.rule_obj_num)
+        # has_new_consts, const_data, clause_with_scores = inv_consts(args, p_pos, clause_with_scores, lang)
+        # if has_new_consts:
+        #     VM = ai_interface.get_vm(args, lang)
+        #     FC = ai_interface.get_fc(args, lang, VM, args.rule_obj_num)
 
         # save data
         all_c = [c[0] for c in lang.all_clauses]
-        new_c = [c for c in clause_with_scores if c[0] not in all_c and c[1][1] > 0.6]
+        new_c = [c for c in clause_with_scores if c[0] not in all_c and c[1][1] > 0.8]
         lang.all_clauses += new_c
 
         done, clause_with_scores, lang.all_clauses = check_result(args, clause_with_scores, lang.all_clauses)
@@ -434,8 +440,8 @@ def get_clause_score(NSFR, args, pred_names, eval_data, pos_group_pred=None, neg
     bz = args.batch_size
     V_T_pos = torch.zeros(len(NSFR.clauses), train_size, len(NSFR.atoms)).to(args.device)
     V_T_neg = torch.zeros(len(NSFR.clauses), train_size, len(NSFR.atoms)).to(args.device)
-    P_pos = torch.zeros(train_size, len(NSFR.atoms)).to(args.device)
-    P_neg = torch.zeros(train_size, len(NSFR.atoms)).to(args.device)
+    P_pos = torch.zeros(train_size, len(NSFR.atoms)).to(args.device) + 1e+20
+    P_neg = torch.zeros(train_size, len(NSFR.atoms)).to(args.device) + 1e+20
     img_scores = torch.zeros(size=(V_T_pos.shape[0], V_T_pos.shape[1], 2)).to(args.device)
     for i in range(int(train_size / batch_size)):
         date_now = datetime.datetime.today().date()
@@ -513,7 +519,7 @@ def clause_extend(args, lang, clauses):
 
 def prune_low_ness_clauses(args, clause_with_scores):
     if args.show_process:
-        log_utils.add_lines(f"- score pruning ... ({len(clause_with_scores)} clauses)", args.log_file)
+        log_utils.add_lines(f"-ness score pruning ... ({len(clause_with_scores)} clauses)", args.log_file)
     score_unique_c = []
     appeared_scores = []
     for c in clause_with_scores:
@@ -536,7 +542,7 @@ def prune_low_ness_clauses(args, clause_with_scores):
 
 def prune_low_suff_clauses(args, clause_with_scores):
     if args.show_process:
-        log_utils.add_lines(f"- score pruning ... ({len(clause_with_scores)} clauses)", args.log_file)
+        log_utils.add_lines(f"-suff score pruning ... ({len(clause_with_scores)} clauses)", args.log_file)
     score_unique_c = []
     appeared_scores = []
     for c in clause_with_scores:
@@ -662,7 +668,7 @@ def update_saved_clauses(args, all_clauses):
             c_suff_indices = c[2][:, config.score_example_index["neg"]] > 0.9
             ness_percent = (~saved_ness_used_data * c_ness_indices).sum() / (0.99 * len(saved_ness_used_data))
             suff_percent = (~saved_suff_used_data * c_suff_indices).sum() / (0.99 * len(saved_suff_used_data))
-            if ness_percent < args.ness_min:
+            if c[1][0] < args.ness_min:
                 continue
             saved_ness_used_data[c_ness_indices] = True
             saved_suff_used_data[c_suff_indices] = True
@@ -732,10 +738,9 @@ def check_result(args, clause_with_scores, all_clauses):
     saved_clauses = [c[0] for c in all_clauses]
     for c_i in range(min(args.top_k, len(ness_indices))):
         c = c_score_pruned[ness_indices[c_i]]
-        if c[0] not in saved_clauses:
-            ness_maximize_c.append(c)
-            ness_percent_total += ness_ranked[c_i]
-            suff_percent_total += suff_rankded[c_i]
+        ness_maximize_c.append(c)
+        ness_percent_total += ness_ranked[c_i]
+        suff_percent_total += suff_rankded[c_i]
     # log
     log_utils.add_lines(f'\n Next Clauses: {len(ness_maximize_c)} ', args.log_file)
     for c_i, c in enumerate(ness_maximize_c):
@@ -886,7 +891,7 @@ def ilp_train(args, lang):
     FC = ai_interface.get_fc(args, lang, VM, e)
     clauses, FC = ilp_search(args, lang, init_clauses, FC)  # searching for high sufficiency clauses
     if args.with_pi and len(lang.all_clauses) > 0:
-        ilp_pi(args, lang, clauses, e)
+        ilp_pi(args, lang, lang.all_clauses, e)
         # update predicate list
         lang.preds = lang.append_new_predicate(lang.preds, lang.invented_preds)
         # update language

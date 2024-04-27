@@ -1,9 +1,9 @@
-
 """
 this is a top module, no project file dependency
 """
 
 from abc import ABC, abstractmethod
+import torch
 
 
 def flatten(x): return [z for y in x for z in (
@@ -78,7 +78,20 @@ class Const(Term):
     def __init__(self, name, dtype=None, values=None):
         self.name = name
         self.dtype = dtype
-        self.values=values
+        self.values = values
+        if 'phi' in name:
+            total = int(name.split('of')[-1])
+            index = int(name.split('of')[0].split("phi")[-1])
+            section = int(360 / total)
+            values = torch.arange((index - 1) * section, (index) * section, 1, dtype=torch.float)
+            self.values = values
+        elif "rho" in name:
+            total = int(name.split('of')[-1])
+            index = int(name.split('of')[0].split("rho")[-1])
+            section = 1 / total
+            values = torch.arange((index - 1) * section, (index) * section, 0.01, dtype=torch.float)[:1]
+            self.values = values
+
     def __repr__(self, level=0):
         return self.name
 
@@ -765,4 +778,3 @@ class InventedClause(Clause):
 
         self.head = head
         self.body = sorted(body)
-

@@ -62,9 +62,9 @@ class FactsConverter(nn.Module):
                 if atom.pred.name in ["in", "phi", "rho", "shape", "not_exist"]:
                     if atom.terms[-2].values is not None:
                         param = atom.terms[-2].values
-                    elif given_param[:, i].sum() > 0:
+                    elif (given_param[:, i]==1e+20).sum() != Z.shape[0]:
                         param = given_param[:, i].unique()
-                        param = param[param != 0]
+                        param = param[param != 1e+20]
                     else:
                         param = given_param[:, i]
                     a, b = self.vm(Z, atom, param)

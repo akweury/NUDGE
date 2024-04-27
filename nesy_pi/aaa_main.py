@@ -68,7 +68,7 @@ def main():
         group_end = time.time()
         group_round_time.append(group_end - start)
         # ILP and PI system
-        lang = se.update_ilp(lang, args, data, config.pi_type['bk'])
+        # lang = se.update_ilp(lang, args, data, config.pi_type['bk'])
         sorted_clauses_with_scores = se.run_ilp_train(args, lang)
         train_end = time.time()
         train_round_time.append(train_end - group_end)

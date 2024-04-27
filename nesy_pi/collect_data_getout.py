@@ -5,7 +5,6 @@ import random
 import numpy as np
 from rtpt import RTPT
 from tqdm import tqdm
-from src import config
 import time
 from nesy_pi.aitk.utils.EnvArgs import EnvArgs
 
@@ -152,12 +151,26 @@ if not os.path.exists(data_file):
     states = torch.cat(game_buffer.logic_states, dim=0)
     states[:, :, -2:] = states[:, :, -2:] / 50
     actions = torch.cat(game_buffer.actions, dim=0)
-    args.num_actions = len(actions.unique())
+    with_all_objects = states[:, :, :4].sum(dim=-1).sum(dim=-1) == 4
+    states = states[with_all_objects]
+    actions = actions[with_all_objects]
     data = {}
+    action_data = []
+    for a_i in range(args.num_actions):
+        d = states[actions == a_i]
+        random_indices = torch.randperm(d.shape[0])
+        action_data.append(d[random_indices])
+    min_size = min([len(data) for data in action_data])
+    min_size = min_size - min_size % 100
+    action_data = [d[:min_size] for d in action_data]
+
     for a_i in range(args.num_actions):
         action_mask = actions == a_i
-        pos_data = states[action_mask]
-        neg_data = states[~action_mask]
+        pos_data = action_data[a_i]
+        rest_data = torch.cat([d for d_i, d in enumerate(action_data) if d_i != a_i])
+        neg_indices = torch.randperm(rest_data.shape[0])
+        neg_data = rest_data[neg_indices][:len(pos_data)]
+
         data[a_i] = {"pos_data": pos_data, "neg_data": neg_data}
     torch.save(data, data_file)
     print(f"Saved data to {data_file}.")

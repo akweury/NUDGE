@@ -160,7 +160,7 @@ class Language(object):
             for i in range(int(num)):
                 if const == "group" and i == 0:
                     continue
-                const_names.append(str(const) + str(i))
+                const_names.append(f"{const}{i+1}of{num}")
         elif "enum" in const_type:
             if const == 'color':
                 const_names = bk.color
@@ -325,7 +325,7 @@ class Language(object):
         for const in self.consts:
             if const.values is not None:
                 similarity = self.cosine_similarity(const.values, new_const.values)
-                if similarity > 0.8:
+                if similarity > 0.9:
                     # integrate range
                     const.values = torch.cat((const.values, new_const.values), dim=0).unique()
                     const_exists = True
@@ -335,7 +335,7 @@ class Language(object):
             self.invented_consts_number += 1
             return new_const
         else:
-            return None
+            return const
 
     def remove_primitive_consts(self):
         consts = []

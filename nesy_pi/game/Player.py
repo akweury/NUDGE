@@ -15,7 +15,7 @@ from nesy_pi.aitk.utils import file_utils, oc_utils, reason_utils, math_utils
 from nesy_pi.aitk.utils import game_utils, draw_utils
 from nesy_pi.aitk import ai_interface
 from nesy_pi import ilp
-
+from nesy_pi.train_getout_strategy import NeuralNetwork
 
 class ClausePlayer:
     def __init__(self, args):
@@ -29,7 +29,11 @@ class ClausePlayer:
         self.clause_priorities = {k: None for k in list(combinations(list(range(len(args.clauses))), 2))}
         self.clause_actions = torch.tensor(
             [self.args.action_names.index(c.head.pred.name) for c in self.lang.all_clauses])
-
+        self.load_strategy_model()
+    def load_strategy_model(self):
+        self.model = NeuralNetwork(len(self.lang.all_clauses), len(self.lang.all_clauses)).to(self.args.device)
+        self.model.load_state_dict(torch.load(self.args.trained_model_folder / 'strategy.pth'))
+        self.model.eval()
     def highest_priority_index(self, indices):
         indices = indices.tolist()
         # Initialize highest priority index and maximum priority
@@ -61,16 +65,15 @@ class ClausePlayer:
         self.args.test_data[:, :, -2:] = self.args.test_data[:, :, -2:] / 50 # Normalize the position!!!
         target_preds = self.args.action_names
         scores, _ = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")
-        scores = scores[:, 0, config.score_example_index["pos"]]
-        indices = torch.nonzero(scores > 0.9).reshape(-1)
-        suff_scores = self.clause_scores[indices]
+        scores = scores[:, 0, config.score_example_index["pos"]].unsqueeze(0)
 
-        highest_priority_index = indices[suff_scores[:, 1].argmax()]
-        print(f'=======all valid rules=========================')
-        for i in indices:
-            print(f'{self.NSFR.clauses[i]}')
-        print(f'=======best rule=========================')
-        print(f'{self.NSFR.clauses[highest_priority_index]}')
+        highest_priority_index = self.model(scores).argmax()
+        if self.args.with_explain:
+            # print(f'=======all valid rules=========================')
+            # for i in indices:
+            #     print(f'{self.NSFR.clauses[i]}')
+            print(f'=======best rule=========================')
+            print(f'{self.NSFR.clauses[highest_priority_index]}')
         action_name = self.lang.all_clauses[highest_priority_index].head.pred.name
         action = self.args.action_names.index(action_name)
         return action
