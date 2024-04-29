@@ -138,7 +138,10 @@ class FCNNValuationModule(nn.Module):
         if term.dtype.name == 'shape':
             # if term_index == 0:
             #     return torch.zeros_like(zs[:, term_index]).to(self.device)
-            return zs[:, term_index + 1, [term_index + 1, -2, -1]].to(self.device)
+            if self.args.m == "getout":
+                return zs[:, term_index + 1, [term_index + 1, -2, -1]].to(self.device)
+            if self.args.m == "Freeway":
+                return zs[:, term_index + 1, [1, -2, -1]].to(self.device)
         elif term.dtype.name == "player":
             return zs[:, 0, [0, -2, -1]].to(self.device)
         elif term.dtype.name in bk.attr_names:
@@ -342,7 +345,8 @@ class FCNNRhoValuationFunction(nn.Module):
 
         if (given_param == 1e+20).sum() != given_param.shape[0]:
             params = given_param[given_param != 1e+20].unique()
-            satisfaction = torch.cat([(rho == p).unsqueeze(0) for p in params], dim=0).sum(dim=0) * mask
+            satisfaction = torch.cat([(torch.abs(rho - p) < 1e-5).unsqueeze(0) for p in params], dim=0).sum(
+                dim=0) * mask
         else:
             dist_pred = torch.zeros(dist_grade.shape).to(dist_grade.device)
             for i in range(dist_pred.shape[0]):
@@ -403,7 +407,7 @@ class FCNNPhiValuationFunction(nn.Module):
 
         angle_radians = torch.atan2(delta_y, delta_x)
         angle_degrees = torch.rad2deg(angle_radians)
-        angle_degrees = math_utils.closest_one_percent(angle_degrees, 0.1)
+        angle_degrees = math_utils.closest_one_percent(angle_degrees, 1)
         # round_divide = self.phi_num
         # area_angle = int(360 / round_divide)
         #
@@ -428,7 +432,8 @@ class FCNNPhiValuationFunction(nn.Module):
         # with invented const
         if (given_param == 1e+20).sum() != given_param.shape[0]:
             params = given_param[given_param != 1e+20].unique()
-            satisfaction = torch.cat([(angle_degrees == p).unsqueeze(0) for p in params], dim=0).sum(dim=0) * mask
+            satisfaction = torch.cat([(torch.abs(angle_degrees - p) < 1e-5).unsqueeze(0) for p in params], dim=0).sum(
+                dim=0) * mask
         else:
             satisfaction = (dir).sum(dim=1) * mask
         parameters = torch.zeros_like(satisfaction).to(torch.float) + 1e+20

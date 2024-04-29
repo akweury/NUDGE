@@ -208,7 +208,7 @@ game_info_kangaroo = {
 }
 
 obj_info_freeway = [('Chicken', 2),
-                    ('Car', 10)]
+                    ('car', 4)]
 game_info_freeway = {
     "name": "Freeway",
     "obj_info": obj_info_freeway,

@@ -9,7 +9,7 @@ import torch
 from sklearn.model_selection import train_test_split
 from collections import defaultdict
 from src import config
-from nesy_pi.aitk.utils import log_utils, file_utils
+from nesy_pi.aitk.utils import log_utils, file_utils, math_utils
 from nesy_pi.aitk.utils.fol import bk
 
 
@@ -162,14 +162,13 @@ def get_semantic_from_c(clause):
 
 
 def get_independent_clusters(args, lang, clauses):
-
     if args.show_process:
         print(f"- searching for independent clauses from {len(clauses)} clauses...")
 
     clauses_with_score = []
     clause_objs = []
     for clause_i, [clause, four_scores, c_scores] in enumerate(clauses):
-        clause_objs.append([atom.terms[0].name for atom in clause.body])
+        clause_objs.append([atom.terms[0].name for atom in clause.body] + [atom.pred.name for atom in clause.body])
     grouped_names_indices = defaultdict(list)
     for i, name_list in enumerate(clause_objs):
         grouped_names_indices[tuple(name_list)].append(i)
@@ -177,7 +176,7 @@ def get_independent_clusters(args, lang, clauses):
 
     clause_clusters = []
     for group_i in range(len(group_indices)):
-        clause_clusters.append([[i, clauses[i][0],clauses[i][2]] for i in group_indices[group_i]])
+        clause_clusters.append([[i, clauses[i][0], clauses[i][2]] for i in group_indices[group_i]])
     return clause_clusters
 
 
@@ -258,17 +257,15 @@ def update_args(args, data):
         random_neg_indices = torch.randperm(len(data[a_i]["neg_data"]))[:data_size]
         pos_data = data[a_i]["pos_data"][random_pos_indices]
         neg_data = data[a_i]["neg_data"][random_neg_indices]
-        if a_i == 0:
-            valid_indices = pos_data[:, 1, 4] < pos_data[:, 0, 4]
-        elif a_i == 1:
-            valid_indices = pos_data[:, 1, 4] > pos_data[:, 0, 4]
-        else:
-            valid_indices = pos_data[:, 1, 4]>0
-        train_pos = pos_data[valid_indices][:1000]
-        train_neg = neg_data[valid_indices][:1000]
-        test_pos = pos_data[valid_indices][:1000]
-        test_neg = neg_data[valid_indices][:1000]
+        train_pos = pos_data[:800]
+        train_neg = neg_data[:800]
+        test_pos = pos_data[:800]
+        test_neg = neg_data[:800]
 
+        train_pos = math_utils.closest_one_percent(train_pos, 0.01)
+        train_neg = math_utils.closest_one_percent(train_neg, 0.01)
+        test_pos = math_utils.closest_one_percent(test_pos, 0.01)
+        test_neg = math_utils.closest_one_percent(test_neg, 0.01)
         args.train_data.append([train_pos, train_neg])
         args.test_data.append([test_pos, test_neg])
 

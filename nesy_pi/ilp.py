@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.metrics import roc_curve, accuracy_score, recall_score
 from tqdm import tqdm
 import torch
-
+import math
 from src import config
 from nesy_pi import eval_clause_infer
 from nesy_pi import semantic as se
@@ -124,7 +124,7 @@ def ilp_search(args, lang, init_clauses, FC):
 
         # prune clauses
         if args.pi_top > 0:
-            passed_clauses = [c for c in clause_with_scores if c[1][0] > 0.7]
+            passed_clauses = []  # [c for c in clause_with_scores if c[1][0] > 0.7]
             if len(passed_clauses) == 0:
                 clauses, clause_with_scores = prune_clauses(clause_with_scores, args)
             else:
@@ -140,7 +140,7 @@ def ilp_search(args, lang, init_clauses, FC):
 
         # save data
         all_c = [c[0] for c in lang.all_clauses]
-        new_c = [c for c in clause_with_scores if c[0] not in all_c and c[1][1] > 0.8]
+        new_c = [c for c in clause_with_scores if c[0] not in all_c]
         lang.all_clauses += new_c
 
         done, clause_with_scores, lang.all_clauses = check_result(args, clause_with_scores, lang.all_clauses)
@@ -443,7 +443,7 @@ def get_clause_score(NSFR, args, pred_names, eval_data, pos_group_pred=None, neg
     P_pos = torch.zeros(train_size, len(NSFR.atoms)).to(args.device) + 1e+20
     P_neg = torch.zeros(train_size, len(NSFR.atoms)).to(args.device) + 1e+20
     img_scores = torch.zeros(size=(V_T_pos.shape[0], V_T_pos.shape[1], 2)).to(args.device)
-    for i in range(int(train_size / batch_size)):
+    for i in range(math.ceil(train_size / batch_size)):
         date_now = datetime.datetime.today().date()
         time_now = datetime.datetime.now().strftime("%H_%M_%S")
         # print(f"({date_now} {time_now}) eval batch {i + 1}/{int(train_size / args.batch_size_train)}")
@@ -625,9 +625,9 @@ def prune_clauses(clause_with_scores, args):
     # prune necessity zero clauses
     if args.score_unique:
         c_score_pruned = prune_low_ness_clauses(args, clause_with_scores)
-        c_score_pruned = prune_low_suff_clauses(args, c_score_pruned)
+        # c_score_pruned = prune_low_suff_clauses(args, c_score_pruned)
 
-        c_score_pruned = prune_repeat_score_clauses(args, c_score_pruned)
+        # c_score_pruned = prune_repeat_score_clauses(args, c_score_pruned)
     else:
         c_score_pruned = clause_with_scores
     if args.semantic_unique:
@@ -842,10 +842,28 @@ def extract_kp_pi(new_lang, all_pi_clauses, args):
     return new_all_pi_clausese
 
 
+def get_pattern_score(pattern, args, index_pos, index_neg):
+    score_neg = torch.zeros((pattern[0][2].shape[0], len(pattern))).to(args.device)
+    score_pos = torch.zeros((pattern[0][2].shape[0], len(pattern))).to(args.device)
+
+    for f_i, [c_i, c, c_score] in enumerate(pattern):
+        score_neg[:, f_i] = c_score[:, index_neg]
+        score_pos[:, f_i] = c_score[:, index_pos]
+
+    # in each cluster, choose score of highest scoring clause as valid score
+    score_neg = score_neg.max(dim=1, keepdims=True)[0]
+    score_pos = score_pos.max(dim=1, keepdims=True)[0]
+
+    score_pos = score_pos.permute(1, 0)
+    score_neg = score_neg.permute(1, 0)
+    score_all = get_suff_score(score_pos, score_neg).reshape(-1)
+    return score_all
+
+
 def search_independent_clauses_parallel(args, lang, clauses, e):
     patterns = logic_utils.get_independent_clusters(args, lang, clauses)
     # trivial: contain multiple semantic identity bodies
-    patterns = logic_utils.check_trivial_clusters(patterns)
+    # patterns = logic_utils.check_trivial_clusters(patterns)
 
     # TODO: parallel programming
     index_neg = config.score_example_index["neg"]
@@ -853,30 +871,25 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
 
     # evaluate each new patterns
     clu_all = []
-    for cc_i, pattern in enumerate(patterns):
-        score_neg = torch.zeros((pattern[0][2].shape[0], len(pattern))).to(args.device)
-        score_pos = torch.zeros((pattern[0][2].shape[0], len(pattern))).to(args.device)
-        # score_max = torch.zeros(size=(score_neg.shape[0], score_neg.shape[1], 2)).to(args.device)
-
-        for f_i, [c_i, c, c_score] in enumerate(pattern):
-            score_neg[:, f_i] = c_score[:, index_neg]
-            score_pos[:, f_i] = c_score[:, index_pos]
-
-        # in each cluster, choose score of highest scoring clause as valid score
-        score_neg = score_neg.max(dim=1, keepdims=True)[0]
-        score_pos = score_pos.max(dim=1, keepdims=True)[0]
-
-        # score_max[:, :, index_pos] = score_pos[:, :, 0]
-        # score_max[:, :, index_neg] = score_neg[:, :, 0]
-        score_pos = score_pos.permute(1, 0)
-        score_neg = score_neg.permute(1, 0)
-        score_all = get_suff_score(score_pos, score_neg).reshape(-1)
-        clu_all.append([pattern, score_all])
+    for cc_i, pattern_cluster in enumerate(patterns):
+        highest_ness_score = get_pattern_score(pattern_cluster, args, index_pos, index_neg)[0]
+        new_pattern_cluster = pattern_cluster
+        while highest_ness_score > 0.90 and len(new_pattern_cluster) > 1:
+            pattern_cluster = new_pattern_cluster
+            sub_cluster_scores = []
+            for c_i in range(len(pattern_cluster)):
+                rest_clusters = pattern_cluster[:c_i] + pattern_cluster[c_i + 1:]
+                score_all = get_pattern_score(rest_clusters, args, index_pos, index_neg)
+                sub_cluster_scores.append(score_all.unsqueeze(0))
+            sub_cluster_scores = torch.cat(sub_cluster_scores, dim=0)
+            highest_ness_score = torch.max(sub_cluster_scores[:, 0])
+            highest_ness_index = torch.argmax(sub_cluster_scores[:, 0])
+            new_pattern_cluster = pattern_cluster[:highest_ness_index] + pattern_cluster[highest_ness_index + 1:]
+        clu_score = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
+        clu_all.append([pattern_cluster, clu_score])
 
     index_suff = config.score_type_index['suff']
     index_ness = config.score_type_index['ness']
-    index_sn = config.score_type_index['sn']
-
     clu_suff = [clu for clu in clu_all if clu[1][index_suff] > args.inv_sc_th and clu[1][index_ness] > args.inv_nc_th]
     clu_classified = sorted(clu_suff, key=lambda x: x[1][0], reverse=True)
     return clu_classified
