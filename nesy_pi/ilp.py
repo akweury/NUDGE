@@ -24,7 +24,30 @@ def clause_eval(args, lang, FC, clauses, step, eval_data=None):
     target_preds = [clauses[0].head.pred.name]
     img_scores, p_pos = get_clause_score(NSFR, args, target_preds, eval_data)
     clause_scores = get_suff_score(img_scores[:, :, args.index_pos], img_scores[:, :, args.index_neg])
-    return img_scores, clause_scores, p_pos
+
+    # inverse eval
+    reverse_scores, clause_reverse_scores, reverse_p_pos = None, None, None
+    high_ness_indices = clause_scores[:, 0] > args.inv_nc_th
+    if high_ness_indices.sum() > 0:
+        high_ness_clause_index = high_ness_indices.nonzero()[0]
+
+        failed_neg_mask = (img_scores[high_ness_clause_index, :, 0] > 0.1).reshape(-1)
+
+        failed_neg_data = args.train_data[args.label][1][failed_neg_mask]
+        reverse_pos_data = failed_neg_data
+
+        succeed_neg_data = args.train_data[args.label][1][~failed_neg_mask]
+        pos_data = args.train_data[args.label][0]
+
+        random_indices = torch.randperm(pos_data.shape[0])
+        reverse_neg_data = pos_data[random_indices][:len(reverse_pos_data)]
+        reverse_scores, reverse_p_pos = get_clause_score(NSFR, args, target_preds, eval_data,
+                                                         pos_group_pred=reverse_pos_data,
+                                                         neg_group_pred=reverse_neg_data)
+        clause_reverse_scores = get_suff_score(reverse_scores[:, :, args.index_pos],
+                                               reverse_scores[:, :, args.index_neg])
+
+    return img_scores, clause_scores, p_pos, reverse_scores, clause_reverse_scores, reverse_p_pos
 
 
 def clause_robust_eval(args, lang, FC, clauses, step, eval_data=None):
@@ -100,6 +123,9 @@ def ilp_search(args, lang, init_clauses, FC):
     3. prune clauses
 
     """
+
+    # not rho
+
     extend_step = 0
     clause_with_scores = []
     clauses = init_clauses
@@ -113,9 +139,12 @@ def ilp_search(args, lang, init_clauses, FC):
             break
 
         # clause evaluation
-        img_scores, clause_scores, p_pos = clause_eval(args, lang, FC, clauses, extend_step)
+        img_scores, clause_scores, p_pos, reverse_scores, clause_reverse_scores, reverse_p_pos = clause_eval(
+            args, lang, FC, clauses, extend_step)
         # classify clauses
         clause_with_scores = sort_clauses_by_score(clauses, img_scores, clause_scores, args)
+        if reverse_scores is not None:
+            reverse_clause_with_scores = sort_clauses_by_score(clauses, reverse_scores, clause_reverse_scores, args)
         # print best clauses that have been found...
         # clause_with_scores = logic_utils.sorted_clauses(clause_with_scores, args)
 
@@ -127,6 +156,8 @@ def ilp_search(args, lang, init_clauses, FC):
             passed_clauses = []  # [c for c in clause_with_scores if c[1][0] > 0.7]
             if len(passed_clauses) == 0:
                 clauses, clause_with_scores = prune_clauses(clause_with_scores, args)
+                if reverse_scores is not None:
+                    reverse_clauses, reverse_clause_with_scores = prune_clauses(reverse_clause_with_scores, args)
             else:
                 lang.all_clauses = passed_clauses
                 clause_with_scores = passed_clauses
@@ -144,13 +175,15 @@ def ilp_search(args, lang, init_clauses, FC):
         lang.all_clauses += new_c
 
         done, clause_with_scores, lang.all_clauses = check_result(args, clause_with_scores, lang.all_clauses)
-        clauses = [c[0] for c in clause_with_scores]
+        if reverse_scores is not None:
+            reverse_done, reverse_clause_with_scores, lang.all_reverse_clauses = check_result(
+                args, reverse_clause_with_scores, reverse_clause_with_scores)
+        clauses = [c[0] for c in lang.all_clauses if c[1][0] > 0.9][:1]
+        lang.all_clauses = [c for c in lang.all_clauses if len(c[0].body) == extend_step + 1]
+        if reverse_scores is not None:
+            lang.all_reverse_clauses = [c for c in lang.all_reverse_clauses if len(c[0].body) == extend_step + 1]
         extend_step += 1
-
-        if done:
-            args.is_done = True
-            break
-
+        # only one object
     if len(clauses) > 0:
         lang.clause_with_scores = clause_with_scores
         # args.last_refs = clauses
@@ -377,7 +410,7 @@ def reset_args(args):
 
 def reset_lang(lang, args, neural_pred, full_bk):
     e = args.rule_obj_num
-
+    lang.all_reverse_clauses = None
     lang.all_clauses = []
     lang.invented_preds_with_scores = []
     init_clause = lang.load_init_clauses(args.label_name, e)
@@ -900,16 +933,21 @@ def ilp_train(args, lang):
     reset_args(args)
     init_clauses, e = reset_lang(lang, args, args.neural_preds, full_bk=True)
     # update system
-    VM = ai_interface.get_vm(args, lang)
-    FC = ai_interface.get_fc(args, lang, VM, e)
-    clauses, FC = ilp_search(args, lang, init_clauses, FC)  # searching for high sufficiency clauses
-    if args.with_pi and len(lang.all_clauses) > 0:
-        ilp_pi(args, lang, lang.all_clauses, e)
-        # update predicate list
-        lang.preds = lang.append_new_predicate(lang.preds, lang.invented_preds)
-        # update language
-        lang.mode_declarations = lang_utils.get_mode_declarations(e, lang)
-    # save the promising predicates
+    for episode_i in range(3):
+        args.max_step = episode_i + 1
+        VM = ai_interface.get_vm(args, lang)
+        FC = ai_interface.get_fc(args, lang, VM, e)
+        args.is_done = False  # searching for high sufficiency clauses
+        clauses, FC = ilp_search(args, lang, init_clauses, FC)
+        if args.with_pi and len(lang.all_clauses) > 0:
+            ilp_pi(args, lang, lang.all_clauses, e)
+            if lang.all_reverse_clauses is not None:
+                ilp_pi(args, lang, lang.all_reverse_clauses, e)
+            # update predicate list
+            lang.preds = lang.append_new_predicate(lang.preds, lang.invented_preds)
+            # update language
+            lang.mode_declarations = lang_utils.get_mode_declarations(e, lang)
+        # save the promising predicates
     keep_best_preds(args, lang)
 
 

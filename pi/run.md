@@ -30,7 +30,7 @@ python -m nesy_pi.aaa_main -m Freeway --device 13 --with_pi
 python -m nesy_pi.aaa_main -m getout --device 2 --with_pi
 
 python -m nesy_pi.play_with_clauses -m Freeway --device 11 
-python -m nesy_pi.collect_data -m Freeway --device 10
+python -m nesy_pi.collect_data -m Freeway --device 15
 python -m nesy_pi.collect_data_getout -m getout --device 10
 
 python -m pi.train_dqn_objctive -m Asterix --teacher_game_nums 1000 --device 8

@@ -37,20 +37,22 @@ if not os.path.exists(data_file):
     actions = torch.cat([action for action in game_buffer["actions"]], dim=0)
 
     random_indices = torch.randperm(states.shape[0])
-    states = states[random_indices][:10000]
-    actions = actions[random_indices][:10000]
+    states = states[random_indices]
+    actions = actions[random_indices]
     stored_data = {}
     for a_i in range(args.num_actions):
         action_mask = actions == a_i
         pos_data = states[action_mask][:, [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]
 
+        # positive data
         player_pos_data = pos_data[:, 0:1, ]
         cars_data = pos_data[:, 1:]
-        mask_above = pos_data[:, 1:, -1] < pos_data[:, 0:1, -1]
+        # above of player
+        mask_above = (pos_data[:, 1:, -1] < pos_data[:, 0:1, -1])
         pos_above_data = []
         for s_i in range(len(cars_data)):
             _, above_indices = (player_pos_data[s_i, 0, -1] - cars_data[s_i, mask_above[s_i], -1]).sort()
-            data = cars_data[s_i, above_indices[:3]]
+            data = cars_data[s_i][mask_above[s_i]][above_indices][:3]
             if data.shape[0] < 3:
                 data = torch.cat([torch.zeros(3 - data.shape[0], 8), data], dim=0)
             pos_above_data.append(data.unsqueeze(0))
@@ -60,7 +62,7 @@ if not os.path.exists(data_file):
         pos_below_data = []
         for s_i in range(len(cars_data)):
             _, below_indices = (-player_pos_data[s_i, 0, -1] + cars_data[s_i, mask_below[s_i], -1]).sort()
-            data = cars_data[s_i, below_indices[:1]]
+            data = cars_data[s_i][mask_below[s_i]][below_indices][:1]
             if data.shape[0] < 1:
                 data = torch.cat([torch.zeros(1 - data.shape[0], 8), data], dim=0)
             pos_below_data.append(data.unsqueeze(0))
@@ -73,7 +75,8 @@ if not os.path.exists(data_file):
         mask_above = neg_data[:, 1:, -1] < neg_data[:, 0:1, -1]
         for s_i in range(len(cars_data)):
             _, above_indices = (player_neg_data[s_i, 0, -1] - cars_data[s_i, mask_above[s_i], -1]).sort()
-            data = cars_data[s_i, above_indices[:3]]
+            data = cars_data[s_i][mask_above[s_i]][above_indices][:3]
+
             if data.shape[0] < 3:
                 data = torch.cat([torch.zeros(3 - data.shape[0], 8), data], dim=0)
             neg_above_data.append(data.unsqueeze(0))
@@ -83,7 +86,7 @@ if not os.path.exists(data_file):
         neg_below_data = []
         for s_i in range(len(cars_data)):
             _, below_indices = (-player_neg_data[s_i, 0, -1] + cars_data[s_i, mask_below[s_i], -1]).sort()
-            data = cars_data[s_i, below_indices[:1]]
+            data = cars_data[s_i][mask_below[s_i]][below_indices][:1]
             if data.shape[0] < 1:
                 data = torch.cat([torch.zeros(1 - data.shape[0], 8), data], dim=0)
             neg_below_data.append(data.unsqueeze(0))
@@ -91,10 +94,12 @@ if not os.path.exists(data_file):
 
         pos_ab_data = torch.cat((player_pos_data, pos_above_data, pos_below_data), dim=1)
         neg_ab_data = torch.cat((player_neg_data, neg_above_data, neg_below_data), dim=1)
-
+        # existence of above 3 and below 1
         pos_ab_data = pos_ab_data[pos_ab_data[:, :, :2].sum(dim=-1).sum(dim=-1) == 5]
         neg_ab_data = neg_ab_data[neg_ab_data[:, :, :2].sum(dim=-1).sum(dim=-1) == 5]
-
+        # above 3 all greater than 0.5 (left to right direction)
+        pos_ab_data = pos_ab_data[(pos_ab_data[:, :, -1]>0.5).sum(dim=-1)==5]
+        neg_ab_data = neg_ab_data[neg_ab_data[:, :, :2].sum(dim=-1).sum(dim=-1) == 5]
         stored_data[a_i] = {"pos_data": pos_ab_data, "neg_data": neg_ab_data}
     torch.save(stored_data, data_file)
     print(f"Saved data to {data_file}.")

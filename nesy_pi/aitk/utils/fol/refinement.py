@@ -101,6 +101,9 @@ class RefinementGenerator(object):
         ##print(clause, modeb, assignments_list)
         # print(clause, modeb)
         # print(assignments_list)
+        if 'inv_pred' in modeb.pred.name:
+            target_name = modeb.pred.body[0][0].terms[0]
+            assignments_list = [[target_name]]
         if modeb.ordered:
             return itertools.product(*assignments_list)
         else:
