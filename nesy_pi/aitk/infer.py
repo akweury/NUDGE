@@ -87,7 +87,7 @@ class InferModule(nn.Module):
         assert self.train_, "Infer module is not in training mode."
         return [self.W]
 
-    def forward(self, x):
+    def forward(self, x, atoms):
         """
         In the forward function we accept a Tensor of input data and we must return
         a Tensor of output data. We can use Modules defined in the constructor as
@@ -112,7 +112,7 @@ class InferModule(nn.Module):
             # toc_2 = time.perf_counter()
 
             if self.I_pi is not None:
-                r_pi_R = self.r_pi(R)
+                r_pi_R = self.r_pi(R, atoms)
                 # d = r_pi_R.detach().to("cpu").numpy().reshape(-1, 1)
                 # toc_3 = time.perf_counter()
 
@@ -179,7 +179,7 @@ class InferModule(nn.Module):
         # b = res.detach().to("cpu").numpy().reshape(-1, 1)  # DEBUG
         return res
 
-    def r_pi(self, x):
+    def r_pi(self, x, atoms):
         B = x.size(0)  # batch size
         # apply each clause c_i and stack to a tensor C
         # a = x.detach().to("cpu").numpy().reshape(-1, 1)  # DEBUG
@@ -195,7 +195,39 @@ class InferModule(nn.Module):
         C = torch.stack(value_list, 0)
         # B * G
         res = softor(C, dim=0, gamma=self.gamma)
-        # b = res.detach().to("cpu").numpy().reshape(-1, 1)  # DEBUG
+
+        # equivalent or
+        inv_preds = []
+        left_indices = []
+        right_indices = []
+        same_pred = False
+        for a_i, atom in enumerate(atoms):
+            if "inv_pred" in atom.pred.name and atom.pred.name not in inv_preds:
+                same_pred = True
+                inv_preds.append(atom.pred.name)
+                left_indices.append(a_i)
+                # add right index of last inv if exists
+                if a_i > 0 and "inv_pred" in atoms[a_i - 1].pred.name:
+                    right_indices.append(a_i)
+
+            # last atom
+            if same_pred and a_i == len(atoms) - 1:
+                right_indices.append(a_i + 1)
+            # successive non inv atoms
+            if same_pred and (atom.pred.name != inv_preds[-1]):
+                if "inv_pred" in atom.pred.name and atom.pred.name not in inv_preds:
+                    inv_preds.append(atom.pred.name)
+                else:
+                    same_pred = False
+                right_indices.append(a_i)
+
+        for l_i, l_index in enumerate(left_indices):
+            common_res = softor(res[:, l_index:right_indices[l_i]], dim=1, gamma=self.gamma).unsqueeze(1)
+            common_res = common_res.repeat(1, right_indices[l_i] - l_index)
+            A = res[:, l_index:right_indices[l_i]]
+            if not A.shape == common_res.shape:
+                print("debug")
+            res[:, l_index:right_indices[l_i]] = common_res
         return res
 
 
@@ -349,20 +381,18 @@ class ClauseInferModule(nn.Module):
         x = x[0]
         B = x.size(0)  # batch size
         # apply each clause c_i and stack to a tensor C
-        a = x.detach().to("cpu").numpy().reshape(-1, 1)  # DEBUG
+
         # C * B * G
 
         value_list = []
         for i in range(self.I_pi.size(0)):
             pi_clause_function = self.cs_pi[i]
             value = pi_clause_function(x)
-            b = value.detach().to("cpu").numpy().reshape(-1, 1)  # DEBUG
             value_list.append(value)
 
         C = torch.stack(value_list, 0)
         # B * G
         res = softor(C, dim=0, gamma=self.gamma)
-        b = res.detach().to("cpu").numpy().reshape(-1, 1)  # DEBUG
 
         # equivalent or
         inv_preds = []

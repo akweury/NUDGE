@@ -82,7 +82,21 @@ class NSFReasoner(nn.Module):
         V_0, param = self.fc(x, self.atoms, self.bk, given_param)
 
         # perform T-step forward-chaining reasoning
+        # V_T = self.im(V_0, self.atoms)
         V_T = self.cim(V_0, self.atoms, param)
+
+        # param shape: list with len: c_num
+        # for each in list: shape = batch_size * pred_num
+        return V_T, param
+
+    def eval_quick(self, x, given_param=None):
+        # convert to the valuation tensor
+        V_0, param = self.fc(x, self.atoms, self.bk, given_param)
+
+        # perform T-step forward-chaining reasoning
+        V_T = self.im(V_0, self.atoms)
+        # V_T = self.cim(V_0, self.atoms, param)
+
         # param shape: list with len: c_num
         # for each in list: shape = batch_size * pred_num
         return V_T, param
@@ -149,11 +163,10 @@ class NSFReasoner(nn.Module):
         # v: batch * |atoms|
 
         target_indices = lu.get_index_by_predname(pred_str=prednames, atoms=self.atoms)
-        prob = torch.cat([v[:, i].unsqueeze(-1) for i in target_indices], dim=1)
+        prob = torch.cat([v[:, i] for i in target_indices], dim=1)
         B = v.size(0)
         N = len(prednames)
-        assert prob.size(0) == B and prob.size(
-            1) == N, 'Invalid shape in the prediction.'
+        assert prob.size(0) == B and prob.size(1) == N, 'Invalid shape in the prediction.'
         return prob
 
     def print_program(self):
@@ -204,6 +217,7 @@ class NSFReasoner(nn.Module):
         for atom in atoms:
             text += str(atom) + ', '
         return text
+
     def get_prednames(self):
         prednames = []
         for clause in self.clauses:

@@ -99,8 +99,10 @@ class Language(object):
                     atoms.append(Atom(pred, args))
         pi_atoms = []
         for pred in self.invented_preds:
-            dtypes = pred.dtypes
-            consts_list = [self.get_by_dtype(dtype, with_inv=True) for dtype in dtypes]
+            consts_list = []
+            for body_pred in pred.body[0]:
+                consts_list.append([body_pred.terms[0]])
+
             args_list = list(set(itertools.product(*consts_list)))
             for args in args_list:
                 if len(args) == 1 or len(set(args)) == len(args):

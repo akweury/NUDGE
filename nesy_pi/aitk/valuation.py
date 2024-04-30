@@ -140,7 +140,7 @@ class FCNNValuationModule(nn.Module):
             #     return torch.zeros_like(zs[:, term_index]).to(self.device)
             if self.args.m == "getout":
                 return zs[:, term_index + 1, [term_index + 1, -2, -1]].to(self.device)
-            if self.args.m == "Freeway":
+            if self.args.m == "Freeway" or self.args.env == 'Freeway':
                 return zs[:, term_index + 1, [1, -2, -1]].to(self.device)
         elif term.dtype.name == "player":
             return zs[:, 0, [0, -2, -1]].to(self.device)

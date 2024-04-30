@@ -43,12 +43,13 @@ class NSFR_ActorCritic(nn.Module):
         self.uniform = Categorical(
             torch.tensor([1.0 / self.num_actions for _ in range(self.num_actions)], device=self.args.device))
         self.upprior = Categorical(
-            torch.tensor([0.9] + [0.1 / (self.num_actions - 1) for _ in range(self.num_actions - 1)], device=self.args.device))
+            torch.tensor([0.9] + [0.1 / (self.num_actions - 1) for _ in range(self.num_actions - 1)],
+                         device=self.args.device))
 
     def forward(self):
         raise NotImplementedError
 
-    def act(self, logic_state, epsilon=0.0):
+    def act(self, logic_state, epsilon=0.0, norm_factor=None):
         action_probs = self.actor(logic_state)
 
         # e-greedy
@@ -100,8 +101,14 @@ class NSFR_PI_ActorCritic(nn.Module):
         neural_preds = file_utils.load_neural_preds(bk_preds, "bk_pred")
         args.neural_preds = [neural_pred for neural_pred in neural_preds]
         args.lark_path = config.path_nesy / "lark" / "exp.lark"
-        args.action_names = config.action_name_getout
-        args.game_info = config.game_info_getout
+
+        if args.env == 'getout':
+            args.action_names = config.action_name_getout
+            args.game_info = config.game_info_getout
+        elif args.env == 'Freeway':
+            args.action_names = config.action_name_freeway
+            args.game_info = config.game_info_freeway
+
         lang = ai_interface.get_pretrained_lang(args, data["inv_consts"], data["all_pi_clauses"],
                                                 data["all_invented_preds"])
         self.actor = ai_interface.get_nsfr_model(args, lang)
@@ -118,20 +125,48 @@ class NSFR_PI_ActorCritic(nn.Module):
         self.uniform = Categorical(
             torch.tensor([1.0 / self.num_actions for _ in range(self.num_actions)], device=self.args.device))
         self.upprior = Categorical(
-            torch.tensor([0.9] + [0.1 / (self.num_actions - 1) for _ in range(self.num_actions - 1)], device=self.args.device))
+            torch.tensor([0.9] + [0.1 / (self.num_actions - 1) for _ in range(self.num_actions - 1)],
+                         device=self.args.device))
 
     def forward(self):
         raise NotImplementedError
 
-    def act(self, logic_state, epsilon=0.0):
-        if self.args.m == 'getout':
+    def act(self, logic_state, epsilon=0.0, norm_factor=None):
+        if self.args.env == 'getout':
             logic_state[:, :, -2:] = logic_state[:, :, -2:] / 50
-            P_pos = torch.zeros(1, len(self.actor.atoms)).to(self.args.device) + 1e+20
-            V_T, param = self.actor.clause_eval_quick(logic_state, P_pos)
-            action_probs = self.actor.get_predictions(V_T.squeeze(), prednames=self.prednames).to(self.args.device)
+        elif self.args.env == "Freeway":
+            # positive data
+            logic_state[:, :, -2:] = logic_state[:, :, -2:] / norm_factor
+
+            player_pos_data = logic_state[:, 0:1]
+            cars_data = logic_state[:, 1:]
+            # above of player
+            mask_above = (logic_state[:, 1:, -1] < logic_state[:, 0:1, -1])
+            pos_above_data = []
+            for s_i in range(len(cars_data)):
+                _, above_indices = (player_pos_data[s_i, 0, -1] - cars_data[s_i, mask_above[s_i], -1]).sort()
+                data = cars_data[s_i][mask_above[s_i]][above_indices][:3]
+                if data.shape[0] < 3:
+                    data = torch.cat([torch.zeros(3 - data.shape[0], data.shape[1]), data], dim=0)
+                pos_above_data.append(data.unsqueeze(0))
+            pos_above_data = torch.cat(pos_above_data, dim=0)
+
+            mask_below = logic_state[:, 1:, -1] > logic_state[:, 0:1, -1]
+            pos_below_data = []
+            for s_i in range(len(cars_data)):
+                _, below_indices = (-player_pos_data[s_i, 0, -1] + cars_data[s_i, mask_below[s_i], -1]).sort()
+                data = cars_data[s_i][mask_below[s_i]][below_indices][:1]
+                if data.shape[0] < 1:
+                    data = torch.cat([torch.zeros(1 - data.shape[0], data.shape[1]), data], dim=0)
+                pos_below_data.append(data.unsqueeze(0))
+            pos_below_data = torch.cat(pos_below_data, dim=0)
+            logic_state = torch.cat((player_pos_data, pos_above_data, pos_below_data), dim=1)
+
         else:
             raise ValueError
-
+        P_pos = torch.zeros(1, len(self.actor.atoms)).to(self.args.device) + 1e+20
+        V_T, param = self.actor.eval_quick(logic_state, P_pos)
+        action_probs = self.actor.get_predictions(V_T, prednames=self.prednames).to(self.args.device)
         # e-greedy
         if self.rng.random() < epsilon:
             # random action with epsilon probability
@@ -139,15 +174,20 @@ class NSFR_PI_ActorCritic(nn.Module):
             action = dist.sample()
         else:
             dist = Categorical(action_probs)
+            # get the best action
             action = (action_probs[0] == max(action_probs[0])).nonzero(as_tuple=True)[0].squeeze(0).to(self.args.device)
             if torch.numel(action) > 1:
                 action = action[0]
         # action = dist.sample()
         action_logprob = dist.log_prob(action)
+        if len(action_logprob.reshape(-1))>1:
+            print("")
         return action.detach(), action_logprob.detach()
 
     def evaluate(self, neural_state, logic_state, action):
-        action_probs = self.actor(logic_state)
+        V_T, param = self.actor.eval_quick(logic_state)
+        action_probs = self.actor.get_predictions(V_T.squeeze(), prednames=self.prednames).to(self.args.device)
+
         dist = Categorical(action_probs)
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
@@ -190,6 +230,7 @@ class LogicPPO:
         if self.args.m == 'getout':
             logic_state = extract_logic_state_getout(state, self.args)
             neural_state = extract_neural_state_getout(state, self.args)
+            norm_factor = 50
         elif self.args.m == 'threefish':
             logic_state = extract_logic_state_threefish(state, self.args)
             neural_state = extract_neural_state_threefish(state, self.args)
@@ -197,14 +238,14 @@ class LogicPPO:
             logic_state = extract_logic_state_loot(state, self.args)
             neural_state = extract_neural_state_loot(state, self.args)
         elif self.args.m == 'atari':
-            logic_state = extract_logic_state_atari(state, self.args)
-            neural_state = extract_neural_state_atari(state, self.args)
-
+            logic_state = extract_logic_state_atari(state.objects, self.args)
+            neural_state = extract_neural_state_atari(state.objects, self.args)
+            norm_factor = state.observation_space.shape[0]
         # select random action with epsilon probability and policy probiability with 1-epsilon
         with torch.no_grad():
             # state = torch.FloatTensor(state).to(device)
             # import ipdb; ipdb.set_trace()
-            action, action_logprob = self.policy_old.act(logic_state, epsilon=epsilon)
+            action, action_logprob = self.policy_old.act(logic_state, epsilon=epsilon, norm_factor=norm_factor)
 
         self.buffer.neural_states.append(neural_state)
         self.buffer.logic_states.append(logic_state)
@@ -246,7 +287,10 @@ class LogicPPO:
         old_neural_states = torch.squeeze(torch.stack(self.buffer.neural_states, dim=0)).detach().to(self.args.device)
         old_logic_states = torch.squeeze(torch.stack(self.buffer.logic_states, dim=0)).detach().to(self.args.device)
         old_actions = torch.squeeze(torch.stack(self.buffer.actions, dim=0)).detach().to(self.args.device)
-        old_logprobs = torch.squeeze(torch.stack(self.buffer.logprobs, dim=0)).detach().to(self.args.device)
+        try:
+            old_logprobs = torch.squeeze(torch.stack(self.buffer.logprobs, dim=0)).detach().to(self.args.device)
+        except RuntimeError:
+            raise RuntimeError()
 
         # Optimize policy for K epochs
         for _ in range(self.K_epochs):

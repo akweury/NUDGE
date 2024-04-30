@@ -50,10 +50,10 @@ def main():
                         choices=['getout', 'threefish', 'loot', 'atari'])
     parser.add_argument("-env", "--environment", help="environment of game to use",
                         required=True, action="store", dest="env",
-                        choices=['getout', 'threefish', 'loot', 'freeway', 'kangaroo', 'Asterix', 'loothard'])
+                        choices=['getout', 'threefish', 'loot', 'Freeway', 'kangaroo', 'Asterix', 'loothard'])
     parser.add_argument("-r", "--rules", dest="rules", default=None, required=False,
                         choices=['getout_human_assisted', 'getout_redundant_actions', 'getout_bs_top10',
-                                 'getout_pi',
+                                 'getout_pi','freeway_pi',
                                  'getout_no_search', 'getout_no_search_5', 'getout_no_search_15', 'getout_no_search_50',
                                  'getout_bs_rf1', 'getout_bs_rf3', 'ppo_simple_policy',
                                  'threefish_human_assisted', 'threefishcolor', 'threefish_bs_top5', 'threefish_bs_rf3',
@@ -71,9 +71,9 @@ def main():
     if args.device != "cpu":
         args.device = int(args.device)
 
-    args_file = path_args / f"{args.m}.json"
+    args_file = path_args / f"{args.env}.json"
     args_utils.load_args_from_file(str(args_file), args)
-    args.trained_model_folder = path_check_point / f"{args.m}" / "trained_models"
+    args.trained_model_folder = path_check_point / f"{args.env}" / "trained_models"
     args.rule_obj_num = 10
 
     #####################################################
@@ -249,8 +249,13 @@ def main():
     # training loop
     pbar = tqdm(total=max_training_timesteps - time_step)
     while time_step <= max_training_timesteps:
-        env = getout_utils.create_getout_instance(args)
 
+        if args.env == 'getout':
+            env = getout_utils.create_getout_instance(args)
+        elif args.env == 'Freeway':
+            obs, info = env.reset()
+        else:
+            raise ValueError
         #  initialize game
         # state = utils_getout.extract_logic_state_getout(env, args)
         # state[:, :, -2:] = state[:, :, -2:] / 50
@@ -262,8 +267,15 @@ def main():
 
             # select action with policy
             action = agent.select_action(env, epsilon=epsilon)
-            reward = env_step(action, env, args)
-            done = env.level.terminated
+
+            if args.m == 'getout':
+                reward = env_step(action, env, args)
+                done = env.level.terminated
+            elif args.m == 'atari':
+                obs, reward, terminated, truncated, info = env.step(action)
+                done = terminated or truncated
+            else:
+                raise ValueError
             # print(action)
             if args.m == "atari":
                 state = env.objects
