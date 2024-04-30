@@ -249,6 +249,8 @@ def main():
     # training loop
     pbar = tqdm(total=max_training_timesteps - time_step)
     while time_step <= max_training_timesteps:
+        env = getout_utils.create_getout_instance(args)
+
         #  initialize game
         # state = utils_getout.extract_logic_state_getout(env, args)
         # state[:, :, -2:] = state[:, :, -2:] / 50
