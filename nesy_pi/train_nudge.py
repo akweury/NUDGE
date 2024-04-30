@@ -250,8 +250,8 @@ def main():
     pbar = tqdm(total=max_training_timesteps - time_step)
     while time_step <= max_training_timesteps:
         #  initialize game
-        state = utils_getout.extract_logic_state_getout(env, args)
-        state[:, :, -2:] = state[:, :, -2:] / 50
+        # state = utils_getout.extract_logic_state_getout(env, args)
+        # state[:, :, -2:] = state[:, :, -2:] / 50
         current_ep_reward = 0
 
         epsilon = epsilon_func(i_episode)

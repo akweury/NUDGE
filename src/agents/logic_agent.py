@@ -23,9 +23,6 @@ from .utils_threefish import (action_map_threefish,
                               extract_neural_state_threefish,
                               preds_to_action_threefish)
 
-# device = torch.device('cuda:0')
-device = torch.device('cpu')
-
 
 class NSFR_ActorCritic(nn.Module):
     def __init__(self, args, rng=None):
@@ -131,7 +128,7 @@ class NSFR_PI_ActorCritic(nn.Module):
             logic_state[:, :, -2:] = logic_state[:, :, -2:] / 50
             P_pos = torch.zeros(1, len(self.actor.atoms)).to(self.args.device) + 1e+20
             V_T, param = self.actor.clause_eval_quick(logic_state, P_pos)
-            action_probs = self.actor.get_predictions(V_T.squeeze(), prednames=self.prednames)
+            action_probs = self.actor.get_predictions(V_T.squeeze(), prednames=self.prednames).to(self.args.device)
         else:
             raise ValueError
 
@@ -142,7 +139,7 @@ class NSFR_PI_ActorCritic(nn.Module):
             action = dist.sample()
         else:
             dist = Categorical(action_probs)
-            action = (action_probs[0] == max(action_probs[0])).nonzero(as_tuple=True)[0].squeeze(0).to(device)
+            action = (action_probs[0] == max(action_probs[0])).nonzero(as_tuple=True)[0].squeeze(0).to(self.args.device)
             if torch.numel(action) > 1:
                 action = action[0]
         # action = dist.sample()
