@@ -41,9 +41,9 @@ class NSFR_ActorCritic(nn.Module):
             self.critic = MLPAtari(out_size=1, logic=True)
         self.num_actions = len(self.prednames)
         self.uniform = Categorical(
-            torch.tensor([1.0 / self.num_actions for _ in range(self.num_actions)], device=device))
+            torch.tensor([1.0 / self.num_actions for _ in range(self.num_actions)], device=self.args.device))
         self.upprior = Categorical(
-            torch.tensor([0.9] + [0.1 / (self.num_actions - 1) for _ in range(self.num_actions - 1)], device=device))
+            torch.tensor([0.9] + [0.1 / (self.num_actions - 1) for _ in range(self.num_actions - 1)], device=self.args.device))
 
     def forward(self):
         raise NotImplementedError
@@ -58,7 +58,7 @@ class NSFR_ActorCritic(nn.Module):
             action = dist.sample()
         else:
             dist = Categorical(action_probs)
-            action = (action_probs[0] == max(action_probs[0])).nonzero(as_tuple=True)[0].squeeze(0).to(device)
+            action = (action_probs[0] == max(action_probs[0])).nonzero(as_tuple=True)[0].squeeze(0).to(self.args.device)
             if torch.numel(action) > 1:
                 action = action[0]
         # action = dist.sample()
@@ -168,17 +168,17 @@ class LogicPPO:
         self.buffer = RolloutBuffer()
         self.args = args
         if args.with_pi:
-            self.policy = NSFR_PI_ActorCritic(self.args).to(device)
+            self.policy = NSFR_PI_ActorCritic(self.args).to(self.args.device)
         else:
-            self.policy = NSFR_ActorCritic(self.args).to(device)
+            self.policy = NSFR_ActorCritic(self.args).to(self.args.device)
         self.optimizer = optimizer([
             {'params': self.policy.actor.get_params(), 'lr': lr_actor},
             {'params': self.policy.critic.parameters(), 'lr': lr_critic}
         ])
         if args.with_pi:
-            self.policy_old = NSFR_PI_ActorCritic(self.args).to(device)
+            self.policy_old = NSFR_PI_ActorCritic(self.args).to(self.args.device)
         else:
-            self.policy_old = NSFR_ActorCritic(self.args).to(device)
+            self.policy_old = NSFR_ActorCritic(self.args).to(self.args.device)
         self.policy_old.load_state_dict(self.policy.state_dict())
         self.MseLoss = nn.MSELoss()
         self.prednames = self.get_prednames()
@@ -238,15 +238,15 @@ class LogicPPO:
             rewards.insert(0, discounted_reward)
 
         # Normalizing the rewards
-        rewards = torch.tensor(rewards, dtype=torch.float32).to(device)
+        rewards = torch.tensor(rewards, dtype=torch.float32).to(self.args.device)
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
 
         # convert list to tensor
 
-        old_neural_states = torch.squeeze(torch.stack(self.buffer.neural_states, dim=0)).detach().to(device)
-        old_logic_states = torch.squeeze(torch.stack(self.buffer.logic_states, dim=0)).detach().to(device)
-        old_actions = torch.squeeze(torch.stack(self.buffer.actions, dim=0)).detach().to(device)
-        old_logprobs = torch.squeeze(torch.stack(self.buffer.logprobs, dim=0)).detach().to(device)
+        old_neural_states = torch.squeeze(torch.stack(self.buffer.neural_states, dim=0)).detach().to(self.args.device)
+        old_logic_states = torch.squeeze(torch.stack(self.buffer.logic_states, dim=0)).detach().to(self.args.device)
+        old_actions = torch.squeeze(torch.stack(self.buffer.actions, dim=0)).detach().to(self.args.device)
+        old_logprobs = torch.squeeze(torch.stack(self.buffer.logprobs, dim=0)).detach().to(self.args.device)
 
         # Optimize policy for K epochs
         for _ in range(self.K_epochs):
