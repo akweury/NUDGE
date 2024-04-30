@@ -116,9 +116,9 @@ class NSFR_PI_ActorCritic(nn.Module):
             self.critic = MLPAtari(out_size=1, logic=True)
         self.num_actions = len(self.prednames)
         self.uniform = Categorical(
-            torch.tensor([1.0 / self.num_actions for _ in range(self.num_actions)], device=device))
+            torch.tensor([1.0 / self.num_actions for _ in range(self.num_actions)], device=self.args.device))
         self.upprior = Categorical(
-            torch.tensor([0.9] + [0.1 / (self.num_actions - 1) for _ in range(self.num_actions - 1)], device=device))
+            torch.tensor([0.9] + [0.1 / (self.num_actions - 1) for _ in range(self.num_actions - 1)], device=self.args.device))
 
     def forward(self):
         raise NotImplementedError
