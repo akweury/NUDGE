@@ -773,7 +773,7 @@ def check_result(args, clause_with_scores, all_clauses):
     ness_percent_total = 0
     suff_percent_total = 0
     saved_clauses = [c[0] for c in all_clauses]
-    for c_i in range(min(args.top_k, len(ness_indices))):
+    for c_i in range(len(ness_indices)):
         c = c_score_pruned[ness_indices[c_i]]
         ness_maximize_c.append(c)
         ness_percent_total += ness_ranked[c_i]
@@ -937,7 +937,7 @@ def ilp_train(args, lang):
     reset_args(args)
     init_clauses, e = reset_lang(lang, args, args.neural_preds, full_bk=True)
     # update system
-    for episode_i in range(1):
+    for episode_i in range(2):
         args.max_step = episode_i + 1
         VM = ai_interface.get_vm(args, lang)
         FC = ai_interface.get_fc(args, lang, VM, e)
