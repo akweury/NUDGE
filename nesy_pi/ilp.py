@@ -186,8 +186,6 @@ def ilp_search(args, lang, init_clauses, FC):
             lang.all_reverse_clauses = [c for c in lang.all_reverse_clauses if len(c[0].body) == extend_step + 1]
         extend_step += 1
 
-
-
     if len(clauses) > 0:
         lang.clause_with_scores = clause_with_scores
         # args.last_refs = clauses
@@ -909,9 +907,10 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
     # evaluate each new patterns
     clu_all = []
     for cc_i, pattern_cluster in enumerate(patterns):
-        highest_ness_score = get_pattern_score(pattern_cluster, args, index_pos, index_neg)[0]
+        highest_ness_score, old_suff_scores = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
+        suff_incres = True
         new_pattern_cluster = pattern_cluster
-        while highest_ness_score > 0.90 and len(new_pattern_cluster) > 1:
+        while highest_ness_score > 0.95 and len(new_pattern_cluster) > 1 and suff_incres:
             pattern_cluster = new_pattern_cluster
             sub_cluster_scores = []
             for c_i in range(len(pattern_cluster)):
@@ -921,6 +920,9 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
             sub_cluster_scores = torch.cat(sub_cluster_scores, dim=0)
             highest_ness_score = torch.max(sub_cluster_scores[:, 0])
             highest_ness_index = torch.argmax(sub_cluster_scores[:, 0])
+            new_suff_scores = sub_cluster_scores[highest_ness_index, 1]
+            suff_incres = new_suff_scores > old_suff_scores
+            old_suff_scores = new_suff_scores
             new_pattern_cluster = pattern_cluster[:highest_ness_index] + pattern_cluster[highest_ness_index + 1:]
         clu_score = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
         clu_all.append([pattern_cluster, clu_score])
@@ -937,7 +939,7 @@ def ilp_train(args, lang):
     reset_args(args)
     init_clauses, e = reset_lang(lang, args, args.neural_preds, full_bk=True)
     # update system
-    for episode_i in range(2):
+    for episode_i in range(1):
         args.max_step = episode_i + 1
         VM = ai_interface.get_vm(args, lang)
         FC = ai_interface.get_fc(args, lang, VM, e)

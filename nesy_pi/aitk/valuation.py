@@ -307,6 +307,8 @@ class FCNNRhoValuationFunction(nn.Module):
         self.device = device
         self.logi = LogisticRegression(input_dim=1)
         self.logi.to(device)
+        self.error_th = 1 / self.rho_num
+
 
     def forward(self, z_1, z_2, dist_grade, img, given_param):
         """
@@ -334,7 +336,7 @@ class FCNNRhoValuationFunction(nn.Module):
 
         dir_vec[1] = -dir_vec[1]
         rho, phi = self.cart2pol(dir_vec[0], dir_vec[1])
-        rho = math_utils.closest_one_percent(rho, 0.01)
+        rho = math_utils.closest_one_percent(rho, self.error_th)
         dist_id = torch.zeros(rho.shape)
 
         dist_grade_num = self.rho_num
@@ -378,6 +380,7 @@ class FCNNPhiValuationFunction(nn.Module):
         self.logi = LogisticRegression(input_dim=1)
         self.logi.to(device)
         self.obj_type_num = obj_type_num
+        self.error_th = 360 / self.phi_num
 
     def forward(self, z_1, z_2, dir, img, given_param):
         """
@@ -407,29 +410,8 @@ class FCNNPhiValuationFunction(nn.Module):
 
         angle_radians = torch.atan2(delta_y, delta_x)
         angle_degrees = torch.rad2deg(angle_radians)
-        angle_degrees = math_utils.closest_one_percent(angle_degrees, 1)
-        # round_divide = self.phi_num
-        # area_angle = int(360 / round_divide)
-        #
-        # # # area_angle_half = 0
-        # # dir_vec = c_2 - c_1
-        # # dir_vec[1] = -dir_vec[1]
-        # # rho, phi = self.cart2pol(dir_vec[0], dir_vec[1])
-        # degrees = math_utils.calculate_direction(z_1[:, -2:].unsqueeze(1), z_2[:, -2:].unsqueeze(1)).to(
-        #     torch.long).reshape(-1)
-        # # Calculate the remainder when dividing by 45
-        # remainder = degrees % 45
-        # # Determine the closest multiple of 45
-        # closest_multiple = degrees - remainder
-        # # Check if rounding up is closer than rounding down
-        # closest_multiple[remainder > 22.5] += 45
-        # phi_clock_shift = (90 - closest_multiple) % 360
-        # zone_id = (phi_clock_shift) // area_angle % round_divide
-        #
-        # # This is a threshold, but it can be decided automatically.
-        # # zone_id[rho >= 0.12] = zone_id[rho >= 0.12] + round_divide
+        angle_degrees = math_utils.closest_one_percent(angle_degrees, self.error_th)
 
-        # with invented const
         if (given_param == 1e+20).sum() != given_param.shape[0]:
             params = given_param[given_param != 1e+20].unique()
             satisfaction = torch.cat([(torch.abs(angle_degrees - p) < 1e-5).unsqueeze(0) for p in params], dim=0).sum(

@@ -83,13 +83,13 @@ class Const(Term):
             total = int(name.split('of')[-1])
             index = int(name.split('of')[0].split("phi")[-1])
             section = int(360 / total)
-            values = torch.arange((index - 1) * section, (index) * section, 1, dtype=torch.float)
+            values = torch.arange((index - 1) * section, (index) * section, section, dtype=torch.float)[:1]
             self.values = values
         elif "rho" in name:
             total = int(name.split('of')[-1])
             index = int(name.split('of')[0].split("rho")[-1])
             section = 1 / total
-            values = torch.arange((index - 1) * section, (index) * section, 0.01, dtype=torch.float)[:1]
+            values = torch.arange((index - 1) * section, (index) * section, step=section, dtype=torch.float)[:1]
             self.values = values
 
     def __repr__(self, level=0):
