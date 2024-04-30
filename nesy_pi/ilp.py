@@ -242,7 +242,7 @@ def ilp_test(args, lang):
     # returned clauses have to cover all the positive images and no negative images
     ilp_search(args, lang, clauses, FC)
 
-    sorted_clauses_with_scores = sorted(lang.all_clauses, key=lambda x: x[1][0], reverse=True)
+    sorted_clauses_with_scores = sorted(lang.all_clauses, key=lambda x: x[1][0], reverse=True)[:args.top_k]
 
     success, clauses = log_utils.print_test_result(args, lang, sorted_clauses_with_scores)
     return success, sorted_clauses_with_scores
@@ -939,7 +939,7 @@ def ilp_train(args, lang):
     reset_args(args)
     init_clauses, e = reset_lang(lang, args, args.neural_preds, full_bk=True)
     # update system
-    for episode_i in range(1):
+    for episode_i in range(args.max_step):
         args.max_step = episode_i + 1
         VM = ai_interface.get_vm(args, lang)
         FC = ai_interface.get_fc(args, lang, VM, e)

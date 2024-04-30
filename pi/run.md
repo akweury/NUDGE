@@ -34,5 +34,5 @@ python -m nesy_pi.collect_data -m Freeway --device 15
 python -m nesy_pi.collect_data_getout -m getout --device 10
 
 python -m nesy_pi.train_nudge -m getout -alg logic -env getout -r getout_pi --with_pi --device 11
-python -m nesy_pi.train_nudge -m atari -alg logic -env Freeway -r freeway_pi --with_pi --device 11
+python -m nesy_pi.train_nudge -m atari -alg logic -env Freeway -r freeway_pi --with_pi --device 7
 ```

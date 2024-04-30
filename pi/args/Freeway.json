@@ -2,7 +2,7 @@
   "teacher_agent": "oca_ppo",
   "bk_pred_names": "phi,rho",
   "max_cluster_size": 10,
-  "top_k": 20,
+  "top_k": 5,
   "nc_th": 0.85,
   "sc_th": 0.9,
   "sn_th": 0.8,
