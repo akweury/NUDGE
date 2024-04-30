@@ -83,6 +83,52 @@ class Language(object):
     def __repr__(self):
         return self.__str__()
 
+    def generate_minimum_atoms(self, prim_args_list):
+        p_ = Predicate('.', 1, [DataType('spec')])
+        false = Atom(p_, [Const('__F__', dtype=DataType('spec'))])
+        true = Atom(p_, [Const('__T__', dtype=DataType('spec'))])
+
+        spec_atoms = [false, true]
+        atoms = []
+        for pred in self.preds:
+            dtypes = pred.dtypes
+            consts_list = [self.get_by_dtype(dtype, with_inv=True) for dtype in dtypes]
+            if pred.pi_type == "clu_pred":
+                consts_list = [[atom.terms[0]] for atom in pred.body[0]]
+            args_list = list(set(itertools.product(*consts_list)))
+            for args in args_list:
+                if len(args) == 4:
+                    if args[:3] in prim_args_list:
+                        atoms.append(Atom(pred, args))
+
+                elif len(args) == 1 or len(set(args)) == len(args):
+                    atoms.append(Atom(pred, args))
+        pi_atoms = []
+        for pred in self.invented_preds:
+            consts_list = []
+            for body_pred in pred.body[0]:
+                consts_list.append([body_pred.terms[0]])
+
+            args_list = list(set(itertools.product(*consts_list)))
+            for args in args_list:
+                if len(args) == 1 or len(set(args)) == len(args):
+                    new_atom = Atom(pred, args)
+                    if new_atom not in atoms:
+                        pi_atoms.append(new_atom)
+        bk_pi_atoms = []
+        for pred in self.bk_inv_preds:
+            dtypes = pred.dtypes
+            consts_list = [self.get_by_dtype(dtype, with_inv=True) for dtype in dtypes]
+            args_list = list(set(itertools.product(*consts_list)))
+            for args in args_list:
+                # check if args and pred correspond are in the same area
+                if pred.dtypes[0].name == 'area':
+                    if pred.name[0] + pred.name[5:] != args[0].name:
+                        continue
+                if len(args) == 1 or len(set(args)) == len(args):
+                    pi_atoms.append(Atom(pred, args))
+        self.atoms = spec_atoms + sorted(atoms) + sorted(bk_pi_atoms) + sorted(pi_atoms)
+
     def generate_atoms(self):
         p_ = Predicate('.', 1, [DataType('spec')])
         false = Atom(p_, [Const('__F__', dtype=DataType('spec'))])
@@ -162,7 +208,7 @@ class Language(object):
             for i in range(int(num)):
                 if const == "group" and i == 0:
                     continue
-                const_names.append(f"{const}{i+1}of{num}")
+                const_names.append(f"{const}{i + 1}of{num}")
         elif "enum" in const_type:
             if const == 'color':
                 const_names = bk.color
@@ -501,6 +547,26 @@ class Language(object):
             if new_predicate not in old_predicates:
                 old_predicates.append(new_predicate)
         return old_predicates
+
+    def load_minimum(self, neural_pred=None, full_bk=True):
+
+        if neural_pred is not None:
+            self.preds = self.append_new_predicate(self.preds, neural_pred)
+        self.invented_preds = list(set(self.all_invented_preds))
+        self.preds = self.append_new_predicate(self.preds, self.invented_preds)
+        self.pi_clauses = list(set(self.all_pi_clauses))
+
+        prim_args_list = []
+        for c in self.all_clauses:
+            for atom in c.body:
+                if atom.pred.pi_type == "clu_pred":
+                    for pi_body in atom.pred.body:
+                        for atom in pi_body:
+                            prim_args_list.append(atom.terms[:-1])
+                else:
+                    prim_args_list.append(atom.terms[:-1])
+        prim_args_list = list(set(prim_args_list))
+        self.generate_minimum_atoms(prim_args_list)
 
     def update_bk(self, neural_pred=None, full_bk=True):
 

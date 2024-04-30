@@ -34,5 +34,6 @@ def get_pretrained_lang(args, inv_consts, pi_clauses, inv_preds):
     lang.all_pi_clauses = pi_clauses
     lang.all_invented_preds = inv_preds
     # update predicates
-    lang.update_bk(args.neural_preds, full_bk=True)
+    # lang.update_bk(args.neural_preds, full_bk=True)
+    lang.load_minimum(args.neural_preds)
     return lang
