@@ -45,7 +45,7 @@ if not os.path.exists(data_file):
         pos_data = states[action_mask][:, [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]
 
         # positive data
-        player_pos_data = pos_data[:, 0:1, ]
+        player_pos_data = pos_data[:, 0:1]
         cars_data = pos_data[:, 1:]
         # above of player
         mask_above = (pos_data[:, 1:, -1] < pos_data[:, 0:1, -1])
@@ -76,7 +76,6 @@ if not os.path.exists(data_file):
         for s_i in range(len(cars_data)):
             _, above_indices = (player_neg_data[s_i, 0, -1] - cars_data[s_i, mask_above[s_i], -1]).sort()
             data = cars_data[s_i][mask_above[s_i]][above_indices][:3]
-
             if data.shape[0] < 3:
                 data = torch.cat([torch.zeros(3 - data.shape[0], 8), data], dim=0)
             neg_above_data.append(data.unsqueeze(0))
@@ -94,12 +93,46 @@ if not os.path.exists(data_file):
 
         pos_ab_data = torch.cat((player_pos_data, pos_above_data, pos_below_data), dim=1)
         neg_ab_data = torch.cat((player_neg_data, neg_above_data, neg_below_data), dim=1)
+        # existence of above 1 and below 1
+        # existence of above 2 and below 1
+
+        stored_data[a_i] = {}
         # existence of above 3 and below 1
-        pos_ab_data = pos_ab_data[pos_ab_data[:, :, :2].sum(dim=-1).sum(dim=-1) == 5]
-        neg_ab_data = neg_ab_data[neg_ab_data[:, :, :2].sum(dim=-1).sum(dim=-1) == 5]
-        # above 3 all greater than 0.5 (left to right direction)
-        pos_ab_data = pos_ab_data[(pos_ab_data[:, :, -1]>0.5).sum(dim=-1)==5]
-        neg_ab_data = neg_ab_data[neg_ab_data[:, :, :2].sum(dim=-1).sum(dim=-1) == 5]
+        # a3b1_pos_mask = pos_ab_data[:, :, :2].sum(dim=-1).sum(dim=-1) == 5
+        # a3b1_neg_mask = neg_ab_data[:, :, :2].sum(dim=-1).sum(dim=-1) == 5
+        # pos_a3b1 = pos_ab_data[a3b1_pos_mask]
+        # neg_a3b1 = neg_ab_data[a3b1_neg_mask]
+        # # above 3 all greater than 0.5 (left to right direction)
+        # a3b1_pos_mask_lr = (pos_a3b1[:, :, -1] > 0.5).sum(dim=-1) == 5
+        # a3b1_neg_mask_lr = (neg_a3b1[:, :, -1] > 0.5).sum(dim=-1) == 5
+        # pos_a3b1_lr = pos_a3b1[a3b1_pos_mask_lr]
+        # neg_a3b1_lr = neg_a3b1[a3b1_neg_mask_lr]
         stored_data[a_i] = {"pos_data": pos_ab_data, "neg_data": neg_ab_data}
+        # # above 3 all smaller than 0.5 right to left direction)
+        # a3b1_pos_mask_rl = (pos_a3b1[:, :, -1] < 0.5).sum(dim=-1) == 5
+        # a3b1_neg_mask_rl = (neg_a3b1[:, :, -1] < 0.5).sum(dim=-1) == 5
+        # pos_a3b1_rl = pos_a3b1[a3b1_pos_mask_rl]
+        # neg_a3b1_rl = neg_a3b1[a3b1_neg_mask_rl]
+        # stored_data[a_i]["a3b1_rl"] = {"pos_data": pos_a3b1_rl, "neg_data": neg_a3b1_rl}
+        #
+        # # existence of above 3 and below 0
+        # a3b0_pos_mask =(pos_ab_data[:, -1, 1] == 0) & (pos_ab_data[:, 1:, 1].sum(dim=-1) == 3)
+        # a3b0_neg_mask = (neg_ab_data[:, -1, 1] == 0) & (neg_ab_data[:, 1:, 1].sum(dim=-1) == 3)
+        # pos_a3b0 = pos_ab_data[a3b0_pos_mask]
+        # neg_a3b0 = neg_ab_data[a3b0_neg_mask]
+        # # above 3 all greater than 0.5 (left to right direction)
+        # a3b0_pos_mask_lr = (pos_a3b0[:, :, -1] > 0.5).sum(dim=-1) == 4
+        # a3b0_neg_mask_lr = (neg_a3b0[:, :, -1] > 0.5).sum(dim=-1) == 4
+        # pos_a3b0_lr = pos_a3b0[a3b0_pos_mask_lr]
+        # neg_a3b0_lr = neg_a3b0[a3b0_neg_mask_lr]
+        # stored_data[a_i]["a3b0_lr"] = {"pos_data": pos_a3b0_lr, "neg_data": neg_a3b0_lr}
+        #
+        # # above 3 all smaller than 0.5 right to left direction)
+        # a3b0_pos_mask_rl = (pos_a3b0[:, :, -1] < 0.5).sum(dim=-1) == 4
+        # a3b0_neg_mask_rl = (neg_a3b0[:, :, -1] < 0.5).sum(dim=-1) == 4
+        # pos_a3b0_rl = pos_a3b0[a3b0_pos_mask_rl]
+        # neg_a3b0_rl = neg_a3b0[a3b0_neg_mask_rl]
+        # stored_data[a_i]["a3b0_rl"] = {"pos_data": pos_a3b0_rl, "neg_data": neg_a3b0_rl}
+
     torch.save(stored_data, data_file)
     print(f"Saved data to {data_file}.")

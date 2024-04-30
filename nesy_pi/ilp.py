@@ -178,16 +178,20 @@ def ilp_search(args, lang, init_clauses, FC):
         if reverse_scores is not None:
             reverse_done, reverse_clause_with_scores, lang.all_reverse_clauses = check_result(
                 args, reverse_clause_with_scores, reverse_clause_with_scores)
-        clauses = [c[0] for c in lang.all_clauses if c[1][0] > 0.9][:1]
-        lang.all_clauses = [c for c in lang.all_clauses if len(c[0].body) == extend_step + 1]
+
+        clause_with_scores = [c for c in clause_with_scores if len(c[0].body) == extend_step + 1]
+        clause_with_scores = sorted(clause_with_scores, key=lambda c: c[1][0], reverse=True)
+        clauses = [c[0] for c in clause_with_scores][:5]
         if reverse_scores is not None:
             lang.all_reverse_clauses = [c for c in lang.all_reverse_clauses if len(c[0].body) == extend_step + 1]
         extend_step += 1
-        # only one object
+
+
+
     if len(clauses) > 0:
         lang.clause_with_scores = clause_with_scores
         # args.last_refs = clauses
-    return clauses, FC
+    return clause_with_scores, FC
 
 
 def explain_scenes(args, lang, clauses):
@@ -693,7 +697,7 @@ def update_saved_clauses(args, all_clauses):
     saved_suff_percents_all = []
     updated_clauses = []
     if len(all_clauses) > 0:
-        all_clauses = sorted(all_clauses, key=lambda c: c[1][1], reverse=True)
+        all_clauses = sorted(all_clauses, key=lambda c: c[1].sum(), reverse=True)
         saved_ness_used_data = torch.zeros_like(all_clauses[0][2][:, 0], dtype=torch.bool)
         saved_suff_used_data = torch.zeros_like(all_clauses[0][2][:, 1], dtype=torch.bool)
         for c_i, c in enumerate(all_clauses):
@@ -701,7 +705,7 @@ def update_saved_clauses(args, all_clauses):
             c_suff_indices = c[2][:, config.score_example_index["neg"]] > 0.9
             ness_percent = (~saved_ness_used_data * c_ness_indices).sum() / (0.99 * len(saved_ness_used_data))
             suff_percent = (~saved_suff_used_data * c_suff_indices).sum() / (0.99 * len(saved_suff_used_data))
-            if c[1][0] < args.ness_min:
+            if ness_percent < args.ness_min:
                 continue
             saved_ness_used_data[c_ness_indices] = True
             saved_suff_used_data[c_suff_indices] = True
@@ -939,8 +943,8 @@ def ilp_train(args, lang):
         FC = ai_interface.get_fc(args, lang, VM, e)
         args.is_done = False  # searching for high sufficiency clauses
         clauses, FC = ilp_search(args, lang, init_clauses, FC)
-        if args.with_pi and len(lang.all_clauses) > 0:
-            ilp_pi(args, lang, lang.all_clauses, e)
+        if args.with_pi and len(clauses) > 0:
+            ilp_pi(args, lang, clauses, e)
             if lang.all_reverse_clauses is not None:
                 ilp_pi(args, lang, lang.all_reverse_clauses, e)
             # update predicate list

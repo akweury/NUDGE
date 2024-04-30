@@ -21,7 +21,7 @@ def load_clauses(args):
 
     args.rule_obj_num = 10
     args.p_inv_counter = data["p_inv_counter"]
-    args.invented_consts_number = 10
+    args.invented_consts_number = 0
     # load logical representations
     args.clauses = [cs for acs in data["clauses"] for cs in acs]
     scores = [clause_score.unsqueeze(0) for scores in data["clause_scores"] for clause_score in scores]

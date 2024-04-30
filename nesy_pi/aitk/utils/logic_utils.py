@@ -257,10 +257,10 @@ def update_args(args, data):
         random_neg_indices = torch.randperm(len(data[a_i]["neg_data"]))[:data_size]
         pos_data = data[a_i]["pos_data"][random_pos_indices]
         neg_data = data[a_i]["neg_data"][random_neg_indices]
-        train_pos = pos_data[:800]
-        train_neg = neg_data[:800]
-        test_pos = pos_data[:800]
-        test_neg = neg_data[:800]
+        train_pos = pos_data
+        train_neg = neg_data
+        test_pos = pos_data
+        test_neg = neg_data
 
         train_pos = math_utils.closest_one_percent(train_pos, 0.01)
         train_neg = math_utils.closest_one_percent(train_neg, 0.01)

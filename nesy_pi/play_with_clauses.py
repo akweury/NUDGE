@@ -27,11 +27,12 @@ def load_clauses(args):
     args.rule_obj_num = 10
     args.p_inv_counter = data["p_inv_counter"]
     # load logical representations
-    args.clauses = data["clauses"]
+    args.clauses = [cs for acs in data["clauses"] for cs in acs]
     args.index_pos = config.score_example_index["pos"]
     args.index_neg = config.score_example_index["neg"]
     args.lark_path = config.path_nesy / "lark" / "exp.lark"
-    args.invented_pred_num = 0
+    args.invented_pred_num = data["p_inv_counter"]
+    args.invented_consts_num = data["invented_consts_number"]
     args.batch_size = 1
     args.last_refs = []
     args.found_ns = False
@@ -41,12 +42,12 @@ def load_clauses(args):
 
     lang = Language(args, [], config.pi_type['bk'], no_init=True)
     # update language
-    lang.all_clauses =[clause for clauses in  data["clauses"] for clause in clauses]
+    lang.all_clauses = args.clauses
     lang.invented_preds_with_scores = []
+    lang.all_pi_clauses = data["all_pi_clauses"]
+    lang.all_invented_preds = data["all_invented_preds"]
     # update predicates
     lang.update_bk(args.neural_preds, full_bk=True)
-
-
     args.lang = lang
 
 
