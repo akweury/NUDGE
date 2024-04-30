@@ -33,7 +33,5 @@ python -m nesy_pi.play_with_clauses -m Freeway --device 11
 python -m nesy_pi.collect_data -m Freeway --device 15
 python -m nesy_pi.collect_data_getout -m getout --device 10
 
-python -m pi.train_dqn_objctive -m Asterix --teacher_game_nums 1000 --device 8
-python -m pi.play -m Asterix --episode_num 1000 --train_epochs 100000 --device 12
-python -m pi.play --teacher_agent pretrained -m Boxing --with_explain --device 10 --teacher_game_nums 100
+python -m nesy_pi.train_nudge -m getout -alg logic -env getout -r getout_pi --with_pi --device 11
 ```

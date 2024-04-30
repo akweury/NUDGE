@@ -68,6 +68,9 @@ def main():
     parser.add_argument('-re', '--recovery', help='recover from crash', default=False, type=bool, dest='recover')
     # arg = ['-alg', 'logic', '-m', 'threefish', '-env', 'threefish', '-p', 'True', '-r', 'threefish_human_assisted']
     args = parser.parse_args()
+    if args.device != "cpu":
+        args.device = int(args.device)
+
     args_file = path_args / f"{args.m}.json"
     args_utils.load_args_from_file(str(args_file), args)
     args.trained_model_folder = path_check_point / f"{args.m}" / "trained_models"
