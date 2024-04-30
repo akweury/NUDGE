@@ -180,8 +180,6 @@ class NSFR_PI_ActorCritic(nn.Module):
                 action = action[0]
         # action = dist.sample()
         action_logprob = dist.log_prob(action)
-        if len(action_logprob.reshape(-1))>1:
-            print("")
         return action.detach(), action_logprob.detach()
 
     def evaluate(self, neural_state, logic_state, action):
@@ -327,7 +325,7 @@ class LogicPPO:
 
     def save(self, checkpoint_path, directory, step_list, reward_list, weight_list):
         torch.save(self.policy_old.state_dict(), checkpoint_path)
-        with open(directory + '/' + "data.pkl", "wb") as f:
+        with open(directory  / "data.pkl", "wb") as f:
             pickle.dump(step_list, f)
             pickle.dump(reward_list, f)
             pickle.dump(weight_list, f)
@@ -338,7 +336,7 @@ class LogicPPO:
         model_file = os.path.join(directory, model_name)
         self.policy_old.load_state_dict(torch.load(model_file, map_location=lambda storage, loc: storage))
         self.policy.load_state_dict(torch.load(model_file, map_location=lambda storage, loc: storage))
-        with open(directory + '/' + "data.pkl", "rb") as f:
+        with open(directory / "data.pkl", "rb") as f:
             step_list = pickle.load(f)
             reward_list = pickle.load(f)
             weight_list = pickle.load(f)

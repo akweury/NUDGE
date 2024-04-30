@@ -97,7 +97,7 @@ def main():
     if args.m == 'loot' and args.alg == 'ppo':
         max_training_timesteps = 5000000
     else:
-        max_training_timesteps = 10000
+        max_training_timesteps = 30000
     #####################################################
 
     if args.m == "getout":
@@ -314,14 +314,13 @@ def main():
                 step_list.append([time_step])
                 reward_list.append([print_avg_reward])
                 if args.alg == 'logic':
-                    weights_list.append([(agent.get_weights().tolist())])
+                    weights_list.append([agent.get_weights()])
 
             # save model weights
             if time_step % save_model_freq == 0:
                 print("--------------------------------------------------------------------------------------------")
-                checkpoint_path = directory + "{}_{}_step_{}.pth".format(args.alg, args.env,
-                                                                         time_step)
-                print("saving model at : " + checkpoint_path)
+                checkpoint_path = directory / f"{args.alg}_{args.env}_step_{time_step}.pth"
+                print(f"saving model at : {str(checkpoint_path)}")
                 if args.alg == 'logic':
                     agent.save(checkpoint_path, directory, step_list, reward_list, weights_list)
                 else:
