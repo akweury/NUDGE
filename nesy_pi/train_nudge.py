@@ -97,7 +97,7 @@ def main():
     if args.m == 'loot' and args.alg == 'ppo':
         max_training_timesteps = 5000000
     else:
-        max_training_timesteps = 800000
+        max_training_timesteps = 10000
     #####################################################
 
     if args.m == "getout":
