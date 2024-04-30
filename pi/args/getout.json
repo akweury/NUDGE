@@ -13,7 +13,7 @@
   "inv_sc_th": 0.5,
   "inv_nc_th": 0.90,
   "max_step": 4,
-  "infer_step": 3,
+  "cim_step": 3,
   "pi_top": 1,
   "top_data": 800,
   "train_data_size": 9000,
