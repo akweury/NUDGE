@@ -29,7 +29,7 @@ class ClausePlayer:
         self.clause_priorities = {k: None for k in list(combinations(list(range(len(args.clauses))), 2))}
         self.clause_actions = torch.tensor(
             [self.args.action_names.index(c.head.pred.name) for c in self.lang.all_clauses])
-        self.load_strategy_model()
+        # self.load_strategy_model()
     def load_strategy_model(self):
         self.model = NeuralNetwork(len(self.lang.all_clauses), len(self.lang.all_clauses)).to(self.args.device)
         self.model.load_state_dict(torch.load(self.args.trained_model_folder / 'strategy.pth'))
@@ -62,18 +62,18 @@ class ClausePlayer:
 
     def learn_action_weights(self, logic_state, teacher_action):
         self.args.test_data = torch.tensor(logic_state).unsqueeze(0)
-        self.args.test_data[:, :, -2:] = self.args.test_data[:, :, -2:] / 50 # Normalize the position!!!
+        self.args.test_data[:, :, -2:] = self.args.test_data[:, :, -2:] / 50
         target_preds = self.args.action_names
+
         scores, _ = ilp.get_clause_score(self.NSFR, self.args, target_preds, "play")
         scores = scores[:, 0, config.score_example_index["pos"]].unsqueeze(0)
 
         highest_priority_index = self.model(scores).argmax()
+
         if self.args.with_explain:
-            # print(f'=======all valid rules=========================')
-            # for i in indices:
-            #     print(f'{self.NSFR.clauses[i]}')
             print(f'=======best rule=========================')
             print(f'{self.NSFR.clauses[highest_priority_index]}')
+
         action_name = self.lang.all_clauses[highest_priority_index].head.pred.name
         action = self.args.action_names.index(action_name)
         return action

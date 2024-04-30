@@ -18,16 +18,22 @@ from nesy_pi.aitk.utils import game_patches
 from nesy_pi.aitk.utils.fol.language import Language
 from nesy_pi import ilp
 from nesy_pi.aitk.utils.fol import bk
+import torch
 
 
 def load_clauses(args):
-    clause_file = args.trained_model_folder / f"learned_clauses.pkl"
+    clause_file = args.trained_model_folder / args.learned_clause_file
     data = file_utils.load_clauses(clause_file)
 
     args.rule_obj_num = 10
     args.p_inv_counter = data["p_inv_counter"]
+    args.invented_consts_number = 0
+
     # load logical representations
     args.clauses = [cs for acs in data["clauses"] for cs in acs]
+    scores = [clause_score.unsqueeze(0) for scores in data["clause_scores"] for clause_score in scores]
+    args.clause_scores = torch.cat(scores, dim=0).to(args.device)
+
     args.index_pos = config.score_example_index["pos"]
     args.index_neg = config.score_example_index["neg"]
     args.lark_path = config.path_nesy / "lark" / "exp.lark"
@@ -40,7 +46,7 @@ def load_clauses(args):
     neural_preds = file_utils.load_neural_preds(bk_preds, "bk_pred")
     args.neural_preds = [neural_pred for neural_pred in neural_preds]
 
-    lang = Language(args, [], config.pi_type['bk'], no_init=True)
+    lang = Language(args, [], config.pi_type['bk'], inv_consts=data["inv_consts"])
     # update language
     lang.all_clauses = args.clauses
     lang.invented_preds_with_scores = []
@@ -75,6 +81,8 @@ def main():
     args = args_utils.get_args()
     load_clauses(args)
     env, env_args, agent, obs = init(args)
+    teacher_agent = game_utils.create_agent(args, agent_type="oca_ppo")
+
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
     for game_i in tqdm(range(args.student_game_nums), desc=f"ClausePlayer"):
@@ -99,7 +107,8 @@ def main():
                 env_args.action = 0
             else:
                 if agent.agent_type == "clause":
-                    env_args.action = agent.draw_action(env_args.logic_state)
+                    teacher_action = teacher_agent.draw_action(env) - 1
+                    env_args.action = agent.learn_action_weights(env_args.logic_state, teacher_action)
                 else:
                     raise ValueError
             env_args.obs, env_args.reward, env_args.terminated, env_args.truncated, info = env.step(env_args.action)

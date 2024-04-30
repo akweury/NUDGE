@@ -46,7 +46,82 @@ class NSFR_ActorCritic(nn.Module):
         self.uniform = Categorical(
             torch.tensor([1.0 / self.num_actions for _ in range(self.num_actions)], device=device))
         self.upprior = Categorical(
-            torch.tensor([0.9] + [0.1 / (self.num_actions-1) for _ in range(self.num_actions-1)], device=device))
+            torch.tensor([0.9] + [0.1 / (self.num_actions - 1) for _ in range(self.num_actions - 1)], device=device))
+
+    def forward(self):
+        raise NotImplementedError
+
+    def act(self, logic_state, epsilon=0.0):
+        action_probs = self.actor(logic_state)
+
+        # e-greedy
+        if self.rng.random() < epsilon:
+            # random action with epsilon probability
+            dist = self.uniform
+            action = dist.sample()
+        else:
+            dist = Categorical(action_probs)
+            action = (action_probs[0] == max(action_probs[0])).nonzero(as_tuple=True)[0].squeeze(0).to(device)
+            if torch.numel(action) > 1:
+                action = action[0]
+        # action = dist.sample()
+        action_logprob = dist.log_prob(action)
+        return action.detach(), action_logprob.detach()
+
+    def evaluate(self, neural_state, logic_state, action):
+        action_probs = self.actor(logic_state)
+        dist = Categorical(action_probs)
+        action_logprobs = dist.log_prob(action)
+        dist_entropy = dist.entropy()
+        state_values = self.critic(neural_state)
+
+        return action_logprobs, state_values, dist_entropy
+
+    def get_prednames(self):
+        return self.actor.get_prednames()
+
+
+from nesy_pi.aitk import ai_interface
+from nesy_pi import ilp
+from nesy_pi.aitk.utils import file_utils
+from nesy_pi.aitk.utils.fol import bk
+
+from src import config
+
+class NSFR_PI_ActorCritic(nn.Module):
+    def __init__(self, args, rng=None):
+        super(NSFR_PI_ActorCritic, self).__init__()
+        self.rng = random.Random() if rng is None else rng
+        self.args = args
+
+        clause_file = args.trained_model_folder / args.learned_clause_file
+        data = file_utils.load_clauses(clause_file)
+        args.p_inv_counter = data["p_inv_counter"]
+        args.clauses = [cs for acs in data["clauses"] for cs in acs]
+        bk_preds = [bk.neural_predicate_2[bk_pred_name] for bk_pred_name in args.bk_pred_names.split(",")]
+        neural_preds = file_utils.load_neural_preds(bk_preds, "bk_pred")
+        args.neural_preds = [neural_pred for neural_pred in neural_preds]
+        args.lark_path = config.path_nesy / "lark" / "exp.lark"
+        args.action_names = config.action_name_getout
+        args.game_info = config.game_info_getout
+        lang = ai_interface.get_pretrained_lang(args, data["inv_consts"], data["all_pi_clauses"], data["all_invented_preds"])
+        self.actor = ai_interface.get_nsfr_model(args, lang)
+
+        self.actor = get_nsfr_model(self.args, train=True)
+        self.prednames = self.get_prednames()
+        if self.args.m == 'threefish':
+            self.critic = MLPThreefish(out_size=1, logic=True)
+        elif self.args.m == 'getout':
+            self.critic = MLPGetout(out_size=1, logic=True)
+        elif self.args.m == 'loot':
+            self.critic = MLPLoot(out_size=1, logic=True)
+        elif self.args.m == 'atari':
+            self.critic = MLPAtari(out_size=1, logic=True)
+        self.num_actions = len(self.prednames)
+        self.uniform = Categorical(
+            torch.tensor([1.0 / self.num_actions for _ in range(self.num_actions)], device=device))
+        self.upprior = Categorical(
+            torch.tensor([0.9] + [0.1 / (self.num_actions - 1) for _ in range(self.num_actions - 1)], device=device))
 
     def forward(self):
         raise NotImplementedError
@@ -89,13 +164,18 @@ class LogicPPO:
         self.K_epochs = K_epochs
         self.buffer = RolloutBuffer()
         self.args = args
-        self.policy = NSFR_ActorCritic(self.args).to(device)
+        if args.with_pi:
+            self.policy = NSFR_PI_ActorCritic(self.args).to(device)
+        else:
+            self.policy = NSFR_ActorCritic(self.args).to(device)
         self.optimizer = optimizer([
             {'params': self.policy.actor.get_params(), 'lr': lr_actor},
             {'params': self.policy.critic.parameters(), 'lr': lr_critic}
         ])
-
-        self.policy_old = NSFR_ActorCritic(self.args).to(device)
+        if args.with_pi:
+            self.policy_old = NSFR_PI_ActorCritic(self.args).to(device)
+        else:
+            self.policy_old = NSFR_ActorCritic(self.args).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
         self.MseLoss = nn.MSELoss()
         self.prednames = self.get_prednames()
@@ -122,7 +202,7 @@ class LogicPPO:
             # state = torch.FloatTensor(state).to(device)
             # import ipdb; ipdb.set_trace()
             action, action_logprob = self.policy_old.act(logic_state, epsilon=epsilon)
-        
+
         self.buffer.neural_states.append(neural_state)
         self.buffer.logic_states.append(logic_state)
         action = torch.squeeze(action)

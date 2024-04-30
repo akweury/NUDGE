@@ -46,7 +46,7 @@ class Language(object):
         self.all_invented_preds = []
         self.all_pi_clauses = []
         self.invented_preds_number = args.p_inv_counter
-        self.invented_consts_number = args.invented_consts_number
+        self.invented_consts_number = 0
 
         with open(args.lark_path, encoding="utf-8") as grammar:
             self.lp_clause = Lark(grammar.read(), start="clause")

@@ -1,3 +1,5 @@
+# Created by jing at 30.04.24
+
 import argparse
 import csv
 import sys
@@ -5,26 +7,38 @@ import time
 
 import gym
 import numpy as np
+
 sys.path.insert(0, '../')
 
 from ocatari.core import OCAtari
 from rtpt import RTPT
 from tqdm import tqdm
 
-from agents.logic_agent import LogicPPO
-from agents.neural_agent import NeuralPPO
-from config import *
-from environments.procgen.procgen import ProcgenGym3Env
+from src.agents.logic_agent import LogicPPO
+from src.agents.neural_agent import NeuralPPO
+from src.config import *
+from src.environments.procgen.procgen import ProcgenGym3Env
 # from make_graph import plot_weights
-from utils import env_step, initialize_game, make_deterministic
+from src.utils import env_step, initialize_game, make_deterministic
 from torch.utils.tensorboard import SummaryWriter
 import datetime
+
+from nesy_pi import getout_utils
+from nesy_pi.aitk.utils import args_utils
 
 
 def main():
     ################### args definition ###################
     parser = argparse.ArgumentParser()
-
+    parser.add_argument("--player_num", type=int, default=1, help="Number of Players in the game.")
+    parser.add_argument("--device", help="cpu or cuda", default="cpu", type=str)
+    parser.add_argument('-d', '--dataset', required=False, help='the dataset to load if scoring', dest='d')
+    parser.add_argument("--cim-step", type=int, default=5,
+                        help="The steps of clause infer module.")
+    parser.add_argument('--gamma', default=0.001, type=float,
+                        help='Smooth parameter in the softor function')
+    parser.add_argument("--with_pi", action="store_true", help="Generate Clause with predicate invention.")
+    parser.add_argument("--learned_clause_file", type=str)
     parser.add_argument("-s", "--seed", help="Seed for pytorch + env",
                         required=False, action="store", dest="seed", type=int, default=0)
     parser.add_argument("-alg", "--algorithm", help="algorithm that to use",
@@ -38,6 +52,7 @@ def main():
                         choices=['getout', 'threefish', 'loot', 'freeway', 'kangaroo', 'Asterix', 'loothard'])
     parser.add_argument("-r", "--rules", dest="rules", default=None, required=False,
                         choices=['getout_human_assisted', 'getout_redundant_actions', 'getout_bs_top10',
+                                 'getout_pi',
                                  'getout_no_search', 'getout_no_search_5', 'getout_no_search_15', 'getout_no_search_50',
                                  'getout_bs_rf1', 'getout_bs_rf3', 'ppo_simple_policy',
                                  'threefish_human_assisted', 'threefishcolor', 'threefish_bs_top5', 'threefish_bs_rf3',
@@ -52,6 +67,10 @@ def main():
     parser.add_argument('-re', '--recovery', help='recover from crash', default=False, type=bool, dest='recover')
     # arg = ['-alg', 'logic', '-m', 'threefish', '-env', 'threefish', '-p', 'True', '-r', 'threefish_human_assisted']
     args = parser.parse_args()
+    args_file = path_args / f"{args.m}.json"
+    args_utils.load_args_from_file(str(args_file), args)
+    args.trained_model_folder = path_check_point / f"{args.m}" / "trained_models"
+    args.rule_obj_num = 10
 
     #####################################################
     # load environment
@@ -78,7 +97,7 @@ def main():
     #####################################################
 
     if args.m == "getout":
-        env = gym.make(args.env, generator_args={"spawn_all_entities": False})
+        env = getout_utils.create_getout_instance(args)
     elif args.m == "threefish" or args.m == 'loot':
         env = ProcgenGym3Env(num=1, env_name=args.env, render_mode=None)
     elif args.m == "atari":
