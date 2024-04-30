@@ -25,6 +25,7 @@ import datetime
 
 from nesy_pi import getout_utils
 from nesy_pi.aitk.utils import args_utils
+from src.agents import utils_getout
 
 
 def main():
@@ -93,7 +94,7 @@ def main():
     if args.m == 'loot' and args.alg == 'ppo':
         max_training_timesteps = 5000000
     else:
-        max_training_timesteps = 8
+        max_training_timesteps = 800000
     #####################################################
 
     if args.m == "getout":
@@ -234,7 +235,7 @@ def main():
     print_running_reward = 0
     print_running_episodes = 0
 
-    rtpt = RTPT(name_initials='JS', experiment_name='GammaRL',
+    rtpt = RTPT(name_initials='JS', experiment_name=f'PI_{args.m}',
                 max_iterations=max_training_timesteps)
 
     # Start the RTPT tracking
@@ -246,7 +247,8 @@ def main():
     pbar = tqdm(total=max_training_timesteps - time_step)
     while time_step <= max_training_timesteps:
         #  initialize game
-        state = initialize_game(env, args)
+        state = utils_getout.extract_logic_state_getout(env, args)
+        state[:, :, -2:] = state[:, :, -2:] / 50
         current_ep_reward = 0
 
         epsilon = epsilon_func(i_episode)
@@ -254,8 +256,9 @@ def main():
         for t in range(1, max_ep_len + 1):
 
             # select action with policy
-            action = agent.select_action(state, epsilon=epsilon)
-            reward, state, done = env_step(action, env, args)
+            action = agent.select_action(env, epsilon=epsilon)
+            reward = env_step(action, env, args)
+            done = env.level.terminated
             # print(action)
             if args.m == "atari":
                 state = env.objects
@@ -326,11 +329,11 @@ def main():
         writer.add_scalar('Episode reward', current_ep_reward, i_episode)
         writer.add_scalar('Epsilon', epsilon, i_episode)
 
-    env.close()
+    # env.close()
 
     # print total training time
     print("============================================================================================")
-    with open(directory + '/' + 'data.csv', 'w', newline='') as f:
+    with open(args.trained_model_folder / 'data.csv', 'w', newline='') as f:
         dataset = csv.writer(f)
         header = ('steps', 'reward')
         dataset.writerow(header)
@@ -338,7 +341,7 @@ def main():
         for row in data:
             dataset.writerow(row)
     if args.alg == 'logic':
-        with open(directory + '/' + 'weights.csv', 'w', newline='') as f:
+        with open(args.trained_model_folder / 'weights.csv', 'w', newline='') as f:
             dataset = csv.writer(f)
             for row in weights_list:
                 dataset.writerow(row)

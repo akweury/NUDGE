@@ -48,7 +48,7 @@ class NSFReasoner(nn.Module):
 
         # tic = time.perf_counter()
 
-        V_0 = self.fc(x, self.atoms, self.bk)
+        V_0 = self.fc(x, self.atoms, self.bk, given_param)
 
         # toc = time.perf_counter()
 
@@ -86,6 +86,10 @@ class NSFReasoner(nn.Module):
         # param shape: list with len: c_num
         # for each in list: shape = batch_size * pred_num
         return V_T, param
+
+    def get_predictions(self, V_T, prednames):
+        predicts = self.predict_multi(v=V_T, prednames=prednames)
+        return predicts
 
     def clause_eval_v_0(self, x):
         V_0 = self.fc(x, self.atoms, self.bk)
@@ -143,13 +147,9 @@ class NSFReasoner(nn.Module):
         prednames = ['kp1', 'kp2', 'kp3']
         """
         # v: batch * |atoms|
-        target_indices = []
-        for predname in prednames:
-            target_index = lu.get_index_by_predname(
-                pred_str=predname, atoms=self.atoms)
-            target_indices.append(target_index)
-        prob = torch.cat([v[:, i].unsqueeze(-1)
-                          for i in target_indices], dim=1)
+
+        target_indices = lu.get_index_by_predname(pred_str=prednames, atoms=self.atoms)
+        prob = torch.cat([v[:, i].unsqueeze(-1) for i in target_indices], dim=1)
         B = v.size(0)
         N = len(prednames)
         assert prob.size(0) == B and prob.size(
@@ -204,6 +204,12 @@ class NSFReasoner(nn.Module):
         for atom in atoms:
             text += str(atom) + ', '
         return text
+    def get_prednames(self):
+        prednames = []
+        for clause in self.clauses:
+            if clause.head.pred.name not in prednames:
+                prednames.append(clause.head.pred.name)
+        return prednames
 
 
 def get_nsfr_model(args, lang, FC, clauses, train=False):
@@ -211,7 +217,12 @@ def get_nsfr_model(args, lang, FC, clauses, train=False):
     atoms = lang.atoms
     pi_clauses = lang.pi_clauses
 
-    IM = build_infer_module(clauses, pi_clauses, atoms, lang, m=args.m,
+    prednames = []
+    for clause in clauses:
+        if clause.head.pred.name not in prednames:
+            prednames.append(clause.head.pred.name)
+    m = len(prednames)
+    IM = build_infer_module(clauses, pi_clauses, atoms, lang, m=m,
                             infer_step=args.cim_step, device=device, train=train, gamma=args.gamma)
     CIM = build_clause_infer_module(args, clauses, pi_clauses, atoms, lang, m=len(clauses),
                                     infer_step=args.cim_step, device=device, gamma=args.gamma)

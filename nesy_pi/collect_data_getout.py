@@ -151,9 +151,7 @@ if not os.path.exists(data_file):
     states = torch.cat(game_buffer.logic_states, dim=0)
     states[:, :, -2:] = states[:, :, -2:] / 50
     actions = torch.cat(game_buffer.actions, dim=0)
-    with_all_objects = states[:, :, :4].sum(dim=-1).sum(dim=-1) == 4
-    states = states[with_all_objects]
-    actions = actions[with_all_objects]
+
     data = {}
     action_data = []
     for a_i in range(len(args.action_names)):

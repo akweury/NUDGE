@@ -937,7 +937,7 @@ def ilp_train(args, lang):
     reset_args(args)
     init_clauses, e = reset_lang(lang, args, args.neural_preds, full_bk=True)
     # update system
-    for episode_i in range(3):
+    for episode_i in range(1):
         args.max_step = episode_i + 1
         VM = ai_interface.get_vm(args, lang)
         FC = ai_interface.get_fc(args, lang, VM, e)

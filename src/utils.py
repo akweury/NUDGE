@@ -26,7 +26,7 @@ def initialize_game(env, args):
 def env_step(action, env, args):
     """take step of each game"""
     if args.m == 'getout':
-        state, reward, done, _, info = env.step(action)
+        reward = env.step(action)
         # perhaps need some reward shaping
         if args.rules == 'ppo_simple_policy':
             # simpler policy
@@ -40,4 +40,4 @@ def env_step(action, env, args):
         pix_state, reward, done, _, _ = env.step(action)
         state = env.objects
         # reward = reward[0]
-    return reward, state, done
+    return reward

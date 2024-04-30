@@ -88,6 +88,7 @@ from nesy_pi.aitk.utils.fol import bk
 
 from src import config
 
+
 class NSFR_PI_ActorCritic(nn.Module):
     def __init__(self, args, rng=None):
         super(NSFR_PI_ActorCritic, self).__init__()
@@ -104,10 +105,9 @@ class NSFR_PI_ActorCritic(nn.Module):
         args.lark_path = config.path_nesy / "lark" / "exp.lark"
         args.action_names = config.action_name_getout
         args.game_info = config.game_info_getout
-        lang = ai_interface.get_pretrained_lang(args, data["inv_consts"], data["all_pi_clauses"], data["all_invented_preds"])
+        lang = ai_interface.get_pretrained_lang(args, data["inv_consts"], data["all_pi_clauses"],
+                                                data["all_invented_preds"])
         self.actor = ai_interface.get_nsfr_model(args, lang)
-
-        self.actor = get_nsfr_model(self.args, train=True)
         self.prednames = self.get_prednames()
         if self.args.m == 'threefish':
             self.critic = MLPThreefish(out_size=1, logic=True)
@@ -127,7 +127,13 @@ class NSFR_PI_ActorCritic(nn.Module):
         raise NotImplementedError
 
     def act(self, logic_state, epsilon=0.0):
-        action_probs = self.actor(logic_state)
+        if self.args.m == 'getout':
+            logic_state[:, :, -2:] = logic_state[:, :, -2:] / 50
+            P_pos = torch.zeros(1, len(self.actor.atoms)).to(self.args.device) + 1e+20
+            V_T, param = self.actor.clause_eval_quick(logic_state, P_pos)
+            action_probs = self.actor.get_predictions(V_T.squeeze(), prednames=self.prednames)
+        else:
+            raise ValueError
 
         # e-greedy
         if self.rng.random() < epsilon:
