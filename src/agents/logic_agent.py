@@ -325,21 +325,37 @@ class LogicPPO:
 
     def save(self, checkpoint_path, directory, step_list, reward_list, weight_list):
         torch.save(self.policy_old.state_dict(), checkpoint_path)
-        with open(directory  / "data.pkl", "wb") as f:
-            pickle.dump(step_list, f)
-            pickle.dump(reward_list, f)
-            pickle.dump(weight_list, f)
+
+        data = {"step_list": step_list,
+                "reward_list": reward_list,
+                "weight_list": weight_list}
+        torch.save(data, directory / "data.pt")
 
     def load(self, directory):
         # only for recover form crash
-        model_name = input('Enter file name: ')
+        files = []
+        if os.path.exists(directory) and os.path.isdir(directory):
+            # Iterate through all files in the directory
+            for file in os.listdir(directory):
+                if file.endswith(".pth"):
+                    # Join the folder path with the file name to get the full path
+                    file_path = os.path.join(directory, file)
+                    # Check if it's a file (not a directory)
+                    if os.path.isfile(file_path):
+                        files.append(file_path)
+        file_epoch_nums = torch.tensor([int(file.split("_")[-1].split(".")[0]) for file in files])
+        latest_file_idx = file_epoch_nums.argmax()
+        model_name = files[latest_file_idx]
+
         model_file = os.path.join(directory, model_name)
-        self.policy_old.load_state_dict(torch.load(model_file, map_location=lambda storage, loc: storage))
-        self.policy.load_state_dict(torch.load(model_file, map_location=lambda storage, loc: storage))
-        with open(directory / "data.pkl", "rb") as f:
-            step_list = pickle.load(f)
-            reward_list = pickle.load(f)
-            weight_list = pickle.load(f)
+        self.policy_old.load_state_dict(torch.load(model_file, map_location=torch.device(self.args.device)))
+        self.policy.load_state_dict(torch.load(model_file, map_location=torch.device(self.args.device)))
+
+
+        data = torch.load(directory / "data.pt", map_location=torch.device(self.args.device))
+        step_list = data["step_list"]
+        reward_list = data["reward_list"]
+        weight_list = data["weight_list"]
         return step_list, reward_list, weight_list
 
     def get_predictions(self, state):

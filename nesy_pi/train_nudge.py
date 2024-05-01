@@ -53,7 +53,7 @@ def main():
                         choices=['getout', 'threefish', 'loot', 'Freeway', 'kangaroo', 'Asterix', 'loothard'])
     parser.add_argument("-r", "--rules", dest="rules", default=None, required=False,
                         choices=['getout_human_assisted', 'getout_redundant_actions', 'getout_bs_top10',
-                                 'getout_pi','freeway_pi',
+                                 'getout_pi', 'freeway_pi',
                                  'getout_no_search', 'getout_no_search_5', 'getout_no_search_15', 'getout_no_search_50',
                                  'getout_bs_rf1', 'getout_bs_rf3', 'ppo_simple_policy',
                                  'threefish_human_assisted', 'threefishcolor', 'threefish_bs_top5', 'threefish_bs_rf3',
@@ -65,7 +65,8 @@ def main():
                                  'loot_no_search_5', 'loot_no_search_15', 'loot_no_search_50', 'loothard',
                                  'loot_redundant_actions', 'freeway_bs_rf1', 'asterix_bs_rf1', ])
     parser.add_argument('-p', '--plot', help="plot the image of weights", type=bool, default=False, dest='plot')
-    parser.add_argument('-re', '--recovery', help='recover from crash', default=False, type=bool, dest='recover')
+    parser.add_argument('-re', '--recovery', action="store_true", help='recover from crash', default=False,
+                        dest='recover')
     # arg = ['-alg', 'logic', '-m', 'threefish', '-env', 'threefish', '-p', 'True', '-r', 'threefish_human_assisted']
     args = parser.parse_args()
     if args.device != "cpu":
