@@ -354,7 +354,7 @@ class LogicPPO:
         data = torch.load(directory / "data.pt", map_location=torch.device(self.args.device))
         step_list = data["step_list"]
         reward_list = data["reward_list"]
-        weight_list = data["weight_list"].tolist()
+        weight_list = data["weight_list"]
         return step_list, reward_list, weight_list
 
     def get_predictions(self, state):
