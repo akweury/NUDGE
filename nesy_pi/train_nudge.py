@@ -240,7 +240,7 @@ def main():
     print_running_episodes = 0
 
     rtpt = RTPT(name_initials='JS', experiment_name=f'PI_{args.m}',
-                max_iterations=max_training_timesteps)
+                max_iterations=max_training_timesteps - time_step)
 
     # Start the RTPT tracking
     folder_name = f"{args.m}_{args.env}_{args.alg}_{args.rules}_s{args.seed}"
@@ -303,7 +303,7 @@ def main():
             if time_step % print_freq == 0:
 
                 # print average reward till last episode
-                print_avg_reward = print_running_reward / print_running_episodes
+                print_avg_reward = print_running_reward / (print_running_episodes+1)
                 print_avg_reward = round(print_avg_reward, 2)
 
                 print("Episode : {} \t\t Timestep : {} \t\t Average Reward : {}".format(i_episode, time_step,
