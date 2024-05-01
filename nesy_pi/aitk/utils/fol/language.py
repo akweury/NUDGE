@@ -139,6 +139,8 @@ class Language(object):
         for pred in self.preds:
             dtypes = pred.dtypes
             consts_list = [self.get_by_dtype(dtype, with_inv=True) for dtype in dtypes]
+            if pred.pi_type == "clu_pred":
+                consts_list = [[atom.terms[0]] for atom in pred.body[0]]
             args_list = list(set(itertools.product(*consts_list)))
             for args in args_list:
                 if len(args) == 1 or len(set(args)) == len(args):
@@ -153,8 +155,11 @@ class Language(object):
             for args in args_list:
                 if len(args) == 1 or len(set(args)) == len(args):
                     new_atom = Atom(pred, args)
-                    if new_atom not in atoms:
-                        pi_atoms.append(new_atom)
+                    try:
+                        if new_atom not in atoms:
+                            pi_atoms.append(new_atom)
+                    except IndexError:
+                        raise IndexError("Argument '{}' is out of bounds".format(args))
         bk_pi_atoms = []
         for pred in self.bk_inv_preds:
             dtypes = pred.dtypes
