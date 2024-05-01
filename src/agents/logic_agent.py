@@ -351,7 +351,6 @@ class LogicPPO:
         self.policy_old.load_state_dict(torch.load(model_file, map_location=torch.device(self.args.device)))
         self.policy.load_state_dict(torch.load(model_file, map_location=torch.device(self.args.device)))
 
-
         data = torch.load(directory / "data.pt", map_location=torch.device(self.args.device))
         step_list = data["step_list"]
         reward_list = data["reward_list"]
