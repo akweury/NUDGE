@@ -264,7 +264,7 @@ def main():
     # Start the RTPT tracking
     folder_name = f"{args.m}_{args.env}_{args.alg}_{args.rules}_s{args.seed}"
     folder_name += datetime.datetime.now().strftime("%m%d-%H_%M")
-    writer = SummaryWriter(str(path_runs / folder_name))
+    writer = SummaryWriter(str(args.trained_model_folder / folder_name))
     rtpt.start()
     # training loop
     pbar = tqdm(total=max_training_timesteps - time_step)
@@ -318,7 +318,6 @@ def main():
             pbar.update(1)
             rtpt.step()
             current_ep_reward += reward
-
             # update PPO agent
             if time_step % update_timestep == 0:
                 agent.update()
