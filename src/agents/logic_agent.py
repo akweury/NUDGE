@@ -171,8 +171,8 @@ class NSFR_PI_ActorCritic(nn.Module):
             logic_state[:, :, -2:] = logic_state[:, :, -2:] / norm_factor
 
             # positive data
-            player_pos_data = logic_state[:, 0:1]
-            other_objs = logic_state[:, 1:]
+            player_pos_data = logic_state[:, 0:1].to(self.args.device)
+            other_objs = logic_state[:, 1:].to(self.args.device)
             # same with player
             mask_same_y = (logic_state[:, 1:, -1] - logic_state[:, 0:1, -1]).abs() < 0.01
             pos_same_y = []
