@@ -142,6 +142,13 @@ class FCNNValuationModule(nn.Module):
                 return zs[:, term_index + 1, [term_index + 1, -2, -1]].to(self.device)
             if self.args.m == "Freeway" or self.args.env == 'Freeway':
                 return zs[:, term_index + 1, [1, -2, -1]].to(self.device)
+            if self.args.m == "Asterix" or self.args.env == 'Asterix':
+                if "consumable" in term.name:
+                    consumable_id = int(term.name.split("consumable")[1])
+                    return zs[:, consumable_id + 1, [2, -2, -1]].to(self.device)
+                elif "enemy" in term.name:
+                    enemy_id = int(term.name.split("enemy")[1])
+                    return zs[:, enemy_id + 1, [1, -2, -1]].to(self.device)
         elif term.dtype.name == "player":
             return zs[:, 0, [0, -2, -1]].to(self.device)
         elif term.dtype.name in bk.attr_names:

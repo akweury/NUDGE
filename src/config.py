@@ -151,9 +151,9 @@ game_info_pong = {
     "state_col_num": len(obj_info_pong) + 6,
 }
 
-obj_info_asterix = [('Player', 1),
-                    ('Enemy', 8),
-                    ('Consumable', 8)
+obj_info_asterix = [('player', 1),
+                    ('enemy', 3),
+                    ('consumable', 3)
                     ]
 action_name_asterix = ["noop",  # 0
                        "up",  # 1

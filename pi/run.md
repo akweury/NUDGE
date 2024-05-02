@@ -32,6 +32,7 @@ python -m nesy_pi.aaa_main -m getout --device 4 --with_pi
 python -m nesy_pi.play_with_clauses -m Freeway --device 11 
 python -m nesy_pi.collect_data -m Freeway --device 15
 python -m nesy_pi.collect_data_getout -m getout --device 10
+python -m nesy_pi.collect_asterix -m Asterix --device 0
 
 python -m nesy_pi.train_nudge -m getout -alg logic -env getout -r getout_pi --with_pi --device 6 -s 0
 python -m nesy_pi.train_nudge -m atari -alg logic -env Freeway -r freeway_pi --with_pi --device 6 -s 0
