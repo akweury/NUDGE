@@ -240,6 +240,13 @@ def top_kp(clause_with_score, rank_type, top_type):
                 top_kp_clauses.append(c)
         else:
             raise ValueError
+
+    print("##########################################################################")
+    print(f"-TOP KP, total NESS: {(ness_used_data.sum() / len(ness_used_data)):.2f}, "
+          f"total SUFF: {(suff_used_data.sum() / len(suff_used_data)):.2f}")
+    for c in top_kp_clauses:
+        print(f"{c[0]}, {c[1]}")
+    print("##########################################################################")
     return top_kp_clauses
 
 

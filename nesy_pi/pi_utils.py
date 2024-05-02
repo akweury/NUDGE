@@ -84,10 +84,13 @@ def gen_clu_pi_clauses(args, lang, new_predicates, clause_str_list_with_score, k
         clause_str_list += c_str
 
     clauses = []
-    for clause_str in clause_str_list:
-        tree = lp_clause.parse(clause_str)
-        clause = ExpTree(lang).transform(tree)
-        clauses.append(clause)
+    try:
+        for clause_str in clause_str_list:
+            tree = lp_clause.parse(clause_str)
+            clause = ExpTree(lang).transform(tree)
+            clauses.append(clause)
+    except Exception as e:
+        print("")
 
     # for str in kp_str_list:
     #     print(str)

@@ -605,9 +605,10 @@ def count_arity_from_clause_cluster(clause_cluster):
         for b in clause.body:
             if "in" == b.pred.name:
                 continue
-            for t in b.terms[:-1]:
-                if t.name not in arity_list and t.dtype.name == 'shape':
-                    arity_list.append(t.name)
+            for t in b.terms:
+                if t.name != "X":
+                    if t.name not in arity_list and t.dtype.name == 'shape':
+                        arity_list.append(t.name)
     arity_list.sort()
     return arity_list
 
