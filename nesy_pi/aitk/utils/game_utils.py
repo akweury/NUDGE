@@ -121,7 +121,7 @@ def _load_checkpoint(fpath, device):
     fpath = Path(fpath)
     with fpath.open("rb") as file:
         with GzipFile(fileobj=file) as inflated:
-            return torch.load(inflated, map_location=device)
+            return torch.load(inflated, map_location=torch.device(device))
 
 
 def _epsilon_greedy(obs, model, eps=0.001):

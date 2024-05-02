@@ -57,12 +57,7 @@ class EnvArgs():
         self.dead_counter = 0
         self.current_steak = 0
         self.explain_text = ""
-        if args.teacher_agent == "oca_ppo":
-            self.game_num = args.teacher_game_nums
-        elif args.teacher_agent == "ppo":
-            self.game_num = args.teacher_game_nums
-        else:
-            raise ValueError
+        self.game_num = args.teacher_game_nums
         self.win_rate = torch.zeros(self.game_num)
         self.learn_performance = torch.zeros(self.game_num)
 

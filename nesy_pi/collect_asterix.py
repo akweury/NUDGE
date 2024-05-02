@@ -43,57 +43,77 @@ if not os.path.exists(data_file):
     stored_data = {}
     for a_i in range(args.num_actions):
         action_mask = actions == a_i
-        pos_data = states[action_mask][:, [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]
+        pos_data = states[action_mask]
 
         # positive data
         player_pos_data = pos_data[:, 0:1]
-        cars_data = pos_data[:, 1:]
+        other_objs = pos_data[:, 1:]
+        # same with player
+        mask_same_y = (pos_data[:, 1:, -1] - pos_data[:, 0:1, -1]).abs() < 0.01
+        pos_same_y = []
+        for s_i in range(len(other_objs)):
+            _, above_indices = (player_pos_data[s_i, 0, -1] - other_objs[s_i, mask_same_y[s_i], -1]).sort()
+            data = other_objs[s_i][mask_same_y[s_i]][above_indices][:1]
+            if data.shape[0] < 1:
+                data = torch.cat([torch.zeros(1 - data.shape[0], 9).to(args.device), data], dim=0)
+            pos_same_y.append(data.unsqueeze(0))
+        pos_same_y = torch.cat(pos_same_y, dim=0)
         # above of player
         mask_above = (pos_data[:, 1:, -1] < pos_data[:, 0:1, -1])
         pos_above_data = []
-        for s_i in range(len(cars_data)):
-            _, above_indices = (player_pos_data[s_i, 0, -1] - cars_data[s_i, mask_above[s_i], -1]).sort()
-            data = cars_data[s_i][mask_above[s_i]][above_indices][:3]
-            if data.shape[0] < 3:
-                data = torch.cat([torch.zeros(3 - data.shape[0], 8), data], dim=0)
+        for s_i in range(len(other_objs)):
+            _, above_indices = (player_pos_data[s_i, 0, -1] - other_objs[s_i, mask_above[s_i], -1]).sort()
+            data = other_objs[s_i][mask_above[s_i]][above_indices][:1]
+            if data.shape[0] < 1:
+                data = torch.cat([torch.zeros(1 - data.shape[0], 9).to(args.device), data], dim=0)
             pos_above_data.append(data.unsqueeze(0))
         pos_above_data = torch.cat(pos_above_data, dim=0)
 
         mask_below = pos_data[:, 1:, -1] > pos_data[:, 0:1, -1]
         pos_below_data = []
-        for s_i in range(len(cars_data)):
-            _, below_indices = (-player_pos_data[s_i, 0, -1] + cars_data[s_i, mask_below[s_i], -1]).sort()
-            data = cars_data[s_i][mask_below[s_i]][below_indices][:1]
+        for s_i in range(len(other_objs)):
+            _, below_indices = (-player_pos_data[s_i, 0, -1] + other_objs[s_i, mask_below[s_i], -1]).sort()
+            data = other_objs[s_i][mask_below[s_i]][below_indices][:1]
             if data.shape[0] < 1:
-                data = torch.cat([torch.zeros(1 - data.shape[0], 8), data], dim=0)
+                data = torch.cat([torch.zeros(1 - data.shape[0], 9).to(args.device), data], dim=0)
             pos_below_data.append(data.unsqueeze(0))
         pos_below_data = torch.cat(pos_below_data, dim=0)
 
-        neg_data = states[~action_mask][:, [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]
-        neg_above_data = []
+        neg_data = states[~action_mask]
         player_neg_data = neg_data[:, 0:1, ]
-        cars_data = neg_data[:, 1:]
+        other_objs = neg_data[:, 1:]
+        mask_same_y_neg = (neg_data[:, 1:, -1] - neg_data[:, 0:1, -1]).abs() < 0.01
+        neg_same_y = []
+        for s_i in range(len(other_objs)):
+            _, above_indices = (player_neg_data[s_i, 0, -1] - other_objs[s_i, mask_same_y_neg[s_i], -1]).sort()
+            data = other_objs[s_i][mask_same_y_neg[s_i]][above_indices][:1]
+            if data.shape[0] < 1:
+                data = torch.cat([torch.zeros(1 - data.shape[0], 9).to(args.device), data], dim=0)
+            neg_same_y.append(data.unsqueeze(0))
+        neg_same_y = torch.cat(neg_same_y, dim=0)
+
+        neg_above_data = []
         mask_above = neg_data[:, 1:, -1] < neg_data[:, 0:1, -1]
-        for s_i in range(len(cars_data)):
-            _, above_indices = (player_neg_data[s_i, 0, -1] - cars_data[s_i, mask_above[s_i], -1]).sort()
-            data = cars_data[s_i][mask_above[s_i]][above_indices][:3]
-            if data.shape[0] < 3:
-                data = torch.cat([torch.zeros(3 - data.shape[0], 8), data], dim=0)
+        for s_i in range(len(other_objs)):
+            _, above_indices = (player_neg_data[s_i, 0, -1] - other_objs[s_i, mask_above[s_i], -1]).sort()
+            data = other_objs[s_i][mask_above[s_i]][above_indices][:1]
+            if data.shape[0] < 1:
+                data = torch.cat([torch.zeros(1 - data.shape[0], 9).to(args.device), data], dim=0)
             neg_above_data.append(data.unsqueeze(0))
         neg_above_data = torch.cat(neg_above_data, dim=0)
 
         mask_below = neg_data[:, 1:, -1] > neg_data[:, 0:1, -1]
         neg_below_data = []
-        for s_i in range(len(cars_data)):
-            _, below_indices = (-player_neg_data[s_i, 0, -1] + cars_data[s_i, mask_below[s_i], -1]).sort()
-            data = cars_data[s_i][mask_below[s_i]][below_indices][:1]
+        for s_i in range(len(other_objs)):
+            _, below_indices = (-player_neg_data[s_i, 0, -1] + other_objs[s_i, mask_below[s_i], -1]).sort()
+            data = other_objs[s_i][mask_below[s_i]][below_indices][:1]
             if data.shape[0] < 1:
-                data = torch.cat([torch.zeros(1 - data.shape[0], 8), data], dim=0)
+                data = torch.cat([torch.zeros(1 - data.shape[0], 9).to(args.device), data], dim=0)
             neg_below_data.append(data.unsqueeze(0))
         neg_below_data = torch.cat(neg_below_data, dim=0)
 
-        pos_ab_data = torch.cat((player_pos_data, pos_above_data, pos_below_data), dim=1)
-        neg_ab_data = torch.cat((player_neg_data, neg_above_data, neg_below_data), dim=1)
+        pos_ab_data = torch.cat((player_pos_data, pos_same_y, pos_above_data, pos_below_data), dim=1)
+        neg_ab_data = torch.cat((player_neg_data, neg_same_y, neg_above_data, neg_below_data), dim=1)
         # existence of above 1 and below 1
         # existence of above 2 and below 1
 
