@@ -63,7 +63,8 @@ class TensorEncoder(object):
                     body = clause_.body
                     theta_list = self.generate_subs(body)
                     S_list.append(len(theta_list))
-
+        if len (S_list)==0:
+            print("")
         return max(1, max(S_list))
 
     def encode(self):

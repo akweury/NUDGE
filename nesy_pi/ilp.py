@@ -133,6 +133,7 @@ def ilp_search(args, lang, init_clauses, FC):
         clauses = [c[0] for c in clause_ranged_with_ness][:args.top_k]
         lang.all_clauses += clause_ranged_with_ness
 
+
         extend_step += 1
 
     if len(clauses) > 0:
@@ -190,11 +191,48 @@ def ilp_test(args, lang):
     args.iteration = args.max_step
     # returned clauses have to cover all the positive images and no negative images
     ilp_search(args, lang, clauses, FC)
+    # ranking with sufficiency
+    top_ness_clauses = top_kp(lang.all_clauses, rank_type="suff", top_type="ness")
+    success, clauses = log_utils.print_test_result(args, lang, top_ness_clauses)
+    return success, top_ness_clauses
 
-    sorted_clauses_with_scores = sorted(lang.all_clauses, key=lambda x: x[1][0], reverse=True)[:args.top_k]
 
-    success, clauses = log_utils.print_test_result(args, lang, sorted_clauses_with_scores)
-    return success, sorted_clauses_with_scores
+def top_kp(clause_with_score, rank_type, top_type):
+    if rank_type == "ness":
+        clauses_ranked = sorted(clause_with_score, key=lambda x: x[1][0], reverse=True)
+    elif rank_type == "suff":
+        clauses_ranked = sorted(clause_with_score, key=lambda x: x[1][1], reverse=True)
+    else:
+        raise ValueError
+
+    ness_percents = []
+    suff_percents = []
+    top_kp_clauses = []
+    ness_used_data = torch.zeros_like(clauses_ranked[0][2][:, 0], dtype=torch.bool)
+    suff_used_data = torch.zeros_like(clauses_ranked[0][2][:, 1], dtype=torch.bool)
+    for c in clauses_ranked:
+        c_ness_indices = c[2][:, config.score_example_index["pos"]] > 0.9
+        c_suff_indices = c[2][:, config.score_example_index["neg"]] > 0.9
+        ness_percent = (~ness_used_data * c_ness_indices).sum() / len(ness_used_data)
+        suff_percent = (~suff_used_data * c_suff_indices).sum() / len(suff_used_data)
+        ness_used_data[c_ness_indices] = True
+        suff_used_data[c_suff_indices] = True
+        ness_percents.append(ness_percent)
+        suff_percents.append(suff_percent)
+
+        if top_type == "suff":
+            if suff_percent<0.01:
+                continue
+            else:
+                top_kp_clauses.append(c)
+        elif top_type == "ness":
+            if ness_percent<0.01:
+                continue
+            else:
+                top_kp_clauses.append(c)
+        else:
+            raise ValueError
+    return top_kp_clauses
 
 
 def ilp_predict(NSFR, args, th=None, split='train'):
@@ -620,20 +658,20 @@ def prune_clauses(clause_with_scores, args):
     return refs, c_score_pruned
 
 
-def top_kp(args, clauses):
-    suff_percents = torch.tensor([c[1][1] for c in clauses])
-    ness_percents = torch.tensor([c[1][0] for c in clauses])
-    log_utils.add_lines(f"- total ness percent {ness_percents.sum():.3f}", args.log_file)
-    indices_ranked = suff_percents.argsort(descending=True)
-    percent_count = 0
-    top_clauses = []
-    for i in indices_ranked:
-        if percent_count < args.top_kp:
-            percent_count += ness_percents[i]
-            top_clauses.append(clauses[i])
-    log_utils.add_lines(f"- {len(top_clauses)} clauses left.", args.log_file)
-
-    return top_clauses
+# def top_kp(args, clauses):
+#     suff_percents = torch.tensor([c[1][1] for c in clauses])
+#     ness_percents = torch.tensor([c[1][0] for c in clauses])
+#     log_utils.add_lines(f"- total ness percent {ness_percents.sum():.3f}", args.log_file)
+#     indices_ranked = suff_percents.argsort(descending=True)
+#     percent_count = 0
+#     top_clauses = []
+#     for i in indices_ranked:
+#         if percent_count < args.top_kp:
+#             percent_count += ness_percents[i]
+#             top_clauses.append(clauses[i])
+#     log_utils.add_lines(f"- {len(top_clauses)} clauses left.", args.log_file)
+#
+#     return top_clauses
 
 
 def update_saved_clauses(args, c_with_scores):

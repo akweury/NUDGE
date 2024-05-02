@@ -153,13 +153,10 @@ class Language(object):
 
             args_list = list(set(itertools.product(*consts_list)))
             for args in args_list:
-                if len(args) == 1 or len(set(args)) == len(args):
-                    new_atom = Atom(pred, args)
-                    try:
-                        if new_atom not in atoms:
-                            pi_atoms.append(new_atom)
-                    except IndexError:
-                        raise IndexError("Argument '{}' is out of bounds".format(args))
+                new_atom = Atom(pred, args)
+                if new_atom not in atoms:
+                    pi_atoms.append(new_atom)
+
         bk_pi_atoms = []
         for pred in self.bk_inv_preds:
             dtypes = pred.dtypes
