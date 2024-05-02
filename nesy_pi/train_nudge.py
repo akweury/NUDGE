@@ -240,8 +240,13 @@ def main():
         image_directory = path_image / args.m / args.env / str(args.seed)
     if not os.path.exists(str(image_directory)):
         os.makedirs(str(image_directory))
+    if args.m == "getout":
+        env_args = EnvArgs(agent=agent, args=args, window_size=[env.camera.height,
+                                                                env.camera.width], fps=60)
 
-    env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
+
+    else:
+        env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     if args.with_explain:
         video_out = game_utils.get_game_viewer(env_args)
     # if args.plot:
@@ -291,6 +296,7 @@ def main():
             action = agent.select_action(env, epsilon=epsilon)
 
             if args.m == 'getout':
+                obs = np.array(env.camera.screen.convert("RGB"))
                 reward = env_step(action, env, args)
                 done = env.level.terminated
             elif args.m == 'atari':
@@ -320,9 +326,7 @@ def main():
             #     plt.imshow(env._get_obs())
             #     plt.show()
             if args.with_explain:
-                screen_text = (
-                    f"ep: {env_args.game_i}"
-                    f"act: {args.action_names[action]} re: {reward}")
+                screen_text = f"act: {args.action_names[action-1]} re: {reward}"
                 # Red
                 env_args.obs = obs
                 env_args.obs[:10, :10] = 0

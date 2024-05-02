@@ -25,7 +25,7 @@ optimizer = torch.optim.Adam
 lr_actor = 0.001  # learning rate for actor network
 lr_critic = 0.0003  # learning rate for critic network
 # epsilon_func = lambda episode: math.exp(-episode / 500)
-epsilon_func = lambda episode: max(math.exp(-episode / 500), 0.02)
+epsilon_func = lambda episode: max(math.exp(-episode / 0.1), 0.02)
 
 ## paths
 root = Path(__file__).parents[0]

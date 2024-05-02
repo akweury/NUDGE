@@ -59,6 +59,8 @@ class EnvArgs():
         self.explain_text = ""
         if args.teacher_agent == "oca_ppo":
             self.game_num = args.teacher_game_nums
+        elif args.teacher_agent == "ppo":
+            self.game_num = args.teacher_game_nums
         else:
             raise ValueError
         self.win_rate = torch.zeros(self.game_num)

@@ -166,6 +166,8 @@ class NSFR_PI_ActorCritic(nn.Module):
             raise ValueError
         P_pos = torch.zeros(1, len(self.actor.atoms)).to(self.args.device) + 1e+20
         V_T, param = self.actor.eval_quick(logic_state, P_pos)
+        aa_atom_v = V_T.numpy().T
+        aa_atom = self.actor.atoms
         action_probs = self.actor.get_predictions(V_T, prednames=self.prednames).to(self.args.device)
         # e-greedy
         if self.rng.random() < epsilon:
