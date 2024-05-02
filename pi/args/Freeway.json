@@ -20,7 +20,7 @@
   "rho_num": 100,
   "phi_num": 90,
   "game_obj_num": 11,
-  "batch_size": 200,
+  "batch_size": 50,
   "teacher_game_nums": 100,
   "student_game_nums": 10,
   "print_freq": 100,
