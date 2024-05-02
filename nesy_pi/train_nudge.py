@@ -219,11 +219,12 @@ def main():
         reward_list = []
         weights_list = []
     from nesy_pi.aitk.utils import draw_utils
-    draw_utils.plot_line_chart(torch.tensor(reward_list).permute(1, 0),
-                               args.trained_model_folder,
-                               ["reward"], x=torch.tensor(step_list).squeeze(), cla_leg=True,
-                               title=f"{args.env}_reward_{args.seed}.png"
-                               )
+    if len(reward_list)>1:
+        draw_utils.plot_line_chart(torch.tensor(reward_list).permute(1, 0),
+                                   args.trained_model_folder,
+                                   ["reward"], x=torch.tensor(step_list).squeeze(), cla_leg=True,
+                                   title=f"{args.env}_reward_{args.seed}.png"
+                                   )
 
     # track total training time
     start_time = time.time()
