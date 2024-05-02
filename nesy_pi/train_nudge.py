@@ -24,8 +24,9 @@ from torch.utils.tensorboard import SummaryWriter
 import datetime
 
 from nesy_pi import getout_utils
-from nesy_pi.aitk.utils import args_utils
+from nesy_pi.aitk.utils import args_utils, game_utils
 from src.agents import utils_getout
+from nesy_pi.aitk.utils.EnvArgs import EnvArgs
 
 
 def main():
@@ -39,6 +40,7 @@ def main():
     parser.add_argument('--gamma', default=0.001, type=float,
                         help='Smooth parameter in the softor function')
     parser.add_argument("--with_pi", action="store_true", help="Generate Clause with predicate invention.")
+    parser.add_argument("--with_explain", help="explain the game", action="store_true", default=False)
     parser.add_argument("--learned_clause_file", type=str)
     parser.add_argument("-s", "--seed", help="Seed for pytorch + env",
                         required=False, action="store", dest="seed", type=int, default=0)
@@ -107,6 +109,8 @@ def main():
         env = ProcgenGym3Env(num=1, env_name=args.env, render_mode=None)
     elif args.m == "atari":
         env = OCAtari(env_name=args.env.capitalize(), mode="revised", render_mode="rgb_array")
+        obs, info = env.reset()
+
         # env = OCAtari(env_name='Freeway', mode="revised")
 
     #####################################################
@@ -214,6 +218,12 @@ def main():
         step_list = []
         reward_list = []
         weights_list = []
+    from nesy_pi.aitk.utils import draw_utils
+    draw_utils.plot_line_chart(torch.tensor(reward_list).permute(1, 0),
+                               args.trained_model_folder,
+                               ["reward"], x=torch.tensor(step_list).squeeze(), cla_leg=True,
+                               title=f"{args.env}_reward_{args.seed}.png"
+                               )
 
     # track total training time
     start_time = time.time()
@@ -231,6 +241,9 @@ def main():
     if not os.path.exists(str(image_directory)):
         os.makedirs(str(image_directory))
 
+    env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
+    if args.with_explain:
+        video_out = game_utils.get_game_viewer(env_args)
     # if args.plot:
     #     if args.alg == 'logic':
     #         plot_weights(agent.get_weights(), image_directory)
@@ -265,6 +278,14 @@ def main():
         epsilon = epsilon_func(i_episode)
 
         for t in range(1, max_ep_len + 1):
+            # limit frame rate
+            if args.with_explain:
+                current_frame_time = time.time()
+                if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
+                    sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
+                    time.sleep(sl)
+                    continue
+                env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
             # select action with policy
             action = agent.select_action(env, epsilon=epsilon)
@@ -298,7 +319,26 @@ def main():
             #     import matplotlib.pyplot as plt
             #     plt.imshow(env._get_obs())
             #     plt.show()
-
+            if args.with_explain:
+                screen_text = (
+                    f"ep: {env_args.game_i}"
+                    f"act: {args.action_names[action]} re: {reward}")
+                # Red
+                env_args.obs = obs
+                env_args.obs[:10, :10] = 0
+                env_args.obs[:10, :10, 0] = 255
+                # Blue
+                env_args.obs[:10, 10:20] = 0
+                env_args.obs[:10, 10:20, 2] = 255
+                draw_utils.addCustomText(env_args.obs, f"{args.teacher_agent}",
+                                         color=(255, 255, 255), thickness=1, font_size=0.2, pos=[2, 5])
+                game_plot = draw_utils.rgb_to_bgr(env_args.obs)
+                screen_plot = draw_utils.image_resize(game_plot,
+                                                      int(game_plot.shape[0] * env_args.zoom_in),
+                                                      int(game_plot.shape[1] * env_args.zoom_in))
+                draw_utils.addText(screen_plot, screen_text,
+                                   color=(255, 228, 181), thickness=2, font_size=0.6, pos="upper_right")
+                video_out = draw_utils.write_video_frame(video_out, screen_plot)
             # printing average reward
             if time_step % print_freq == 0:
 

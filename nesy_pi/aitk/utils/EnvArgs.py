@@ -13,11 +13,13 @@ class EnvArgs():
         # game setting
         self.jump_frames = args.jump_frames
         self.device = args.device
-        self.save_frame = args.save_frame
-        self.output_folder = args.game_buffer_path
-        self.max_lives = args.max_lives
-        self.reward_lost_one_live = args.reward_lost_one_live
+
+        # self.output_folder = args.game_buffer_path
+        # self.max_lives = args.max_lives
+        # self.reward_lost_one_live = args.reward_lost_one_live
         # layout setting
+        args.zoom_in = 2.5
+        args.stack_num = 10
         self.zoom_in = args.zoom_in
         self.db_num = 4
         self.width_game_window = int(window_size[1] * args.zoom_in)
@@ -55,37 +57,12 @@ class EnvArgs():
         self.dead_counter = 0
         self.current_steak = 0
         self.explain_text = ""
-        if agent.agent_type in ["smp", "clause"]:
-            self.game_num = args.student_game_nums
-        elif agent.agent_type == "pretrained" or agent.agent_type == "ppo":
-            self.game_num = args.teacher_game_nums
-        elif agent.agent_type == "DQN-A":
-            self.game_num = args.dqn_a_episode_num
-        elif agent.agent_type == "DQN-C":
-            self.game_num = args.dqn_c_episode_num
-        elif agent.agent_type == "DQN-T":
-            self.game_num = args.dqn_t_episode_num
-        elif agent.agent_type == "DQN-R":
-            self.game_num = args.dqn_t_episode_num
-        elif agent.agent_type == "oca_ppo":
+        if args.teacher_agent == "oca_ppo":
             self.game_num = args.teacher_game_nums
         else:
             raise ValueError
-        self.train_num = args.train_epochs
         self.win_rate = torch.zeros(self.game_num)
         self.learn_performance = torch.zeros(self.game_num)
-        self.win_2 = ""
-        self.has_win_2 = False
-        self.win_3 = ""
-        self.has_win_3 = False
-        self.win_5 = ""
-        self.has_win_5 = False
-        self.max_steak = 0
-        self.wr_plot = None
-        self.score_update = False
-        self.best_score = 0
-        self.mile_stone_scores = args.mile_stone_scores
-        self.new_life = False
 
     def reset_args(self, game_i):
         self.game_i = game_i
@@ -170,4 +147,3 @@ class EnvArgs():
         self.logic_states = []
         self.actions = []
         self.rewards = []
-
