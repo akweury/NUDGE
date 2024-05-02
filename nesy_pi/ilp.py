@@ -24,30 +24,7 @@ def clause_eval(args, lang, FC, clauses, step, eval_data=None):
     target_preds = [clauses[0].head.pred.name]
     img_scores, p_pos = get_clause_score(NSFR, args, target_preds, eval_data)
     clause_scores = get_suff_score(img_scores[:, :, args.index_pos], img_scores[:, :, args.index_neg])
-
-    # inverse eval
-    reverse_scores, clause_reverse_scores, reverse_p_pos = None, None, None
-    high_ness_indices = clause_scores[:, 0] > args.inv_nc_th
-    if high_ness_indices.sum() > 0:
-        high_ness_clause_index = high_ness_indices.nonzero()[0]
-
-        failed_neg_mask = (img_scores[high_ness_clause_index, :, 0] > 0.1).reshape(-1)
-
-        failed_neg_data = args.train_data[args.label][1][failed_neg_mask]
-        reverse_pos_data = failed_neg_data
-
-        succeed_neg_data = args.train_data[args.label][1][~failed_neg_mask]
-        pos_data = args.train_data[args.label][0]
-
-        random_indices = torch.randperm(pos_data.shape[0])
-        reverse_neg_data = pos_data[random_indices][:len(reverse_pos_data)]
-        reverse_scores, reverse_p_pos = get_clause_score(NSFR, args, target_preds, eval_data,
-                                                         pos_group_pred=reverse_pos_data,
-                                                         neg_group_pred=reverse_neg_data)
-        clause_reverse_scores = get_suff_score(reverse_scores[:, :, args.index_pos],
-                                               reverse_scores[:, :, args.index_neg])
-
-    return img_scores, clause_scores, p_pos, reverse_scores, clause_reverse_scores, reverse_p_pos
+    return img_scores, clause_scores, p_pos
 
 
 def clause_robust_eval(args, lang, FC, clauses, step, eval_data=None):
@@ -137,57 +114,29 @@ def ilp_search(args, lang, init_clauses, FC):
         clauses = clause_extend(args, lang, clauses)
         if args.is_done:
             break
-
         # clause evaluation
-        img_scores, clause_scores, p_pos, reverse_scores, clause_reverse_scores, reverse_p_pos = clause_eval(
-            args, lang, FC, clauses, extend_step)
+        img_scores, clause_scores, p_pos = clause_eval(args, lang, FC, clauses, extend_step)
         # classify clauses
         clause_with_scores = sort_clauses_by_score(clauses, img_scores, clause_scores, args)
-        if reverse_scores is not None:
-            reverse_clause_with_scores = sort_clauses_by_score(clauses, reverse_scores, clause_reverse_scores, args)
-        # print best clauses that have been found...
-        # clause_with_scores = logic_utils.sorted_clauses(clause_with_scores, args)
-
-        # new_max, higher = logic_utils.get_best_clauses(refs_extended, scores, step, args, max_clause)
-        # max_clause, found_sn = check_result(args, clause_with_scores, higher, max_clause, new_max)
-
-        # prune clauses
         if args.pi_top > 0:
-            passed_clauses = []  # [c for c in clause_with_scores if c[1][0] > 0.7]
-            if len(passed_clauses) == 0:
-                clauses, clause_with_scores = prune_clauses(clause_with_scores, args)
-                if reverse_scores is not None:
-                    reverse_clauses, reverse_clause_with_scores = prune_clauses(reverse_clause_with_scores, args)
-            else:
-                lang.all_clauses = passed_clauses
-                clause_with_scores = passed_clauses
+            pruned_clauses, pruned_clause_with_scores = prune_clauses(clause_with_scores, args)
         else:
-            clauses = logic_utils.top_select(clause_with_scores, args)
+            pruned_clauses = logic_utils.top_select(clause_with_scores, args)
+            pruned_clause_with_scores = clause_with_scores
 
-        # has_new_consts, const_data, clause_with_scores = inv_consts(args, p_pos, clause_with_scores, lang)
-        # if has_new_consts:
-        #     VM = ai_interface.get_vm(args, lang)
-        #     FC = ai_interface.get_fc(args, lang, VM, args.rule_obj_num)
 
-        # save data
-        all_c = [c[0] for c in lang.all_clauses]
-        new_c = [c for c in clause_with_scores if c[0] not in all_c]
-        lang.all_clauses += new_c
+        done, clause_with_scores = check_result(args, pruned_clause_with_scores)
 
-        done, clause_with_scores, lang.all_clauses = check_result(args, clause_with_scores, lang.all_clauses)
-        if reverse_scores is not None:
-            reverse_done, reverse_clause_with_scores, lang.all_reverse_clauses = check_result(
-                args, reverse_clause_with_scores, reverse_clause_with_scores)
+        iter_clause_with_scores = [c for c in clause_with_scores if len(c[0].body) == extend_step + 1]
 
-        clause_with_scores = [c for c in clause_with_scores if len(c[0].body) == extend_step + 1]
-        clause_with_scores = sorted(clause_with_scores, key=lambda c: c[1][0], reverse=True)
-        clauses = [c[0] for c in clause_with_scores][:5]
-        if reverse_scores is not None:
-            lang.all_reverse_clauses = [c for c in lang.all_reverse_clauses if len(c[0].body) == extend_step + 1]
+        clause_ranged_with_ness = sorted(iter_clause_with_scores, key=lambda x:x[1].sum(), reverse=True)
+        clauses = [c[0] for c in clause_ranged_with_ness][:args.top_k]
+        lang.all_clauses += clause_ranged_with_ness
+
         extend_step += 1
 
     if len(clauses) > 0:
-        lang.clause_with_scores = clause_with_scores
+        lang.clause_with_scores = iter_clause_with_scores
         # args.last_refs = clauses
     return clause_with_scores, FC
 
@@ -687,15 +636,15 @@ def top_kp(args, clauses):
     return top_clauses
 
 
-def update_saved_clauses(args, all_clauses):
+def update_saved_clauses(args, c_with_scores):
     # update saved clauses
     saved_ness_percents = 0
     saved_ness_percents_all = []
     saved_suff_percents = 0
     saved_suff_percents_all = []
     updated_clauses = []
-    if len(all_clauses) > 0:
-        all_clauses = sorted(all_clauses, key=lambda c: c[1].sum(), reverse=True)
+    if len(c_with_scores) > 0:
+        all_clauses = sorted(c_with_scores, key=lambda c: c[1][1], reverse=True)
         saved_ness_used_data = torch.zeros_like(all_clauses[0][2][:, 0], dtype=torch.bool)
         saved_suff_used_data = torch.zeros_like(all_clauses[0][2][:, 1], dtype=torch.bool)
         for c_i, c in enumerate(all_clauses):
@@ -731,20 +680,16 @@ def update_saved_clauses(args, all_clauses):
     return updated_clauses, saved_ness_percents, saved_suff_percents, saved_ness_percents_all, saved_suff_percents_all
 
 
-def check_result(args, clause_with_scores, all_clauses):
+def check_result(args, clause_with_scores):
     done = False
     if len(clause_with_scores) == 0:
-        return done, [], all_clauses
+        return done, []
 
     # update saved clauses
     all_clauses, saved_ness_percents, saved_suff_percents, saved_ness_percents_all, saved_suff_percents_all = update_saved_clauses(
-        args, all_clauses)
+        args,clause_with_scores)
     if saved_ness_percents > args.nc_th:
         done = True
-    all_c = [c[0] for c in all_clauses]
-    new_c = [c for c in clause_with_scores if c[0] not in all_c]
-    clause_with_scores = all_clauses + new_c
-
     # rank by sufficiency
     suff_percents = torch.tensor([c[1][1] for c in clause_with_scores])
     indices_ranked = suff_percents.argsort(descending=True)
@@ -790,7 +735,7 @@ def check_result(args, clause_with_scores, all_clauses):
     log_utils.add_lines(f"\n-Total Ness: {ness_percent_total:.2f}, Total Suff: {(1 - suff_percent_total):.2f} \n",
                         args.log_file)
 
-    return done, ness_maximize_c, all_clauses
+    return done, ness_maximize_c
 
 
 def explain_invention(args, lang, clauses):
@@ -947,8 +892,8 @@ def ilp_train(args, lang):
         clauses, FC = ilp_search(args, lang, init_clauses, FC)
         if args.with_pi and len(clauses) > 0:
             ilp_pi(args, lang, clauses, e)
-            if lang.all_reverse_clauses is not None:
-                ilp_pi(args, lang, lang.all_reverse_clauses, e)
+            # if lang.all_reverse_clauses is not None:
+            #     ilp_pi(args, lang, lang.all_reverse_clauses, e)
             # update predicate list
             lang.preds = lang.append_new_predicate(lang.preds, lang.invented_preds)
             # update language
