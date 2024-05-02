@@ -28,5 +28,5 @@
   "semantic_unique": false,
   "ness_maximize": false,
   "ness_equal_th": 0.05,
-  "learned_clause_file": "learned_clauses_rho10_phi_9_train_18000.pkl"
+  "learned_clause_file": "learned_clauses_rho10_phi_9_train_18000.pt"
 }
