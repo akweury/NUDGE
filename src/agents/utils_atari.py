@@ -21,7 +21,7 @@ def extract_logic_state_atari(state, args, noise=False):
             elif entity.category == 'Car':
                 extracted_states[i-1][1] = 1
                 extracted_states[i-1][-2:] = entity.xy
-    elif 'Asterix' in args.env.lower():
+    elif 'Asterix' == args.env:
         num_of_feature = 6
         num_of_object = 11
         representation = state
@@ -33,7 +33,7 @@ def extract_logic_state_atari(state, args, noise=False):
             elif entity.category == 'Enemy':
                 extracted_states[i][1] = 1
                 extracted_states[i][-2:] = entity.xy
-            elif "Reward" in entity.category:
+            elif entity.category == "Consumable":
                 extracted_states[i][2] = 1
                 extracted_states[i][-2:] = entity.xy
             else:
@@ -76,7 +76,7 @@ def extract_neural_state_atari(state, args):
                 raw_state.append([1, 0, 0, 0] + list(inst.xy))
             elif inst.category == "Car":
                 raw_state.append([0, 1, 0, 0] + list(inst.xy))
-    elif 'Asterix' in args.env.lower():
+    elif 'Asterix' == args.env:
         raw_state = []
         for i, inst in enumerate(state):
             if inst.category == "Player" and i == 0:
@@ -105,8 +105,7 @@ def extract_neural_state_atari(state, args):
             raw_state.extend([[0] * 6 for _ in range(11 - len(raw_state))])
         
     else:
-        print("Not yet implemented, utils_atari l 64")
-        exit(1)
+        raise ValueError
     state = np.array(raw_state).reshape(-1)
     return torch.tensor(state).to(device)
 
@@ -364,7 +363,8 @@ def preds_to_action_atari(action, prednames):
     CJA_MOVE_RIGHT: Final[int] = 2
     CJA_MOVE_UP: Final[int] = 3
     """
-    if len(prednames) == 13: # Asterix:
+    if len(prednames) == 9: # Asterix:
+        return action
         if 'noop' in prednames[action]:
             return 0
         elif 'up' in prednames[action]:

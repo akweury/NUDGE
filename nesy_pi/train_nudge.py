@@ -55,7 +55,7 @@ def main():
                         choices=['getout', 'threefish', 'loot', 'Freeway', 'kangaroo', 'Asterix', 'loothard'])
     parser.add_argument("-r", "--rules", dest="rules", default=None, required=False,
                         choices=['getout_human_assisted', 'getout_redundant_actions', 'getout_bs_top10',
-                                 'getout_pi', 'freeway_pi',
+                                 'getout_pi', 'freeway_pi', 'asterix_pi',
                                  'getout_no_search', 'getout_no_search_5', 'getout_no_search_15', 'getout_no_search_50',
                                  'getout_bs_rf1', 'getout_bs_rf3', 'ppo_simple_policy',
                                  'threefish_human_assisted', 'threefishcolor', 'threefish_bs_top5', 'threefish_bs_rf3',
@@ -219,7 +219,7 @@ def main():
         reward_list = []
         weights_list = []
     from nesy_pi.aitk.utils import draw_utils
-    if len(reward_list)>1:
+    if len(reward_list) > 1:
         draw_utils.plot_line_chart(torch.tensor(reward_list).permute(1, 0),
                                    args.trained_model_folder,
                                    ["reward"], x=torch.tensor(step_list).squeeze(), cla_leg=True,
@@ -272,7 +272,7 @@ def main():
 
         if args.env == 'getout':
             env = getout_utils.create_getout_instance(args)
-        elif args.env == 'Freeway':
+        elif args.m == 'atari':
             obs, info = env.reset()
         else:
             raise ValueError
@@ -326,7 +326,7 @@ def main():
             #     plt.imshow(env._get_obs())
             #     plt.show()
             if args.with_explain:
-                screen_text = f"act: {args.action_names[action-1]} re: {reward}"
+                screen_text = f"act: {args.action_names[action - 1]} re: {reward}"
                 # Red
                 env_args.obs = obs
                 env_args.obs[:10, :10] = 0

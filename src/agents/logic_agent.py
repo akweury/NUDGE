@@ -108,6 +108,11 @@ class NSFR_PI_ActorCritic(nn.Module):
         elif args.env == 'Freeway':
             args.action_names = config.action_name_freeway
             args.game_info = config.game_info_freeway
+        elif args.env == 'Asterix':
+            args.action_names = config.action_name_asterix
+            args.game_info = config.game_info_asterix
+        else:
+            raise ValueError
 
         lang = ai_interface.get_pretrained_lang(args, data["inv_consts"], data["all_pi_clauses"],
                                                 data["all_invented_preds"])
@@ -161,7 +166,45 @@ class NSFR_PI_ActorCritic(nn.Module):
                 pos_below_data.append(data.unsqueeze(0))
             pos_below_data = torch.cat(pos_below_data, dim=0)
             logic_state = torch.cat((player_pos_data, pos_above_data, pos_below_data), dim=1)
+        elif self.args.env == "Asterix":
+            # positive data
+            logic_state[:, :, -2:] = logic_state[:, :, -2:] / norm_factor
 
+            # positive data
+            player_pos_data = logic_state[:, 0:1]
+            other_objs = logic_state[:, 1:]
+            # same with player
+            mask_same_y = (logic_state[:, 1:, -1] - logic_state[:, 0:1, -1]).abs() < 0.01
+            pos_same_y = []
+            for s_i in range(len(other_objs)):
+                _, above_indices = (player_pos_data[s_i, 0, -1] - other_objs[s_i, mask_same_y[s_i], -1]).sort()
+                data = other_objs[s_i][mask_same_y[s_i]][above_indices][:1]
+                if data.shape[0] < 1:
+                    data = torch.cat([torch.zeros(1 - data.shape[0], 6).to(self.args.device), data], dim=0)
+                pos_same_y.append(data.unsqueeze(0))
+            pos_same_y = torch.cat(pos_same_y, dim=0)
+            # above of player
+            mask_above = (logic_state[:, 1:, -1] < logic_state[:, 0:1, -1])
+            pos_above_data = []
+            for s_i in range(len(other_objs)):
+                _, above_indices = (player_pos_data[s_i, 0, -1] - other_objs[s_i, mask_above[s_i], -1]).sort()
+                data = other_objs[s_i][mask_above[s_i]][above_indices][:1]
+                if data.shape[0] < 1:
+                    data = torch.cat([torch.zeros(1 - data.shape[0], 6).to(self.args.device), data], dim=0)
+                pos_above_data.append(data.unsqueeze(0))
+            pos_above_data = torch.cat(pos_above_data, dim=0)
+
+            mask_below = logic_state[:, 1:, -1] > logic_state[:, 0:1, -1]
+            pos_below_data = []
+            for s_i in range(len(other_objs)):
+                _, below_indices = (-player_pos_data[s_i, 0, -1] + other_objs[s_i, mask_below[s_i], -1]).sort()
+                data = other_objs[s_i][mask_below[s_i]][below_indices][:1]
+                if data.shape[0] < 1:
+                    data = torch.cat([torch.zeros(1 - data.shape[0], 6).to(self.args.device), data], dim=0)
+                pos_below_data.append(data.unsqueeze(0))
+            pos_below_data = torch.cat(pos_below_data, dim=0)
+
+            logic_state = torch.cat((player_pos_data, pos_same_y, pos_above_data, pos_below_data), dim=1)
         else:
             raise ValueError
         P_pos = torch.zeros(1, len(self.actor.atoms)).to(self.args.device) + 1e+20
