@@ -92,7 +92,7 @@ def inv_consts(args, p_pos, clauses, lang):
     return False, new_consts, clauses
 
 
-def ilp_search(args, lang, init_clauses, FC):
+def ilp_search(args, lang, init_clauses, FC, test_mode=False):
     """
     given one or multiple neural predicates, searching for high scoring clauses, which includes following steps
     1. extend given initial clauses
@@ -112,6 +112,16 @@ def ilp_search(args, lang, init_clauses, FC):
 
         # clause extension
         clauses = clause_extend(args, lang, clauses)
+        if test_mode:
+            test_clauses = []
+            for c in clauses:
+                is_test_clause = True
+                for atom in c.body:
+                    if atom.pred.pi_type != "clu_pred":
+                        is_test_clause = False
+                if is_test_clause:
+                    test_clauses.append(c)
+            clauses = test_clauses
         if args.is_done:
             break
         # clause evaluation
@@ -124,15 +134,13 @@ def ilp_search(args, lang, init_clauses, FC):
             pruned_clauses = logic_utils.top_select(clause_with_scores, args)
             pruned_clause_with_scores = clause_with_scores
 
-
         done, clause_with_scores = check_result(args, pruned_clause_with_scores)
 
         iter_clause_with_scores = [c for c in clause_with_scores if len(c[0].body) == extend_step + 1]
 
-        clause_ranged_with_ness = sorted(iter_clause_with_scores, key=lambda x:x[1].sum(), reverse=True)
+        clause_ranged_with_ness = sorted(iter_clause_with_scores, key=lambda x: x[1].sum(), reverse=True)
         clauses = [c[0] for c in clause_ranged_with_ness][:args.top_k]
         lang.all_clauses += clause_ranged_with_ness
-
 
         extend_step += 1
 
@@ -190,7 +198,7 @@ def ilp_test(args, lang):
 
     args.iteration = args.max_step
     # returned clauses have to cover all the positive images and no negative images
-    ilp_search(args, lang, clauses, FC)
+    ilp_search(args, lang, clauses, FC, test_mode=True)
     # ranking with sufficiency
     top_ness_clauses = top_kp(lang.all_clauses, rank_type="suff", top_type="ness")
     success, clauses = log_utils.print_test_result(args, lang, top_ness_clauses)
@@ -221,12 +229,12 @@ def top_kp(clause_with_score, rank_type, top_type):
         suff_percents.append(suff_percent)
 
         if top_type == "suff":
-            if suff_percent<0.01:
+            if suff_percent < 0.01:
                 continue
             else:
                 top_kp_clauses.append(c)
         elif top_type == "ness":
-            if ness_percent<0.01:
+            if ness_percent < 0.01:
                 continue
             else:
                 top_kp_clauses.append(c)
@@ -725,7 +733,7 @@ def check_result(args, clause_with_scores):
 
     # update saved clauses
     all_clauses, saved_ness_percents, saved_suff_percents, saved_ness_percents_all, saved_suff_percents_all = update_saved_clauses(
-        args,clause_with_scores)
+        args, clause_with_scores)
     if saved_ness_percents > args.nc_th:
         done = True
     # rank by sufficiency
@@ -893,7 +901,7 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
         highest_ness_score, old_suff_scores = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
         suff_incres = True
         new_pattern_cluster = pattern_cluster
-        while highest_ness_score > 0.95 and len(new_pattern_cluster) > 1 and suff_incres:
+        while highest_ness_score > args.inv_nc_th and len(new_pattern_cluster) > 1 and suff_incres:
             pattern_cluster = new_pattern_cluster
             sub_cluster_scores = []
             for c_i in range(len(pattern_cluster)):
@@ -901,12 +909,12 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
                 score_all = get_pattern_score(rest_clusters, args, index_pos, index_neg)
                 sub_cluster_scores.append(score_all.unsqueeze(0))
             sub_cluster_scores = torch.cat(sub_cluster_scores, dim=0)
-            highest_ness_score = torch.max(sub_cluster_scores[:, 0])
-            highest_ness_index = torch.argmax(sub_cluster_scores[:, 0])
-            new_suff_scores = sub_cluster_scores[highest_ness_index, 1]
+            highest_ness_score = torch.max(sub_cluster_scores.sum(dim=1))
+            highest_sn_index = torch.argmax(sub_cluster_scores.sum(dim=1))
+            new_suff_scores = sub_cluster_scores[highest_sn_index, 1]
             suff_incres = new_suff_scores > old_suff_scores
             old_suff_scores = new_suff_scores
-            new_pattern_cluster = pattern_cluster[:highest_ness_index] + pattern_cluster[highest_ness_index + 1:]
+            new_pattern_cluster = pattern_cluster[:highest_sn_index] + pattern_cluster[highest_sn_index + 1:]
         clu_score = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
         clu_all.append([pattern_cluster, clu_score])
 
