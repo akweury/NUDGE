@@ -105,8 +105,9 @@ def main():
                     "preds": lang.preds,
                     "inv_consts": inv_consts
                     }
-    file_utils.save_clauses(learned_data,
-                            args.trained_model_folder / f"learned_clauses_rho{args.rho_num}_phi_{args.phi_num}_train_{args.train_data_size}.pkl")
+    torch.save(learned_data,
+               args.trained_model_folder / f"learned_clauses_rho{args.rho_num}_phi_{args.phi_num}_train_{args.train_data_size}.pt")
+
     return learned_clauses
 
 

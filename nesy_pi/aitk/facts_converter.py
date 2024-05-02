@@ -60,13 +60,16 @@ class FactsConverter(nn.Module):
             # this atom is a neural predicate
             if type(atom.pred) == NeuralPredicate and i > 1:
                 if atom.pred.name in ["in", "phi", "rho", "shape", "not_exist"]:
-                    if atom.terms[-2].values is not None:
-                        param = atom.terms[-2].values
-                    elif (given_param[:, i]==1e+20).sum() != Z.shape[0]:
-                        param = given_param[:, i].unique()
-                        param = param[param != 1e+20]
-                    else:
-                        param = given_param[:, i]
+                    try:
+                        if atom.terms[-2].values is not None:
+                            param = atom.terms[-2].values
+                        elif (given_param[:, i] == 1e+20).sum() != Z.shape[0]:
+                            param = given_param[:, i].unique()
+                            param = param[param != 1e+20]
+                        else:
+                            param = given_param[:, i]
+                    except TypeError:
+                        print('')
                     a, b = self.vm(Z, atom, param)
                     V[:, i], pred_params[:, i] = a, b
 
