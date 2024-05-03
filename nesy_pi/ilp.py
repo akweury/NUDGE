@@ -122,7 +122,8 @@ def ilp_search(args, lang, init_clauses, FC, test_mode=False):
                 if is_test_clause:
                     test_clauses.append(c)
             clauses = test_clauses
-        if args.is_done:
+
+        if args.is_done or len(clauses)==0:
             break
         # clause evaluation
         img_scores, clause_scores, p_pos = clause_eval(args, lang, FC, clauses, extend_step)
