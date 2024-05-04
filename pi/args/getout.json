@@ -10,6 +10,7 @@
   "ness_th": 0.01,
   "ness_min": 0.01,
   "suff_min": 0.9,
+  "inv_sn_th": 1.0,
   "inv_sc_th": 0.5,
   "inv_nc_th": 0.40,
   "max_step": 2,
@@ -28,5 +29,5 @@
   "semantic_unique": false,
   "ness_maximize": false,
   "ness_equal_th": 0.05,
-  "learned_clause_file": "learned_clauses_rho10_phi_9_train_9000_pi_False.pt"
+  "learned_clause_file": "learned_clauses_rho10_phi_9_train_9000_pi_True.pt"
 }

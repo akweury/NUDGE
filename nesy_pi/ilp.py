@@ -199,7 +199,7 @@ def ilp_test(args, lang):
 
     args.iteration = args.max_step
     # returned clauses have to cover all the positive images and no negative images
-    ilp_search(args, lang, clauses, FC, pi_mode=args.with_pi)
+    ilp_search(args, lang, clauses, FC)
     # ranking with sufficiency
     top_ness_clauses = top_kp(lang.all_clauses, rank_type="suff", top_type="ness")
     success, clauses = log_utils.print_test_result(args, lang, top_ness_clauses)
@@ -207,10 +207,14 @@ def ilp_test(args, lang):
 
 
 def top_kp(clause_with_score, rank_type, top_type):
+    if len(clause_with_score)==0:
+        return []
     if rank_type == "ness":
         clauses_ranked = sorted(clause_with_score, key=lambda x: x[1][0], reverse=True)
     elif rank_type == "suff":
         clauses_ranked = sorted(clause_with_score, key=lambda x: x[1][1], reverse=True)
+    elif rank_type == "sn":
+        clauses_ranked = sorted(clause_with_score, key=lambda x: x[1].sum(), reverse=True)
     else:
         raise ValueError
 
@@ -244,7 +248,7 @@ def top_kp(clause_with_score, rank_type, top_type):
 
     print("##########################################################################")
     print(f"-TOP KP, total NESS: {(ness_used_data.sum() / len(ness_used_data)):.2f}, "
-          f"total SUFF: {(suff_used_data.sum() / len(suff_used_data)):.2f}")
+          f"total SUFF: {(1 - suff_used_data.sum() / len(suff_used_data)):.2f}")
     for c in top_kp_clauses:
         print(f"{c[0]}, {c[1]}")
     print("##########################################################################")
@@ -823,8 +827,9 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
     for cc_i, pattern_cluster in enumerate(patterns):
         highest_ness_score, old_suff_scores = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
         suff_incres = True
+        highest_sn_score = highest_ness_score + old_suff_scores
         new_pattern_cluster = pattern_cluster
-        while highest_ness_score > args.inv_nc_th and len(new_pattern_cluster) > 1 and suff_incres:
+        while highest_sn_score > args.inv_sn_th and len(new_pattern_cluster) > 1 and suff_incres:
             pattern_cluster = new_pattern_cluster
             sub_cluster_scores = []
             for c_i in range(len(pattern_cluster)):
@@ -832,7 +837,7 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
                 score_all = get_pattern_score(rest_clusters, args, index_pos, index_neg)
                 sub_cluster_scores.append(score_all.unsqueeze(0))
             sub_cluster_scores = torch.cat(sub_cluster_scores, dim=0)
-            highest_ness_score = torch.max(sub_cluster_scores.sum(dim=1))
+            highest_sn_score = torch.max(sub_cluster_scores.sum(dim=1))
             highest_sn_index = torch.argmax(sub_cluster_scores.sum(dim=1))
             new_suff_scores = sub_cluster_scores[highest_sn_index, 1]
             suff_incres = new_suff_scores > old_suff_scores

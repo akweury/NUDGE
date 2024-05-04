@@ -54,6 +54,8 @@ def get_args():
                         help="The accept threshold for sufficient clauses.")
     parser.add_argument("--inv_nc_th", type=float, default=0.9,
                         help="The accept threshold for sufficient clauses.")
+    parser.add_argument("--inv_sn_th", type=float, default=1.0,
+                        help="The accept threshold for sufficient clauses.")
     parser.add_argument("--sn_min_th", type=float, default=0.2,
                         help="The accept sn threshold for sufficient or necessary clauses.")
     parser.add_argument("--similar_th", type=float, default=1e-3,

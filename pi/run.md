@@ -35,6 +35,6 @@ python -m nesy_pi.collect_data_getout -m getout --device 10
 python -m nesy_pi.collect_asterix -m Asterix --device 0
 
 python -m nesy_pi.train_nudge -m getout -alg logic -env getout -r getout_pi --with_pi --device 4 -s 0
-python -m nesy_pi.train_nudge -m atari -alg logic -env Freeway -r freeway_pi --with_pi --device 6 -s 0
+python -m nesy_pi.train_nudge -m atari -alg logic -env Freeway -r freeway_pi --with_pi --device 1 -s 1
 python -m nesy_pi.train_nudge -m atari -alg logic -env Asterix -r asterix_pi --with_pi --device 3 -s 0
 ```
