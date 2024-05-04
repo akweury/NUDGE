@@ -262,7 +262,7 @@ def main():
                 max_iterations=max_training_timesteps - time_step)
 
     # Start the RTPT tracking
-    folder_name = f"{args.m}_{args.env}_{args.alg}_{args.rules}_s{args.seed}"
+    folder_name = f"{args.m}_{args.env}_{args.alg}_rho_{args.rho_num}_phi_{args.phi_num}_s{args.seed}_pi_{args.with_pi}"
     folder_name += datetime.datetime.now().strftime("%m%d-%H_%M")
     writer = SummaryWriter(str(args.trained_model_folder / folder_name))
     rtpt.start()
