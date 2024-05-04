@@ -83,7 +83,7 @@ from nesy_pi.aitk import ai_interface
 from nesy_pi import ilp
 from nesy_pi.aitk.utils import file_utils
 from nesy_pi.aitk.utils.fol import bk
-
+from nesy_pi.aitk.utils.fol.logic import Atom, Clause, Var
 from src import config
 
 
@@ -101,7 +101,6 @@ class NSFR_PI_ActorCritic(nn.Module):
         neural_preds = file_utils.load_neural_preds(bk_preds, "bk_pred")
         args.neural_preds = [neural_pred for neural_pred in neural_preds]
         args.lark_path = config.path_nesy / "lark" / "exp.lark"
-
         if args.env == 'getout':
             args.action_names = config.action_name_getout
             args.game_info = config.game_info_getout
@@ -126,6 +125,8 @@ class NSFR_PI_ActorCritic(nn.Module):
             self.critic = MLPLoot(out_size=1, logic=True)
         elif self.args.m == 'atari':
             self.critic = MLPAtari(out_size=1, logic=True)
+            if self.args.env == "Freeway":
+                args.clauses[-1].body.append(lang.atoms[1])
         self.num_actions = len(self.prednames)
         self.uniform = Categorical(
             torch.tensor([1.0 / self.num_actions for _ in range(self.num_actions)], device=self.args.device))

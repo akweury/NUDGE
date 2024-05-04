@@ -57,9 +57,6 @@ def run_ilp_predict(args, NSFR, th, split):
 
 
 # ---------------------------- ilp api --------------------------------------
-def extend_clause():
-    pass
-
 
 def reset_args(args):
     ilp.reset_args(args)
@@ -70,41 +67,12 @@ def reset_lang(lang, args, level, neural_pred, full_bk):
     return init_clause, e
 
 
-def search_clauses(args, lang, init_clauses, FC, level):
-    clauses = ilp.ilp_search(args, lang, init_clauses, FC, level)
-    return clauses
-
-
-def explain_clauses(args, lang, clauses):
-    ilp.explain_scenes(args, lang, clauses)
-
-
-def run_ilp(args, lang, level):
-    # print all the invented predicates
-    return success, clauses
-
-
-def predicate_invention(args, lang, clauses, e):
-    ilp.ilp_pi(args, lang, clauses, e)
-
-
-def keep_best_preds(args, lang):
-    ilp.keep_best_preds(args, lang)
 
 
 def run_ilp_train(args, lang):
     ilp.ilp_train(args, lang)
     success, sorted_clauses_with_scores = ilp.ilp_test(args, lang)
     return sorted_clauses_with_scores
-
-
-def run_ilp_train_explain(args, lang, level):
-    ilp.ilp_train_explain(args, lang, level)
-
-
-def ilp_eval(success, args, lang, clauses, g_data):
-    scores = ilp.ilp_eval(success, args, lang, clauses, g_data)
-    return scores
 
 
 def ilp_robust_eval(args, lang):
