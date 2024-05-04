@@ -5,6 +5,7 @@ from sklearn.metrics import roc_curve, accuracy_score, recall_score
 from tqdm import tqdm
 import torch
 import math
+import wandb
 from src import config
 from nesy_pi import eval_clause_infer
 from nesy_pi import semantic as se
@@ -142,6 +143,8 @@ def ilp_search(args, lang, init_clauses, FC, pi_mode=False):
         clause_ranged_with_ness = sorted(iter_clause_with_scores, key=lambda x: x[1].sum(), reverse=True)
         clauses = [c[0] for c in clause_ranged_with_ness][:args.top_k]
         lang.all_clauses += clause_ranged_with_ness
+
+        wandb.log({f'{args.action_names[args.label]}_extension': len(lang.all_clauses)})
 
         extend_step += 1
 

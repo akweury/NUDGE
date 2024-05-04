@@ -11,7 +11,7 @@
   "suff_min": 0.9,
   "inv_sc_th": 0.5,
   "inv_nc_th": 0.40,
-  "max_step": 2,
+  "max_step": 3,
   "cim_step": 3,
   "pi_top": 2,
   "top_data": 800,

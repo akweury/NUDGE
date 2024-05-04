@@ -4,6 +4,7 @@ import time
 import datetime
 import torch
 from rtpt import RTPT
+import wandb
 
 from nesy_pi.aitk.utils import log_utils, args_utils, file_utils
 from nesy_pi import semantic as se
@@ -37,6 +38,10 @@ def init(args):
 
 
 def main():
+
+
+
+
     exp_start = time.time()
     args = args_utils.get_args()
     group_round_time = []
@@ -51,6 +56,22 @@ def main():
     inv_preds = []
     args, rtpt, data, NSFR = init(args)
     args.rule_obj_num = args.max_rule_obj
+
+
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project=f"{args.env}_rho_{args.rho_num}_phi_{args.phi_num}",
+
+        # track hyperparameters and run metadata
+        config={
+            "architecture": "PI",
+            "dataset": f"{args.env}",
+            "actions": len(args.action_names),
+            "rho_num": args.rho_num,
+            "phi_num": args.phi_num,
+            "saved_clause_file": args.learned_clause_file
+        }
+    )
 
     lang = se.init_ilp(args, data, config.pi_type['bk'])
     # for a_i in range(len(args.action_names)):
@@ -76,6 +97,7 @@ def main():
         train_end = time.time()
         # se.ilp_eval(success, args, lang, clauses, g_data)
         eval_end = time.time()
+        wandb.log({'clause_num': len(action_clauses)})
 
         # log
         log_utils.add_lines(f"=============================", args.log_file)
@@ -106,8 +128,8 @@ def main():
                     "inv_consts": inv_consts
                     }
     torch.save(learned_data,
-               args.trained_model_folder / f"learned_clauses_rho{args.rho_num}_phi_{args.phi_num}_train_{args.train_data_size}_pi_{args.with_pi}.pt")
-
+               args.trained_model_folder / f"c_rho_{args.rho_num}_phi_{args.phi_num}_pi_{args.with_pi}.pt")
+    wandb.finish()
     return learned_clauses
 
 

@@ -241,6 +241,7 @@ def main():
             "phi_num": args.phi_num,
             "clauses": args.clauses,
             "clause_num": len(args.clauses),
+            "learned_clause_file": args.learned_clause_file
         }
     )
 
