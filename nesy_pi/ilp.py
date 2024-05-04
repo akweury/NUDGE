@@ -92,7 +92,7 @@ def inv_consts(args, p_pos, clauses, lang):
     return False, new_consts, clauses
 
 
-def ilp_search(args, lang, init_clauses, FC, test_mode=False):
+def ilp_search(args, lang, init_clauses, FC, pi_mode=False):
     """
     given one or multiple neural predicates, searching for high scoring clauses, which includes following steps
     1. extend given initial clauses
@@ -112,7 +112,7 @@ def ilp_search(args, lang, init_clauses, FC, test_mode=False):
 
         # clause extension
         clauses = clause_extend(args, lang, clauses)
-        if test_mode:
+        if pi_mode:
             test_clauses = []
             for c in clauses:
                 is_test_clause = True
@@ -199,7 +199,7 @@ def ilp_test(args, lang):
 
     args.iteration = args.max_step
     # returned clauses have to cover all the positive images and no negative images
-    ilp_search(args, lang, clauses, FC, test_mode=True)
+    ilp_search(args, lang, clauses, FC, pi_mode=args.with_pi)
     # ranking with sufficiency
     top_ness_clauses = top_kp(lang.all_clauses, rank_type="suff", top_type="ness")
     success, clauses = log_utils.print_test_result(args, lang, top_ness_clauses)
