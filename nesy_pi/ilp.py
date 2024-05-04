@@ -124,7 +124,7 @@ def ilp_search(args, lang, init_clauses, FC, pi_mode=False):
                     test_clauses.append(c)
             clauses = test_clauses
 
-        if args.is_done or len(clauses)==0:
+        if args.is_done or len(clauses) == 0:
             break
         # clause evaluation
         img_scores, clause_scores, p_pos = clause_eval(args, lang, FC, clauses, extend_step)
@@ -144,7 +144,7 @@ def ilp_search(args, lang, init_clauses, FC, pi_mode=False):
         clauses = [c[0] for c in clause_ranged_with_ness][:args.top_k]
         lang.all_clauses += clause_ranged_with_ness
 
-        wandb.log({f'{args.action_names[args.label]}_extension': len(lang.all_clauses)})
+        # wandb.log({f'{args.action_names[args.label]}_extension': len(lang.all_clauses)})
 
         extend_step += 1
 
@@ -210,7 +210,7 @@ def ilp_test(args, lang):
 
 
 def top_kp(clause_with_score, rank_type, top_type):
-    if len(clause_with_score)==0:
+    if len(clause_with_score) == 0:
         return []
     if rank_type == "ness":
         clauses_ranked = sorted(clause_with_score, key=lambda x: x[1][0], reverse=True)
@@ -311,7 +311,6 @@ def ilp_predict(NSFR, args, th=None, split='train'):
         rec_score = recall_score(
             target_set, [m > th for m in predicted_all], average=None)
         return accuracy, rec_score, th
-
 
 
 def keep_best_preds(args, lang):
@@ -818,6 +817,7 @@ def get_pattern_score(pattern, args, index_pos, index_neg):
 
 def search_independent_clauses_parallel(args, lang, clauses, e):
     patterns = logic_utils.get_independent_clusters(args, lang, clauses)
+    patterns = [p for p in patterns if len(p) > 1]
     # trivial: contain multiple semantic identity bodies
     # patterns = logic_utils.check_trivial_clusters(patterns)
 
@@ -828,11 +828,10 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
     # evaluate each new patterns
     clu_all = []
     for cc_i, pattern_cluster in enumerate(patterns):
-        highest_ness_score, old_suff_scores = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
+        ness_score, suff_scores = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
         suff_incres = True
-        highest_sn_score = highest_ness_score + old_suff_scores
         new_pattern_cluster = pattern_cluster
-        while highest_sn_score > args.inv_sn_th and len(new_pattern_cluster) > 1 and suff_incres:
+        while suff_scores < args.inv_sc_th and len(new_pattern_cluster) > 1 and suff_incres:
             pattern_cluster = new_pattern_cluster
             sub_cluster_scores = []
             for c_i in range(len(pattern_cluster)):
@@ -840,12 +839,18 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
                 score_all = get_pattern_score(rest_clusters, args, index_pos, index_neg)
                 sub_cluster_scores.append(score_all.unsqueeze(0))
             sub_cluster_scores = torch.cat(sub_cluster_scores, dim=0)
-            highest_sn_score = torch.max(sub_cluster_scores.sum(dim=1))
-            highest_sn_index = torch.argmax(sub_cluster_scores.sum(dim=1))
-            new_suff_scores = sub_cluster_scores[highest_sn_index, 1]
-            suff_incres = new_suff_scores > old_suff_scores
-            old_suff_scores = new_suff_scores
-            new_pattern_cluster = pattern_cluster[:highest_sn_index] + pattern_cluster[highest_sn_index + 1:]
+            highest_sc_score = torch.max(sub_cluster_scores[:, config.score_type_index["suff"]])
+            highest_sc_index = torch.argmax(sub_cluster_scores[:, config.score_type_index["suff"]])
+            ness_score = sub_cluster_scores[highest_sc_index, config.score_type_index["ness"]]
+            suff_incres = highest_sc_score >= suff_scores
+            suff_scores = highest_sc_score
+            new_pattern_cluster = pattern_cluster[:highest_sc_index] + pattern_cluster[highest_sc_index + 1:]
+            wandb.log({f"a{args.label}-{cc_i}-0-nc": ness_score,
+                       f"a_{args.label}-{cc_i}-1-sc": highest_sc_score,
+                       f"a_{args.label}-{cc_i}-2-sn": ness_score + highest_sc_score,
+                       })
+        if suff_scores >= args.inv_sc_th and len(new_pattern_cluster) > 1:
+            pattern_cluster = new_pattern_cluster
         clu_score = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
         clu_all.append([pattern_cluster, clu_score])
 

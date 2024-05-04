@@ -277,7 +277,7 @@ def main():
     print_running_reward = 0
     print_running_episodes = 0
 
-    rtpt = RTPT(name_initials='JS', experiment_name=f'PI_{args.m}',
+    rtpt = RTPT(name_initials='JS', experiment_name=f'{args.env}_rho_{args.rho_num}',
                 max_iterations=max_training_timesteps - time_step)
 
     # Start the RTPT tracking

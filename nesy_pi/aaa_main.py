@@ -60,12 +60,12 @@ def main():
 
     wandb.init(
         # set the wandb project where this run will be logged
-        project=f"{args.env}_rho_{args.rho_num}_phi_{args.phi_num}",
+        project=f"rho_{args.rho_num}_phi_{args.m}",
 
         # track hyperparameters and run metadata
         config={
             "architecture": "PI",
-            "dataset": f"{args.env}",
+            "dataset": f"{args.m}",
             "actions": len(args.action_names),
             "rho_num": args.rho_num,
             "phi_num": args.phi_num,
