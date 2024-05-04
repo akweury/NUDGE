@@ -7,6 +7,7 @@ import time
 
 import gym
 import numpy as np
+import wandb
 
 sys.path.insert(0, '../')
 
@@ -226,6 +227,23 @@ def main():
                                    title=f"{args.env}_reward_{args.seed}.png"
                                    )
 
+    # start a new wandb run to track this script
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project=f"{args.env}_rho_{args.rho_num}_phi_{args.phi_num}_clause_{len(args.clauses)}",
+
+        # track hyperparameters and run metadata
+        config={
+            "architecture": "PI",
+            "dataset": f"{args.env}",
+            "epochs": max_training_timesteps // print_freq,
+            "rho_num": args.rho_num,
+            "phi_num": args.phi_num,
+            "clauses": args.clauses,
+            "clause_num": len(args.clauses),
+        }
+    )
+
     # track total training time
     start_time = time.time()
     print("Started training at (GMT) : ", start_time)
@@ -352,7 +370,7 @@ def main():
 
                 print("Episode : {} \t\t Timestep : {} \t\t Average Reward : {}".format(i_episode, time_step,
                                                                                         print_avg_reward))
-                # wandb.log({'reward': print_avg_reward}, step=time_step)
+                wandb.log({'reward': print_avg_reward}, step=time_step)
                 print_running_reward = 0
                 print_running_episodes = 0
 
