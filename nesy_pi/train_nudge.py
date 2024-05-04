@@ -409,7 +409,7 @@ def main():
         writer.add_scalar('Epsilon', epsilon, i_episode)
 
     # env.close()
-
+    wandb.finish()
     # print total training time
     print("============================================================================================")
     with open(args.trained_model_folder / 'data.csv', 'w', newline='') as f:
