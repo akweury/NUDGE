@@ -126,9 +126,8 @@ class NSFR_PI_ActorCritic(nn.Module):
         elif self.args.m == 'atari':
             self.critic = MLPAtari(out_size=1, logic=True)
             if self.args.env == "Freeway":
-                for c in args.clauses:
-                    if len(c.body)==0:
-                        c.body.append(lang.atoms[1])
+                target_c = Clause(data["clauses"][1][0].head ,[lang.atoms[1]])
+                args.clauses.append(target_c)
         self.num_actions = len(self.prednames)
         self.uniform = Categorical(
             torch.tensor([1.0 / self.num_actions for _ in range(self.num_actions)], device=self.args.device))
