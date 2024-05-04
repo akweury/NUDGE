@@ -34,8 +34,10 @@ game_buffer = game_utils.load_atari_buffer(args, buffer_filename)
 
 data_file = args.trained_model_folder / f"nesy_data.pth"
 if not os.path.exists(data_file):
-    states = torch.cat([state for state in game_buffer["states"]], dim=0)
-    actions = torch.cat([action for action in game_buffer["actions"]], dim=0)
+    state_len = torch.tensor([len(state) for state in game_buffer["states"]])
+    idx = state_len.sort()[1][-20:]
+    states = torch.cat([game_buffer["states"][i] for i in idx], dim=0)
+    actions = torch.cat([game_buffer["actions"][i] for i in idx], dim=0)
 
     random_indices = torch.randperm(states.shape[0])
     states = states[random_indices]
@@ -118,42 +120,8 @@ if not os.path.exists(data_file):
         # existence of above 2 and below 1
 
         stored_data[a_i] = {}
-        # existence of above 3 and below 1
-        # a3b1_pos_mask = pos_ab_data[:, :, :2].sum(dim=-1).sum(dim=-1) == 5
-        # a3b1_neg_mask = neg_ab_data[:, :, :2].sum(dim=-1).sum(dim=-1) == 5
-        # pos_a3b1 = pos_ab_data[a3b1_pos_mask]
-        # neg_a3b1 = neg_ab_data[a3b1_neg_mask]
-        # # above 3 all greater than 0.5 (left to right direction)
-        # a3b1_pos_mask_lr = (pos_a3b1[:, :, -1] > 0.5).sum(dim=-1) == 5
-        # a3b1_neg_mask_lr = (neg_a3b1[:, :, -1] > 0.5).sum(dim=-1) == 5
-        # pos_a3b1_lr = pos_a3b1[a3b1_pos_mask_lr]
-        # neg_a3b1_lr = neg_a3b1[a3b1_neg_mask_lr]
         stored_data[a_i] = {"pos_data": pos_ab_data, "neg_data": neg_ab_data}
-        # # above 3 all smaller than 0.5 right to left direction)
-        # a3b1_pos_mask_rl = (pos_a3b1[:, :, -1] < 0.5).sum(dim=-1) == 5
-        # a3b1_neg_mask_rl = (neg_a3b1[:, :, -1] < 0.5).sum(dim=-1) == 5
-        # pos_a3b1_rl = pos_a3b1[a3b1_pos_mask_rl]
-        # neg_a3b1_rl = neg_a3b1[a3b1_neg_mask_rl]
-        # stored_data[a_i]["a3b1_rl"] = {"pos_data": pos_a3b1_rl, "neg_data": neg_a3b1_rl}
-        #
-        # # existence of above 3 and below 0
-        # a3b0_pos_mask =(pos_ab_data[:, -1, 1] == 0) & (pos_ab_data[:, 1:, 1].sum(dim=-1) == 3)
-        # a3b0_neg_mask = (neg_ab_data[:, -1, 1] == 0) & (neg_ab_data[:, 1:, 1].sum(dim=-1) == 3)
-        # pos_a3b0 = pos_ab_data[a3b0_pos_mask]
-        # neg_a3b0 = neg_ab_data[a3b0_neg_mask]
-        # # above 3 all greater than 0.5 (left to right direction)
-        # a3b0_pos_mask_lr = (pos_a3b0[:, :, -1] > 0.5).sum(dim=-1) == 4
-        # a3b0_neg_mask_lr = (neg_a3b0[:, :, -1] > 0.5).sum(dim=-1) == 4
-        # pos_a3b0_lr = pos_a3b0[a3b0_pos_mask_lr]
-        # neg_a3b0_lr = neg_a3b0[a3b0_neg_mask_lr]
-        # stored_data[a_i]["a3b0_lr"] = {"pos_data": pos_a3b0_lr, "neg_data": neg_a3b0_lr}
-        #
-        # # above 3 all smaller than 0.5 right to left direction)
-        # a3b0_pos_mask_rl = (pos_a3b0[:, :, -1] < 0.5).sum(dim=-1) == 4
-        # a3b0_neg_mask_rl = (neg_a3b0[:, :, -1] < 0.5).sum(dim=-1) == 4
-        # pos_a3b0_rl = pos_a3b0[a3b0_pos_mask_rl]
-        # neg_a3b0_rl = neg_a3b0[a3b0_neg_mask_rl]
-        # stored_data[a_i]["a3b0_rl"] = {"pos_data": pos_a3b0_rl, "neg_data": neg_a3b0_rl}
+
 
     torch.save(stored_data, data_file)
     print(f"Saved data to {data_file}.")
