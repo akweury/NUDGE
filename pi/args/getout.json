@@ -23,11 +23,11 @@
   "max_rule_obj": 3,
   "game_obj_num": 4,
   "batch_size": 50,
-  "teacher_game_nums": 10000,
+  "teacher_game_nums": 50,
   "print_freq": 100,
   "jump_frames": 0,
   "semantic_unique": false,
   "ness_maximize": false,
   "ness_equal_th": 0.05,
-  "learned_clause_file": "c_rho_100_phi_90_pi_True_step_3.pt"
+  "learned_clause_file": "c_rho_100_phi_180_pi_True_step_4.pt"
 }
