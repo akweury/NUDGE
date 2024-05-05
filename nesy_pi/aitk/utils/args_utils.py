@@ -285,9 +285,9 @@ def get_args():
         args.failed_th = 0.3
         args.att_var_th = 0.5
         args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
-        args.action_names = config.action_name_getout
-        args.prop_names = config.prop_name_getout
-        args.game_info = config.game_info_getout
+        args.action_names = config.action_name_loot
+        # args.prop_names = config.prop_name_loot
+        args.game_info = config.game_info_loot
         args.obj_info = args.game_info["obj_info"]
     elif args.m == "Assault" or args.m == "assault":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'

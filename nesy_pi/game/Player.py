@@ -16,6 +16,7 @@ from nesy_pi.aitk.utils import game_utils, draw_utils
 from nesy_pi.aitk import ai_interface
 from nesy_pi import ilp
 from nesy_pi.train_getout_strategy import NeuralNetwork
+from src.agents.utils_loot import extract_neural_state_loot, simplify_action_loot, extract_logic_state_loot
 
 class ClausePlayer:
     def __init__(self, args):
@@ -756,6 +757,8 @@ class PpoPlayer:
     def act(self, state):
         if self.args.m == 'getout' or self.args.m == "getoutplus":
             action = self.getout_actor(state)
+        elif self.args.m == "loot":
+            action = self.loot_actor(state)
         else:
             raise ValueError
         return action
@@ -795,6 +798,24 @@ class PpoPlayer:
         explaining = None
         action = prediction + 1
         return action
+    def threefish_actor(self, state):
+        state = extract_neural_state_threefish(state, self.args)
+        # state = state.reshape(-1)
+        # state = state.tolist()
+        predictions = self.model(state)
+        action = torch.argmax(predictions)
+        action = simplify_action_bf(action)
+        return action
+
+    def loot_actor(self, state):
+        state = extract_neural_state_loot(state, self.args)
+        # state = state.reshape(-1)
+        # state = state.tolist()
+        predictions = self.model(state)
+        action = torch.argmax(predictions)
+        action = simplify_action_loot(action)
+        return action
+
 
     def getout_reasoning_actor(self, getout):
         extracted_state = extract_neural_state_getout(getout, self.args).to(self.args.device)

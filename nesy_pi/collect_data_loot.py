@@ -5,6 +5,8 @@ import time
 import random
 import torch
 import os
+import gym3
+
 
 from src.environments.procgen.procgen import ProcgenGym3Env
 from src.agents.utils_loot import extract_neural_state_loot, simplify_action_loot, extract_logic_state_loot
@@ -76,96 +78,43 @@ def collect_loot_data(args, agent, buffer_filename, save_buffer):
     win_count = 0
     win_rates = []
     max_states = 10000
-    save_frequence = 5
+    save_frequence = 1
     step = 0
     collected_states = 0
-
-
     env = ProcgenGym3Env(num=1, env_name=args.env, render_mode="rgb_array", rand_seed=args.seed, start_level=args.seed)
-
-    env = ProcgenGym3Env(num=1, env_name=args.env, render_mode="rgb_array")
-    reward, obs, done = env.observe()
-    for i in tqdm(range(max_states)):
-        # step game
-        step += 1
-        neural_state = extract_neural_state_loot(obs, args)
-        logic_state = extract_logic_state_loot(obs, args)
-        logic_state = logic_state.squeeze(0)
-        action = agent.act(env)
-
-
-        action = simplify_action_loot(action)
-        env.act(action)
-        rew, obs, done = env.observe()
-        if step % save_frequence == 0:
-            collected_states += 1
-            buffer.logic_states.append(logic_state.detach().tolist())
-            buffer.actions.append(torch.argmax(predictions.detach()).tolist())
-            buffer.action_probs.append(predictions.detach().tolist())
-            buffer.neural_states.append(neural_state.tolist())
-    buffer.save_data(args)
-
-
-
-
-    game_env = create_getout_instance(args, seed)
-    env_args = EnvArgs(agent=agent, args=args, window_size=[game_env.camera.height,
-                                                            game_env.camera.width], fps=60)
-
     if args.with_explain:
-        video_out = game_utils.get_game_viewer(env_args)
-    # frame rate limiting
-    for i in tqdm(range(game_num), desc=f"win counter: {win_count}"):
+        env = gym3.ViewerWrapper(env, info_key="rgb")
+    reward, obs, done = env.observe()
+    for i in tqdm(range(game_num)):
+        # step game
         step += 1
         logic_states = []
         actions = []
         rewards = []
-        frame_counter = 0
-
-        # play a game
-        while not (game_env.level.terminated):
-            # limit frame rate
-            if args.with_explain:
-                current_frame_time = time.time()
-                if env_args.last_frame_time + env_args.target_frame_duration > current_frame_time:
-                    sl = (env_args.last_frame_time + env_args.target_frame_duration) - current_frame_time
-                    time.sleep(sl)
-                    continue
-                env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
-
-            env_args.obs = env_args.last_obs
-            # random actions
-            action = agent.reasoning_act(game_env)
-            logic_state = extract_logic_state_getout(game_env, args).squeeze()
-            env_args.logic_state = logic_state
-            try:
-                reward = game_env.step(action)
-            except KeyError:
-                game_env.level.terminated = True
-                game_env.level.lost = True
-                break
-            if frame_counter == 0:
-                logic_states.append(logic_state.detach().tolist())
-                actions.append(action - 1)
-                rewards.append(reward)
+        done= False
+        while not done:
+            neural_state = extract_neural_state_loot(obs, args)
+            logic_state = extract_logic_state_loot(obs, args)
+            logic_state = logic_state.squeeze(0)
+            action = agent.act(obs)
+            # action = simplify_action_loot(action)
+            env.act(action)
+            rew, obs, done = env.observe()
+            action = action.tolist()[0]
+            if action == 1:
+                action = 0
+            elif action == 3:
+                action = 1
+            elif action == 5:
+                action = 2
+            elif action == 7:
+                action = 3
             else:
-                logic_states.append(logic_state.detach().tolist())
-                actions.append(action - 1)
-                rewards.append(reward)
-            env_args.last_obs = np.array(game_env.camera.screen.convert("RGB"))
-            frame_counter += 1
-
-            if args.with_explain:
-                env_args.frame_i = frame_counter
-                env_args.game_i = i
-                env_args.action = action
-                env_args.reward = reward
-                _render(args, agent, env_args, video_out, "")
-            if frame_counter > 100:
-                game_env.level.terminated = True
-                game_env.level.lost = True
-        # save game buffer
-        if not game_env.level.lost and len(logic_states) < 100:
+                raise ValueError
+            logic_states.append(logic_state.detach().tolist())
+            actions.append(action)
+            rewards.append(rew.tolist()[0])
+        if rewards[-1]>0:
             buffer.logic_states.append(logic_states)
             buffer.actions.append(actions)
             buffer.rewards.append(rewards)
@@ -174,18 +123,10 @@ def collect_loot_data(args, agent, buffer_filename, save_buffer):
         else:
             buffer.lost_logic_states.append(logic_states)
             buffer.lost_actions.append(actions)
-            buffer.lost_rewards.append(rewards)
-
+            buffer.rewards.append(rewards)
         win_rates.append(win_count / (i + 1e-20))
-        # start a new game
-        game_env = create_getout_instance(args, seed)
-
     buffer.win_rates = win_rates
     buffer.save_data()
-    if args.with_explain:
-        draw_utils.release_video(video_out)
-    return
-
 
 if not os.path.exists(buffer_filename):
     agent = game_utils.create_agent(args, agent_type=args.teacher_agent)
@@ -195,12 +136,12 @@ game_buffer = game_utils.load_buffer(args, buffer_filename)
 data_file = args.trained_model_folder / f"nesy_data.pth"
 if not os.path.exists(data_file):
     states = torch.cat(game_buffer.logic_states, dim=0)
-    states[:, :, -2:] = states[:, :, -2:] / 50
+    states[:, :, -2:] = states[:, :, -2:] / 10
     actions = torch.cat(game_buffer.actions, dim=0)
 
     data = {}
     action_data = []
-    for a_i in range(len(args.action_names)):
+    for a_i in range(4):
         d = states[actions == a_i]
         random_indices = torch.randperm(d.shape[0])
         action_data.append(d[random_indices])
@@ -208,7 +149,7 @@ if not os.path.exists(data_file):
     min_size = min_size - min_size % 100
     action_data = [d[:min_size] for d in action_data]
 
-    for a_i in range(len(args.action_names)):
+    for a_i in range(4):
         action_mask = actions == a_i
         pos_data = action_data[a_i]
         rest_data = torch.cat([d for d_i, d in enumerate(action_data) if d_i != a_i])

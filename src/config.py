@@ -86,6 +86,12 @@ obj_info_getout = [('agent', 1),
                    ('key', 1),
                    ('door', 1),
                    ('enemy', 1)]
+obj_info_loot = [('agent', 1),
+                   ('key1', 1),
+                   ('loot1', 1),
+                 ('key2', 1),
+                 ('loot2', 1),
+                 ]
 game_info_getout = {
     "obj_info": obj_info_getout,
     "state_row_num": 4,
@@ -93,7 +99,13 @@ game_info_getout = {
     "axis_x_col": 4,
     "axis_y_col": 5
 }
-
+game_info_loot = {
+    "obj_info": obj_info_loot,
+    "state_row_num": 5,
+    "state_col_num": 8,
+    "axis_x_col": 6,
+    "axis_y_col": 7
+}
 obj_info_getoutplus = [('agent', 1),
                        ('key', 1),
                        ('door', 1),
@@ -317,12 +329,14 @@ action_name_boxing = ["noop",  # 0
 ########### action info ############################
 
 action_name_getout = ["left", "right", "jump"]
+action_name_loot = ["left", "down", "up", "right"]
 
 action_name_threefish = ["left", "right", "jump"]
 
 ################### prop info ########################
 
 prop_name_getout = ['agent', 'key', 'door', 'enemy', "axis_x", "axis_y"]
+prop_name_loot = ['agent', 'key', 'door', 'enemy', "axis_x", "axis_y"]
 prop_name_threefish = ['agent', 'fish', "radius", "axis_x", "axis_y"]
 prop_name_assault = ['agent', 'player_missile_vertical', "player_missile_horizontal", "enemy", "enemy_missile",
                      "axis_x", "axis_y"]
