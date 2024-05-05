@@ -144,7 +144,7 @@ def main():
         os.makedirs(str(path_check_point))
 
     if args.rules is not None:
-        directory = path_check_point / args.m / args.alg / args.env / args.rules / str(args.seed)
+        directory = args.trained_model_folder / f"rho_{args.rho_num}_phi_{args.phi_num}_step_{args.max_step}" / str(args.seed)
     else:
         directory = path_check_point / args.m / args.alg / args.env / str(args.seed)
     if not os.path.exists(str(directory)):
