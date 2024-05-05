@@ -55,7 +55,7 @@ def main():
 
     wandb.init(
         # set the wandb project where this run will be logged
-        project=f"rho_{args.rho_num}_phi_{args.m}",
+        project=f"{args.m}_Rule_Learning",
 
         # track hyperparameters and run metadata
         config={
