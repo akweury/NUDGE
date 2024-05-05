@@ -121,8 +121,7 @@ class FCNNValuationModule(nn.Module):
             # call valuation function
             return self.vfs[atom.pred.name](*args)
         else:
-            return torch.zeros((zs.size(0),)).to(torch.float32).to(self.device), torch.zeros((zs.size(0),)).to(
-                torch.float32).to(self.device)
+            return torch.zeros((zs.size(0),)).to(torch.float32).to(self.device)
 
     def ground_to_tensor(self, term, zs):
         """Ground terms into tensor representations.
@@ -330,7 +329,7 @@ class FCNNRhoValuationFunction(nn.Module):
             A batch of probabilities.
         """
         if (z_1 == z_2).prod().bool():
-            return torch.zeros(z_2.shape[0]).to(z_2.device), torch.zeros(z_2.shape[0]).to(z_2.device)
+            return torch.zeros(z_2.shape[0]).to(z_2.device)
         mask_z1 = z_1[:, 0] > 0
         mask_z2 = z_2[:, 0] > 0
         mask = (mask_z1 & mask_z2)
@@ -396,7 +395,7 @@ class FCNNPhiValuationFunction(nn.Module):
         """
 
         if (z_1 == z_2).prod().bool():
-            return torch.zeros(z_2.shape[0]).to(z_2.device), torch.zeros(z_2.shape[0]).to(z_2.device)
+            return torch.zeros(z_2.shape[0]).to(z_2.device)
         mask_z1 = z_1[:, 0] > 0
         mask_z2 = z_2[:, 0] > 0
         mask = (mask_z1 & mask_z2)
