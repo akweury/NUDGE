@@ -91,7 +91,7 @@ class NSFReasoner(nn.Module):
 
     def eval_quick(self, x, given_param=None):
         # convert to the valuation tensor
-        V_0, param = self.fc(x, self.atoms, self.bk, given_param)
+        V_0 = self.fc(x, self.atoms, self.bk)
 
         # perform T-step forward-chaining reasoning
         V_T = self.im(V_0, self.atoms)
@@ -99,7 +99,7 @@ class NSFReasoner(nn.Module):
 
         # param shape: list with len: c_num
         # for each in list: shape = batch_size * pred_num
-        return V_T, param
+        return V_T
 
     def get_predictions(self, V_T, prednames):
         predicts = self.predict_multi(v=V_T, prednames=prednames)

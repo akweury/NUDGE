@@ -94,7 +94,7 @@ class NSFR_PI_ActorCritic(nn.Module):
         self.args = args
 
         clause_file = args.trained_model_folder / args.learned_clause_file
-        data =torch.load(clause_file)
+        data =torch.load(clause_file, map_location=torch.device(args.device))
         args.p_inv_counter = data["p_inv_counter"]
         args.clauses = [cs for acs in data["clauses"] for cs in acs]
         bk_preds = [bk.neural_predicate_2[bk_pred_name] for bk_pred_name in args.bk_pred_names.split(",")]
@@ -209,8 +209,7 @@ class NSFR_PI_ActorCritic(nn.Module):
             logic_state = torch.cat((player_pos_data, pos_same_y, pos_above_data, pos_below_data), dim=1)
         else:
             raise ValueError
-        P_pos = torch.zeros(1, len(self.actor.atoms)).to(self.args.device) + 1e+20
-        V_T, param = self.actor.eval_quick(logic_state, P_pos)
+        V_T = self.actor.eval_quick(logic_state)
         # aa_atom_v = V_T.numpy().T
         # aa_atom = self.actor.atoms
         action_probs = self.actor.get_predictions(V_T, prednames=self.prednames).to(self.args.device)
