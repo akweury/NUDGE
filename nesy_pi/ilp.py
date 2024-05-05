@@ -397,39 +397,33 @@ def get_clause_score(NSFR, args, pred_names, eval_data, pos_group_pred=None, neg
 
     train_size = len(pos_group_pred)
     bz = args.batch_size
-    V_T_pos = torch.zeros(len(NSFR.clauses), train_size, len(NSFR.atoms)).to(args.device)
-    V_T_neg = torch.zeros(len(NSFR.clauses), train_size, len(NSFR.atoms)).to(args.device)
-    P_pos = torch.zeros(train_size, len(NSFR.atoms)).to(args.device) + 1e+20
-    P_neg = torch.zeros(train_size, len(NSFR.atoms)).to(args.device) + 1e+20
-    img_scores = torch.zeros(size=(V_T_pos.shape[0], V_T_pos.shape[1], 2)).to(args.device)
+    img_scores = torch.zeros(size=(len(NSFR.clauses), train_size, 2)).to(args.device)
     for i in range(math.ceil(train_size / batch_size)):
-        date_now = datetime.datetime.today().date()
-        time_now = datetime.datetime.now().strftime("%H_%M_%S")
-        # print(f"({date_now} {time_now}) eval batch {i + 1}/{int(train_size / args.batch_size_train)}")
         l_i = i * bz
         r_i = (i + 1) * bz
+        V_T_neg = torch.zeros(len(NSFR.clauses), batch_size, len(NSFR.atoms)).to(args.device)
+        P_pos = torch.zeros(batch_size, len(NSFR.atoms)).to(args.device) + 1e+20
         g_tensors_pos = pos_group_pred[l_i:r_i]
         g_tensors_neg = neg_group_pred[l_i:r_i]
-        # V_T_pos.dim = clause num * img num * atoms num
-        V_T_pos[:, l_i:r_i, :], P_pos[l_i:r_i, :] = NSFR.clause_eval_quick(g_tensors_pos, P_pos[l_i:r_i, :])
+        V_T_pos, P_pos = NSFR.clause_eval_quick(g_tensors_pos, P_pos)
         if not eval_data == "play":
-            V_T_neg[:, l_i:r_i, :], P_neg[l_i:r_i, :] = NSFR.clause_eval_quick(g_tensors_neg, P_pos[l_i:r_i, :])
-    # each score needs an explanation
-    score_positive = NSFR.get_target_prediciton(V_T_pos, pred_names, args.device)
-    score_positive[score_positive == 1] = 0.99
-    if score_positive.size(2) > 1:
-        score_positive = score_positive.max(dim=2, keepdim=True)[0]
-    index_pos = config.score_example_index["pos"]
-    img_scores[:, :, index_pos] = score_positive[:, :, 0]
+            V_T_neg, _ = NSFR.clause_eval_quick(g_tensors_neg, P_pos)
+        # each score needs an explanation
+        score_positive = NSFR.get_target_prediciton(V_T_pos, pred_names, args.device)
+        score_positive[score_positive == 1] = 0.99
+        if score_positive.size(2) > 1:
+            score_positive = score_positive.max(dim=2, keepdim=True)[0]
+        index_pos = config.score_example_index["pos"]
+        img_scores[:, l_i:r_i, index_pos] = score_positive[:, :, 0]
 
-    if not eval_data == "play":
-        score_negative = NSFR.get_target_prediciton(V_T_neg, pred_names, args.device)
-        score_negative[score_negative == 1] = 0.99
-        if score_negative.size(2) > 1:
-            score_negative = score_negative.max(dim=2, keepdim=True)[0]
+        if not eval_data == "play":
+            score_negative = NSFR.get_target_prediciton(V_T_neg, pred_names, args.device)
+            score_negative[score_negative == 1] = 0.99
+            if score_negative.size(2) > 1:
+                score_negative = score_negative.max(dim=2, keepdim=True)[0]
 
-        index_neg = config.score_example_index["neg"]
-        img_scores[:, :, index_neg] = score_negative[:, :, 0]
+            index_neg = config.score_example_index["neg"]
+            img_scores[:, l_i:r_i, index_neg] = score_negative[:, :, 0]
 
     return img_scores, P_pos
 
