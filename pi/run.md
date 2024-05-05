@@ -27,7 +27,7 @@ python -m pi.expanding -m Freeway --device 11 --start_frame 25000 --end_frame 35
 python -m nesy_pi.aaa_main -m Freeway --device 10 --with_pi
 python -m nesy_pi.aaa_main -m Freeway --device 8 --with_pi
 
-python -m nesy_pi.aaa_main -m getout --device 0 --with_pi --show_process
+python -m nesy_pi.aaa_main -m getout --device 2 --with_pi --show_process
 
 python -m nesy_pi.play_with_clauses -m Freeway --device 11 
 python -m nesy_pi.collect_data -m Freeway --device 15
