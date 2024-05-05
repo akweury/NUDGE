@@ -25,16 +25,16 @@ python -m pi.expanding -m Freeway --device 10 --start_frame 15000 --end_frame 25
 python -m pi.expanding -m Freeway --device 11 --start_frame 25000 --end_frame 35000
 
 python -m nesy_pi.aaa_main -m Freeway --device 10 --with_pi
-python -m nesy_pi.aaa_main -m Freeway --device 8 --with_pi
+python -m nesy_pi.aaa_main -m Freeway --device 2 --with_pi --show_process
 
 python -m nesy_pi.aaa_main -m getout --device 2 --with_pi --show_process
 
 python -m nesy_pi.play_with_clauses -m Freeway --device 11 
-python -m nesy_pi.collect_data -m Freeway --device 15
+python -m nesy_pi.collect_data -m Freeway --device 2
 python -m nesy_pi.collect_data_getout -m getout --device 10
 python -m nesy_pi.collect_asterix -m Asterix --device 0
 
 python -m nesy_pi.train_nudge -m getout -alg logic -env getout -r getout_pi --with_pi --device 2 -s 1
-python -m nesy_pi.train_nudge -m atari -alg logic -env Freeway -r freeway_pi --with_pi --device 1 -s 1
+python -m nesy_pi.train_nudge -m atari -alg logic -env Freeway -r freeway_pi --with_pi --device 2 -s 1
 python -m nesy_pi.train_nudge -m atari -alg logic -env Asterix -r asterix_pi --with_pi --device 1 -s 0
 ```
