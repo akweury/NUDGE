@@ -38,10 +38,6 @@ def init(args):
 
 
 def main():
-
-
-
-
     exp_start = time.time()
     args = args_utils.get_args()
     group_round_time = []
@@ -56,7 +52,6 @@ def main():
     inv_preds = []
     args, rtpt, data, NSFR = init(args)
     args.rule_obj_num = args.max_rule_obj
-
 
     wandb.init(
         # set the wandb project where this run will be logged
@@ -128,7 +123,7 @@ def main():
                     "inv_consts": inv_consts
                     }
     torch.save(learned_data,
-               args.trained_model_folder / f"c_rho_{args.rho_num}_phi_{args.phi_num}_pi_{args.with_pi}.pt")
+               args.trained_model_folder / f"c_rho_{args.rho_num}_phi_{args.phi_num}_pi_{args.with_pi}_step_{args.max_step}.pt")
     wandb.finish()
     return learned_clauses
 
