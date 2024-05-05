@@ -22,7 +22,7 @@
   "phi_num": 180,
   "max_rule_obj": 3,
   "game_obj_num": 4,
-  "batch_size": 100,
+  "batch_size": 20,
   "teacher_game_nums": 10000,
   "print_freq": 100,
   "jump_frames": 0,
