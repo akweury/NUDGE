@@ -14,7 +14,8 @@ from nesy_pi.aitk.utils.ale_env import ALEModern
 from nesy_pi.aitk.utils import draw_utils
 from src.agents.random_agent import RandomPlayer
 
-
+from src.config import *
+from src.agents.logic_agent import LogicPPO
 class RolloutBuffer:
     def __init__(self, filename):
         self.filename = filename
@@ -347,6 +348,10 @@ def create_agent(args, agent_type):
         agent = 'human'
     elif agent_type == "ppo":
         agent = PpoPlayer(args)
+    elif agent_type == "logic_ppo":
+        agent = LogicPPO(lr_actor, lr_critic, optimizer, gamma, K_epochs, eps_clip, args)
+        agent.load(args.model_path)
+
     elif agent_type == "oca_ppo":
         agent = OCA_PPOAgent(args.num_actions).to(args.device)
         ckpt = torch.load(args.model_path, map_location=torch.device(args.device))["model_weights"]

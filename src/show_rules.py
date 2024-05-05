@@ -64,7 +64,7 @@ def main():
     current_path = os.path.dirname(__file__)
 
     if args.alg == "logic":
-        model_name = "beam_search_top1.pth"
+        model_name = "beam_search_top_1.pth"
     else:
         models_folder = os.path.join(current_path, 'models', args.m, args.alg)
         print(f"Please use one of the following agent: {os.listdir(models_folder)}")

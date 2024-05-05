@@ -74,7 +74,7 @@ def main():
 
         # model_name = input('Enter file name: ')
         if args.alg == "logic":
-            model_name = "beam_search_top1.pth"
+            model_name = "beam_search_top_1.pth"
         elif args.alg == "ppo":
             model_name = "ppo_.pth"
         else:

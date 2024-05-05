@@ -230,7 +230,7 @@ class NSFR_PI_ActorCritic(nn.Module):
 
     def evaluate(self, neural_state, logic_state, action):
         P_pos = torch.zeros(1, len(self.actor.atoms)).to(self.args.device) + 1e+20
-        V_T, param = self.actor.eval_quick(logic_state, P_pos)
+        V_T = self.actor.eval_quick(logic_state, P_pos)
         action_probs = self.actor.get_predictions(V_T.squeeze(), prednames=self.prednames).to(self.args.device)
 
         dist = Categorical(action_probs)
