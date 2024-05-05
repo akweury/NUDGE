@@ -309,7 +309,7 @@ class ClauseInferModule(nn.Module):
         assert m == self.C, "Invalid m and C: " + \
                             str(m) + ' and ' + str(self.C)
 
-    def forward(self, x, atoms, param):
+    def forward(self, x, atoms):
         """
         In the forward function we accept a Tensor of input data and we must return
         a Tensor of output data. We can use Modules defined in the constructor as

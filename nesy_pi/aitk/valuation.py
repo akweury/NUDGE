@@ -217,9 +217,9 @@ class FCNNShapeValuationFunction(nn.Module):
         # shape_indices = [config.group_tensor_index[_shape] for _shape in config.group_pred_shapes]
         z_shape = z[:, 1:self.obj_type_num]
         pred = (a * z_shape).sum(dim=1)
-        param = torch.zeros_like(pred).to(torch.float32)
+        # param = torch.zeros_like(pred).to(torch.float32)
         # a_batch = a.repeat((z.size(0), 1))  # one-hot encoding for batch
-        return pred, param
+        return pred
 
 
 class FCNNNotShapeValuationFunction(nn.Module):
@@ -247,9 +247,8 @@ class FCNNNotShapeValuationFunction(nn.Module):
         # shape_indices = [config.group_tensor_index[_shape] for _shape in config.group_pred_shapes]
 
         pred = (~z[:, 0].to(torch.bool)).to(torch.float32)
-        param = torch.zeros_like(pred).to(torch.float32)
         # a_batch = a.repeat((z.size(0), 1))  # one-hot encoding for batch
-        return pred, param
+        return pred
 
 
 class FCNNShapeCounterValuationFunction(nn.Module):
@@ -299,8 +298,8 @@ class FCNNInValuationFunction(nn.Module):
         """
 
         prob, _ = z[:, :self.obj_type_num].max(dim=-1)
-        param = torch.zeros_like(prob)
-        return prob, param
+        # param = torch.zeros_like(prob)
+        return prob
 
 
 class FCNNRhoValuationFunction(nn.Module):
@@ -335,11 +334,7 @@ class FCNNRhoValuationFunction(nn.Module):
         mask_z1 = z_1[:, 0] > 0
         mask_z2 = z_2[:, 0] > 0
         mask = (mask_z1 & mask_z2)
-
-        c_1 = z_2[:, -2:].permute(1, 0)
-        c_2 = z_1[:, -2:].permute(1, 0)
-
-        dir_vec = c_2 - c_1
+        dir_vec = z_1[:, -2:].permute(1, 0) -  z_2[:, -2:].permute(1, 0)
 
         dir_vec[1] = -dir_vec[1]
         rho, phi = self.cart2pol(dir_vec[0], dir_vec[1])
@@ -361,10 +356,7 @@ class FCNNRhoValuationFunction(nn.Module):
             for i in range(dist_pred.shape[0]):
                 dist_pred[i, int(dist_id[i])] = 1
             satisfaction = (dist_grade * dist_pred).sum(dim=1) * mask
-
-        parameters = torch.zeros_like(satisfaction).to(torch.float) + 1e+20
-        parameters[satisfaction > 0] = rho[satisfaction > 0].to(torch.float)
-        return satisfaction, parameters
+        return satisfaction
 
     def cart2pol(self, x, y):
         rho = torch.sqrt(x ** 2 + y ** 2)
@@ -411,23 +403,13 @@ class FCNNPhiValuationFunction(nn.Module):
         from nesy_pi.aitk.utils import math_utils
         # c_1 = z_2[:, -2:].permute(1, 0)
         # c_2 = z_1[:, -2:].permute(1, 0)
-
-        delta_x = z_1[:, -2] - z_2[:, -2]
-        delta_y = z_2[:, -1] - z_1[:, -1]
-
-        angle_radians = torch.atan2(delta_y, delta_x)
+        angle_radians = torch.atan2(z_2[:, -1] - z_1[:, -1], z_1[:, -2] - z_2[:, -2])
         angle_degrees = torch.rad2deg(angle_radians)
         angle_degrees = math_utils.closest_one_percent(angle_degrees, self.error_th)
-
-        if (given_param == 1e+20).sum() != given_param.shape[0]:
-            params = given_param[given_param != 1e+20].unique()
-            satisfaction = torch.cat([(torch.abs(angle_degrees - p) < 1e-5).unsqueeze(0) for p in params], dim=0).sum(
-                dim=0) * mask
-        else:
-            satisfaction = (dir).sum(dim=1) * mask
-        parameters = torch.zeros_like(satisfaction).to(torch.float) + 1e+20
-        parameters[satisfaction > 0] = angle_degrees[satisfaction > 0].to(torch.float)
-        return satisfaction, parameters
+        params = given_param.unique()
+        satisfaction = torch.cat([(torch.abs(angle_degrees - p) < 1e-5).unsqueeze(0) for p in params], dim=0).sum(
+            dim=0) * mask
+        return satisfaction
 
     def cart2pol(self, x, y):
         rho = torch.sqrt(x ** 2 + y ** 2)
