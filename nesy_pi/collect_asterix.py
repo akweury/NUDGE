@@ -36,8 +36,8 @@ data_file = args.trained_model_folder / f"nesy_data.pth"
 if not os.path.exists(data_file):
     state_len = torch.tensor([len(state) for state in game_buffer["states"]])
     idx = state_len.sort()[1][-20:]
-    states = torch.cat([game_buffer["states"][i] for i in idx], dim=0)
-    actions = torch.cat([game_buffer["actions"][i] for i in idx], dim=0)
+    states = torch.cat([game_buffer["states"][i][:-10] for i in idx], dim=0)
+    actions = torch.cat([game_buffer["actions"][i][:-10] for i in idx], dim=0)
 
     random_indices = torch.randperm(states.shape[0])
     states = states[random_indices]
@@ -51,30 +51,30 @@ if not os.path.exists(data_file):
         player_pos_data = pos_data[:, 0:1]
         other_objs = pos_data[:, 1:]
         # same with player
-        mask_same_y = (pos_data[:, 1:, -1] - pos_data[:, 0:1, -1]).abs() < 0.01
+        mask_same_y = (pos_data[:, 1:, -1] - pos_data[:, 0:1, -1]).abs() < 0.05
         pos_same_y = []
         for s_i in range(len(other_objs)):
-            _, above_indices = (player_pos_data[s_i, 0, -1] - other_objs[s_i, mask_same_y[s_i], -1]).sort()
+            _, above_indices = (player_pos_data[s_i, 0, -1] - other_objs[s_i, mask_same_y[s_i], -1]).abs().sort()
             data = other_objs[s_i][mask_same_y[s_i]][above_indices][:1]
             if data.shape[0] < 1:
                 data = torch.cat([torch.zeros(1 - data.shape[0], 9).to(args.device), data], dim=0)
             pos_same_y.append(data.unsqueeze(0))
         pos_same_y = torch.cat(pos_same_y, dim=0)
         # above of player
-        mask_above = (pos_data[:, 1:, -1] < pos_data[:, 0:1, -1])
+        mask_above = (pos_data[:, 1:, -1] - pos_data[:, 0:1, -1]) < -0.05
         pos_above_data = []
         for s_i in range(len(other_objs)):
-            _, above_indices = (player_pos_data[s_i, 0, -1] - other_objs[s_i, mask_above[s_i], -1]).sort()
+            _, above_indices = (player_pos_data[s_i, 0, -1] - other_objs[s_i, mask_above[s_i], -1]).abs().sort()
             data = other_objs[s_i][mask_above[s_i]][above_indices][:1]
             if data.shape[0] < 1:
                 data = torch.cat([torch.zeros(1 - data.shape[0], 9).to(args.device), data], dim=0)
             pos_above_data.append(data.unsqueeze(0))
         pos_above_data = torch.cat(pos_above_data, dim=0)
 
-        mask_below = pos_data[:, 1:, -1] > pos_data[:, 0:1, -1]
+        mask_below = (pos_data[:, 1:, -1] - pos_data[:, 0:1, -1]) > 0.05
         pos_below_data = []
         for s_i in range(len(other_objs)):
-            _, below_indices = (-player_pos_data[s_i, 0, -1] + other_objs[s_i, mask_below[s_i], -1]).sort()
+            _, below_indices = (-player_pos_data[s_i, 0, -1] + other_objs[s_i, mask_below[s_i], -1]).abs().sort()
             data = other_objs[s_i][mask_below[s_i]][below_indices][:1]
             if data.shape[0] < 1:
                 data = torch.cat([torch.zeros(1 - data.shape[0], 9).to(args.device), data], dim=0)
@@ -84,10 +84,10 @@ if not os.path.exists(data_file):
         neg_data = states[~action_mask]
         player_neg_data = neg_data[:, 0:1, ]
         other_objs = neg_data[:, 1:]
-        mask_same_y_neg = (neg_data[:, 1:, -1] - neg_data[:, 0:1, -1]).abs() < 0.01
+        mask_same_y_neg = (neg_data[:, 1:, -1] - neg_data[:, 0:1, -1]).abs() < 0.05
         neg_same_y = []
         for s_i in range(len(other_objs)):
-            _, above_indices = (player_neg_data[s_i, 0, -1] - other_objs[s_i, mask_same_y_neg[s_i], -1]).sort()
+            _, above_indices = (player_neg_data[s_i, 0, -1] - other_objs[s_i, mask_same_y_neg[s_i], -1]).abs().sort()
             data = other_objs[s_i][mask_same_y_neg[s_i]][above_indices][:1]
             if data.shape[0] < 1:
                 data = torch.cat([torch.zeros(1 - data.shape[0], 9).to(args.device), data], dim=0)
@@ -95,19 +95,19 @@ if not os.path.exists(data_file):
         neg_same_y = torch.cat(neg_same_y, dim=0)
 
         neg_above_data = []
-        mask_above = neg_data[:, 1:, -1] < neg_data[:, 0:1, -1]
+        mask_above = (neg_data[:, 1:, -1] - neg_data[:, 0:1, -1]) < -0.05
         for s_i in range(len(other_objs)):
-            _, above_indices = (player_neg_data[s_i, 0, -1] - other_objs[s_i, mask_above[s_i], -1]).sort()
+            _, above_indices = (player_neg_data[s_i, 0, -1] - other_objs[s_i, mask_above[s_i], -1]).abs().sort()
             data = other_objs[s_i][mask_above[s_i]][above_indices][:1]
             if data.shape[0] < 1:
                 data = torch.cat([torch.zeros(1 - data.shape[0], 9).to(args.device), data], dim=0)
             neg_above_data.append(data.unsqueeze(0))
         neg_above_data = torch.cat(neg_above_data, dim=0)
 
-        mask_below = neg_data[:, 1:, -1] > neg_data[:, 0:1, -1]
+        mask_below = (neg_data[:, 1:, -1] - neg_data[:, 0:1, -1]) > 0.05
         neg_below_data = []
         for s_i in range(len(other_objs)):
-            _, below_indices = (-player_neg_data[s_i, 0, -1] + other_objs[s_i, mask_below[s_i], -1]).sort()
+            _, below_indices = (-player_neg_data[s_i, 0, -1] + other_objs[s_i, mask_below[s_i], -1]).abs().sort()
             data = other_objs[s_i][mask_below[s_i]][below_indices][:1]
             if data.shape[0] < 1:
                 data = torch.cat([torch.zeros(1 - data.shape[0], 9).to(args.device), data], dim=0)
