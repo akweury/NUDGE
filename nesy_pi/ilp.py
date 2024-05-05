@@ -384,6 +384,7 @@ def get_batch_score(batch_data, NSFR, args, pred_names):
         scores = scores.max(dim=2, keepdim=True)[0]
     return scores[:, :, 0]
 
+
 def get_clause_score(NSFR, args, pred_names, eval_data, pos_group_pred=None, neg_group_pred=None, batch_size=None):
     """ input: clause, output: score """
 
@@ -414,9 +415,9 @@ def get_clause_score(NSFR, args, pred_names, eval_data, pos_group_pred=None, neg
         r_i = (i + 1) * bz
         index_pos = config.score_example_index["pos"]
         index_neg = config.score_example_index["neg"]
-        img_scores[:, l_i:r_i, index_pos] = get_batch_score(pos_group_pred[l_i:r_i],NSFR, args, pred_names)
+        img_scores[:, l_i:r_i, index_pos] = get_batch_score(pos_group_pred[l_i:r_i], NSFR, args, pred_names)
         if not eval_data == "play":
-            img_scores[:, l_i:r_i, index_neg] = get_batch_score(neg_group_pred[l_i:r_i],NSFR, args, pred_names)
+            img_scores[:, l_i:r_i, index_neg] = get_batch_score(neg_group_pred[l_i:r_i], NSFR, args, pred_names)
 
         # V_T_neg = torch.zeros(len(NSFR.clauses), batch_size, len(NSFR.atoms)).to(args.device)
         # P_pos = torch.zeros(batch_size, len(NSFR.atoms)).to(args.device) + 1e+20
