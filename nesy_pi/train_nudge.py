@@ -54,19 +54,7 @@ def main():
     parser.add_argument("-env", "--environment", help="environment of game to use",
                         required=True, action="store", dest="env",
                         choices=['getout', 'threefish', 'loot', 'Freeway', 'kangaroo', 'Asterix', 'loothard'])
-    parser.add_argument("-r", "--rules", dest="rules", default=None, required=False,
-                        choices=['getout_human_assisted', 'getout_redundant_actions', 'getout_bs_top10',
-                                 'getout_pi', 'freeway_pi', 'asterix_pi',
-                                 'getout_no_search', 'getout_no_search_5', 'getout_no_search_15', 'getout_no_search_50',
-                                 'getout_bs_rf1', 'getout_bs_rf3', 'ppo_simple_policy',
-                                 'threefish_human_assisted', 'threefishcolor', 'threefish_bs_top5', 'threefish_bs_rf3',
-                                 'threefish_no_search', 'threefish_no_abstraction',
-                                 'threefish_no_search_5', 'threefish_no_search_15', 'threefish_no_search_50',
-                                 'threefish_bs_rf1', 'threefish_redundant_actions',
-                                 'loot_human_assisted', 'loot_bs_top5', 'loot_bs_rf3', 'loot_bs_rf1', 'loot_no_search',
-                                 'loot_no_abstraction',
-                                 'loot_no_search_5', 'loot_no_search_15', 'loot_no_search_50', 'loothard',
-                                 'loot_redundant_actions', 'freeway_bs_rf1', 'asterix_bs_rf1', ])
+    parser.add_argument("-r", "--rules", dest="rules", default=None, required=False)
     parser.add_argument('-p', '--plot', help="plot the image of weights", type=bool, default=False, dest='plot')
     parser.add_argument('-re', '--recovery', action="store_true", help='recover from crash', default=False,
                         dest='recover')
@@ -108,6 +96,8 @@ def main():
         env = getout_utils.create_getout_instance(args)
     elif args.m == "threefish" or args.m == 'loot':
         env = ProcgenGym3Env(num=1, env_name=args.env, render_mode=None)
+        reward, obs, done = env.observe()
+
     elif args.m == "atari":
         env = OCAtari(env_name=args.env.capitalize(), mode="revised", render_mode="rgb_array")
         obs, info = env.reset()
@@ -264,7 +254,8 @@ def main():
         env_args = EnvArgs(agent=agent, args=args, window_size=[env.camera.height,
                                                                 env.camera.width], fps=60)
 
-
+    elif args.m == "loot":
+        env_args = EnvArgs(agent=agent, args=args, window_size=None, fps=60)
     else:
         env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
     if args.with_explain:
@@ -293,6 +284,8 @@ def main():
             env = getout_utils.create_getout_instance(args)
         elif args.m == 'atari':
             obs, info = env.reset()
+        elif args.m == "loot":
+            pass
         else:
             raise ValueError
         #  initialize game
@@ -313,7 +306,10 @@ def main():
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
             # select action with policy
-            action = agent.select_action(env, epsilon=epsilon)
+            if args.m == "loot":
+                action = agent.select_action(obs, epsilon=epsilon)
+            else:
+                action = agent.select_action(env, epsilon=epsilon)
 
             if args.m == 'getout':
                 obs = np.array(env.camera.screen.convert("RGB"))
@@ -322,6 +318,8 @@ def main():
             elif args.m == 'atari':
                 obs, reward, terminated, truncated, info = env.step(action)
                 done = terminated or truncated
+            elif args.m == "loot":
+                reward, obs, done = env.observe()
             else:
                 raise ValueError
             # print(action)

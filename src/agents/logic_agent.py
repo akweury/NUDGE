@@ -110,6 +110,9 @@ class NSFR_PI_ActorCritic(nn.Module):
         elif args.env == 'Asterix':
             args.action_names = config.action_name_asterix
             args.game_info = config.game_info_asterix
+        elif args.env == "loot":
+            args.action_names = config.action_name_loot
+            args.game_info = config.game_info_loot
         else:
             raise ValueError
 
@@ -207,6 +210,9 @@ class NSFR_PI_ActorCritic(nn.Module):
             pos_below_data = torch.cat(pos_below_data, dim=0)
 
             logic_state = torch.cat((player_pos_data, pos_same_y, pos_above_data, pos_below_data), dim=1)
+
+        elif self.args.m == "loot":
+            logic_state[:, :, -2:] = logic_state[:, :, -2:] / 10
         else:
             raise ValueError
         V_T = self.actor.eval_quick(logic_state)
@@ -282,6 +288,7 @@ class LogicPPO:
         elif self.args.m == 'loot':
             logic_state = extract_logic_state_loot(state, self.args)
             neural_state = extract_neural_state_loot(state, self.args)
+            norm_factor = 10
         elif self.args.m == 'atari':
             logic_state = extract_logic_state_atari(state.objects, self.args)
             neural_state = extract_neural_state_atari(state.objects, self.args)

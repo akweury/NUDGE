@@ -22,17 +22,19 @@ class EnvArgs():
         args.stack_num = 10
         self.zoom_in = args.zoom_in
         self.db_num = 4
-        self.width_game_window = int(window_size[1] * args.zoom_in)
-        self.height_game_window = int(window_size[0] * args.zoom_in)
-        self.width_left_panel = int(window_size[0] * args.zoom_in)
-        self.width_right_panel = int(window_size[1] * 0.25 * args.zoom_in)
-        self.position_norm_factor = window_size[0]
+        if window_size is not None:
+            self.width_game_window = int(window_size[1] * args.zoom_in)
+            self.height_game_window = int(window_size[0] * args.zoom_in)
+            self.width_left_panel = int(window_size[0] * args.zoom_in)
+            self.width_right_panel = int(window_size[1] * 0.25 * args.zoom_in)
+            self.position_norm_factor = window_size[0]
+            self.last_obs = torch.zeros((window_size[0], window_size[1], 3), dtype=torch.uint8).numpy()
         # frame rate limiting
         self.fps = fps
         self.target_frame_duration = 1 / fps
         self.last_frame_time = 0
         # record and statistical properties
-        self.last_obs = torch.zeros((window_size[0], window_size[1], 3), dtype=torch.uint8).numpy()
+
         self.past_states = deque(maxlen=args.stack_num)
         self.past_actions = deque(maxlen=args.stack_num)
 
