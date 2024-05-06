@@ -139,15 +139,28 @@ class FCNNValuationModule(nn.Module):
             #     return torch.zeros_like(zs[:, term_index]).to(self.device)
             if self.args.m == "getout":
                 return zs[:, term_index + 1, [term_index + 1, -2, -1]].to(self.device)
-            if self.args.m == "Freeway" or self.args.env == 'Freeway':
+            elif self.args.m == "Freeway" or self.args.env == 'Freeway':
                 return zs[:, term_index + 1, [1, -2, -1]].to(self.device)
-            if self.args.m == "Asterix" or self.args.env == 'Asterix':
+            elif self.args.m == "Asterix" or self.args.env == 'Asterix':
                 if "consumable" in term.name:
                     consumable_id = int(term.name.split("consumable")[1])
                     return zs[:, consumable_id + 1, [2, -2, -1]].to(self.device)
                 elif "enemy" in term.name:
                     enemy_id = int(term.name.split("enemy")[1])
                     return zs[:, enemy_id + 1, [1, -2, -1]].to(self.device)
+            elif self.args.m == "loot":
+                if "key1" in term.name:
+                    return zs[:, 1, [1, -2, -1]].to(self.device)
+                elif "key2" in term.name:
+                    return zs[:, 3, [3, -2, -1]].to(self.device)
+                elif "loot1" in term.name:
+                    return zs[:, 3, [2, -2, -1]].to(self.device)
+                elif "loot2" in term.name:
+                    return zs[:, 3, [4, -2, -1]].to(self.device)
+                else:
+                    raise ValueError
+            else:
+                raise ValueError
         elif term.dtype.name == "player":
             return zs[:, 0, [0, -2, -1]].to(self.device)
         elif term.dtype.name in bk.attr_names:
