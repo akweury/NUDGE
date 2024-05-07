@@ -501,10 +501,10 @@ def clause_extend(args, lang, clauses):
         args.is_done = True
 
     if args.show_process:
-        log_utils.add_lines(f"=============== extended {len(refs_no_conflict)} clauses =================",
-                            args.log_file)
         for ref in refs_no_conflict:
             log_utils.add_lines(f"{ref}", args.log_file)
+        log_utils.add_lines(f"=============== extended {len(refs_no_conflict)} clauses =================",
+                            args.log_file)
     return refs_no_conflict
 
 
