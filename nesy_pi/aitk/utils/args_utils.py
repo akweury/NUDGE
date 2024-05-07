@@ -290,7 +290,7 @@ def get_args():
         args.game_info = config.game_info_loot
         args.obj_info = args.game_info["obj_info"]
     elif args.m == "threefish":
-        args.num_actions = 3
+        args.num_actions = 5
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
         args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
         args.zero_reward = -0.1

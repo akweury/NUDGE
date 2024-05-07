@@ -93,7 +93,8 @@ obj_info_loot = [('agent', 1),
                  ('loot2', 1),
                  ]
 obj_info_threefish = [('agent', 1),
-                   ('fish', 2)
+                   ('small_fish', 1),
+                   ('big_fish', 1)
                  ]
 game_info_getout = {
     "obj_info": obj_info_getout,
@@ -113,7 +114,6 @@ game_info_threefish = {
     "obj_info": obj_info_threefish,
     "state_row_num": 3,
     "state_col_num": 5,
-    "axis_rad_col":2,
     "axis_x_col": 3,
     "axis_y_col": 4
 }
@@ -342,7 +342,7 @@ action_name_boxing = ["noop",  # 0
 action_name_getout = ["left", "right", "jump"]
 action_name_loot = ["left", "down", "up", "right"]
 
-action_name_threefish = ["left", "right", "jump"]
+action_name_threefish = ["up", "right", "down", "left", "noop"]
 
 ################### prop info ########################
 

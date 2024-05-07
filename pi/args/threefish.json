@@ -1,6 +1,6 @@
 {
   "teacher_agent": "human",
-  "bk_pred_names": "phi,rho,not_exist",
+  "bk_pred_names": "phi,rho",
   "fine_tune_pred_parameter": true,
   "max_cluster_size": 10,
   "top_k": 5,

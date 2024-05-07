@@ -150,6 +150,21 @@ if not os.path.exists(data_file):
     states[:, :, -2:] = (states[:, :, -2:]+3) / 27
     actions = torch.cat(game_buffer.actions, dim=0)
 
+    new_states = []
+    new_actions = []
+    for s_i, state in enumerate(states):
+        if len(state[:,2].unique())!=3:
+            continue
+        small_fish = state[state[:,2].argmin()].tolist()
+        small_fish = [0,1,0, small_fish[-2], small_fish[-1]]
+        big_fish = state[state[:,2].argmax()].tolist()
+        big_fish = [0,0,1, big_fish[-2], big_fish[-1]]
+        agent = state[0].tolist()
+        agent= [1,0,0,agent[-2], agent[-1]]
+        new_states.append(torch.tensor([agent, small_fish, big_fish]).unsqueeze(0))
+        new_actions.append(actions[s_i].reshape(1))
+    states = torch.cat(new_states, dim=0)
+    actions = torch.cat(new_actions, dim=0)
     data = {}
     action_data = []
     for a_i in range(5):
