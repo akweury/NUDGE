@@ -1,4 +1,8 @@
 
+##### SSH
+ssh-keygen -t ed25519 -C "your_email@example.com"
+ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+
 ##### Build Docker
 docker build -t ml-sha/nudge_docker .
 

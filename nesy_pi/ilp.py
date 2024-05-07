@@ -99,7 +99,7 @@ def remove_trivial_atoms(args, lang, FC, clauses):
     clauses = clause_extend(args, lang, clauses)
     # clause evaluation
     img_scores, clause_scores = clause_eval(args, lang, FC, clauses, None)
-    trivial_c = [clauses[c_i] for c_i, c in enumerate(clause_scores) if c[0] < 0.01 and c[1] > 0.99]
+    trivial_c = [clauses[c_i] for c_i, c in enumerate(clause_scores) if c[0] < 0.05 and c[1] > 0.95]
     trivial_atom_terms = []
     for c in trivial_c:
         trivial_atom_terms.append(c.body[0].terms[:-1])
