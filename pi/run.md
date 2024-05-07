@@ -28,8 +28,8 @@ python -m pi.expanding -m Freeway --device 9 --start_frame 10000 --end_frame 150
 python -m pi.expanding -m Freeway --device 10 --start_frame 15000 --end_frame 25000
 python -m pi.expanding -m Freeway --device 11 --start_frame 25000 --end_frame 35000
 
-python -m nesy_pi.aaa_main -m Freeway --device 10 --with_pi
-python -m nesy_pi.aaa_main -m Freeway --device 2 --with_pi --show_process
+python -m nesy_pi.aaa_main -m Freeway --device 1 --with_pi
+python -m nesy_pi.aaa_main -m Freeway --device 1 --with_pi --show_process
 python -m nesy_pi.aaa_main -m Asterix --device 7 --with_pi --show_process
 
 python -m nesy_pi.aaa_main -m getout --device 1 --with_pi --show_process
