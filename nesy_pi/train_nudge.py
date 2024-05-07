@@ -134,7 +134,8 @@ def main():
         os.makedirs(str(path_check_point))
 
     if args.rules is not None:
-        directory = args.trained_model_folder / f"rho_{args.rho_num}_phi_{args.phi_num}_step_{args.max_step}" / str(args.seed)
+        directory = args.trained_model_folder / f"rho_{args.rho_num}_phi_{args.phi_num}_step_{args.max_step}" / str(
+            args.seed)
     else:
         directory = path_check_point / args.m / args.alg / args.env / str(args.seed)
     if not os.path.exists(str(directory)):
@@ -282,10 +283,12 @@ def main():
 
         if args.env == 'getout':
             env = getout_utils.create_getout_instance(args)
+            epsilon = max(math.exp(-i_episode / 0.02), 0.02)
         elif args.m == 'atari':
             obs, info = env.reset()
+            epsilon = max(math.exp(-i_episode / 0.02), 0.02)
         elif args.m == "loot":
-            pass
+            epsilon = max(math.exp(-i_episode / 500), 0.02)
         else:
             raise ValueError
         #  initialize game
@@ -293,7 +296,7 @@ def main():
         # state[:, :, -2:] = state[:, :, -2:] / 50
         current_ep_reward = 0
 
-        epsilon = epsilon_func(i_episode)
+        # epsilon = epsilon_func(i_episode)
 
         for t in range(1, max_ep_len + 1):
             # limit frame rate
