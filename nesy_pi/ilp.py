@@ -99,7 +99,7 @@ def remove_trivial_atoms(args, lang, FC, clauses):
     clauses = clause_extend(args, lang, clauses)
     # clause evaluation
     img_scores, clause_scores = clause_eval(args, lang, FC, clauses, None)
-    trivial_c = [clauses[c_i] for c_i, c in enumerate(clause_scores) if c[0] < 0.05 and c[1] > 0.95]
+    trivial_c = [clauses[c_i] for c_i, c in enumerate(clause_scores) if c[0] < 0.01 and c[1] > 0.99]
     trivial_atom_terms = []
     for c in trivial_c:
         trivial_atom_terms.append(c.body[0].terms[:-1])
@@ -114,7 +114,7 @@ def remove_trivial_atoms(args, lang, FC, clauses):
     return non_trivial_atoms
 
 
-def ilp_search(args, lang, init_clauses, FC, pi_mode=False):
+def ilp_search(args, lang, init_clauses, FC, max_step, pi_mode=False):
     """
     given one or multiple neural predicates, searching for high scoring clauses, which includes following steps
     1. extend given initial clauses
@@ -128,7 +128,7 @@ def ilp_search(args, lang, init_clauses, FC, pi_mode=False):
     extend_step = 0
     clause_with_scores = []
     clauses = init_clauses
-    while extend_step < args.max_step and not args.is_done:
+    while extend_step < max_step and not args.is_done:
         log_utils.add_lines(f"############### extend step {extend_step}/{args.max_step} ################",
                             args.log_file)
 
@@ -223,7 +223,8 @@ def ilp_test(args, lang):
 
     args.iteration = args.max_step
     # returned clauses have to cover all the positive images and no negative images
-    ilp_search(args, lang, clauses, FC)
+
+    ilp_search(args, lang, clauses, FC, args.max_step)
     # ranking with sufficiency
     top_ness_clauses = top_kp(lang.all_clauses, rank_type="suff", top_type="ness")
     success, clauses = log_utils.print_test_result(args, lang, top_ness_clauses)
@@ -898,14 +899,18 @@ def ilp_train(args, lang):
     reset_args(args)
     init_clauses, e = reset_lang(lang, args, args.neural_preds, full_bk=True)
     # update system
+
+    VM = ai_interface.get_vm(args, lang)
+    FC = ai_interface.get_fc(args, lang, VM, e)
+    args.is_done = False  # searching for high sufficiency clauses
+    lang.atoms = remove_trivial_atoms(args, lang, FC, init_clauses)
+
     for episode_i in range(args.max_step):
-        args.max_step = episode_i + 1
         VM = ai_interface.get_vm(args, lang)
         FC = ai_interface.get_fc(args, lang, VM, e)
         args.is_done = False  # searching for high sufficiency clauses
-        lang.atoms = remove_trivial_atoms(args, lang, FC, init_clauses)
 
-        clauses, FC = ilp_search(args, lang, init_clauses, FC)
+        clauses, FC = ilp_search(args, lang, init_clauses, FC, episode_i + 1)
         if args.with_pi and len(clauses) > 0:
             ilp_pi(args, lang, clauses, e)
             # if lang.all_reverse_clauses is not None:
