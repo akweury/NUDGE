@@ -320,6 +320,7 @@ def main():
                 done = terminated or truncated
             elif args.m == "loot":
                 reward, obs, done = env.observe()
+                reward = reward.tolist()[0]
             else:
                 raise ValueError
             # print(action)
