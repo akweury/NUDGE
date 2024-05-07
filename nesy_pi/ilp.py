@@ -93,6 +93,27 @@ def inv_consts(args, p_pos, clauses, lang):
     return False, new_consts, clauses
 
 
+def remove_trivial_atoms(args, lang, FC, clauses):
+    lang.trivial_atom_terms = []
+    # clause extension
+    clauses = clause_extend(args, lang, clauses)
+    # clause evaluation
+    img_scores, clause_scores = clause_eval(args, lang, FC, clauses, None)
+    trivial_c = [clauses[c_i] for c_i, c in enumerate(clause_scores) if c[0] < 0.01 and c[1] > 0.99]
+    trivial_atom_terms = []
+    for c in trivial_c:
+        trivial_atom_terms.append(c.body[0].terms[:-1])
+    lang.trivial_atom_terms = trivial_atom_terms
+
+    non_trivial_atoms = []
+    for atom in lang.atoms:
+        if len(atom.terms) <= 1:
+            non_trivial_atoms.append(atom)
+        elif atom.terms[:-1] not in trivial_atom_terms:
+            non_trivial_atoms.append(atom)
+    return non_trivial_atoms
+
+
 def ilp_search(args, lang, init_clauses, FC, pi_mode=False):
     """
     given one or multiple neural predicates, searching for high scoring clauses, which includes following steps
@@ -882,6 +903,8 @@ def ilp_train(args, lang):
         VM = ai_interface.get_vm(args, lang)
         FC = ai_interface.get_fc(args, lang, VM, e)
         args.is_done = False  # searching for high sufficiency clauses
+        lang.atoms = remove_trivial_atoms(args, lang, FC, init_clauses)
+
         clauses, FC = ilp_search(args, lang, init_clauses, FC)
         if args.with_pi and len(clauses) > 0:
             ilp_pi(args, lang, clauses, e)

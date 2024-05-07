@@ -58,9 +58,10 @@ class RefinementGenerator(object):
                     terms = sorted(terms)
                 new_atom = Atom(modeb.pred, terms)
                 if not new_atom in clause.body:
-                    body = sorted(clause.body) + sorted([new_atom])
-                    new_clause = Clause(clause.head, body)
-                    C_refined.append(new_clause)
+                    if len(new_atom.terms)<=1 or new_atom.terms[:-1] not in self.lang.trivial_atom_terms:
+                        body = sorted(clause.body) + sorted([new_atom])
+                        new_clause = Clause(clause.head, body)
+                        C_refined.append(new_clause)
         return list(set(C_refined))
 
     def generate_term_combinations(self, clause, modeb):
