@@ -322,6 +322,7 @@ def main():
                 obs, reward, terminated, truncated, info = env.step(action)
                 done = terminated or truncated
             elif args.m == "loot":
+                env.act(action)
                 reward, obs, done = env.observe()
                 reward = reward.tolist()[0]
             else:

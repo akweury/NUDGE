@@ -250,6 +250,21 @@ class NSFR_PI_ActorCritic(nn.Module):
         return self.actor.get_prednames()
 
 
+def remap_loot_logic_state(state):
+    key1 = state[1].tolist()
+    key1 = [0, state[1, 1].tolist(), 0, 0, 0, key1[-2], key1[-1]]
+    loot1 = state[2].tolist()
+    loot1 = [0, 0, state[2, 2].tolist(), 0, 0, loot1[-2], loot1[-1]]
+    key2 = state[3].tolist()
+    key2 = [0, 0, 0, state[3, 1].tolist(), 0, key2[-2], key2[-1]]
+    loot2 = state[4].tolist()
+    loot2 = [0, 0, 0, 0, state[4, 2].tolist(), loot2[-2], loot2[-1]]
+    agent = state[0].tolist()
+    agent = [state[0, 0].tolist(), 0, 0, 0, 0, agent[-2], agent[-1]]
+    new_state = torch.tensor([agent, key1, loot1, key2, loot2]).unsqueeze(0)
+    return new_state
+
+
 class LogicPPO:
     def __init__(self, lr_actor, lr_critic, optimizer, gamma, K_epochs, eps_clip, args):
 
@@ -287,6 +302,7 @@ class LogicPPO:
             neural_state = extract_neural_state_threefish(state, self.args)
         elif self.args.m == 'loot':
             logic_state = extract_logic_state_loot(state, self.args)
+            logic_state = remap_loot_logic_state(logic_state.squeeze())
             neural_state = extract_neural_state_loot(state, self.args)
             norm_factor = 10
         elif self.args.m == 'atari':
