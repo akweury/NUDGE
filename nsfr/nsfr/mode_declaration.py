@@ -152,7 +152,7 @@ def get_mode_declarations_getout(lang):
 def get_mode_declarations(args, lang):
     if args.m == 'getout':
         return get_mode_declarations_getout(lang)
-    if args.m == 'threefish':
+    if args.m == 'threefish.json':
         return get_mode_declarations_threefish(lang)
     elif args.m == 'loot':
         return get_mode_declarations_loot(lang)

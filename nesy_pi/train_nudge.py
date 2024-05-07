@@ -50,15 +50,15 @@ def main():
                         choices=['ppo', 'logic'])
     parser.add_argument("-m", "--mode", help="the game mode you want to play with",
                         required=True, action="store", dest="m",
-                        choices=['getout', 'threefish', 'loot', 'atari'])
+                        choices=['getout', 'threefish.json', 'loot', 'atari'])
     parser.add_argument("-env", "--environment", help="environment of game to use",
                         required=True, action="store", dest="env",
-                        choices=['getout', 'threefish', 'loot', 'Freeway', 'kangaroo', 'Asterix', 'loothard'])
+                        choices=['getout', 'threefish.json', 'loot', 'Freeway', 'kangaroo', 'Asterix', 'loothard'])
     parser.add_argument("-r", "--rules", dest="rules", default=None, required=False)
     parser.add_argument('-p', '--plot', help="plot the image of weights", type=bool, default=False, dest='plot')
     parser.add_argument('-re', '--recovery', action="store_true", help='recover from crash', default=False,
                         dest='recover')
-    # arg = ['-alg', 'logic', '-m', 'threefish', '-env', 'threefish', '-p', 'True', '-r', 'threefish_human_assisted']
+    # arg = ['-alg', 'logic', '-m', 'threefish.json', '-env', 'threefish.json', '-p', 'True', '-r', 'threefish_human_assisted']
     args = parser.parse_args()
     if args.device != "cpu":
         args.device = int(args.device)
@@ -94,7 +94,7 @@ def main():
 
     if args.m == "getout":
         env = getout_utils.create_getout_instance(args)
-    elif args.m == "threefish" or args.m == 'loot':
+    elif args.m == "threefish.json" or args.m == 'loot':
         env = ProcgenGym3Env(num=1, env_name=args.env, render_mode=None)
         reward, obs, done = env.observe()
 

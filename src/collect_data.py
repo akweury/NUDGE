@@ -84,10 +84,10 @@ def parse_args():
     parser = ArgumentParser("Loads a model and lets it play getout")
     parser.add_argument("-m", "--mode", help="the game mode you want to play with",
                         required=True, action="store", dest="m", default='getout',
-                        choices=['getout', 'threefish', 'loot'])
+                        choices=['getout', 'threefish.json', 'loot'])
     parser.add_argument("-env", "--environment", help="environment of game to use",
                         required=True, action="store", dest="env", default='GetoutEnv-v1',
-                        choices=['getout', 'threefish', 'loot', 'lootcolor'])
+                        choices=['getout', 'threefish.json', 'loot', 'lootcolor'])
     parser.add_argument("-mo", "--model_file", dest="model_file", default=None)
     parser.add_argument("-s", "--seed", dest="seed", default=0, type=int)
     parser.add_argument("--alg", default="logic", type=str)
@@ -111,7 +111,7 @@ def parse_args():
     if args.model_file == 'get_out_ppo':
         model_file = config.path_model / 'getout' / 'ppo' / 'ppo_seed_0.pth'
     elif args.model_file == 'three_fish':
-        model_file = config.path_model / 'threefish' / 'ppo' / 'ppo_.pth'
+        model_file = config.path_model / 'threefish.json' / 'ppo' / 'ppo_.pth'
     else:
         raise ValueError
 

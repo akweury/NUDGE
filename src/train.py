@@ -32,10 +32,10 @@ def main():
                         choices=['ppo', 'logic'])
     parser.add_argument("-m", "--mode", help="the game mode you want to play with",
                         required=True, action="store", dest="m",
-                        choices=['getout', 'threefish', 'loot', 'atari'])
+                        choices=['getout', 'threefish.json', 'loot', 'atari'])
     parser.add_argument("-env", "--environment", help="environment of game to use",
                         required=True, action="store", dest="env",
-                        choices=['getout', 'threefish', 'loot', 'freeway', 'kangaroo', 'Asterix', 'loothard'])
+                        choices=['getout', 'threefish.json', 'loot', 'freeway', 'kangaroo', 'Asterix', 'loothard'])
     parser.add_argument("-r", "--rules", dest="rules", default=None, required=False,
                         choices=['getout_human_assisted', 'getout_redundant_actions', 'getout_bs_top10',
                                  'getout_no_search', 'getout_no_search_5', 'getout_no_search_15', 'getout_no_search_50',
@@ -50,7 +50,7 @@ def main():
                                  'loot_redundant_actions', 'freeway_bs_rf1', 'asterix_bs_rf1', ])
     parser.add_argument('-p', '--plot', help="plot the image of weights", type=bool, default=False, dest='plot')
     parser.add_argument('-re', '--recovery', help='recover from crash', default=False, type=bool, dest='recover')
-    # arg = ['-alg', 'logic', '-m', 'threefish', '-env', 'threefish', '-p', 'True', '-r', 'threefish_human_assisted']
+    # arg = ['-alg', 'logic', '-m', 'threefish.json', '-env', 'threefish.json', '-p', 'True', '-r', 'threefish_human_assisted']
     args = parser.parse_args()
 
     #####################################################
@@ -79,7 +79,7 @@ def main():
 
     if args.m == "getout":
         env = gym.make(args.env, generator_args={"spawn_all_entities": False})
-    elif args.m == "threefish" or args.m == 'loot':
+    elif args.m == "threefish.json" or args.m == 'loot':
         env = ProcgenGym3Env(num=1, env_name=args.env, render_mode=None)
     elif args.m == "atari":
         env = OCAtari(env_name=args.env.capitalize(), mode="revised", render_mode="rgb_array")

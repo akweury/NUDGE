@@ -55,7 +55,7 @@ def get_args():
     parser.add_argument('-r', "--rules", required=True, help="choose to root rules", dest='r',
                         choices=["getout_root", 'threefish_root', 'loot_root'])
     parser.add_argument('-m', "--model", required=True, help="the game mode for beam-search", dest='m',
-                        choices=['getout', 'threefish', 'loot'])
+                        choices=['getout', 'threefish.json', 'loot'])
     parser.add_argument('-t', "--t-beam", type=int, default=3, help="Number of rule expantion of clause generation.")
     parser.add_argument('-n', "--n-beam", type=int, default=8, help="The size of the beam.")
     parser.add_argument("--n-max", type=int, default=50, help="The maximum number of clauses.")
@@ -72,7 +72,7 @@ def get_args():
         args.state_names = config.obj_name_getout
         args.action_names = config.action_getout_dict
         args.prop_names = config.prop_name_getout
-    elif args.m == "threefish":
+    elif args.m == "threefish.json":
         args.state_names = config.obj_name_threefish
         args.action_names = config.action_name_threefish
         args.prop_names = config.prop_name_threefish

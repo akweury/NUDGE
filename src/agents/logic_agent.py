@@ -31,7 +31,7 @@ class NSFR_ActorCritic(nn.Module):
         self.args = args
         self.actor = get_nsfr_model(self.args, train=True)
         self.prednames = self.get_prednames()
-        if self.args.m == 'threefish':
+        if self.args.m == 'threefish.json':
             self.critic = MLPThreefish(out_size=1, logic=True)
         elif self.args.m == 'getout':
             self.critic = MLPGetout(out_size=1, logic=True)
@@ -120,7 +120,7 @@ class NSFR_PI_ActorCritic(nn.Module):
                                                 data["all_invented_preds"])
         self.actor = ai_interface.get_nsfr_model(args, lang)
         self.prednames = self.get_prednames()
-        if self.args.m == 'threefish':
+        if self.args.m == 'threefish.json':
             self.critic = MLPThreefish(out_size=1, logic=True)
         elif self.args.m == 'getout':
             self.critic = MLPGetout(out_size=1, logic=True)
@@ -282,7 +282,7 @@ class LogicPPO:
             logic_state = extract_logic_state_getout(state, self.args)
             neural_state = extract_neural_state_getout(state, self.args)
             norm_factor = 50
-        elif self.args.m == 'threefish':
+        elif self.args.m == 'threefish.json':
             logic_state = extract_logic_state_threefish(state, self.args)
             neural_state = extract_neural_state_threefish(state, self.args)
         elif self.args.m == 'loot':
@@ -311,7 +311,7 @@ class LogicPPO:
         action = action.item()
         if self.args.m == 'getout':
             action = action_map_getout(action, self.args, self.prednames)
-        elif self.args.m == 'threefish':
+        elif self.args.m == 'threefish.json':
             action = action_map_threefish(action, self.args, self.prednames)
         elif self.args.m == 'loot':
             action = action_map_loot(action, self.args, self.prednames)
@@ -431,7 +431,7 @@ class LogicPlayer:
     def act(self, state):
         if self.args.m == 'getout':
             action, explaining = self.getout_actor(state)
-        elif self.args.m == 'threefish':
+        elif self.args.m == 'threefish.json':
             action, explaining = self.threefish_actor(state)
         elif self.args.m == 'loot':
             action, explaining = self.loot_actor(state)
@@ -450,7 +450,7 @@ class LogicPlayer:
     def get_state(self, state):
         if self.args.m == 'getout':
             logic_state = extract_logic_state_getout(state, self.args).squeeze(0)
-        elif self.args.m == 'threefish':
+        elif self.args.m == 'threefish.json':
             logic_state = extract_logic_state_threefish(state, self.args).squeeze(0)
         if self.args.m == 'loot':
             logic_state = extract_logic_state_loot(state, self.args).squeeze(0)

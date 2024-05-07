@@ -4,7 +4,7 @@ from src import config
 
 def get_idx(args):
     idx_list = []
-    if args.m == "threefish":
+    if args.m == "threefish.json":
         idx_x = config.state_idx_threefish_x
         idx_y = config.state_idx_threefish_y
         idx_radius = config.state_idx_threefish_radius
@@ -34,7 +34,7 @@ def get_idx(args):
 
 
 def get_game_info(args):
-    if args.m == "threefish":
+    if args.m == "threefish.json":
         obj_data = config.obj_name_threefish
     elif args.m == "getout":
         obj_data = config.obj_info_getout

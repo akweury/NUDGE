@@ -92,6 +92,9 @@ obj_info_loot = [('agent', 1),
                  ('key2', 1),
                  ('loot2', 1),
                  ]
+obj_info_threefish = [('agent', 1),
+                   ('fish', 2)
+                 ]
 game_info_getout = {
     "obj_info": obj_info_getout,
     "state_row_num": 4,
@@ -105,6 +108,14 @@ game_info_loot = {
     "state_col_num": 8,
     "axis_x_col": 6,
     "axis_y_col": 7
+}
+game_info_threefish = {
+    "obj_info": obj_info_threefish,
+    "state_row_num": 3,
+    "state_col_num": 5,
+    "axis_rad_col":2,
+    "axis_x_col": 3,
+    "axis_y_col": 4
 }
 obj_info_getoutplus = [('agent', 1),
                        ('key', 1),

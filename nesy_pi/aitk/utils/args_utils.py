@@ -289,6 +289,26 @@ def get_args():
         # args.prop_names = config.prop_name_loot
         args.game_info = config.game_info_loot
         args.obj_info = args.game_info["obj_info"]
+    elif args.m == "threefish":
+        args.num_actions = 3
+        args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"
+        args.buffer_tensor_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.pt"
+        args.zero_reward = -0.1
+        args.var_th = 0.8
+        args.step_dist = [0.01, -0.03]
+        args.max_dist = 0.1
+        args.zoom_in = 1.5
+        args.max_lives = 0
+        args.reward_lost_one_live = -20
+        args.pass_th = 0.7
+        args.failed_th = 0.3
+        args.att_var_th = 0.5
+        args.model_path = config.path_model / args.m / 'ppo' / "ppo_.pth"
+        args.action_names = config.action_name_threefish
+        # args.prop_names = config.prop_name_loot
+        args.game_info = config.game_info_threefish
+        args.obj_info = args.game_info["obj_info"]
+
     elif args.m == "Assault" or args.m == "assault":
         args.model_path = config.path_model / args.m / 'model_50000000.gz'
         args.buffer_filename = config.path_check_point / args.m / f"z_buffer_{str(args.teacher_agent)}_{args.teacher_game_nums}.json"

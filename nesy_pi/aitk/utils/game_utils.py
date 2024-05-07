@@ -68,7 +68,9 @@ class RolloutBuffer:
         if "next_states" in list(state_info.keys()) and len(state_info['next_states']) > 0:
             self.game_next_states = [torch.tensor(state_info['next_states'][i]) for i in
                                      range(len(state_info['next_states']))]
-
+        # self.lost_logic_states = [torch.tensor(state_info['lost_logic_states'][i]) for i in
+        #                      range(len(state_info['lost_logic_states']))]
+        # self.lost_actions = [torch.tensor(state_info['lost_actions'][i]) for i in range(len(state_info['lost_actions']))]
         if "row_names" in list(state_info.keys()):
             self.row_names = state_info['row_names']
         if 'neural_states' in list(state_info.keys()):
@@ -378,7 +380,7 @@ def create_agent(args, agent_type):
         agent = policy
     else:
         raise ValueError
-    agent.agent_type = agent_type
+    # agent.agent_type = agent_type
     return agent
 
 

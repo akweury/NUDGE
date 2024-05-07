@@ -17,6 +17,7 @@ from nesy_pi.aitk import ai_interface
 from nesy_pi import ilp
 from nesy_pi.train_getout_strategy import NeuralNetwork
 from src.agents.utils_loot import extract_neural_state_loot, simplify_action_loot, extract_logic_state_loot
+from src.agents.utils_threefish import extract_neural_state_threefish, extract_logic_state_threefish, simplify_action_bf
 
 class ClausePlayer:
     def __init__(self, args):
@@ -617,7 +618,7 @@ class SymbolicMicroProgramPlayer:
             action, explaining = self.assault_actor(state)
         elif self.args.m in ["Asterix", "Boxing", "Breakout", "Freeway", "Kangaroo", "Pong"]:
             action, explaining = self.asterix_actor(state)
-        elif self.args.m == 'threefish':
+        elif self.args.m == 'threefish.json':
             action, explaining = self.threefish_actor(state)
         elif self.args.m == 'loot':
             action, explaining = self.loot_actor(state)
@@ -759,6 +760,8 @@ class PpoPlayer:
             action = self.getout_actor(state)
         elif self.args.m == "loot":
             action = self.loot_actor(state)
+        elif self.args.m == "threefish":
+            action = self.threefish_actor(state)
         else:
             raise ValueError
         return action
@@ -799,7 +802,7 @@ class PpoPlayer:
         action = prediction + 1
         return action
     def threefish_actor(self, state):
-        state = extract_neural_state_threefish(state, self.args)
+        state = extract_neural_state_threefish(state, self.args).to(self.args.device)
         # state = state.reshape(-1)
         # state = state.tolist()
         predictions = self.model(state)

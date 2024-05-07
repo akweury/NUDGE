@@ -28,16 +28,16 @@ def run():
     parser.add_argument("-s", "--seed", help="Seed for pytorch + env", default=0,
                         required=False, action="store", dest="seed", type=int)
     parser.add_argument("-m", "--mode", help="the game mode you want to play with",
-                        required=False, action="store", dest="m", default='threefish',
-                        choices=['threefish'])
+                        required=False, action="store", dest="m", default='threefish.json',
+                        choices=['threefish.json'])
     parser.add_argument("-alg", "--algorithm", help="algorithm that to use",
                         action="store", dest="alg", required=False, default='logic',
                         choices=['logic'])
     parser.add_argument("-r", "--rules", dest="rules", default='threefish_human_assisted',
                         required=False, choices=['threefish_human_assisted','threefishcolor'])
     parser.add_argument("-env", "--environment", help="environment of game to use",
-                        required=False, action="store", dest="env", default='threefish',
-                        choices=['threefish', 'threefishcolor'])
+                        required=False, action="store", dest="env", default='threefish.json',
+                        choices=['threefish.json', 'threefishcolor'])
     args = parser.parse_args()
     make_deterministic(args.seed)
 
