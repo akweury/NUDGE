@@ -34,11 +34,11 @@ def main():
                         choices=['ppo', 'logic', 'random', 'human'])
     parser.add_argument("-m", "--mode", help="the game mode you want to play with",
                         required=True, action="store", dest="m",
-                        choices=['getout', 'threefish.json', 'loot', 'ecoinrun', 'atari'])
+                        choices=['getout', 'threefish', 'loot', 'ecoinrun', 'atari'])
     parser.add_argument("-env", "--environment", help="environment of game to use",
                         required=True, action="store", dest="env",
                         choices=['getout', 'getoutplus',
-                                 'threefish.json', 'threefishcolor',
+                                 'threefish', 'threefishcolor',
                                  'loot', 'lootcolor', 'lootplus',
                                  'ecoinrun'])
     parser.add_argument("-r", "--rules", dest="rules", default=None,

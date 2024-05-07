@@ -50,10 +50,10 @@ def main():
                         choices=['ppo', 'logic'])
     parser.add_argument("-m", "--mode", help="the game mode you want to play with",
                         required=True, action="store", dest="m",
-                        choices=['getout', 'threefish.json', 'loot', 'atari'])
+                        choices=['getout', 'threefish', 'loot', 'atari'])
     parser.add_argument("-env", "--environment", help="environment of game to use",
                         required=True, action="store", dest="env",
-                        choices=['getout', 'threefish.json', 'loot', 'Freeway', 'kangaroo', 'Asterix', 'loothard'])
+                        choices=['getout', 'threefish', 'loot', 'Freeway', 'kangaroo', 'Asterix', 'loothard'])
     parser.add_argument("-r", "--rules", dest="rules", default=None, required=False)
     parser.add_argument('-p', '--plot', help="plot the image of weights", type=bool, default=False, dest='plot')
     parser.add_argument('-re', '--recovery', action="store_true", help='recover from crash', default=False,
@@ -94,7 +94,7 @@ def main():
 
     if args.m == "getout":
         env = getout_utils.create_getout_instance(args)
-    elif args.m == "threefish.json" or args.m == 'loot':
+    elif args.m == "threefish" or args.m == 'loot':
         env = ProcgenGym3Env(num=1, env_name=args.env, render_mode=None)
         reward, obs, done = env.observe()
 
@@ -255,7 +255,7 @@ def main():
         env_args = EnvArgs(agent=agent, args=args, window_size=[env.camera.height,
                                                                 env.camera.width], fps=60)
 
-    elif args.m == "loot":
+    elif args.m == "loot" or args.m=="threefish":
         env_args = EnvArgs(agent=agent, args=args, window_size=None, fps=60)
     else:
         env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
@@ -287,7 +287,7 @@ def main():
         elif args.m == 'atari':
             obs, info = env.reset()
             epsilon = max(math.exp(-i_episode / 0.02), 0.02)
-        elif args.m == "loot":
+        elif args.m == "loot" or args.m == "threefish":
             epsilon = max(math.exp(-i_episode / 500), 0.02)
         else:
             raise ValueError
@@ -309,11 +309,10 @@ def main():
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
             # select action with policy
-            if args.m == "loot":
+            if args.m == "loot" or args.m=="threefish":
                 action = agent.select_action(obs, epsilon=epsilon)
             else:
                 action = agent.select_action(env, epsilon=epsilon)
-
             if args.m == 'getout':
                 obs = np.array(env.camera.screen.convert("RGB"))
                 reward = env_step(action, env, args)
@@ -322,6 +321,10 @@ def main():
                 obs, reward, terminated, truncated, info = env.step(action)
                 done = terminated or truncated
             elif args.m == "loot":
+                env.act(action)
+                reward, obs, done = env.observe()
+                reward = reward.tolist()[0]
+            elif args.m == "threefish":
                 env.act(action)
                 reward, obs, done = env.observe()
                 reward = reward.tolist()[0]

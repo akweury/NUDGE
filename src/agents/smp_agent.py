@@ -44,7 +44,7 @@ class LogicPPO:
         if self.args.m == 'getout':
             logic_state = extract_logic_state_getout(state, self.args)
             neural_state = extract_neural_state_getout(state, self.args)
-        elif self.args.m == 'threefish.json':
+        elif self.args.m == 'threefish':
             logic_state = extract_logic_state_threefish(state, self.args)
             neural_state = extract_neural_state_threefish(state, self.args)
         elif self.args.m == 'loot':
@@ -72,7 +72,7 @@ class LogicPPO:
         action = action.item()
         if self.args.m == 'getout':
             action = action_map_getout(action, self.args, self.prednames)
-        elif self.args.m == 'threefish.json':
+        elif self.args.m == 'threefish':
             action = action_map_threefish(action, self.args, self.prednames)
         elif self.args.m == 'loot':
             action = action_map_loot(action, self.args, self.prednames)

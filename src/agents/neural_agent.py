@@ -99,7 +99,7 @@ class NeuralPPO:
             # model_input = collate([model_input])
             # state = model_input['state']
             # state = torch.cat([state['base'], state['entities']], dim=1)
-        elif self.args.m == 'threefish.json':
+        elif self.args.m == 'threefish':
             state = extract_neural_state_threefish(state, self.args)
             # state = state['positions'].reshape(-1)
             # state = torch.tensor(state.tolist()).to(device)
@@ -120,7 +120,7 @@ class NeuralPPO:
 
         if self.args.m == 'getout':
             action = action_map_getout(action.item(), self.args)
-        elif self.args.m == 'threefish.json':
+        elif self.args.m == 'threefish':
             action = action_map_threefish(action.item(), self.args)
         elif self.args.m == 'loot':
             action = action_map_loot(action.item(), self.args)
@@ -207,7 +207,7 @@ class NeuralPlayer:
     def act(self, state):
         if self.args.m == 'getout':
             action = self.getout_actor(state)
-        elif self.args.m == 'threefish.json':
+        elif self.args.m == 'threefish':
             action = self.threefish_actor(state)
         elif self.args.m == 'loot':
             action = self.loot_actor(state)

@@ -73,7 +73,7 @@ def preds_to_action_threefish(action, prednames):
     map explaining to action
     action_space = [1, 3, 4, 5, 7]
     """
-    if 'up' in prednames[action]:
+    if prednames[action] == "up":
         return np.array([5])
     elif 'down' in prednames[action]:
         return np.array([3])
@@ -81,7 +81,7 @@ def preds_to_action_threefish(action, prednames):
         return np.array([1])
     elif 'right' in prednames[action]:
         return np.array([7])
-    elif 'idle' in prednames[action]:
+    elif 'noop' in prednames[action]:
         return np.array([4])
 
 

@@ -31,7 +31,7 @@ class NSFR_ActorCritic(nn.Module):
         self.args = args
         self.actor = get_nsfr_model(self.args, train=True)
         self.prednames = self.get_prednames()
-        if self.args.m == 'threefish.json':
+        if self.args.m == 'threefish':
             self.critic = MLPThreefish(out_size=1, logic=True)
         elif self.args.m == 'getout':
             self.critic = MLPGetout(out_size=1, logic=True)
@@ -94,7 +94,7 @@ class NSFR_PI_ActorCritic(nn.Module):
         self.args = args
 
         clause_file = args.trained_model_folder / args.learned_clause_file
-        data =torch.load(clause_file, map_location=torch.device(args.device))
+        data = torch.load(clause_file, map_location=torch.device(args.device))
         args.p_inv_counter = data["p_inv_counter"]
         args.clauses = [cs for acs in data["clauses"] for cs in acs]
         bk_preds = [bk.neural_predicate_2[bk_pred_name] for bk_pred_name in args.bk_pred_names.split(",")]
@@ -113,6 +113,9 @@ class NSFR_PI_ActorCritic(nn.Module):
         elif args.env == "loot":
             args.action_names = config.action_name_loot
             args.game_info = config.game_info_loot
+        elif args.env == "threefish":
+            args.action_names = config.action_name_threefish
+            args.game_info = config.game_info_threefish
         else:
             raise ValueError
 
@@ -120,7 +123,7 @@ class NSFR_PI_ActorCritic(nn.Module):
                                                 data["all_invented_preds"])
         self.actor = ai_interface.get_nsfr_model(args, lang)
         self.prednames = self.get_prednames()
-        if self.args.m == 'threefish.json':
+        if self.args.m == 'threefish':
             self.critic = MLPThreefish(out_size=1, logic=True)
         elif self.args.m == 'getout':
             self.critic = MLPGetout(out_size=1, logic=True)
@@ -129,7 +132,7 @@ class NSFR_PI_ActorCritic(nn.Module):
         elif self.args.m == 'atari':
             self.critic = MLPAtari(out_size=1, logic=True)
             if self.args.env == "Freeway":
-                target_c = Clause(data["clauses"][1][0].head ,[lang.atoms[1]])
+                target_c = Clause(data["clauses"][1][0].head, [lang.atoms[1]])
                 args.clauses.append(target_c)
         self.num_actions = len(self.prednames)
         self.uniform = Categorical(
@@ -213,6 +216,8 @@ class NSFR_PI_ActorCritic(nn.Module):
 
         elif self.args.m == "loot":
             logic_state[:, :, -2:] = logic_state[:, :, -2:] / 10
+        elif self.args.m == "threefish":
+            pass
         else:
             raise ValueError
         V_T = self.actor.eval_quick(logic_state)
@@ -265,6 +270,18 @@ def remap_loot_logic_state(state):
     return new_state
 
 
+def remap_threefish_logic_state(state):
+    state[:, -2:] = (state[:, -2:] + 3) / 27
+    small_fish = state[state[:, 2].argmin()].tolist()
+    small_fish = [0, 1, 0, small_fish[-2], small_fish[-1]]
+    big_fish = state[state[:, 2].argmax()].tolist()
+    big_fish = [0, 0, 1, big_fish[-2], big_fish[-1]]
+    agent = state[0].tolist()
+    agent = [1, 0, 0, agent[-2], agent[-1]]
+    new_state = torch.tensor([agent, small_fish, big_fish]).unsqueeze(0)
+    return new_state
+
+
 class LogicPPO:
     def __init__(self, lr_actor, lr_critic, optimizer, gamma, K_epochs, eps_clip, args):
 
@@ -297,9 +314,12 @@ class LogicPPO:
             logic_state = extract_logic_state_getout(state, self.args)
             neural_state = extract_neural_state_getout(state, self.args)
             norm_factor = 50
-        elif self.args.m == 'threefish.json':
+        elif self.args.m == 'threefish':
             logic_state = extract_logic_state_threefish(state, self.args)
+            logic_state = remap_threefish_logic_state(logic_state.squeeze())
             neural_state = extract_neural_state_threefish(state, self.args)
+            norm_factor = 1
+
         elif self.args.m == 'loot':
             logic_state = extract_logic_state_loot(state, self.args)
             logic_state = remap_loot_logic_state(logic_state.squeeze())
@@ -327,7 +347,7 @@ class LogicPPO:
         action = action.item()
         if self.args.m == 'getout':
             action = action_map_getout(action, self.args, self.prednames)
-        elif self.args.m == 'threefish.json':
+        elif self.args.m == 'threefish':
             action = action_map_threefish(action, self.args, self.prednames)
         elif self.args.m == 'loot':
             action = action_map_loot(action, self.args, self.prednames)
@@ -447,7 +467,7 @@ class LogicPlayer:
     def act(self, state):
         if self.args.m == 'getout':
             action, explaining = self.getout_actor(state)
-        elif self.args.m == 'threefish.json':
+        elif self.args.m == 'threefish':
             action, explaining = self.threefish_actor(state)
         elif self.args.m == 'loot':
             action, explaining = self.loot_actor(state)
@@ -466,7 +486,7 @@ class LogicPlayer:
     def get_state(self, state):
         if self.args.m == 'getout':
             logic_state = extract_logic_state_getout(state, self.args).squeeze(0)
-        elif self.args.m == 'threefish.json':
+        elif self.args.m == 'threefish':
             logic_state = extract_logic_state_threefish(state, self.args).squeeze(0)
         if self.args.m == 'loot':
             logic_state = extract_logic_state_loot(state, self.args).squeeze(0)

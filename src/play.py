@@ -41,11 +41,11 @@ def main():
                         choices=['ppo', 'logic', 'random', 'human'])
     parser.add_argument("-m", "--mode", help="the game mode you want to play with",
                         required=True, action="store", dest="m",
-                        choices=['getout', 'threefish.json', 'loot', 'ecoinrun', 'atari'])
+                        choices=['getout', 'threefish', 'loot', 'ecoinrun', 'atari'])
     parser.add_argument("-env", "--environment", help="environment of game to use",
                         required=True, action="store", dest="env",
                         choices=['getout', 'getoutplus', 'getout4en',
-                                 'threefish.json', 'threefishcolor',
+                                 'threefish', 'threefishcolor',
                                  'loot', 'lootcolor', 'lootplus', 'loothard',
                                  'ecoinrun', 'freeway', 'kangaroo', 'Asterix'])
     parser.add_argument("-r", "--rules", dest="rules", default=None,
@@ -125,7 +125,7 @@ def main():
     #### Continue to render
     if args.m == 'getout':
         render_getout(agent, args)
-    elif args.m == 'threefish.json':
+    elif args.m == 'threefish':
         render_threefish(agent, args)
     elif args.m == 'loot':
         render_loot(agent, args)

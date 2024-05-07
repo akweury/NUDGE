@@ -550,7 +550,7 @@ class SymbolicMicroProgramPlayer:
             action, explaining = self.assault_actor(state)
         elif self.args.m in ["Asterix", "Boxing", "Breakout", "Freeway", "Kangaroo", "Pong"]:
             action, explaining = self.asterix_actor(state)
-        elif self.args.m == 'threefish.json':
+        elif self.args.m == 'threefish':
             action, explaining = self.threefish_actor(state)
         elif self.args.m == 'loot':
             action, explaining = self.loot_actor(state)

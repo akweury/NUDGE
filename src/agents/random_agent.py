@@ -12,7 +12,7 @@ class RandomPlayer:
 
         if 'getout' == self.args.m:
             action = self.getout_actor()
-        elif self.args.m == 'threefish.json':
+        elif self.args.m == 'threefish':
             action = self.threefish_actor()
         elif self.args.m == 'loot':
             action = self.loot_actor()

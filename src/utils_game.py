@@ -13,7 +13,6 @@ from PIL import Image, ImageDraw, ImageFont
 from src.environments.procgen.procgen import ProcgenGym3Env
 from src.agents.utils_threefish import extract_neural_state_threefish, extract_logic_state_threefish
 
-
 # font_path = os.path.join(cv2.__path__[0], 'qt', 'fonts', 'DejaVuSans.ttf')
 # font = ImageFont.truetype(font_path, size=40)
 disp_text = None
@@ -24,7 +23,7 @@ def hexify(la):
     return hex(int("".join([str(l) for l in la])))
 
 
-def run(args,save_buffer, env, nb_games=20):
+def run(args, save_buffer, env, nb_games=20):
     """
     Display a window to the user and loop until the window is closed
     by the user.
@@ -60,7 +59,7 @@ def run(args,save_buffer, env, nb_games=20):
             if "O" in keys_clicked:
                 env._overlay_enabled = not env._overlay_enabled
             env._update(dt, keys_clicked, keys_pressed)
-            if len(list(keys_pressed))>0:
+            if len(list(keys_pressed)) > 0:
                 action_str = str(list(keys_pressed)[0])
                 action = -1
                 if action_str == "UP":
@@ -75,7 +74,7 @@ def run(args,save_buffer, env, nb_games=20):
             else:
                 action = 4
 
-            if action in [0,1,2,3,4]:
+            if action in [0, 1, 2, 3, 4]:
                 actions.append(action)
                 logic_states.append(logic_state.detach().tolist())
                 reward, obs, done = env._env.observe()
@@ -103,6 +102,7 @@ def get_values(summaries, key_str, stype=float):
         dico = ast.literal_eval(line[11:])
         all_values.append(stype(dico[key_str]))
     return all_values
+
 
 #
 # def render_getout(agent, args):
