@@ -106,9 +106,9 @@ game_info_getout = {
 game_info_loot = {
     "obj_info": obj_info_loot,
     "state_row_num": 5,
-    "state_col_num": 8,
-    "axis_x_col": 6,
-    "axis_y_col": 7
+    "state_col_num": 7,
+    "axis_x_col": 5,
+    "axis_y_col": 6
 }
 game_info_threefish = {
     "obj_info": obj_info_threefish,

@@ -7,7 +7,6 @@ import torch
 import os
 import gym3
 
-
 from src.environments.procgen.procgen import ProcgenGym3Env
 from src.agents.utils_loot import extract_neural_state_loot, simplify_action_loot, extract_logic_state_loot
 
@@ -41,6 +40,7 @@ def _render(args, agent, env_args, video_out, agent_type):
     video_out, _ = game_utils.plot_game_frame(agent_type, env_args, video_out, env_args.obs,
                                               screen_text)
 
+
 def create_getout_instance(args, seed=None):
     if args.m == 'getoutplus':
         enemies = True
@@ -53,6 +53,7 @@ def create_getout_instance(args, seed=None):
     getout.render()
 
     return getout
+
 
 def load_model(model_path, args, set_eval=True):
     with open(model_path, "rb") as f:
@@ -67,6 +68,8 @@ def load_model(model_path, args, set_eval=True):
         model = model.eval()
 
     return model
+
+
 def collect_loot_data(args, agent, buffer_filename, save_buffer):
     game_num = args.teacher_game_nums
     # play games using the random agent
@@ -91,7 +94,7 @@ def collect_loot_data(args, agent, buffer_filename, save_buffer):
         logic_states = []
         actions = []
         rewards = []
-        done= False
+        done = False
         while not done:
             neural_state = extract_neural_state_loot(obs, args)
             logic_state = extract_logic_state_loot(obs, args)
@@ -114,7 +117,7 @@ def collect_loot_data(args, agent, buffer_filename, save_buffer):
             logic_states.append(logic_state.detach().tolist())
             actions.append(action)
             rewards.append(rew.tolist()[0])
-        if rewards[-1]>0:
+        if rewards[-1] > 0:
             buffer.logic_states.append(logic_states)
             buffer.actions.append(actions)
             buffer.rewards.append(rewards)
@@ -128,6 +131,7 @@ def collect_loot_data(args, agent, buffer_filename, save_buffer):
     buffer.win_rates = win_rates
     buffer.save_data()
 
+
 if not os.path.exists(buffer_filename):
     agent = game_utils.create_agent(args, agent_type=args.teacher_agent)
     collect_loot_data(args, agent, buffer_filename, save_buffer=True)
@@ -138,6 +142,26 @@ if not os.path.exists(data_file):
     states = torch.cat(game_buffer.logic_states, dim=0)
     states[:, :, -2:] = states[:, :, -2:] / 10
     actions = torch.cat(game_buffer.actions, dim=0)
+
+    new_states = []
+    new_actions = []
+    for s_i, state in enumerate(states):
+        if state[:, -1].sum() == 0:
+            continue
+        key1 = state[1].tolist()
+        key1 = [0, state[1, 1].tolist(), 0, 0, 0, key1[-2], key1[-1]]
+        loot1 = state[2].tolist()
+        loot1 = [0, 0, state[2, 2].tolist(), 0, 0, loot1[-2], loot1[-1]]
+        key2 = state[3].tolist()
+        key2 = [0, 0, 0, state[3, 1].tolist(), 0, key2[-2], key2[-1]]
+        loot2 = state[4].tolist()
+        loot2 = [0, 0, 0, 0, state[4, 2].tolist(), loot2[-2], loot2[-1]]
+        agent = state[0].tolist()
+        agent = [state[0, 0].tolist(), 0, 0, 0, 0, agent[-2], agent[-1]]
+        new_states.append(torch.tensor([agent, key1, loot1, key2, loot2]).unsqueeze(0))
+        new_actions.append(actions[s_i].reshape(1))
+    states = torch.cat(new_states, dim=0)
+    actions = torch.cat(new_actions, dim=0)
 
     data = {}
     action_data = []
