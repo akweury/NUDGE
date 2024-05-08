@@ -29,5 +29,5 @@
   "semantic_unique": false,
   "ness_maximize": false,
   "ness_equal_th": 0.05,
-  "learned_clause_file": "c_rho_1_phi_1_pi_True_step_6.pt"
+  "learned_clause_file": "c_rho_100_phi_90_pi_True_step_6.pt"
 }
