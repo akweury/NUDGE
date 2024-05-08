@@ -12,7 +12,13 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 date_now = datetime.datetime.today().date()
 time_now = datetime.datetime.now().strftime("%H_%M_%S")
-
+import matplotlib.pylab as pylab
+params = {'legend.fontsize': 'x-large',
+         'axes.labelsize': 'x-large',
+         'axes.titlesize':'x-large',
+         'xtick.labelsize':'x-large',
+         'ytick.labelsize':'x-large'}
+pylab.rcParams.update(params)
 
 def plot_to_np_array():
     fig = plt.gcf()
@@ -27,7 +33,7 @@ def plot_to_np_array():
 
 
 def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scale=None, y_label=None, show=False,
-                    x_label=None, log_y=False, cla_leg=False, figure_size=None, conf_interval=False):
+                    x_label=None, log_y=False, cla_leg=False, figure_size=None, conf_interval=False, color=None, line_width=1):
     """ data with shape a*b, a is the number of lines, b is the data of each line """
 
     if data.shape[1] <= 1:
@@ -44,15 +50,15 @@ def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scal
         if x is None:
             x = np.arange(row.shape[0]) * x_scale[1]
         y = row
-        plt.plot(x, y, label=labels[i], lw=1)
+        plt.plot(x, y, label=labels[i], lw=line_width, color=color[i])
 
     if title is not None:
-        plt.title(title)
+        plt.title(title, fontsize=22)
 
     if y_label is not None:
-        plt.ylabel(y_label)
+        plt.ylabel(y_label, fontsize=20)
     if x_label is not None:
-        plt.xlabel(x_label)
+        plt.xlabel(x_label, fontsize=20)
 
     if log_y:
         plt.yscale('log')
@@ -66,7 +72,7 @@ def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scal
         plt.fill_between(np.arange(len(y)), lower_bound, upper_bound,
                          color='gray', alpha=0.3, label='95% Confidence Interval')
 
-    plt.legend()
+    plt.legend(fontsize=20)
     plt.grid(True)
     plt.tight_layout()
     if not os.path.exists(str(path)):

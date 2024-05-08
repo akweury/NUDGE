@@ -70,7 +70,7 @@ def main():
 
     lang = se.init_ilp(args, data, config.pi_type['bk'])
     # for a_i in range(len(args.action_names)):
-    for a_i in range(len(args.action_names)):
+    for a_i in [2]:
         args.label = a_i
         args.label_name = args.action_names[a_i]
         action_clauses = []
@@ -78,7 +78,7 @@ def main():
         log_utils.add_lines(
             f"============================= RULE OBJ NUM : {args.rule_obj_num} =======================",
             args.log_file)
-        # set up the environment, load the dataset and results from perception models
+        # set up the environment, load the dataset and results from perception model
         start = time.time()
 
         group_end = time.time()

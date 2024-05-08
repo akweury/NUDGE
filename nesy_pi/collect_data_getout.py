@@ -30,6 +30,7 @@ def _render(args, agent, env_args, video_out, agent_type):
     screen_text = (
         f"ep: {env_args.game_i}\n "
         f"act: {args.action_names[env_args.action - 1]} re: {env_args.reward}")
+    screen_text = ""
     # env_args.logic_state = agent.now_state
     video_out, _ = game_utils.plot_game_frame(agent_type, env_args, video_out, env_args.obs,
                                               screen_text)

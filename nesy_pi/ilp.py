@@ -104,7 +104,11 @@ def remove_trivial_atoms(args, lang, FC, clauses):
     for c in trivial_c:
         trivial_atom_terms.append(c.body[0].terms[:-1])
     lang.trivial_atom_terms = trivial_atom_terms
-
+    ness_ranked = clause_scores[clause_scores[:, 0].sort(descending=True)[1]]
+    # draw_utils.plot_line_chart(ness_ranked.permute(1, 0).to("cpu").numpy(), args.trained_model_folder,
+    #                            ["Necessity", "Sufficiency"],title=f"Left_EXPIL_phi_{args.phi_num}",
+    #                            cla_leg=True, figure_size=(6, 6), conf_interval=False, color=["#dc7979","#f1b197"],
+    #                            log_y=False, line_width=2.5)
     non_trivial_atoms = []
     for atom in lang.atoms:
         if len(atom.terms) <= 1:
@@ -150,9 +154,9 @@ def ilp_search(args, lang, init_clauses, FC, max_step, pi_mode=False):
         # clause evaluation
         img_scores, clause_scores = clause_eval(args, lang, FC, clauses, extend_step)
         # classify clauses
-        draw_utils.plot_line_chart(clause_scores.permute(1, 0), path=args.trained_model_folder,
-                                   labels=["Nessicity", "Sufficiency"], title="Getout_Rule_Evaluation_(Step_1)",
-                                   figure_size=(15, 4))
+        # draw_utils.plot_line_chart(clause_scores.permute(1, 0), path=args.trained_model_folder,
+        #                            labels=["Nessicity", "Sufficiency"], title="Getout_Rule_Evaluation_(Step_1)",
+        #                            figure_size=(15, 4))
 
         clause_with_scores = sort_clauses_by_score(clauses, img_scores, clause_scores, args)
         if args.pi_top > 0:
@@ -868,6 +872,8 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
         ness_score, suff_scores = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
         suff_incres = True
         new_pattern_cluster = pattern_cluster
+
+        score_data = []
         while suff_scores < args.inv_sc_th and len(new_pattern_cluster) > 1 and suff_incres:
             pattern_cluster = new_pattern_cluster
             sub_cluster_scores = []
@@ -886,9 +892,18 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
                        f"a_{args.label}-{cc_i}-1-sc": highest_sc_score,
                        f"a_{args.label}-{cc_i}-2-sn": ness_score + highest_sc_score,
                        })
+            score_data.append([ness_score, highest_sc_score, ness_score + highest_sc_score])
         if suff_scores >= args.inv_sc_th and len(new_pattern_cluster) > 1:
             pattern_cluster = new_pattern_cluster
         clu_score = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
+        if len(score_data)>1:
+            score_data = torch.tensor(score_data).permute(1, 0)
+            draw_utils.plot_line_chart(score_data, args.trained_model_folder,
+                                       ["Necessity", "Sufficiency", "SUM"], title=f"inv_pred_{cc_i}",
+                                       cla_leg=True, figure_size=(8, 6), conf_interval=False,
+                                       color=["#dc7979", "#f1b197", "#cccccc"],
+                                       log_y=True, line_width=2.5, x_label="Step")
+
         clu_all.append([pattern_cluster, clu_score])
 
     index_suff = config.score_type_index['suff']
