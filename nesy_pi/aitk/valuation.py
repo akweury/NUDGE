@@ -160,9 +160,9 @@ class FCNNValuationModule(nn.Module):
                 else:
                     raise ValueError
             elif self.args.m == "threefish":
-                if "small_fish" in term.name:
+                if "smallfish" in term.name:
                     return zs[:, 1, [1, -2, -1]].to(self.device)
-                elif "big_fish" in term.name:
+                elif "bigfish" in term.name:
                     return zs[:, 2, [2, -2, -1]].to(self.device)
                 else:
                     raise ValueError

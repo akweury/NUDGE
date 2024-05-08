@@ -93,8 +93,8 @@ obj_info_loot = [('agent', 1),
                  ('loot2', 1),
                  ]
 obj_info_threefish = [('agent', 1),
-                   ('small_fish', 1),
-                   ('big_fish', 1)
+                   ('smallfish', 1),
+                   ('bigfish', 1)
                  ]
 game_info_getout = {
     "obj_info": obj_info_getout,
