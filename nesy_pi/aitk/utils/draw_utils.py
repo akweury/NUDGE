@@ -27,7 +27,7 @@ def plot_to_np_array():
 
 
 def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scale=None, y_label=None, show=False,
-                    x_label=None, log_y=False, cla_leg=False, figure_size=None):
+                    x_label=None, log_y=False, cla_leg=False, figure_size=None, conf_interval=False):
     """ data with shape a*b, a is the number of lines, b is the data of each line """
 
     if data.shape[1] <= 1:
@@ -57,18 +57,18 @@ def plot_line_chart(data, path, labels, x=None, title=None, x_scale=None, y_scal
     if log_y:
         plt.yscale('log')
 
-
     # Calculate standard deviation for confidence intervals
-    std_dev = torch.tensor(np.std(y.numpy()))
-    # Plot confidence intervals
-    lower_bound = y - 1.96 * std_dev
-    upper_bound = y + 1.96 * std_dev
-    plt.fill_between(np.arange(len(y)), lower_bound, upper_bound,
-                     color='gray', alpha=0.3, label='95% Confidence Interval')
+    if conf_interval:
+        std_dev = torch.tensor(np.std(y.numpy()))
+        # Plot confidence intervals
+        lower_bound = y - 1.96 * std_dev
+        upper_bound = y + 1.96 * std_dev
+        plt.fill_between(np.arange(len(y)), lower_bound, upper_bound,
+                         color='gray', alpha=0.3, label='95% Confidence Interval')
 
     plt.legend()
     plt.grid(True)
-
+    plt.tight_layout()
     if not os.path.exists(str(path)):
         os.mkdir(path)
     plt.savefig(

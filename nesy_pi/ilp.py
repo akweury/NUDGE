@@ -11,7 +11,7 @@ from nesy_pi import eval_clause_infer
 from nesy_pi import semantic as se
 from nesy_pi.aitk import ai_interface
 from nesy_pi.aitk.utils.fol import bk, logic
-from nesy_pi.aitk.utils import nsfr_utils, visual_utils, lang_utils, logic_utils, log_utils
+from nesy_pi.aitk.utils import nsfr_utils, visual_utils, lang_utils, logic_utils, log_utils, draw_utils
 from nesy_pi.aitk.utils.fol.refinement import RefinementGenerator
 
 from nesy_pi.ilp_utils import remove_duplicate_clauses, remove_conflict_clauses, update_refs
@@ -150,6 +150,10 @@ def ilp_search(args, lang, init_clauses, FC, max_step, pi_mode=False):
         # clause evaluation
         img_scores, clause_scores = clause_eval(args, lang, FC, clauses, extend_step)
         # classify clauses
+        draw_utils.plot_line_chart(clause_scores.permute(1, 0), path=args.trained_model_folder,
+                                   labels=["Nessicity", "Sufficiency"], title="Getout_Rule_Evaluation_(Step_1)",
+                                   figure_size=(15, 4))
+
         clause_with_scores = sort_clauses_by_score(clauses, img_scores, clause_scores, args)
         if args.pi_top > 0:
             pruned_clauses, pruned_clause_with_scores = prune_clauses(clause_with_scores, args)
