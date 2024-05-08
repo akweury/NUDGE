@@ -286,7 +286,7 @@ def main():
             epsilon = max(math.exp(-i_episode / 0.02), 0.02)
         elif args.m == 'atari':
             obs, info = env.reset()
-            epsilon = max(math.exp(-i_episode / 0.02), 0.02)
+            epsilon = max(math.exp(-i_episode / 500), 0.02)
         elif args.m == "loot" or args.m == "threefish":
             epsilon = max(math.exp(-i_episode / 500), 0.02)
         else:
