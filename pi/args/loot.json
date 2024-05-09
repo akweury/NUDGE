@@ -7,7 +7,7 @@
   "nc_th": 0.85,
   "sc_th": 0.9,
   "sn_th": 0.8,
-  "top_ness_p": 200,
+  "top_ness_p": 100,
   "ness_th": 0.01,
   "ness_min": 0.05,
   "suff_min": 0.8,
@@ -30,5 +30,5 @@
   "semantic_unique": false,
   "ness_maximize": false,
   "ness_equal_th": 0.05,
-  "learned_clause_file": "c_rho_100_phi_8_pi_True_step_6.pt"
+  "learned_clause_file": "c_rho_100_phi_90_pi_True_step_6.pt"
 }
