@@ -106,8 +106,8 @@ def remove_trivial_atoms(args, lang, FC, clauses):
     lang.trivial_atom_terms = trivial_atom_terms
     ness_ranked = clause_scores[clause_scores[:, 0].sort(descending=True)[1]]
     draw_utils.plot_line_chart(ness_ranked.permute(1, 0).to("cpu").numpy(), args.trained_model_folder,
-                               ["Necessity", "Sufficiency"],title=f"{args.label_name}_EXPIL_phi_{args.phi_num}",
-                               cla_leg=True, figure_size=(6, 6), conf_interval=False, color=["#dc7979","#f1b197"],
+                               ["Necessity", "Sufficiency"], title=f"{args.label_name}_EXPIL_phi_{args.phi_num}",
+                               cla_leg=True, figure_size=(6, 6), conf_interval=False, color=["#dc7979", "#f1b197"],
                                log_y=False, line_width=2.5)
     non_trivial_atoms = []
     for atom in lang.atoms:
@@ -234,7 +234,7 @@ def ilp_test(args, lang):
 
     ilp_search(args, lang, clauses, FC, args.max_step)
     # ranking with sufficiency
-    top_ness_clauses = top_kp(lang.all_clauses, rank_type="suff", top_type="ness")
+    top_ness_clauses = top_kp(lang.all_clauses, rank_type="sn", top_type="ness")
     success, clauses = log_utils.print_test_result(args, lang, top_ness_clauses)
     return success, top_ness_clauses
 
@@ -267,10 +267,7 @@ def top_kp(clause_with_score, rank_type, top_type):
         suff_percents.append(suff_percent)
 
         if top_type == "suff":
-            if suff_percent < 0.01:
-                continue
-            else:
-                top_kp_clauses.append(c)
+            top_kp_clauses.append(c)
         elif top_type == "ness":
             if ness_percent < 0.01:
                 continue
@@ -896,7 +893,7 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
         if suff_scores >= args.inv_sc_th and len(new_pattern_cluster) > 1:
             pattern_cluster = new_pattern_cluster
         clu_score = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
-        if len(score_data)>1:
+        if len(score_data) > 1:
             score_data = torch.tensor(score_data).permute(1, 0)
             draw_utils.plot_line_chart(score_data, args.trained_model_folder,
                                        ["Necessity", "Sufficiency", "SUM"], title=f"inv_pred_{cc_i}",
