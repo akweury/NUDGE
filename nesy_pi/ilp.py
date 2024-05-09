@@ -105,10 +105,10 @@ def remove_trivial_atoms(args, lang, FC, clauses):
         trivial_atom_terms.append(c.body[0].terms[:-1])
     lang.trivial_atom_terms = trivial_atom_terms
     ness_ranked = clause_scores[clause_scores[:, 0].sort(descending=True)[1]]
-    # draw_utils.plot_line_chart(ness_ranked.permute(1, 0).to("cpu").numpy(), args.trained_model_folder,
-    #                            ["Necessity", "Sufficiency"],title=f"Left_EXPIL_phi_{args.phi_num}",
-    #                            cla_leg=True, figure_size=(6, 6), conf_interval=False, color=["#dc7979","#f1b197"],
-    #                            log_y=False, line_width=2.5)
+    draw_utils.plot_line_chart(ness_ranked.permute(1, 0).to("cpu").numpy(), args.trained_model_folder,
+                               ["Necessity", "Sufficiency"],title=f"{args.label_name}_EXPIL_phi_{args.phi_num}",
+                               cla_leg=True, figure_size=(6, 6), conf_interval=False, color=["#dc7979","#f1b197"],
+                               log_y=False, line_width=2.5)
     non_trivial_atoms = []
     for atom in lang.atoms:
         if len(atom.terms) <= 1:

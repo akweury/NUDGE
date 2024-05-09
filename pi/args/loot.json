@@ -1,6 +1,6 @@
 {
   "teacher_agent": "ppo",
-  "bk_pred_names": "phi,rho,not_exist",
+  "bk_pred_names": "phi,not_exist",
   "fine_tune_pred_parameter": true,
   "max_cluster_size": 10,
   "top_k": 5,
@@ -12,14 +12,14 @@
   "suff_min": 0.9,
   "inv_sn_th": 1.0,
   "inv_sc_th": 0.92,
-  "inv_nc_th": 0.1,
+  "inv_nc_th": 0.01,
   "max_step": 6,
   "cim_step": 3,
   "pi_top": 3,
   "top_data": 800,
   "train_data_size": 800,
   "rho_num": 100,
-  "phi_num": 90,
+  "phi_num": 8,
   "max_rule_obj": 3,
   "game_obj_num": 4,
   "batch_size": 100,
@@ -29,5 +29,5 @@
   "semantic_unique": false,
   "ness_maximize": false,
   "ness_equal_th": 0.05,
-  "learned_clause_file": "c_rho_100_phi_90_pi_True_step_6.pt"
+  "learned_clause_file": "c_rho_100_phi_8_pi_True_step_6.pt"
 }

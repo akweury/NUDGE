@@ -152,11 +152,11 @@ class FCNNValuationModule(nn.Module):
                 if "key1" in term.name:
                     return zs[:, 1, [1, -2, -1]].to(self.device)
                 elif "key2" in term.name:
-                    return zs[:, 3, [3, -2, -1]].to(self.device)
+                    return zs[:, 2, [2, -2, -1]].to(self.device)
                 elif "loot1" in term.name:
-                    return zs[:, 3, [2, -2, -1]].to(self.device)
+                    return zs[:, 3, [3, -2, -1]].to(self.device)
                 elif "loot2" in term.name:
-                    return zs[:, 3, [4, -2, -1]].to(self.device)
+                    return zs[:, 4, [4, -2, -1]].to(self.device)
                 else:
                     raise ValueError
             elif self.args.m == "threefish":
@@ -428,6 +428,7 @@ class FCNNPhiValuationFunction(nn.Module):
         angle_radians = torch.atan2(z_2[:, -1] - z_1[:, -1], z_1[:, -2] - z_2[:, -2])
         angle_degrees = torch.rad2deg(angle_radians)
         angle_degrees = math_utils.closest_one_percent(angle_degrees, self.error_th)
+        angle_degrees[angle_degrees < 0] = 360 + angle_degrees[angle_degrees < 0]
         params = given_param.unique()
         satisfaction = torch.cat([(torch.abs(angle_degrees - p) < 1e-5).unsqueeze(0) for p in params], dim=0).sum(
             dim=0) * mask
