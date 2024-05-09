@@ -68,6 +68,8 @@ def get_args():
                         help="The weight of clause length for clause evaluation.")
     parser.add_argument("--top_k", type=int, default=20,
                         help="The accept number for clauses.")
+    parser.add_argument("--top_ness_p", type=int, default=20,
+                        help="The accept number for clauses.")
     parser.add_argument("--uc_good_top", type=int, default=10,
                         help="The accept number for unclassified good clauses.")
     parser.add_argument("--sc_good_top", type=int, default=20,

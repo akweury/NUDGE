@@ -99,22 +99,32 @@ def remove_trivial_atoms(args, lang, FC, clauses):
     clauses = clause_extend(args, lang, clauses)
     # clause evaluation
     img_scores, clause_scores = clause_eval(args, lang, FC, clauses, None)
-    trivial_c = [clauses[c_i] for c_i, c in enumerate(clause_scores) if c[0] < 0.01 and c[1] > 0.99]
+    ness_rank = clause_scores[:, 0].sort(descending=True)[1]
+    ness_ranked = clause_scores[ness_rank]
+    c_ranked = [clauses[i] for i in ness_rank]
+
+    trivial_c = c_ranked[args.top_ness_p:]
     trivial_atom_terms = []
     for c in trivial_c:
         trivial_atom_terms.append(c.body[0].terms[:-1])
     lang.trivial_atom_terms = trivial_atom_terms
-    ness_ranked = clause_scores[clause_scores[:, 0].sort(descending=True)[1]]
-    draw_utils.plot_line_chart(ness_ranked.permute(1, 0).to("cpu").numpy(), args.trained_model_folder,
-                               ["Necessity", "Sufficiency"], title=f"{args.label_name}_EXPIL_phi_{args.phi_num}",
-                               cla_leg=True, figure_size=(6, 6), conf_interval=False, color=["#dc7979", "#f1b197"],
-                               log_y=False, line_width=2.5)
+
+
     non_trivial_atoms = []
     for atom in lang.atoms:
         if len(atom.terms) <= 1:
             non_trivial_atoms.append(atom)
         elif atom.terms[:-1] not in trivial_atom_terms:
             non_trivial_atoms.append(atom)
+
+
+
+
+    draw_utils.plot_line_chart(ness_ranked.permute(1, 0).to("cpu").numpy(), args.trained_model_folder,
+                               ["Necessity", "Sufficiency"], title=f"{args.label_name}_EXPIL_phi_{args.phi_num}",
+                               cla_leg=True, figure_size=(6, 6), conf_interval=False, color=["#dc7979", "#f1b197"],
+                               log_y=False, line_width=2.5)
+
     return non_trivial_atoms
 
 
