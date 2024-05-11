@@ -166,9 +166,13 @@ class FCNNValuationModule(nn.Module):
                     return zs[:, 2, [2, -2, -1]].to(self.device)
                 else:
                     raise ValueError
-
-
-
+            elif self.args.m == "Pong":
+                if "ball" in term.name:
+                    return zs[:, 1, [1, -2, -1]].to(self.device)
+                elif "enemy" in term.name:
+                    return zs[:, 2, [2, -2, -1]].to(self.device)
+                else:
+                    raise ValueError
             else:
                 raise ValueError
         elif term.dtype.name == "player":

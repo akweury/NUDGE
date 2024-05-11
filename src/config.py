@@ -162,9 +162,9 @@ action_name_pong = ["noop",  # 0
 prop_info_pong = {'axis_x_col': 3,
                   'axis_y_col': 4}
 
-obj_info_pong = [('Player', 1),  # 0 # 0,
-                 ('Ball', 1),  # 1 # 1
-                 ('Enemy', 1),  # 2 # 2
+obj_info_pong = [('player', 1),  # 0 # 0,
+                 ('ball', 1),  # 1 # 1
+                 ('enemy', 1),  # 2 # 2
                  ]
 
 game_info_pong = {
@@ -352,7 +352,7 @@ prop_name_threefish = ['agent', 'fish', "radius", "axis_x", "axis_y"]
 prop_name_assault = ['agent', 'player_missile_vertical', "player_missile_horizontal", "enemy", "enemy_missile",
                      "axis_x", "axis_y"]
 prop_name_asterix = ["Player", "Enemy", "Consumable", "axis_x", "axis_y"]
-prop_name_pong = ["Player", "Ball", "Enemy", "axis_x", "axis_y"]
+prop_name_pong = ["player", "ball", "enemy", "axis_x", "axis_y"]
 
 prop_name_boxing = ["Player", "Enemy", "axis_x", "axis_y"]
 prop_name_breakout = ["Player", "Ball", "BlockRow", "axis_x", "axis_y"]
