@@ -120,10 +120,10 @@ def remove_trivial_atoms(args, lang, FC, clauses):
 
 
 
-    draw_utils.plot_line_chart(ness_ranked.permute(1, 0).to("cpu").numpy(), args.trained_model_folder,
-                               ["Necessity", "Sufficiency"], title=f"{args.label_name}_EXPIL_phi_{args.phi_num}",
-                               cla_leg=True, figure_size=(6, 6), conf_interval=False, color=["#dc7979", "#f1b197"],
-                               log_y=False, line_width=2.5)
+    # draw_utils.plot_line_chart(ness_ranked.permute(1, 0).to("cpu").numpy(), args.trained_model_folder,
+    #                            ["Necessity", "Sufficiency"], title=f"{args.label_name}_EXPIL_phi_{args.phi_num}",
+    #                            cla_leg=True, figure_size=(6, 6), conf_interval=False, color=["#dc7979", "#f1b197"],
+    #                            log_y=False, line_width=2.5)
 
     return non_trivial_atoms
 
@@ -905,11 +905,12 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
         clu_score = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
         if len(score_data) > 1:
             score_data = torch.tensor(score_data).permute(1, 0)
+            torch.save(score_data, args.trained_model_folder/f"suff_{args.label}-{cc_i}.pt")
             draw_utils.plot_line_chart(score_data, args.trained_model_folder,
                                        ["Necessity", "Sufficiency", "SUM"], title=f"inv_pred_{cc_i}",
                                        cla_leg=True, figure_size=(8, 6), conf_interval=False,
                                        color=["#dc7979", "#f1b197", "#cccccc"],
-                                       log_y=True, line_width=2.5, x_label="Step")
+                                       log_y=False, line_width=2.5, x_label="Step")
 
         clu_all.append([pattern_cluster, clu_score])
 

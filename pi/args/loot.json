@@ -20,7 +20,7 @@
   "top_data": 800,
   "train_data_size": 8000,
   "rho_num": 100,
-  "phi_num": 90,
+  "phi_num": 10,
   "max_rule_obj": 3,
   "game_obj_num": 4,
   "batch_size": 100,
@@ -30,5 +30,5 @@
   "semantic_unique": false,
   "ness_maximize": false,
   "ness_equal_th": 0.05,
-  "learned_clause_file": "c_rho_100_phi_90_pi_True_step_6.pt"
+  "learned_clause_file": "c_rho_100_phi_10_pi_True_step_5.pt"
 }
