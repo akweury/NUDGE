@@ -3,7 +3,7 @@
   "bk_pred_names": "phi",
   "fine_tune_pred_parameter": true,
   "max_cluster_size": 10,
-  "top_ness_p": 200,
+  "top_ness_p": 100,
   "top_k": 3,
   "nc_th": 0.85,
   "sc_th": 0.9,
@@ -14,13 +14,13 @@
   "inv_sn_th": 1.0,
   "inv_sc_th": 0.7,
   "inv_nc_th": 0.1,
-  "max_step": 2,
+  "max_step": 3,
   "cim_step": 3,
   "pi_top": 1,
   "top_data": 800,
   "train_data_size": 9000,
-  "rho_num": 100,
-  "phi_num":90,
+  "rho_num": 10,
+  "phi_num":10,
   "max_rule_obj": 3,
   "game_obj_num": 4,
   "batch_size": 50,
@@ -30,5 +30,5 @@
   "semantic_unique": false,
   "ness_maximize": false,
   "ness_equal_th": 0.05,
-  "learned_clause_file": "c_rho_100_phi_90_pi_True_step_2.pt"
+  "learned_clause_file": "c_rho_10_phi_10_pi_True_step_3.pt"
 }
