@@ -45,6 +45,7 @@ python -m nesy_pi.train_nudge -m getout -alg logic -env getout -r getout_pi --wi
 python -m nesy_pi.train_nudge -m loot -alg logic -env loot -r loot_pi --with_pi --device 6 -s 0
 python -m nesy_pi.train_nudge -m threefish -alg logic -env threefish -r threefish_pi --with_pi --device 4 -s 0
 
+python -m nesy_pi.train_nudge -m atari -alg logic -env Pong -r pong_pi --with_pi --device 7 -s 0
 
 python -m nesy_pi.train_nudge -m atari -alg logic -env Freeway -r freeway_pi --with_pi --device 5 -s 0
 python -m nesy_pi.train_nudge -m atari -alg logic -env Asterix -r asterix_pi --with_pi --device 3 -s 0
