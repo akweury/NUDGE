@@ -69,8 +69,8 @@ def main():
     )
 
     lang = se.init_ilp(args, data, config.pi_type['bk'])
-    # for a_i in range(len(args.action_names)):
-    for a_i in [1]:
+    for a_i in range(len(args.action_names)):
+    # for a_i in [1]:
         args.label = a_i
         args.label_name = args.action_names[a_i]
         action_clauses = []
