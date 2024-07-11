@@ -378,7 +378,7 @@ def main():
 
                 print("Episode : {} \t\t Timestep : {} \t\t Average Reward : {}".format(i_episode, time_step,
                                                                                         print_avg_reward))
-                wandb.log({'reward': print_avg_reward}, step=time_step)
+                # wandb.log({'reward': print_avg_reward}, step=time_step)
                 print_running_reward = 0
                 print_running_episodes = 0
 
@@ -417,7 +417,7 @@ def main():
         writer.add_scalar('Epsilon', epsilon, i_episode)
 
     # env.close()
-    wandb.finish()
+    # wandb.finish()
     # print total training time
     print("============================================================================================")
     with open(args.trained_model_folder / 'data.csv', 'w', newline='') as f:
