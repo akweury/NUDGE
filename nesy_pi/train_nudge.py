@@ -89,7 +89,7 @@ def main():
     if args.m == 'loot' and args.alg == 'ppo':
         max_training_timesteps = 5000000
     else:
-        max_training_timesteps = 1000000
+        max_training_timesteps = 10000000
     #####################################################
 
     if args.m == "getout":
@@ -211,30 +211,30 @@ def main():
         reward_list = []
         weights_list = []
     from nesy_pi.aitk.utils import draw_utils
-    if len(reward_list) > 1:
-        draw_utils.plot_line_chart(torch.tensor(reward_list).permute(1, 0),
-                                   args.trained_model_folder,
-                                   ["reward"], x=torch.tensor(step_list).squeeze(), cla_leg=True,
-                                   title=f"{args.env}_reward_{args.seed}.png"
-                                   )
+    # if len(reward_list) > 1:
+    #     draw_utils.plot_line_chart(torch.tensor(reward_list).permute(1, 0),
+    #                                args.trained_model_folder,
+    #                                ["reward"], x=torch.tensor(step_list).squeeze(), cla_leg=True,
+    #                                title=f"{args.env}_reward_{args.seed}.png"
+    #                                )
 
     # start a new wandb run to track this script
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project=f"{args.env}",
-
-        # track hyperparameters and run metadata
-        config={
-            "architecture": "PI",
-            "dataset": f"{args.env}",
-            "epochs": max_training_timesteps // print_freq,
-            "rho_num": args.rho_num,
-            "phi_num": args.phi_num,
-            "clauses": args.clauses,
-            "clause_num": len(args.clauses),
-            "learned_clause_file": args.learned_clause_file
-        }
-    )
+    # wandb.init(
+    #     # set the wandb project where this run will be logged
+    #     project=f"{args.env}",
+    #
+    #     # track hyperparameters and run metadata
+    #     config={
+    #         "architecture": "PI",
+    #         "dataset": f"{args.env}",
+    #         "epochs": max_training_timesteps // print_freq,
+    #         "rho_num": args.rho_num,
+    #         "phi_num": args.phi_num,
+    #         "clauses": args.clauses,
+    #         "clause_num": len(args.clauses),
+    #         "learned_clause_file": args.learned_clause_file
+    #     }
+    # )
 
     # track total training time
     start_time = time.time()
@@ -269,16 +269,17 @@ def main():
     print_running_reward = 0
     print_running_episodes = 0
 
-    rtpt = RTPT(name_initials='JS', experiment_name=f'{args.env}phi{args.phi_num}',
-                max_iterations=max_training_timesteps - time_step)
+    # rtpt = RTPT(name_initials='JS', experiment_name=f'{args.env}phi{args.phi_num}',
+    #             max_iterations=max_training_timesteps - time_step)
 
     # Start the RTPT tracking
     folder_name = f"{args.m}_{args.env}_{args.alg}_rho_{args.rho_num}_phi_{args.phi_num}_s{args.seed}_pi_{args.with_pi}"
     folder_name += datetime.datetime.now().strftime("%m%d-%H_%M")
     writer = SummaryWriter(str(args.trained_model_folder / folder_name))
-    rtpt.start()
+    # rtpt.start()
     # training loop
     pbar = tqdm(total=max_training_timesteps - time_step)
+    rewards_all = []
     while time_step <= max_training_timesteps:
 
         if args.env == 'getout':
@@ -341,7 +342,7 @@ def main():
 
             time_step += 1
             pbar.update(1)
-            rtpt.step()
+            # rtpt.step()
             current_ep_reward += reward
             # update PPO agent
             if time_step % update_timestep == 0:
@@ -408,7 +409,7 @@ def main():
             if done:
                 # print("Game over. New episode.")
                 break
-
+        rewards_all.append(current_ep_reward)
         print_running_reward += current_ep_reward
         print_running_episodes += 1
         i_episode += 1

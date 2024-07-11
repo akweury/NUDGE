@@ -56,34 +56,36 @@ fig, axs = plt.subplots(6, 1, figsize=(10,12))
 
 
 # Plotting the second bar chart
-axs[0].bar(torch.arange(len(left_90_ness)), left_90_ness, color='skyblue')
+p0 = axs[0].bar(torch.arange(len(left_90_ness)), left_90_ness, color='skyblue')
 axs[0].set_title('Left_Ness', fontsize="24")
 # axs[0].set_yscale('log')  # Set y-axis scale to logarithmic
-axs[1].bar(torch.arange(len(left_90_suff)), left_90_suff, color='skyblue')
+p1 = axs[1].bar(torch.arange(len(left_90_suff)), left_90_suff, color='skyblue')
 axs[1].set_title('Left_Suff', fontsize="24")
 # axs[1].set_yscale('log')  # Set y-axis scale to logarithmic
 
 # Plotting the fourth bar chart
-axs[2].bar(torch.arange(len(jump_90_ness)), jump_90_ness, color='skyblue')
+p2 = axs[2].bar(torch.arange(len(jump_90_ness)), jump_90_ness, color='lightgreen')
 axs[2].set_title('Jump_Ness', fontsize="24")
 # axs[2].set_yscale('log')  # Set y-axis scale to logarithmic
 
-axs[3].bar(torch.arange(len(jump_90_suff)), jump_90_suff, color='skyblue')
+p3 = axs[3].bar(torch.arange(len(jump_90_suff)), jump_90_suff, color='lightgreen')
 axs[3].set_title('Jump_Suff', fontsize="24")
 # axs[3].set_yscale('log')  # Set y-axis scale to logarithmic
 
 # Plotting the fourth bar chart
-axs[4].bar(torch.arange(len(right_90_ness)), right_90_ness, color='skyblue')
+p4 = axs[4].bar(torch.arange(len(right_90_ness)), right_90_ness, color='gold')
 axs[4].set_title('Right_Ness', fontsize="24")
 # axs[4].set_yscale('log')  # Set y-axis scale to logarithmic
 
-axs[5].bar(torch.arange(len(right_90_suff)), right_90_suff, color='skyblue')
+p5 = axs[5].bar(torch.arange(len(right_90_suff)), right_90_suff, color='gold')
 axs[5].set_title('Right_Suff', fontsize="24")
 # axs[5].set_yscale('log')  # Set y-axis scale to logarithmic
 
 for row_ax in axs:
     row_ax.spines['top'].set_visible(False)
     row_ax.spines['right'].set_visible(False)
+
+
 
 # Adjust layout to prevent overlap
 plt.tight_layout()

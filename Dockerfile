@@ -15,6 +15,6 @@ RUN pip install -e ./OC_Atari
 ADD .ssh/ /root/.ssh/
 RUN git clone git@github.com:akweury/NUDGE.git
 # Install Python requirements
-COPY ./requirements.txt ./requirements.txt
+COPY ../NUDGE/requirements.txt ./requirements.txt
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
