@@ -44,7 +44,6 @@ loot_ppo = torch.tensor(loot_ppo_df[loot_ppo_df.columns[1]].array)[:500]
 loot_ppo_scale_factor = (4.5 - loot_ppo.min()) / (loot_ppo.max() - loot_ppo.min())
 loot_ppo = loot_ppo_scale_factor * loot_ppo + (loot_ppo.min() - loot_ppo_scale_factor * loot_ppo.min())
 
-
 threefish_root = Path("E:\\projects\\storage\\check_point\\threefish\\trained_models")
 threefish_reward_file = threefish_root / "training_reward.csv"
 threefish_ppo_file = threefish_root / "threefish_ppo.csv"
@@ -55,7 +54,8 @@ threefish_phi8 = torch.tensor(threefish_df[threefish_df.columns[4]].array)
 threefish_phi1 = torch.tensor(threefish_df[threefish_df.columns[1]].array)
 threefish_ppo = torch.tensor(threefish_ppo_df[threefish_ppo_df.columns[1]].array)[:500]
 threefish_ppo_scale_factor = (-0.4 - threefish_ppo.min()) / (threefish_ppo.max() - threefish_ppo.min())
-threefish_ppo = threefish_ppo_scale_factor * threefish_ppo + (threefish_ppo.min() - threefish_ppo_scale_factor * threefish_ppo.min())
+threefish_ppo = threefish_ppo_scale_factor * threefish_ppo + (
+            threefish_ppo.min() - threefish_ppo_scale_factor * threefish_ppo.min())
 # Create subplots with 1 row and 4 columns
 fig, axs = plt.subplots(1, 3, figsize=(15, 4))
 marks = ['o', "*", "x"]
@@ -81,6 +81,14 @@ def smooth_tensor(window_size, tensor):
     return smoothed_tensor
 
 
+def conf_interval(data, color):
+    std_dev = torch.std(data)
+    # Plot confidence intervals
+    lower_bound = data - 1.96 * std_dev
+    upper_bound = data + 1.96 * std_dev
+    return lower_bound, upper_bound
+
+
 window_size = 20
 getout_phi1 = smooth_tensor(window_size, getout_phi1)
 getout_phi8 = smooth_tensor(window_size, getout_phi8)
@@ -88,8 +96,21 @@ getout_phi90 = smooth_tensor(window_size, getout_phi90)
 getout_ppo = smooth_tensor(window_size, getout_ppo)
 
 axs[0].plot(getout_steps, getout_phi1, color=colors[2])
+lb_getout_phi1, ub_getout_phi1 = conf_interval(getout_phi1, colors[2])
+axs[0].fill_between(getout_steps, lb_getout_phi1, ub_getout_phi1, color=colors[2], alpha=0.3)
+
 axs[0].plot(getout_steps, getout_phi90, color=colors[1])
+lb_getout_phi90, ub_getout_phi90 = conf_interval(getout_phi90, colors[1])
+# lb_getout_phi90 = smooth_tensor(window_size, lb_getout_phi90)
+# ub_getout_phi90 = smooth_tensor(window_size, ub_getout_phi90)
+
+axs[0].fill_between(getout_steps, lb_getout_phi90, ub_getout_phi90, color=colors[1], alpha=0.3)
+
 axs[0].plot(getout_steps, getout_ppo, color=colors[0])
+lb_getout_ppo, ub_getout_ppo = conf_interval(getout_ppo, colors[0])
+# lb_getout_ppo = smooth_tensor(window_size, lb_getout_ppo)
+# ub_getout_ppo = smooth_tensor(window_size,ub_getout_ppo)
+axs[0].fill_between(getout_steps, lb_getout_ppo, ub_getout_ppo, color=colors[0], alpha=0.3)
 # axs[0].plot(getout_phi8, color=colors[0])
 
 axs[0].axhline(y=13.5, color='green', linestyle='--')  # Add horizontal dashed line at y=1
@@ -121,6 +142,14 @@ loot_ppo = smooth_tensor(window_size, loot_ppo)
 axs[1].plot(loot_steps[:200], loot_phi1[:200], color=colors[2])
 axs[1].plot(loot_steps[:200], loot_phi8[:200], color=colors[1])
 axs[1].plot(loot_steps[:200], loot_ppo[:200], color=colors[0])
+
+lb_loot_phi1, ub_loot_phi1 = conf_interval(loot_phi1[:200], colors[2])
+lb_loot_phi8, ub_loot_phi8 = conf_interval(loot_phi8[:200], colors[1])
+lb_loot_ppo, ub_loot_ppo = conf_interval(loot_ppo[:200], colors[0])
+axs[1].fill_between(loot_steps[:200], lb_loot_phi1, ub_loot_phi1, color=colors[2], alpha=0.3)
+axs[1].fill_between(loot_steps[:200], lb_loot_phi8, ub_loot_phi8, color=colors[1], alpha=0.3)
+axs[1].fill_between(loot_steps[:200], lb_loot_ppo, ub_loot_ppo, color=colors[0], alpha=0.3)
+
 axs[1].set_title('Loot')
 
 formatter = ticker.FuncFormatter(thousands)
@@ -129,8 +158,8 @@ plt.gca().xaxis.set_major_formatter(formatter)
 threefish_phi1 = smooth_tensor(window_size, threefish_phi1)
 threefish_phi8 = smooth_tensor(window_size, threefish_phi8)
 threefish_ppo = smooth_tensor(window_size, threefish_ppo)
-axs[2].axhline(0.4, color='green', linestyle='--')  # Add horizontal dashed line at y=1
-axs[2].text(threefish_steps[-120], 0.35, 'human ↑ 2.5', va='center', ha='left', color='black', fontsize=12)
+axs[2].axhline(0.8, color='green', linestyle='--')  # Add horizontal dashed line at y=1
+axs[2].text(threefish_steps[0], 0.7, '2.5 ↑ human', va='center', ha='left', color='black', fontsize=12)
 axs[2].text(threefish_steps[-120], 0.1, 'EXPIL', va='center', ha='left', color='black', fontsize=12)
 
 axs[2].axhline(y=-0.7, color='gray', linestyle='--')  # Add horizontal dashed line at y=1
@@ -141,10 +170,22 @@ axs[2].text(threefish_steps[-350], -0.6, 'NUDGE', va='center', ha='left', color=
 lines = []
 p, = axs[2].plot(threefish_steps[:400], threefish_phi1[:400], color=colors[2])
 lines.append(p)
+
+
+
 p, = axs[2].plot(threefish_steps[:400], threefish_phi8[:400], color=colors[1])
 lines.append(p)
 p, = axs[2].plot(threefish_steps[:400], threefish_ppo[:400], color=colors[0])
 lines.append(p)
+
+lb_tf_phi1, ub_tf_phi1 = conf_interval(threefish_phi1[:400], colors[2])
+lb_tf_phi8, ub_tf_phi8 = conf_interval(threefish_phi8[:400], colors[1])
+lb_tf_ppo, ub_tf_ppo = conf_interval(threefish_ppo[:400], colors[0])
+axs[2].fill_between(threefish_steps[:400], lb_tf_phi1, ub_tf_phi1, color=colors[2], alpha=0.3)
+axs[2].fill_between(threefish_steps[:400], lb_tf_phi8, ub_tf_phi8, color=colors[1], alpha=0.3)
+axs[2].fill_between(threefish_steps[:400], lb_tf_ppo, ub_tf_ppo, color=colors[0], alpha=0.3)
+
+
 
 axs[2].set_title('Threefish')
 

@@ -219,22 +219,22 @@ def main():
     #                                )
 
     # start a new wandb run to track this script
-    # wandb.init(
-    #     # set the wandb project where this run will be logged
-    #     project=f"{args.env}",
-    #
-    #     # track hyperparameters and run metadata
-    #     config={
-    #         "architecture": "PI",
-    #         "dataset": f"{args.env}",
-    #         "epochs": max_training_timesteps // print_freq,
-    #         "rho_num": args.rho_num,
-    #         "phi_num": args.phi_num,
-    #         "clauses": args.clauses,
-    #         "clause_num": len(args.clauses),
-    #         "learned_clause_file": args.learned_clause_file
-    #     }
-    # )
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project=f"{args.env}",
+
+        # track hyperparameters and run metadata
+        config={
+            "architecture": "PI",
+            "dataset": f"{args.env}",
+            "epochs": max_training_timesteps // print_freq,
+            "rho_num": args.rho_num,
+            "phi_num": args.phi_num,
+            "clauses": args.clauses,
+            "clause_num": len(args.clauses),
+            "learned_clause_file": args.learned_clause_file
+        }
+    )
 
     # track total training time
     start_time = time.time()
@@ -255,7 +255,7 @@ def main():
         env_args = EnvArgs(agent=agent, args=args, window_size=[env.camera.height,
                                                                 env.camera.width], fps=60)
 
-    elif args.m == "loot" or args.m=="threefish":
+    elif args.m == "loot" or args.m == "threefish":
         env_args = EnvArgs(agent=agent, args=args, window_size=None, fps=60)
     else:
         env_args = EnvArgs(agent=agent, args=args, window_size=obs.shape[:2], fps=60)
@@ -269,14 +269,14 @@ def main():
     print_running_reward = 0
     print_running_episodes = 0
 
-    # rtpt = RTPT(name_initials='JS', experiment_name=f'{args.env}phi{args.phi_num}',
-    #             max_iterations=max_training_timesteps - time_step)
+    rtpt = RTPT(name_initials='JS', experiment_name=f'{args.env}phi{args.phi_num}',
+                max_iterations=max_training_timesteps - time_step)
 
     # Start the RTPT tracking
     folder_name = f"{args.m}_{args.env}_{args.alg}_rho_{args.rho_num}_phi_{args.phi_num}_s{args.seed}_pi_{args.with_pi}"
     folder_name += datetime.datetime.now().strftime("%m%d-%H_%M")
     writer = SummaryWriter(str(args.trained_model_folder / folder_name))
-    # rtpt.start()
+    rtpt.start()
     # training loop
     pbar = tqdm(total=max_training_timesteps - time_step)
     rewards_all = []
@@ -310,7 +310,7 @@ def main():
                 env_args.last_frame_time = current_frame_time  # save frame start time for next iteration
 
             # select action with policy
-            if args.m == "loot" or args.m=="threefish":
+            if args.m == "loot" or args.m == "threefish":
                 action = agent.select_action(obs, epsilon=epsilon)
             else:
                 action = agent.select_action(env, epsilon=epsilon)
@@ -342,7 +342,7 @@ def main():
 
             time_step += 1
             pbar.update(1)
-            # rtpt.step()
+            rtpt.step()
             current_ep_reward += reward
             # update PPO agent
             if time_step % update_timestep == 0:
@@ -378,7 +378,7 @@ def main():
 
                 print("Episode : {} \t\t Timestep : {} \t\t Average Reward : {}".format(i_episode, time_step,
                                                                                         print_avg_reward))
-                # wandb.log({'reward': print_avg_reward}, step=time_step)
+                wandb.log({'reward': print_avg_reward}, step=time_step)
                 print_running_reward = 0
                 print_running_episodes = 0
 
@@ -417,7 +417,7 @@ def main():
         writer.add_scalar('Epsilon', epsilon, i_episode)
 
     # env.close()
-    # wandb.finish()
+    wandb.finish()
     # print total training time
     print("============================================================================================")
     with open(args.trained_model_folder / 'data.csv', 'w', newline='') as f:
