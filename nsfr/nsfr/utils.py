@@ -14,15 +14,14 @@ from .valuation_hh import HHValuationModule
 from .valuation_a import AValuationModule
 from .valuation_aa import AAValuationModule
 
-# device = torch.device('cuda:0')
-device = torch.device('cpu')
+
 
 
 def get_nsfr_model(args, train=False):
     current_path = os.path.dirname(__file__)
     lark_path = os.path.join(current_path, 'lark/exp.lark')
     lang_base_path = os.path.join(current_path, 'data/lang/')
-    # device = torch.device('cuda:0')
+
     lang, clauses, bk, atoms = get_lang(
         lark_path, lang_base_path, args.m, args.rules)
     if args.m == 'getout':
@@ -56,17 +55,17 @@ def get_nsfr(mode, rule):
     lark_path = os.path.join(current_path, 'lark/exp.lark')
     lang_base_path = os.path.join(current_path, 'data/lang/')
 
-    device = torch.device('cuda:0')
+
     lang, clauses, bk, atoms = get_lang(
         lark_path, lang_base_path, mode, rule)
     if mode == 'getout':
-        VM = CJValuationModule(lang=lang, device=device)
+        VM = CJValuationModule(lang=lang, device=args.device)
     elif mode == 'threefish':
-        VM = BFValuationModule(lang=lang, device=device)
-    FC = FactsConverter(lang=lang, valuation_module=VM, device=device)
+        VM = BFValuationModule(lang=lang, device=args.device)
+    FC = FactsConverter(lang=lang, valuation_module=VM, device=args.device)
     m = len(clauses)
     # m = 5
-    IM = build_infer_module(clauses, atoms, lang, m=m, infer_step=2, train=True, device=device)
+    IM = build_infer_module(clauses, atoms, lang, m=m, infer_step=2, train=True, device=args.device)
     # Neuro-Symbolic Forward Reasoner
     NSFR = NSFReasoner(facts_converter=FC, infer_module=IM, atoms=atoms, bk=bk, clauses=clauses, train=True)
     return NSFR

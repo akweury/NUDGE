@@ -8,12 +8,11 @@ from agents.neural_agent import ActorCritic, NeuralPlayer
 from agents.logic_agent import NSFR_ActorCritic, LogicPlayer
 from agents.random_agent import RandomPlayer
 
-device = torch.device('cuda:0')
 
 
 def load_model(model_path, args, set_eval=True):
     with open(model_path, "rb") as f:
-        model = NSFR_ActorCritic(args).to(device)
+        model = NSFR_ActorCritic(args).to(args.device)
         model.load_state_dict(state_dict=torch.load(f))
 
     model = model.actor

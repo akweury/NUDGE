@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-device = torch.device('cuda:0')
+
 
 
 def extract_logic_state_loot(state, args):
@@ -84,7 +84,7 @@ def extract_logic_state_loot(state, args):
             elif i in [2, 4] and state[-1] != 0 and extracted_state[i - 1][1] == 0:
                 extracted_state[i][-3] = 1
     extracted_state = extracted_state.unsqueeze(0)
-    return extracted_state.to(device)
+    return extracted_state.to(args.device)
 
 
 def extract_neural_state_loot(state, args):
@@ -132,7 +132,7 @@ def extract_neural_state_loot(state, args):
 
     state = raw_state.reshape(-1)
     state = state.tolist()
-    return torch.tensor(state).to(device)
+    return torch.tensor(state).to(args.device)
 
 
 def simplify_action_loot(action):

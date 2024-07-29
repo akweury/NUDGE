@@ -8,7 +8,7 @@ class MLPAtari(torch.nn.Module):
         super().__init__()
         self.logic = logic
         self.as_dict = as_dict
-        self.device = torch.device('cuda:0')
+
         encoding_base_features = 4
         encoding_entity_features = 2
         encoding_max_entities = 11

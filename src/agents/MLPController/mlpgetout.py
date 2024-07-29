@@ -8,7 +8,7 @@ class MLPGetout(torch.nn.Module):
         super().__init__()
         self.logic = logic
         self.as_dict = as_dict
-        self.device = torch.device('cuda:0')
+
         encoding_base_features = 6
         encoding_entity_features = 9
         encoding_max_entities = 6

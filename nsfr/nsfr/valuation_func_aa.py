@@ -5,8 +5,6 @@ import torch.nn as nn
 # Valuation functions for Asterix #
 ###################################
 
-device = torch.device('cuda:0')
-
 
 class TypeValuationFunction(nn.Module):
     """The function v_object-type

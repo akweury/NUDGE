@@ -10,8 +10,6 @@ from nsfr.logic_utils import get_lang
 from nsfr.mode_declaration import get_mode_declarations
 from nsfr.utils_beam import get_nsfr_model
 
-device = torch.device('cuda:0')
-
 
 class RolloutBuffer:
     def __init__(self):

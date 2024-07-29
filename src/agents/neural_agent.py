@@ -13,8 +13,6 @@ from .utils_getout import extract_state, sample_to_model_input, collate, action_
 from .utils_threefish import simplify_action_bf, action_map_threefish, extract_neural_state_threefish
 from .utils_loot import simplify_action_loot, action_map_loot, extract_neural_state_loot
 
-# device = torch.device('cuda:0')
-device = torch.device('cpu')
 
 
 class ActorCritic(nn.Module):
@@ -202,7 +200,7 @@ class NeuralPlayer:
     def __init__(self, args, model=None):
         self.args = args
         self.model = model
-        self.device = torch.device('cuda:0')
+        self.device = torch.device(args.device)
 
     def act(self, state):
         if self.args.m == 'getout':

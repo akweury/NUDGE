@@ -7,7 +7,7 @@ class MLPThreefish(torch.nn.Module):
     def __init__(self, has_softmax=False, out_size=5, logic=False):
         super().__init__()
         self.logic = logic
-        self.device = torch.device('cuda:0')
+
         encoding_max_entities = 3
         encoding_entity_features = 3
         self.num_in_features = encoding_entity_features * encoding_max_entities  # 9

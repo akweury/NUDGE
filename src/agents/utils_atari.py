@@ -4,9 +4,6 @@ from typing import Final, List
 import numpy as np
 import torch
 
-# device = torch.device('cuda:0')
-device = torch.device('cpu')
-
 
 def extract_logic_state_atari(state, args, noise=False):
     if 'freeway' in args.env.lower():
@@ -19,8 +16,8 @@ def extract_logic_state_atari(state, args, noise=False):
                 extracted_states[0][0] = 1
                 extracted_states[0][-2:] = entity.xy
             elif entity.category == 'Car':
-                extracted_states[i-1][1] = 1
-                extracted_states[i-1][-2:] = entity.xy
+                extracted_states[i - 1][1] = 1
+                extracted_states[i - 1][-2:] = entity.xy
     elif 'Asterix' == args.env:
         num_of_feature = 6
         num_of_object = 11
@@ -64,7 +61,7 @@ def extract_logic_state_atari(state, args, noise=False):
 
     # if noise:
     #     extracted_states = simulate_prob(extracted_states, num_of_object, key_picked)
-    states = torch.tensor(np.array(extracted_states), dtype=torch.float32, device=device).unsqueeze(0)
+    states = torch.tensor(np.array(extracted_states), dtype=torch.float32, device=args.device).unsqueeze(0)
     return states
 
 
@@ -103,11 +100,12 @@ def extract_neural_state_atari(state, args):
             #     raw_state.append([0, 1] + list(inst.xy))
         if len(raw_state) < 11:
             raw_state.extend([[0] * 6 for _ in range(11 - len(raw_state))])
-        
+
     else:
         raise ValueError
     state = np.array(raw_state).reshape(-1)
-    return torch.tensor(state).to(device)
+    return torch.tensor(state).to(args.device)
+
 
 # def extract_neural_state_atari(atari, args):
 #     model_input = sample_to_model_input((extract_state(atari), []))
@@ -141,7 +139,8 @@ def collate(samples, to_cuda=True, double_to_float=True):
 
 
 def extract_state(coin_jump):
-    import ipdb; ipdb.set_trace()
+    import ipdb;
+    ipdb.set_trace()
     repr = coin_jump.level.get_representation()
     repr["reward"] = coin_jump.level.reward
     repr["score"] = coin_jump.score
@@ -363,7 +362,7 @@ def preds_to_action_atari(action, prednames):
     CJA_MOVE_RIGHT: Final[int] = 2
     CJA_MOVE_UP: Final[int] = 3
     """
-    if len(prednames) == 9: # Asterix:
+    if len(prednames) == 9:  # Asterix:
         return action
         if 'noop' in prednames[action]:
             return 0
@@ -375,7 +374,7 @@ def preds_to_action_atari(action, prednames):
             return 3
         elif 'down' in prednames[action]:
             return 4
-    else: # freeway
+    else:  # freeway
         if 'noop' in prednames[action]:
             return 0
         elif 'up' in prednames[action]:
