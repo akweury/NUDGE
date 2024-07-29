@@ -33,8 +33,8 @@ python -m nesy_pi.aaa_main -m Freeway --device 8 --with_pi --show_process
 python -m nesy_pi.aaa_main -m Asterix --device 7 --with_pi --show_process
 
 python -m nesy_pi.aaa_main -m getout --device 1 --with_pi --show_process
-python -m nesy_pi.aaa_main -m loot --device 5 --show_process
-python -m nesy_pi.aaa_main -m threefish --device 3 --show_process
+python -m nesy_pi.aaa_main -m loot --device 6 --show_process
+python -m nesy_pi.aaa_main -m threefish --device 0 --show_process
 
 python -m nesy_pi.play_with_clauses -m Freeway --device 11 
 python -m nesy_pi.collect_data -m Freeway --device 8
