@@ -42,7 +42,7 @@ python -m nesy_pi.collect_data_getout -m getout --device 10
 python -m nesy_pi.collect_asterix -m Asterix --device 0
 
 python -m nesy_pi.train_nudge -m getout -alg logic -env getout -r getout_pi --with_pi --device 2 -s 0
-python -m nesy_pi.train_nudge -m loot -alg logic -env loot -r loot_pi --with_pi --device 2 -s 0
+python -m nesy_pi.train_nudge -m loot -alg logic -env loot -r loot_pi --with_pi --device 6 -s 0
 python -m nesy_pi.train_nudge -m threefish -alg logic -env threefish -r threefish_pi --with_pi --device 7 -s 0
 
 python -m nesy_pi.train_nudge -m atari -alg logic -env Pong -r pong_pi --with_pi --device 7 -s 0
