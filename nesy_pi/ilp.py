@@ -99,16 +99,17 @@ def remove_trivial_atoms(args, lang, FC, clauses):
     clauses = clause_extend(args, lang, clauses)
     # clause evaluation
     img_scores, clause_scores = clause_eval(args, lang, FC, clauses, None)
-    ness_rank = clause_scores[:, 0].sort(descending=True)[1]
-    ness_ranked = clause_scores[ness_rank]
-    c_ranked = [clauses[i] for i in ness_rank]
 
-    trivial_c = c_ranked[args.top_ness_p:]
+    trivial_c = [clauses[i] for i in range(len(clause_scores[:, 0])) if clause_scores[i, 0] < args.inv_nc_th]
+    # ness_rank = clause_scores[:, 0].sort(descending=True)[1]
+    # ness_ranked = clause_scores[ness_rank]
+    # c_ranked = [clauses[i] for i in ness_rank]
+
+    # trivial_c = c_ranked[args.top_ness_p:]
     trivial_atom_terms = []
     for c in trivial_c:
         trivial_atom_terms.append(c.body[0].terms[:-1])
     lang.trivial_atom_terms = trivial_atom_terms
-
 
     non_trivial_atoms = []
     for atom in lang.atoms:
@@ -116,9 +117,6 @@ def remove_trivial_atoms(args, lang, FC, clauses):
             non_trivial_atoms.append(atom)
         elif atom.terms[:-1] not in trivial_atom_terms:
             non_trivial_atoms.append(atom)
-
-
-
 
     # draw_utils.plot_line_chart(ness_ranked.permute(1, 0).to("cpu").numpy(), args.trained_model_folder,
     #                            ["Necessity", "Sufficiency"], title=f"{args.label_name}_EXPIL_phi_{args.phi_num}",
@@ -905,7 +903,7 @@ def search_independent_clauses_parallel(args, lang, clauses, e):
         clu_score = get_pattern_score(pattern_cluster, args, index_pos, index_neg)
         if len(score_data) > 1:
             score_data = torch.tensor(score_data).permute(1, 0)
-            torch.save(score_data, args.trained_model_folder/f"suff_{args.label}-{cc_i}.pt")
+            torch.save(score_data, args.trained_model_folder / f"suff_{args.label}-{cc_i}.pt")
             draw_utils.plot_line_chart(score_data, args.trained_model_folder,
                                        ["Necessity", "Sufficiency", "SUM"], title=f"inv_pred_{cc_i}",
                                        cla_leg=True, figure_size=(8, 6), conf_interval=False,
