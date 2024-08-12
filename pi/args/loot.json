@@ -20,7 +20,7 @@
   "top_data": 800,
   "train_data_size": 8000,
   "rho_num": 8,
-  "phi_num": 8000,
+  "phi_num": 120,
   "max_rule_obj": 3,
   "game_obj_num": 4,
   "batch_size": 100,
