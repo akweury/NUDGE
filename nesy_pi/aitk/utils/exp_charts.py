@@ -38,7 +38,7 @@ jump_90_ness = torch.load(jump_90)[0][:50].to("cpu")
 jump_90_suff = torch.load(jump_90)[1][:50].to("cpu")
 
 # Create subplots with 1 row and 4 columns
-fig, axs = plt.subplots(6, 1, figsize=(10,12))
+fig, axs = plt.subplots(3, 2, figsize=(20,10))
 
 #
 # # Plotting the first bar chart
@@ -56,34 +56,35 @@ fig, axs = plt.subplots(6, 1, figsize=(10,12))
 
 
 # Plotting the second bar chart
-p0 = axs[0].bar(torch.arange(len(left_90_ness)), left_90_ness, color='skyblue')
-axs[0].set_title('Left_Ness', fontsize="24")
+p0 = axs[0,0].bar(torch.arange(len(left_90_ness)), left_90_ness, color='skyblue')
+axs[0,0].set_title('Left_Ness', fontsize="24")
 # axs[0].set_yscale('log')  # Set y-axis scale to logarithmic
-p1 = axs[1].bar(torch.arange(len(left_90_suff)), left_90_suff, color='skyblue')
-axs[1].set_title('Left_Suff', fontsize="24")
+p1 = axs[0,1].bar(torch.arange(len(left_90_suff)), left_90_suff, color='skyblue')
+axs[0,1].set_title('Left_Suff', fontsize="24")
 # axs[1].set_yscale('log')  # Set y-axis scale to logarithmic
 
 # Plotting the fourth bar chart
-p2 = axs[2].bar(torch.arange(len(jump_90_ness)), jump_90_ness, color='lightgreen')
-axs[2].set_title('Jump_Ness', fontsize="24")
+p2 = axs[1,0].bar(torch.arange(len(jump_90_ness)), jump_90_ness, color='lightgreen')
+axs[1,0].set_title('Jump_Ness', fontsize="24")
 # axs[2].set_yscale('log')  # Set y-axis scale to logarithmic
 
-p3 = axs[3].bar(torch.arange(len(jump_90_suff)), jump_90_suff, color='lightgreen')
-axs[3].set_title('Jump_Suff', fontsize="24")
+p3 = axs[1,1].bar(torch.arange(len(jump_90_suff)), jump_90_suff, color='lightgreen')
+axs[1,1].set_title('Jump_Suff', fontsize="24")
 # axs[3].set_yscale('log')  # Set y-axis scale to logarithmic
 
 # Plotting the fourth bar chart
-p4 = axs[4].bar(torch.arange(len(right_90_ness)), right_90_ness, color='gold')
-axs[4].set_title('Right_Ness', fontsize="24")
+p4 = axs[2,0].bar(torch.arange(len(right_90_ness)), right_90_ness, color='gold')
+axs[2,0].set_title('Right_Ness', fontsize="24")
 # axs[4].set_yscale('log')  # Set y-axis scale to logarithmic
 
-p5 = axs[5].bar(torch.arange(len(right_90_suff)), right_90_suff, color='gold')
-axs[5].set_title('Right_Suff', fontsize="24")
+p5 = axs[2,1].bar(torch.arange(len(right_90_suff)), right_90_suff, color='gold')
+axs[2,1].set_title('Right_Suff', fontsize="24")
 # axs[5].set_yscale('log')  # Set y-axis scale to logarithmic
 
-for row_ax in axs:
-    row_ax.spines['top'].set_visible(False)
-    row_ax.spines['right'].set_visible(False)
+for row_axs in axs:
+    for row_ax in row_axs:
+        row_ax.spines['top'].set_visible(False)
+        row_ax.spines['right'].set_visible(False)
 
 
 
