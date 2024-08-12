@@ -30,5 +30,5 @@
   "semantic_unique": false,
   "ness_maximize": false,
   "ness_equal_th": 0.05,
-  "learned_clause_file": "c_rho_100_phi_8_pi_True_step_6.pt"
+  "learned_clause_file": "c_rho_8_phi_120_pi_True_step_6.pt"
 }
