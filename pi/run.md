@@ -33,8 +33,8 @@ python -m nesy_pi.aaa_main -m Freeway --device 8 --with_pi --show_process
 python -m nesy_pi.aaa_main -m Asterix --device 7 --with_pi --show_process
 
 python -m nesy_pi.aaa_main -m getout --device 1 --with_pi --show_process
-python -m nesy_pi.aaa_main -m loot --device 2 --with_pi --show_process
-python -m nesy_pi.aaa_main -m threefish --device 0 --with_pi --show_process
+python -m nesy_pi.aaa_main -m loot --device 3 --with_pi --show_process
+python -m nesy_pi.aaa_main -m threefish --device 2 --with_pi --show_process
 
 python -m nesy_pi.play_with_clauses -m Freeway --device 11 
 python -m nesy_pi.collect_data -m Freeway --device 8
@@ -43,7 +43,7 @@ python -m nesy_pi.collect_asterix -m Asterix --device 0
 
 python -m nesy_pi.train_nudge -m getout -alg logic -env getout -r getout_pi --with_pi --device 2 -s 0
 python -m nesy_pi.train_nudge -m loot -alg logic -env loot -r loot_pi --with_pi --device 6 -s 0
-python -m nesy_pi.train_nudge -m threefish -alg logic -env threefish -r threefish_pi --with_pi --device 0 -s 0
+python -m nesy_pi.train_nudge -m threefish -alg logic -env threefish -r threefish_pi --with_pi --device 2 -s 0
 
 python -m nesy_pi.train_nudge -m atari -alg logic -env Pong -r pong_pi --with_pi --device 7 -s 0
 

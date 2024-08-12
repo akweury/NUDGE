@@ -1,6 +1,6 @@
 {
   "teacher_agent": "ppo",
-  "bk_pred_names": "rho",
+  "bk_pred_names": "rho,not_exist",
   "fine_tune_pred_parameter": true,
   "max_cluster_size": 10,
   "top_k": 5,
@@ -20,7 +20,7 @@
   "top_data": 800,
   "train_data_size": 8000,
   "rho_num": 8,
-  "phi_num": 8,
+  "phi_num": 8000,
   "max_rule_obj": 3,
   "game_obj_num": 4,
   "batch_size": 100,
